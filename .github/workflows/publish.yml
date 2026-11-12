@@ -185,12 +185,15 @@ jobs:
 
       # The dry run packages both crates through Cargo's local overlay, so it
       # proves the CLI's package before the engine is on crates.io, and it needs
-      # no token. Its output is what a real publish uploads, which is why the
-      # bytes are verified once more below.
+      # no token. A workspace dry run keeps its packages in Cargo's internal
+      # scratch directories, so `cargo package` then writes the same bytes to
+      # `target/package/`, the documented location the staging job also reads,
+      # and the step below verifies those bytes.
       - name: Package and verify both crates without uploading
         run: |
           set -euo pipefail
           cargo publish --workspace --exclude unmei-app --locked --dry-run
+          cargo package --workspace --exclude unmei-app --locked
 
       - name: Verify the bytes this run would upload
         run: |
