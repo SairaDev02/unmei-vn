@@ -1,0 +1,24 @@
+# scenes/epilogue.unmei — scene id: epilogue
+# Reached via `jump epilogue` from reunion. Branches on state the pack already
+# collects: string equality (`affinity_level`), numeric ordering (`letters_found`,
+# one nesting level) and a bare bool (`met_ace`).
+
+bg school_gate
+play music_evening
+
+if affinity_level == "high"
+  Narrator: She lingers by the gate, in no hurry to leave.
+  if letters_found > 0
+    Ace: Keep it. It suits you.
+  else
+    Ace: Next time, bring me something.
+  endif
+else
+  Narrator: She is already walking away.
+endif
+
+if met_ace
+  Narrator: You will see her again.
+endif
+
+stop music_evening

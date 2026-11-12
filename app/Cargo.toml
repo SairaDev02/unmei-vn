@@ -1,0 +1,48 @@
+[package]
+name = "unmei-app"
+version.workspace = true
+edition = "2021"
+publish = false
+description = "Bevy runtime for unmei content packs: plays a pack, calls OpenRouter Decisions at decide points, and saves/loads position."
+# The export fills this token with the public repository URL. It is metadata
+# only, because this crate is not published.
+repository = "https://github.com/SairaDev02/unmei-vn"
+
+[[bin]]
+name = "unmei-play"
+path = "src/main.rs"
+
+[lib]
+name = "unmei_app"
+path = "src/lib.rs"
+
+[dependencies]
+unmei-engine = { workspace = true, features = ["network"] }
+# `system_clipboard` makes Ctrl/Cmd+V read the real OS clipboard instead of
+# Bevy's in-process fallback (`docs/title-and-menu.md` § Decisions settings
+# §4.1). Tests never read or write it: they drive the app-owned
+# `ClipboardPort::Memory` buffer instead.
+# `system_font_discovery` is the fallback for codepoints the bundled faces
+# lack (the overlay's `▶`, U+25B6, and `⚙`, U+2699, are fallback-only in every
+# face). It is best-effort and platform-dependent; no test asserts a fallback
+# glyph (`docs/title-and-menu.md` § Type system §1).
+bevy = { version = "0.19", features = ["system_clipboard", "system_font_discovery"] }
+bevy_kira_audio = "0.26"
+log = "0.4"
+# The Monitor capture layer recovers a genuine `log`-bridge record's original
+# target through `tracing-log`'s own bridge identity (`NormalizeEvent::is_log`),
+# never by matching a similarly named field. Bevy already depends
+# on this crate, so this adds only the direct edge, not a new graph node.
+tracing-log = "0.2"
+jiff = "0.2"
+serde = { version = "1", features = ["derive"] }
+ron = "0.10"
+
+[dev-dependencies]
+tempfile = "3"
+# Drives the async Decisions client from the sink test.
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+# The real-sink credential proof parses its reflected redirect
+# `Location` fixtures, so a malformed one cannot masquerade as a non-follow.
+# reqwest already locks this version, so it adds no new graph node.
+url = "2"

@@ -1,0 +1,8 @@
+# Pin the toolchain the workspace develops against, so a local `cargo` and CI
+# resolve to the same compiler, rustfmt and clippy. CI installs this toolchain
+# with `rustup toolchain install`, which resolves the active toolchain from here.
+[toolchain]
+channel = "1.98.1"
+# CI needs the compiler, cargo and the two gate components, not rust-docs.
+profile = "minimal"
+components = ["rustfmt", "clippy"]

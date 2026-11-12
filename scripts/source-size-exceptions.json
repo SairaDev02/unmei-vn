@@ -1,0 +1,10 @@
+{
+ "exceptions": [
+  {
+   "path": "app/src/credentials.rs",
+   "bytes": 49941,
+   "reason": "Credential-handling owner. A path-based credential-source read guard blocked the split in the delegated runtime, so the maintainer declared this single file a non-blocking exception instead of relaxing the 20,000-byte rule.",
+   "authorization": "Maintainer decision, 2026-11-01: the audit's own authorization record names the blocked split, so this one file is exempt until the guard allows the split"
+  }
+ ]
+}

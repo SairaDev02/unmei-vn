@@ -1,0 +1,130 @@
+{
+  "entry_point": "scripts/docs.py",
+  "generate_command": "python scripts/docs.py generate",
+  "index_name": "INDEX.md",
+  "fields": ["title", "summary", "keywords", "status", "related"],
+  "required": ["title", "summary", "keywords"],
+  "summary_max_scalars": 160,
+  "indexed_directories": ["docs", "docs/adr", "docs/guide"],
+  "active_directories": ["docs", "docs/adr", "docs/guide"],
+  "status_display_directories": ["docs/adr"],
+  "keyword_allowlist": [
+    "content-format",
+    "content-pack",
+    "dialogue-dsl",
+    "decisions",
+    "decision-point",
+    "authoring-cli",
+    "pack-validation",
+    "credentials",
+    "terminal-mask",
+    "persistence",
+    "save-slots",
+    "settings-file",
+    "read-log",
+    "text-skip",
+    "audio",
+    "monitor",
+    "diagnostics",
+    "failure-posture",
+    "presentation-surface",
+    "gallery",
+    "timeline",
+    "player-input",
+    "ownership",
+    "verification",
+    "evidence-record",
+    "release-certification",
+    "shipping-composition",
+    "native-boot",
+    "ci",
+    "external-dependency",
+    "issue-tracker",
+    "issue-triage",
+    "agent-process",
+    "agent-tooling",
+    "navigation-tooling",
+    "code-comments",
+    "repository-upkeep",
+    "prototype",
+    "domain-modeling"
+  ],
+  "classifications": {
+    "root_guidance": [
+      "README.md",
+      "CONTRIBUTING.md",
+      "SECURITY.md",
+      "GLOSSARY.md",
+      "LANGUAGE.md"
+    ],
+    "templates": [".github/PULL_REQUEST_TEMPLATE.md"],
+    "asset_notes": ["app/assets/fonts/README.md"],
+    "crate_readmes": [
+      "engine/README.md",
+      "cli/README.md"
+    ],
+    "archive_readmes": [
+      "packaging/player-README.md",
+      "packaging/author-README.md"
+    ],
+    "pack_content": [
+      "examples/demo-pack/pack.glossary.md",
+      "examples/demo-pack/assets/README.md",
+      "examples/demo-pack/AGENT-GUIDE.md"
+    ]
+  },
+  "section_links": {
+    "docs/runtime-hardening.md": [
+      {"label": "Save slots", "fragment": "save-slots"},
+      {"label": "Menu overlay", "fragment": "menu-overlay"},
+      {"label": "Audio settings", "fragment": "audio-settings"},
+      {"label": "Player comfort", "fragment": "player-comfort"},
+      {"label": "Runtime failure posture", "fragment": "runtime-failure-posture"},
+      {"label": "Provider seam", "fragment": "provider-seam"},
+      {"label": "Read log", "fragment": "read-log"},
+      {"label": "Monitor", "fragment": "monitor"},
+      {"label": "Text skip", "fragment": "text-skip"},
+      {"label": "Menu/live-session ownership", "fragment": "menu-and-live-session-transitions--ownership-design"},
+      {"label": "Presentation surfaces", "fragment": "presentation-surfaces--decided-partition"},
+      {"label": "Shipping composition", "fragment": "shipping-composition--proof-gated-shared-owner"}
+    ],
+    "docs/title-and-menu.md": [
+      {"label": "Decisions settings", "fragment": "decisions-settings"},
+      {"label": "Title", "fragment": "title"},
+      {"label": "Title layout", "fragment": "title-layout"},
+      {"label": "Type system", "fragment": "type-system"},
+      {"label": "Gallery", "fragment": "gallery"},
+      {"label": "Timeline", "fragment": "timeline"}
+    ],
+    "docs/content-format.md": [
+      {"label": "Structured data", "fragment": "1-structured-data-ron"},
+      {"label": "Pack layout", "fragment": "2-pack-layout"},
+      {"label": "Dialogue DSL", "fragment": "3-dialogue-dsl-unmei"},
+      {"label": "Decision configs", "fragment": "4-decision-configs-and-decision-points"},
+      {"label": "Transitions", "fragment": "5-transitions"},
+      {"label": "Manifest and state", "fragment": "6-manifest-and-state"}
+    ],
+    "docs/author-cli.md": [
+      {"label": "Command surface", "fragment": "1-command-surface"},
+      {"label": "Generation and writes", "fragment": "2-generation-unit-and-write-surface"},
+      {"label": "Validation gate", "fragment": "3-validation-gate-before-any-write"},
+      {"label": "Provider configuration", "fragment": "4-provider-configuration"},
+      {"label": "Staged pack validation", "fragment": "9-staged-pack-validation--decided-design-2026-10-14"},
+      {"label": "Authoring-target confinement", "fragment": "10-authoring-target-confinement--decided-design-2026-10-14"}
+    ]
+  },
+  "excluded_landing_links": {
+    "docs/INDEX.md": [{"label": "Glossary", "target": "../GLOSSARY.md"}]
+  },
+  "link_check": {
+    "files": ["README.md", "docs/architecture.md", "docs/release-runbook.md"],
+    "directories": ["docs/guide"]
+  },
+  "thresholds": {
+    "document_lines": 350,
+    "document_units": 5500,
+    "heading_density": 25
+  },
+  "baseline_mappings": {},
+  "overrides": []
+}

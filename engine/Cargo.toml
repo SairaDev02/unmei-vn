@@ -1,0 +1,51 @@
+[package]
+name = "unmei-engine"
+version.workspace = true
+edition = "2021"
+description = "Minimal visual-novel runtime core: content-pack loading, .unmei DSL parser, shared by the Bevy runtime and the unmei author CLI."
+license = "MIT"
+# The export fills this token with the public repository URL. It stays visibly
+# unresolved until then, so a release refuses while it remains.
+repository = "https://github.com/SairaDev02/unmei-vn"
+readme = "README.md"
+rust-version = "1.98"
+keywords = ["visual-novel", "game-engine", "dsl", "content-pack", "runtime"]
+categories = ["game-engines", "parser-implementations"]
+# The integration tests read `../examples/demo-pack`, so they stay in the
+# repository and its CI and out of the published package.
+exclude = ["tests/"]
+
+# docs.rs builds the default feature set, which would leave the Decisions client
+# undocumented; the published crate is tested with `network` on.
+[package.metadata.docs.rs]
+features = ["network"]
+
+[features]
+default = []
+# Enables the OpenRouter Decisions HTTP client (`decision::client`).
+# Off by default so loader-only consumers (and the parser/pack tests) stay light.
+network = ["dep:reqwest", "dep:log", "dep:tokio"]
+
+[dependencies]
+ron = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+log = { version = "0.4", optional = true }
+# rustls avoids an OpenSSL system dependency; `json` for the Decisions payloads.
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls",
+], optional = true }
+# The Decisions client owns a runtime so it can be awaited from any executor
+# (Bevy's compute task pool is not a Tokio reactor). See `decision::client`.
+tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
+
+[dev-dependencies]
+tempfile = "3"
+# Only used by the ignored live Decisions test (feature `network`).
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+# The decision-safety proof parses its reflected redirect `Location`
+# fixtures, so a malformed one cannot masquerade as a non-follow. reqwest
+# already locks this version, so it adds no new graph node.
+url = "2"

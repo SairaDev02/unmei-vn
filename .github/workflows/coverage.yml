@@ -1,0 +1,418 @@
+name: coverage
+
+# Advisory candidate coverage for one commit SHA, measured by the method
+# `docs/testing-coverage-evidence.md` describes, on the baseline run that fixed
+# its readings and its witness. Dispatched on its own or called by the candidate
+# coordinator, which reads the `coverage` slot. A test, witness or tool failure
+# becomes a slot status with a reason, so the run stays green; only this
+# workflow's own structure, checkout or slot assembly fails loudly.
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: Full 40-hex commit SHA to measure
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Full 40-hex commit SHA to measure
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Two measurements of the same SHA are distinct attempts; the earlier bundle
+# stays as evidence rather than being replaced. The prefix is a literal: in a
+# called workflow `github.workflow` is the caller's name, which made this group
+# `candidate-<sha>`, the coordinator's own, so the coordinator's call never ran.
+concurrency:
+  group: coverage-${{ inputs.sha }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: never
+  RUST_BACKTRACE: "1"
+  # One owner for the artifact retention: the slot records it and both uploads
+  # read it. The digest is the cargo-llvm-cov 0.9.1 crate archive the baseline
+  # run recorded in `cargo-llvm-cov-install.txt`.
+  COVERAGE_RETENTION_DAYS: "90"
+  CARGO_LLVM_COV_VERSION: "0.9.1"
+  CARGO_LLVM_COV_SHA256: 5e00647cc92940c4dd82249c480fe08fd3809767e89f056bcec46d8a7962ea5b
+  # The baseline run's report filter, supplementing the tool's default
+  # source-path filters.
+  REPORT_FILTER: '(^|/)(app|\.pi-tmp)/|(^|/)build\.rs$'
+
+jobs:
+  coverage:
+    name: candidate coverage
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out the measured revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      # A malformed or missing SHA must not silently measure another revision,
+      # which would publish numbers under the wrong name.
+      - name: Assert the measured revision
+        id: revision
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          if ! printf '%s' "$REQUESTED_SHA" | grep -Eqx '[0-9a-f]{40}'; then
+            echo "::error::sha must be a full 40-character lowercase hex commit SHA, got '$REQUESTED_SHA'"
+            exit 1
+          fi
+          measured="$(git rev-parse HEAD)"
+          if [ "$measured" != "$REQUESTED_SHA" ]; then
+            echo "::error::checked out $measured instead of the requested $REQUESTED_SHA"
+            exit 1
+          fi
+          printf 'measured revision: %s\n' "$measured"
+
+      # The label alone is not provenance, and a drifted image would change what
+      # the numbers mean.
+      - name: Assert the intended execution environment
+        id: environment
+        run: |
+          set -euo pipefail
+          # shellcheck source=/dev/null
+          . /etc/os-release
+          echo "observed: ${NAME} ${VERSION_ID} $(uname -m) $(uname -r)"
+          test "$(uname -m)" = "x86_64"
+          test "${ID}" = "ubuntu"
+          test "${VERSION_ID}" = "24.04"
+
+      - name: Record platform, tool and source identity
+        run: |
+          set -euo pipefail
+          mkdir -p coverage
+          {
+            printf 'captured: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            printf 'run: %s attempt %s\n' "${GITHUB_RUN_ID}" "${GITHUB_RUN_ATTEMPT}"
+            printf 'ref: %s\n' "${GITHUB_REF}"
+            printf 'labelled runner image: %s / %s\n' "${ImageOS:-unavailable}" "${ImageVersion:-unavailable}"
+            uname -srvmo
+            cat /etc/os-release
+            printf 'nproc: %s\n' "$(nproc)"
+            free -h
+            df -h .
+          } > coverage/provenance.txt
+          {
+            rustc -vV
+            cargo -V
+            rustup --version
+            rustup show active-toolchain
+            rustup component list --installed
+            printf 'assert_cmd resolution input:\n'
+            grep -A1 '^name = "assert_cmd"' Cargo.lock
+          } >> coverage/provenance.txt
+          {
+            printf 'measured revision: %s\n' "$(git rev-parse HEAD)"
+            printf 'worktree status (empty means clean):\n'
+            git status --porcelain=v1
+            printf 'lockfile: '
+            sha256sum Cargo.lock
+            printf 'toolchain file: '
+            sha256sum rust-toolchain.toml
+          } >> coverage/provenance.txt
+
+      # The toolchain, its LLVM tools and the coverage tool are installed inside
+      # this job only: `rust-toolchain.toml` stays the development pin.
+      - name: Install the pinned toolchain and matching LLVM tools
+        id: toolchain
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          rustup toolchain install --no-self-update
+          rustup component add llvm-tools-preview --toolchain 1.98.1
+          sysroot="$(rustc --print sysroot)"
+          llvm_dir="${sysroot}/lib/rustlib/x86_64-unknown-linux-gnu/bin"
+          {
+            "${llvm_dir}/llvm-cov" --version
+            "${llvm_dir}/llvm-profdata" --version
+          } > coverage/llvm-tools.txt
+
+      - name: Install cargo-llvm-cov and check its crate digest
+        id: install
+        if: steps.toolchain.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          cargo +1.98.1 install cargo-llvm-cov --version "$CARGO_LLVM_COV_VERSION" --locked
+          archive="$(find "${CARGO_HOME:-$HOME/.cargo}/registry/cache" \
+            -name "cargo-llvm-cov-${CARGO_LLVM_COV_VERSION}.crate" -print -quit)"
+          test -n "$archive"
+          sha256sum "$archive" | tee coverage/tool-digest.txt
+          printf '%s  %s\n' "$CARGO_LLVM_COV_SHA256" "$archive" | sha256sum --check --strict
+          cargo llvm-cov --version | tee coverage/tool-version.txt
+          cargo llvm-cov show-env --sh > coverage/instrumentation-env.txt 2>&1 || true
+
+      # The child-capture proof runs before the measurement on every run, as the
+      # coverage-evidence contract requires, and is copied from the baseline
+      # workflow: which instrumented executable ran, that its profile reached the
+      # merge, and a hit in child-only CLI startup code. The negative control
+      # spawns no child, so a `cli/src/main.rs` hit after the witness is
+      # child-supplied.
+      - name: Prove instrumented CLI subprocess capture
+        id: witness
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/witness
+          sysroot="$(rustc --print sysroot)"
+          llvm_dir="${sysroot}/lib/rustlib/x86_64-unknown-linux-gnu/bin"
+          profile_dir=target/llvm-cov-target
+
+          profile_count() {
+            find "${profile_dir}" -maxdepth 1 -name '*.profraw' | wc -l
+          }
+
+          record_profiles() {
+            printf 'profraw after %s: %s\n' "$1" "$(profile_count)"
+            find "${profile_dir}" -maxdepth 1 -name '*.profraw' -printf '%f %s bytes\n' | sort
+          }
+
+          merge_report() {
+            cargo +1.98.1 llvm-cov report --locked -p unmei --failure-mode any \
+              --json --output-path "$1"
+          }
+
+          run_single_test() {
+            cargo +1.98.1 llvm-cov --locked -p unmei --test cli_test \
+              --features unmei-engine/network --no-report -- --exact "$1"
+          }
+
+          # 1. Negative control: in-process test, no child binary spawned.
+          cargo +1.98.1 llvm-cov clean --workspace --locked
+          printf 'profraw before negative control: %s\n' "$(profile_count)" \
+            > coverage/witness/negative-profiles.txt
+          cargo +1.98.1 llvm-cov --locked -p unmei --test splice_test \
+            --features unmei-engine/network --no-report 2>&1 | tee coverage/witness/negative-run.log
+          merge_report coverage/witness/negative.json
+          python3 scripts/coverage_slot.py witness \
+            --json coverage/witness/negative.json --file cli/src/main.rs \
+            --expect uncovered --out coverage/witness/negative-check.txt \
+            | tee -a coverage/witness/negative-profiles.txt
+
+          # 2. Positive witness: one existing assert_cmd test spawns the CLI.
+          capture_witness() {
+            cargo +1.98.1 llvm-cov clean --workspace --locked
+            printf 'profraw before %s: %s\n' "$1" "$(profile_count)" \
+              > "coverage/witness/$2-profiles.txt"
+            run_single_test "$1" 2>&1 | tee "coverage/witness/$2-run.log"
+            record_profiles "$1" >> "coverage/witness/$2-profiles.txt"
+            merge_report "coverage/witness/$2.json"
+            python3 scripts/coverage_slot.py witness \
+              --json "coverage/witness/$2.json" --file cli/src/main.rs \
+              --expect covered --out "coverage/witness/$2-check.txt"
+          }
+
+          if capture_witness help_shows_contract_surface primary \
+               > coverage/witness/primary-capture.log 2>&1; then
+            printf 'capture proved by help_shows_contract_surface\n' > coverage/witness/CAPTURE.txt
+          else
+            printf 'help_shows_contract_surface recorded no child hit; retrying with dry_run_writes_nothing\n' \
+              >> coverage/witness/primary-capture.log
+            capture_witness dry_run_writes_nothing fallback \
+              > coverage/witness/fallback-capture.log 2>&1
+            printf 'capture proved by dry_run_writes_nothing\n' > coverage/witness/CAPTURE.txt
+          fi
+          cat coverage/witness/CAPTURE.txt
+
+          # 3. Executable identity for the spawned binary: the only `unmei`
+          #    executable in the tree, carrying instrumentation.
+          bin="${profile_dir}/debug/unmei"
+          test -x "${bin}"
+          others="$(find target -maxdepth 4 -name unmei -type f | grep -vx "${bin}" || true)"
+          test -z "${others}"
+          # Captured to a file first: piping llvm-cov into `head` aborts it with
+          # a broken-pipe IO error.
+          "${llvm_dir}/llvm-cov" export --object "${bin}" -empty-profile \
+            -summary-only -format=text > coverage/witness/instrumented-object.json
+          instrumented_files="$(python3 -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["data"][0]["files"]))' coverage/witness/instrumented-object.json)"
+          test "${instrumented_files}" -gt 0
+          {
+            printf 'spawned binary path: %s\n' "${bin}"
+            sha256sum "${bin}"
+            printf 'other unmei executables in the tree (expect none): %s\n' "${others:-none}"
+            printf 'instrumented sections:\n'
+            readelf -SW "${bin}" | grep -E '__llvm_prf' || true
+            printf 'llvm-cov recognises the object and lists %s measured source files\n' \
+              "${instrumented_files}"
+            head -c 300 coverage/witness/instrumented-object.json
+            printf '\n'
+          } > coverage/witness/binary-identity.txt
+          cat coverage/witness/binary-identity.txt
+
+          # 4. Separate witness state from the measurement.
+          cargo +1.98.1 llvm-cov clean --workspace --locked
+          printf 'witness state cleared, profraw now: %s\n' "$(profile_count)" \
+            | tee coverage/witness/cleared.txt
+          test "$(profile_count)" -eq 0
+
+      - name: Collect the combined engine + CLI coverage run
+        id: measure
+        if: steps.witness.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          mkdir -p coverage/item7
+          profile_dir=target/llvm-cov-target
+          scope=(-p unmei-engine -p unmei)
+          cargo +1.98.1 llvm-cov clean --workspace --locked
+          {
+            printf 'intended: --lib --bins --tests for -p unmei-engine -p unmei, default test profile, --locked\n'
+            printf 'profraw before: %s\n' "$(find "${profile_dir}" -maxdepth 1 -name '*.profraw' | wc -l)"
+          } > coverage/item7/profiles.txt
+          # -vv keeps cargo's rustc invocations on stderr while test results stay
+          # on stdout, so the instrumentation used is recordable.
+          cargo +1.98.1 llvm-cov --locked "${scope[@]}" \
+            --features unmei-engine/network --lib --bins --tests --no-report -vv \
+            > coverage/item7/tests.log 2> coverage/item7/build.log
+          {
+            printf 'measured crate compile invocations (wrapper-injected instrumentation):\n'
+            grep -E "crate-name (unmei_engine|unmei) " coverage/item7/build.log || true
+            printf '\ndebug-info arguments observed in the build:\n'
+            grep -o 'debuginfo=[0-9]*' coverage/item7/build.log | sort | uniq -c || true
+          } > coverage/item7/instrumentation.log
+          rm coverage/item7/build.log
+          {
+            printf 'profraw produced: %s\n' "$(find "${profile_dir}" -maxdepth 1 -name '*.profraw' | wc -l)"
+            printf 'profraw bytes: %s\n' "$(du -cb "${profile_dir}"/*.profraw | tail -1)"
+            printf 'test binaries and outcomes:\n'
+            grep -E '^(running|test result:)' coverage/item7/tests.log || true
+            printf 'ignored tests:\n'
+            grep -E 'ignored$|\.\.\. ignored' coverage/item7/tests.log || true
+          } >> coverage/item7/profiles.txt
+
+      - name: Export summary, HTML and LLVM JSON from one profile set
+        id: export
+        if: steps.measure.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          scope=(-p unmei-engine -p unmei)
+          ignore="$REPORT_FILTER"
+          # 0.9.1 `report` rejects --features, so the exports name only the
+          # packages; every export is checked against the measured profile set.
+          {
+            printf 'observed while probing the documented candidate command:\n'
+            cargo +1.98.1 llvm-cov report --features unmei-engine/network "${scope[@]}" 2>&1 || true
+          } > coverage/item7/report-flag-probe.txt
+          run_report() {
+            cargo +1.98.1 llvm-cov report --locked "${scope[@]}" \
+              --failure-mode any --ignore-filename-regex "${ignore}" "$@"
+          }
+          run_report > coverage/item7/summary.txt
+          run_report --json --output-path coverage/item7/coverage.json
+          run_report --html --output-dir coverage/item7/html
+          find coverage/item7/html -maxdepth 2 -type d | sort > coverage/item7/html-layout.txt
+
+      - name: Verify reports, allowlist and arithmetic
+        id: verify
+        if: steps.export.outcome == 'success'
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          python3 scripts/coverage_slot.py verify \
+            --json coverage/item7/coverage.json \
+            --summary coverage/item7/summary.txt \
+            --html coverage/item7/html/html/index.html \
+            --out coverage/item7/VERIFY.md | tee coverage/item7/verify-stdout.txt
+
+      # Written on every attempt whose revision and environment were
+      # established: the downstream record reads a status and a reason instead
+      # of an absent job. A malformed SHA or a drifted image leaves no slot at
+      # all, because there is nothing truthful to report. A failure here is a
+      # broken workflow and does fail the run.
+      - name: Assemble the coverage slot
+        if: always() && steps.revision.outcome == 'success' && steps.environment.outcome == 'success'
+        env:
+          TOOLCHAIN_OUTCOME: ${{ steps.toolchain.outcome }}
+          INSTALL_OUTCOME: ${{ steps.install.outcome }}
+          WITNESS_OUTCOME: ${{ steps.witness.outcome }}
+          MEASURE_OUTCOME: ${{ steps.measure.outcome }}
+          EXPORT_OUTCOME: ${{ steps.export.outcome }}
+          VERIFY_OUTCOME: ${{ steps.verify.outcome }}
+        run: |
+          set -euo pipefail
+          measured="$(git rev-parse HEAD)"
+          reports=()
+          if [ -f coverage/item7/coverage.json ]; then
+            reports=(--json coverage/item7/coverage.json)
+            if [ -f coverage/item7/summary.txt ]; then
+              reports+=(--summary coverage/item7/summary.txt)
+            fi
+            if [ -f coverage/item7/html/html/index.html ]; then
+              reports+=(--html coverage/item7/html/html/index.html)
+            fi
+          fi
+          witness=()
+          if [ -d coverage/witness ]; then
+            witness=(--witness-dir coverage/witness)
+          fi
+          tool_version=()
+          if [ -f coverage/tool-version.txt ]; then
+            tool_version=(--tool-version "$(sed -n 's/^cargo-llvm-cov //p' coverage/tool-version.txt | head -1)")
+          fi
+          tool_digest=()
+          if [ -f coverage/tool-digest.txt ]; then
+            tool_digest=(--tool-digest "$(cut -d' ' -f1 coverage/tool-digest.txt)")
+          fi
+          python3 scripts/coverage_slot.py slot \
+            --sha "$measured" \
+            --bundle-name "coverage-${measured}-attempt${GITHUB_RUN_ATTEMPT}" \
+            --retention-days "$COVERAGE_RETENTION_DAYS" \
+            --report-filter "$REPORT_FILTER" \
+            --runner-label ubuntu-24.04 \
+            --runner-image "${ImageOS:-unknown} ${ImageVersion:-unknown}" \
+            --os-version "$(. /etc/os-release && printf '%s' "$VERSION_ID")" \
+            --arch "$(uname -m)" \
+            --toolchain "$(rustc -vV | sed -n 's/^release: //p')" \
+            --tool-digest-expected "$CARGO_LLVM_COV_SHA256" \
+            --outcome "toolchain=${TOOLCHAIN_OUTCOME}" \
+            --outcome "install=${INSTALL_OUTCOME}" \
+            --outcome "witness=${WITNESS_OUTCOME}" \
+            --outcome "measure=${MEASURE_OUTCOME}" \
+            --outcome "export=${EXPORT_OUTCOME}" \
+            --outcome "verify=${VERIFY_OUTCOME}" \
+            "${tool_version[@]}" "${tool_digest[@]}" "${reports[@]}" "${witness[@]}" \
+            --out coverage/coverage-slot.json \
+            --summary-out coverage/coverage-slot.md
+          cat coverage/coverage-slot.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Record checksums
+        if: always() && steps.revision.outcome == 'success' && steps.environment.outcome == 'success'
+        run: |
+          cd coverage || exit 1
+          find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum > "$RUNNER_TEMP/coverage-checksums.txt"
+          mv "$RUNNER_TEMP/coverage-checksums.txt" CHECKSUMS.txt
+          wc -l CHECKSUMS.txt
+
+      - name: Upload the coverage bundle
+        if: always() && steps.revision.outcome == 'success' && steps.environment.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: coverage-${{ inputs.sha }}-attempt${{ github.run_attempt }}
+          path: coverage/
+          if-no-files-found: warn
+          retention-days: ${{ env.COVERAGE_RETENTION_DAYS }}
+
+      - name: Upload the coverage slot
+        if: always() && steps.revision.outcome == 'success' && steps.environment.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: coverage-slot-${{ inputs.sha }}-attempt${{ github.run_attempt }}
+          path: |
+            coverage/coverage-slot.json
+            coverage/coverage-slot.md
+          if-no-files-found: error
+          retention-days: ${{ env.COVERAGE_RETENTION_DAYS }}

@@ -1,0 +1,256 @@
+name: publish
+
+# Publication of one crate, one dispatch at a time. It is never used for 0.1.0,
+# which the maintainer publishes by hand.
+#
+# The run publishes nothing that the candidate coordinator did not stage: it
+# reads the coordinator run's `candidate-record.json`, verifies the staged
+# `.crate` against the record's hash, and only then mints a crates.io token.
+# `crates.io` is declared as the environment so a protected one is enforced
+# wherever it exists. A repository on the Free plan cannot have required
+# reviewers on an environment, so the approval gate and the real OIDC exchange
+# stay open items (the `publish-environment-oidc` residual): a rehearsal dry run
+# here records what GitHub does with a declared environment and no reviewer.
+#
+# Artifact-name contract with `candidate.yml`, consumed below as-is:
+#   - `candidate-record-<sha>-attempt<N>` holds `candidate-record.json` at its
+#     root;
+#   - `packaging-linux-<sha>-attempt<N>` holds both `.crate` files at its root.
+# `crate-parity` makes the Windows and Linux crate bytes equal, and the record
+# cites the Linux job's files as the staged payload, so Linux is downloaded.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Candidate commit SHA the staged bytes were built from
+        required: true
+        type: string
+      crate:
+        description: Crate to publish; unmei-engine must be on crates.io first
+        required: true
+        type: choice
+        options:
+          - unmei-engine
+          - unmei
+      coordinator_run_id:
+        description: Candidate coordinator run whose artifacts hold the record
+        required: true
+        type: string
+      dry_run:
+        description: Package and verify without uploading (skips the token)
+        required: true
+        type: boolean
+        default: true
+
+# A publication cannot be undone, so nothing cancels it: two dispatches share a
+# group and the second waits. `workflow_dispatch` cannot rescue a cancelled
+# upload, and `cancel-in-progress` would.
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.crate }}-${{ inputs.sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  publish:
+    name: publish ${{ inputs.crate }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: crates-io
+    permissions:
+      contents: read
+      actions: read
+      # The crates.io token is exchanged through OIDC on this job alone.
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CANDIDATE_SHA: ${{ inputs.sha }}
+      CRATE: ${{ inputs.crate }}
+      COORDINATOR_RUN_ID: ${{ inputs.coordinator_run_id }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      # The publishing repository is this one, at `main`: a dispatch from a
+      # branch could publish bytes from an unreviewed commit, and the
+      # environment's branch rule that should refuse it is unavailable here.
+      - name: Refuse a dispatch from a branch other than main
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::publish.yml runs from main only; this dispatch is ${GITHUB_REF}"
+            exit 1
+          fi
+          case "$COORDINATOR_RUN_ID" in
+            ''|*[!0-9]*)
+              echo "::error::coordinator_run_id must be a run number, not '${COORDINATOR_RUN_ID}'"
+              exit 1
+              ;;
+          esac
+
+      - name: Check out the candidate revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+
+      - name: Install pinned toolchain
+        run: rustup toolchain install --no-self-update
+
+      - name: Download the record and the staged payload
+        run: |
+          set -euo pipefail
+          gh run download "$COORDINATOR_RUN_ID" --dir staging \
+            --pattern 'candidate-record-*' \
+            --pattern 'packaging-linux-*'
+          # The newest record names the packaging artifact it was built from. A
+          # re-run that reused the packaging job keeps that job's earlier
+          # attempt, so the payload is the record's, never a matching suffix.
+          shopt -s nullglob
+          records=(staging/candidate-record-*/)
+          if [ ${#records[@]} -eq 0 ]; then
+            echo "::error::the coordinator run has no candidate-record-* artifact"
+            exit 1
+          fi
+          record_dir=$(printf '%s\n' "${records[@]}" | sort -V | tail -1)
+          payload=$(python3 -c 'import json, sys
+          names = [a["name"] for a in json.load(open(sys.argv[1]))["artifacts"]
+                   if a["name"].startswith("packaging-linux-")]
+          print(names[0] if len(names) == 1 else "")' "${record_dir}candidate-record.json")
+          staging_dir="staging/${payload}"
+          if [ -z "$payload" ] || [ ! -d "$staging_dir" ]; then
+            echo "::error::the record in ${record_dir} names no downloadable packaging-linux artifact"
+            exit 1
+          fi
+          echo "RECORD_DIR=$record_dir" >> "$GITHUB_ENV"
+          echo "STAGING_DIR=$staging_dir" >> "$GITHUB_ENV"
+
+      # A record names its candidate, its version and whether it is a rehearsal.
+      # A record for another commit would publish bytes nothing staged, and a
+      # rehearsal record may only be packaged and verified: a dry run is exactly
+      # what it exists for, and an upload from one would put rehearsal evidence on
+      # crates.io.
+      - name: Refuse a record that is not this candidate's release record
+        run: |
+          set -euo pipefail
+          python3 - "${RECORD_DIR}candidate-record.json" <<'PY'
+          import json, os, sys
+
+          record = json.load(open(sys.argv[1], encoding="utf-8"))
+          candidate = os.environ["CANDIDATE_SHA"]
+          crate = os.environ["CRATE"]
+          if record["candidate"]["sha"] != candidate:
+              raise SystemExit(
+                  f"refused: the record is for {record['candidate']['sha']}, not {candidate}")
+          rehearsal = bool(record["rehearsal"])
+          dry_run = os.environ["DRY_RUN"] == "true"
+          if rehearsal and not dry_run:
+              raise SystemExit(
+                  "refused: the record is stamped rehearsal; a rehearsal record may "
+                  "only be packaged and verified, so pass dry_run")
+          if crate not in ("unmei-engine", "unmei"):
+              raise SystemExit(f"refused: {crate} is not a publishable crate")
+          print(f"record for {candidate} ({record['candidate']['version']}), "
+                f"coordinator run {record['coordinator']['run_id']} "
+                f"attempt {record['coordinator']['run_attempt']}"
+                + (", rehearsal record: dry run only" if rehearsal else ""))
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"VERSION={record['candidate']['version']}\n")
+          PY
+
+      # The appendix is the publication evidence: it cites the record, the
+      # candidate and every hash this stage exercised, and it is uploaded even
+      # when the run refuses, because a refusal is evidence too.
+      - name: Start the publication appendix
+        run: |
+          set -euo pipefail
+          case "$CRATE" in
+            unmei-engine) stage=engine-publication ;;
+            *) stage=cli-publication ;;
+          esac
+          python3 scripts/candidate_record.py appendix new "$stage" \
+            --record "${RECORD_DIR}candidate-record.json" \
+            --out appendix.md \
+            --tester "$GITHUB_ACTOR" \
+            --environment "GitHub Actions ${GITHUB_REPOSITORY}, environment crates-io, run ${GITHUB_RUN_ID}"
+
+      - name: Verify the staged crate against the record
+        run: |
+          set -euo pipefail
+          python3 scripts/candidate_record.py verify local-crate \
+            --record "${RECORD_DIR}candidate-record.json" \
+            --appendix appendix.md \
+            --crate "${STAGING_DIR}/${CRATE}-${VERSION}.crate" \
+            --name "$CRATE"
+
+      # The dry run packages both crates through Cargo's local overlay, so it
+      # proves the CLI's package before the engine is on crates.io, and it needs
+      # no token. Its output is what a real publish uploads, which is why the
+      # bytes are verified once more below.
+      - name: Package and verify both crates without uploading
+        run: |
+          set -euo pipefail
+          cargo publish --workspace --exclude unmei-app --locked --dry-run
+
+      - name: Verify the bytes this run would upload
+        run: |
+          set -euo pipefail
+          python3 scripts/candidate_record.py verify local-crate \
+            --record "${RECORD_DIR}candidate-record.json" \
+            --appendix appendix.md \
+            --crate "target/package/${CRATE}-${VERSION}.crate" \
+            --name "$CRATE"
+
+      # Only after every check passes does a token exist: the action exchanges
+      # the job's OIDC identity for a short-lived crates.io token.
+      - name: Authenticate with crates.io
+        if: ${{ ! inputs.dry_run }}
+        id: auth
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      - name: Publish
+        if: ${{ ! inputs.dry_run }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: |
+          set -euo pipefail
+          cargo publish -p "$CRATE" --locked
+
+      # The index and the CDN lag an upload, so both are polled; the checks
+      # themselves are the record script's, against the same staged hash.
+      - name: Check the published cksum and the download
+        if: ${{ ! inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          index_url="https://index.crates.io/${CRATE:0:2}/${CRATE:2:2}/${CRATE}"
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$index_url" -o index.json; then break; fi
+            echo "the index does not list ${CRATE} yet (attempt ${attempt})"
+            sleep 10
+          done
+          python3 scripts/candidate_record.py verify index-cksum \
+            --record "${RECORD_DIR}candidate-record.json" \
+            --appendix appendix.md \
+            --index-file index.json \
+            --name "$CRATE"
+
+          crate_url="https://static.crates.io/crates/${CRATE}/${CRATE}-${VERSION}.crate"
+          for attempt in $(seq 1 12); do
+            if curl -fsSL "$crate_url" -o "published-${CRATE}.crate"; then break; fi
+            echo "the download is not available yet (attempt ${attempt})"
+            sleep 10
+          done
+          python3 scripts/candidate_record.py verify download-crate \
+            --record "${RECORD_DIR}candidate-record.json" \
+            --appendix appendix.md \
+            --crate "published-${CRATE}.crate" \
+            --name "$CRATE"
+
+      - name: Upload the publication appendix
+        if: ${{ always() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: publication-${{ inputs.crate }}-${{ github.run_id }}
+          path: appendix.md
+          retention-days: 90
+          if-no-files-found: warn

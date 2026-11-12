@@ -1,0 +1,274 @@
+name: deny
+
+# Dependency policy: advisories, licenses and sources against the root
+# `deny.toml`. It is a separate workflow from `check.yml` because it needs no
+# Rust build, a finding here is a dependency fact rather than a broken change,
+# and the candidate coordinator calls it at a frozen SHA.
+#
+# The advisory database is fetched online on every run and nothing caches it, so
+# a stale copy can never stand in for the live database. `deny.toml`'s
+# `db-path` is fixed only so the step below can report which commit was
+# checked: cargo-deny prints neither the database revision nor its time.
+
+on:
+  push:
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Weekly, so an advisory published against an unchanged dependency is still
+    # a finding. A scheduled workflow is disabled after 60 days without
+    # repository activity; re-enabling it is the maintainer's call.
+    - cron: "17 4 * * 1"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit to check; empty checks the caller's event ref.
+        required: false
+        type: string
+      # The candidate coordinator records this verdict as a slot, so a policy
+      # finding must not redden the run: in this mode the slot carries the
+      # verdict and the final gate step steps aside. Every other trigger keeps
+      # it, so a push, PR, scheduled or manual run still fails on a bad verdict.
+      record_only:
+        description: Record the verdict in the slot without failing the job
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Its own group, keyed like `check.yml`'s plus the called SHA, so a candidate's
+# call never shares a group with a push or PR run of the same commit (and cannot
+# cancel it or be cancelled by it).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}-${{ inputs.sha }}
+  cancel-in-progress: true
+
+env:
+  CARGO_DENY_VERSION: 0.20.2
+  CARGO_DENY_SHA256: 9f12ed4c49936e09b48bf862b595cde2fe64fcbd9d74dfacac6131ca824c8d5f
+  CARGO_DENY_BIN: cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
+
+jobs:
+  # In `record_only` mode no step may fail the job: the coordinator reads the
+  # verdict from the slot, and a failed download, install or upload is that
+  # slot's `inconclusive`, not a red run. Every step therefore tolerates its own
+  # failure in that mode; the last step is the one that can redden a normal run.
+  deny:
+    name: advisories, licenses, sources
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: ${{ inputs.record_only == true }}
+        with:
+          ref: ${{ inputs.sha }}
+
+      # cargo-deny resolves the graph with `cargo metadata` and fetches crate
+      # sources for the license scan, so `cargo` has to work; nothing is
+      # compiled. rustup does not auto-install the pinned toolchain (1.30), so
+      # this installs it exactly as `check.yml` does.
+      - name: Install pinned toolchain
+        continue-on-error: ${{ inputs.record_only == true }}
+        run: rustup toolchain install --no-self-update
+
+      # The reviewed standalone build, not `cargo install`: the archive needs no
+      # compile and no toolchain, and the digest is the one published beside it.
+      - name: Install cargo-deny
+        continue-on-error: ${{ inputs.record_only == true }}
+        run: |
+          set -euo pipefail
+
+          archive="cargo-deny-${CARGO_DENY_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          # The release tag is the bare version; a `v` prefix is a 404.
+          curl -fsSLo "$RUNNER_TEMP/$archive" \
+            "https://github.com/EmbarkStudios/cargo-deny/releases/download/${CARGO_DENY_VERSION}/$archive"
+          echo "${CARGO_DENY_SHA256}  $RUNNER_TEMP/$archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
+          rm "$RUNNER_TEMP/$archive"
+
+          "$RUNNER_TEMP/$CARGO_DENY_BIN" --version
+
+      # JSON goes to stderr, one diagnostic per line plus a final summary line.
+      # The step stays green so the classification below runs either way: the
+      # exit status alone is ambiguous (1 is both an advisories error and a
+      # failed database fetch), so the verdict comes from the JSON.
+      - name: Run cargo-deny
+        continue-on-error: ${{ inputs.record_only == true }}
+        id: deny
+        run: |
+          set -uo pipefail
+
+          "$RUNNER_TEMP/$CARGO_DENY_BIN" \
+            --locked --format json check advisories licenses sources \
+            2> "$RUNNER_TEMP/deny.jsonl"
+          status=$?
+
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          cat "$RUNNER_TEMP/deny.jsonl" >&2
+          exit 0
+
+      # `passed` needs exit 0 *and* a summary line. A failed fetch exits before
+      # the checks print their summary, so it is `inconclusive`, not `failed`;
+      # so is a run whose database checkout cannot be named. The record keeps
+      # the database revision and time because cargo-deny reports neither.
+      - name: Classify the run and record the advisory database
+        continue-on-error: ${{ inputs.record_only == true }}
+        id: record
+        if: always()
+        env:
+          DENY_STATUS: ${{ steps.deny.outputs.status }}
+        run: |
+          set -uo pipefail
+
+          # The runner's shell is `bash -e`: when cargo-deny never ran (a failed
+          # download), the database directory is missing, `find` fails, and the
+          # step used to end here without writing the `inconclusive` slot it
+          # exists to write. Each lookup may come up empty instead.
+          db_dir=$(find target/deny-advisory-dbs -maxdepth 1 -type d -name 'advisory-db-*' 2>/dev/null | head -n 1 || true)
+          db_revision=""
+          db_committed=""
+          if [ -n "$db_dir" ]; then
+            db_revision=$(git -C "$db_dir" rev-parse HEAD 2>/dev/null || true)
+            db_committed=$(git -C "$db_dir" show -s --format=%cI HEAD 2>/dev/null || true)
+          fi
+
+          CHECKED_OUT=$(git rev-parse HEAD)
+          export CHECKED_OUT
+
+          python3 - "$RUNNER_TEMP/deny.jsonl" "${DENY_STATUS:-}" "$db_revision" "$db_committed" <<'PY'
+          import json
+          import os
+          import pathlib
+          import sys
+
+          jsonl = pathlib.Path(sys.argv[1])
+          exit_status = sys.argv[2]
+          revision = sys.argv[3]
+          committed = sys.argv[4]
+
+          objects = []
+          if jsonl.exists():
+              for line in jsonl.read_text(encoding="utf-8", errors="replace").splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  try:
+                      objects.append(json.loads(line))
+                  except ValueError:
+                      continue
+
+          summary = next(
+              (o.get("fields") for o in reversed(objects) if o.get("type") == "summary"),
+              None,
+          )
+          checks = {}
+          if isinstance(summary, dict):
+              for name in ("advisories", "licenses", "sources"):
+                  counts = summary.get(name)
+                  if isinstance(counts, dict):
+                      checks[name] = {
+                          key: counts.get(key, 0)
+                          for key in ("errors", "warnings", "notes", "helps")
+                      }
+
+          if not checks:
+              status = "inconclusive"
+              reason = (
+                  "no JSON summary line: the database fetch or the tool run failed "
+                  "before the checks reported"
+              )
+          elif not revision:
+              status = "inconclusive"
+              reason = "the advisory database checkout is missing, so its revision cannot be recorded"
+          elif exit_status == "0":
+              status = "passed"
+              reason = "cargo-deny exited 0 and printed a JSON summary line"
+          else:
+              status = "failed"
+              reason = f"cargo-deny exited {exit_status} and printed a JSON summary line"
+
+          version = os.environ.get("CARGO_DENY_VERSION", "")
+          sha = os.environ.get("CHECKED_OUT", "")
+          slot = {
+              "slot": "deny",
+              "status": status,
+              "reason": reason,
+              "candidate_sha": sha,
+              "exit_code": int(exit_status) if exit_status.lstrip("-").isdigit() else None,
+              "summary_present": bool(checks),
+              "tool": {"name": "cargo-deny", "version": version},
+              "advisory_database": {
+                  "source": "https://github.com/RustSec/advisory-db",
+                  "revision": revision,
+                  "committed": committed,
+              },
+              "checks": checks,
+          }
+          pathlib.Path(os.environ["RUNNER_TEMP"], "deny-slot.json").write_text(
+              json.dumps(slot, indent=2) + "\n", encoding="utf-8"
+          )
+
+          lines = [
+              "### Dependency policy (`deny.toml`)",
+              "",
+              "| Field | Value |",
+              "| --- | --- |",
+              f"| Status | `{status}` |",
+              f"| Reason | {reason} |",
+              f"| Commit | `{sha}` |",
+              f"| cargo-deny | `{version}` |",
+              f"| Advisory database | `{revision or 'unknown'}` committed `{committed or 'unknown'}` |",
+              f"| Exit code | `{exit_status or 'none'}` |",
+          ]
+          if checks:
+              lines += [
+                  "",
+                  "| Check | Errors | Warnings | Notes | Helps |",
+                  "| --- | ---: | ---: | ---: | ---: |",
+              ]
+              for name, counts in checks.items():
+                  lines.append(
+                      f"| {name} | {counts['errors']} | {counts['warnings']} "
+                      f"| {counts['notes']} | {counts['helps']} |"
+                  )
+          pathlib.Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8").write(
+              "\n".join(lines) + "\n"
+          )
+          with pathlib.Path(os.environ["GITHUB_OUTPUT"]).open("a", encoding="utf-8") as out:
+              out.write(f"status={status}\n")
+          print(f"deny slot: {status} ({reason})")
+          PY
+
+      # The slot is the record a candidate's `deny` slot is written from, so it
+      # is published even when the verdict is red.
+      - name: Upload the deny slot
+        continue-on-error: ${{ inputs.record_only == true }}
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          # Attempt-tagged like every other coordinator artifact, so a re-run's
+          # record reads this attempt's verdict rather than the last one's.
+          name: deny-slot-${{ inputs.sha || github.sha }}-attempt${{ github.run_attempt }}
+          path: ${{ runner.temp }}/deny-slot.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # `inconclusive` is never green: a run that could not reach a verdict must
+      # not read as a pass on the checks page. The candidate coordinator passes
+      # `record_only`, because its record states the verdict instead.
+      - name: Fail unless the policy passed
+        if: ${{ always() && inputs.record_only != true }}
+        env:
+          SLOT_STATUS: ${{ steps.record.outputs.status }}
+        run: |
+          set -uo pipefail
+
+          if [ "${SLOT_STATUS:-}" = "passed" ]; then
+            exit 0
+          fi
+          printf 'dependency policy verdict: %s; see the job summary and deny-slot.json\n' \
+            "${SLOT_STATUS:-no verdict}" >&2
+          exit 1

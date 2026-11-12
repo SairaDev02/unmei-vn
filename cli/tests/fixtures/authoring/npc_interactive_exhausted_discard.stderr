@@ -1,0 +1,5 @@
+✖ all attempts failed validation:
+  - the reply was not parseable as JSON: raw one
+  - the reply was not parseable as JSON: raw two
+  - the reply was not parseable as JSON: raw three
+Give free-text feedback to regenerate, or 'discard' to write nothing:

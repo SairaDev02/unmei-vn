@@ -1,0 +1,57 @@
+# Third-party licenses
+
+This document lists the Rust crates this build of Unmei contains — third-party
+crates plus Unmei's own published library crates — the license chosen for each
+one, and the full text of every license used. It is generated from `Cargo.lock` by
+[cargo-about](https://github.com/EmbarkStudios/cargo-about) through
+`packaging/about.toml`; do not edit it by hand.
+
+Unmei's own code is licensed under the MIT license, shipped in the `LICENSE`
+file beside this document.
+
+## Licenses in this build
+
+| License | SPDX identifier | Crates |
+| --- | --- | ---: |
+{{#each overview}}
+| [{{{name}}}](#{{id}}) | `{{id}}` | {{count}} |
+{{/each}}
+
+## License texts
+
+Each section below names the crates that use that license and reproduces its
+text. Where a crate offers a choice of license, the text shown is the one
+Unmei relies on.
+
+{{#each licenses}}
+### {{{name}}}
+
+SPDX identifier: `{{id}}`
+
+Used by:
+
+{{#each used_by}}
+- [{{crate.name}} {{crate.version}}](https://crates.io/crates/{{crate.name}})
+{{/each}}
+{{#if (eq id "MPL-2.0")}}{{#if first_of_kind}}
+
+> **MPL-2.0 source availability.** The crates listed under this heading are
+> Mozilla Public License 2.0 components distributed here in Executable Form.
+> Their Source Code Form is available from each crate's crates.io page, which
+> serves the exact published source archive and links the upstream repository.
+> Unmei has not modified these sources.
+>
+> - <https://crates.io/crates/symphonia>
+> - <https://crates.io/crates/symphonia-codec-vorbis>
+> - <https://crates.io/crates/symphonia-common>
+> - <https://crates.io/crates/symphonia-core>
+> - <https://crates.io/crates/symphonia-format-ogg>
+> - <https://crates.io/crates/symphonia-metadata>
+> - <https://crates.io/crates/triple_buffer>
+{{/if}}{{/if}}
+
+```
+{{{text}}}
+```
+
+{{/each}}

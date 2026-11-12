@@ -1,0 +1,29 @@
+# scenes/reunion.unmei — scene id: reunion
+# Evening at the same gate. Opened via `jump reunion` from first_meeting.
+
+bg school_gate
+play music_evening
+
+Narrator: The gate again, hours later. She's still there.
+
+sprite ace neutral
+decide ace.greet -> reply
+
+label reply.warm
+sprite ace happy
+Ace: You came back! I... hoped you would.
+jump end_reunion
+
+label reply.cold
+sprite ace neutral
+Ace: Oh. It's you.
+jump end_reunion
+
+label reply.none
+sprite ace neutral
+Narrator: Ace watches you approach, unreadable.
+jump end_reunion
+
+label end_reunion
+stop music_evening
+jump epilogue

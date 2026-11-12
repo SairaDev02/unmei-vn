@@ -1,0 +1,7 @@
+--- best model output ---
+{"LINES":[{"speaker":"Bob","text":"three"}]}
+--- validation errors ---
+  - line 1: speaker `Bob` is not allowed — use `Narrator`, a speaker already in the scene, or a declared NPC id (allowed: Ace, Narrator, ace)
+  - line 1: speaker `Bob` is not allowed — use `Narrator`, a speaker already in the scene, or a declared NPC id (allowed: Ace, Narrator, ace)
+  - line 1: speaker `Bob` is not allowed — use `Narrator`, a speaker already in the scene, or a declared NPC id (allowed: Ace, Narrator, ace)
+✖ all 3 attempts failed validation — nothing was written

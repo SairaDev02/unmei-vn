@@ -1,0 +1,17 @@
+--- preview (decisions["greet"], not yet written) ---
+(
+    instructions: "How does Ace greet, given trust?",
+    state_keys: [
+        "affinity_level",
+        "met_ace",
+    ],
+    criteria: {
+        "warm": "affectionate",
+    },
+    fallback: "warm",
+)
+--- end preview ---
+Type 'accept' to write, 'discard' to write nothing, or free-text feedback to regenerate:
+✔ Generated and validated: decisions["greet"]
+  criteria: warm · fallback: warm
+Wrote npcs/ace.ron

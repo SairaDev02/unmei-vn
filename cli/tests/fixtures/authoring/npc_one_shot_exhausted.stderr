@@ -1,0 +1,7 @@
+--- best model output ---
+raw reply three
+--- validation errors ---
+  - the reply was not parseable as JSON: raw reply one
+  - the reply was not parseable as JSON: raw reply two
+  - the reply was not parseable as JSON: raw reply three
+✖ generation failed: all 3 attempts failed validation

@@ -1,0 +1,31 @@
+[workspace]
+resolver = "2"
+members = ["engine", "cli", "app"]
+
+# The release version, inherited by every member, so a release bump touches this
+# file only and no member manifest.
+[workspace.package]
+version = "0.1.0"
+
+[workspace.dependencies]
+# Stated once: members inherit the path and the caret release requirement and add
+# only their own feature selection.
+unmei-engine = { path = "engine", version = "0.1.0" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+# Bevy's documented release recommendations: expected, unmeasured and marginal,
+# paid for with a longer release compile. `[profile.release-assert]` inherits
+# them by design.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+
+# The Monitor acceptance gate's custom-assertions profile: release
+# optimization with debug assertions on, so the dev-mode gate's
+# `cfg!(debug_assertions)` default can be verified independently of the
+# optimization level (`docs/runtime-hardening.md` § Monitor → Dev mode).
+[profile.release-assert]
+inherits = "release"
+debug-assertions = true

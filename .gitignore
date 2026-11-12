@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Save files (one fixed sibling per pack), player settings and the read log
+*.save.ron
+*.settings.ron
+*.read.ron
+
+# Rust
+# Cargo build output. `cli/src/target/` is the authoring-target source module,
+# not build output, so it is re-included below.
+target/
+!cli/src/target/
+Cargo.lock.bak
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Test coverage
+coverage/
+
+# Caches
+.cache/
+__pycache__/
+.eslintcache
+*.tsbuildinfo
+.ruff_cache/
+
+# Editor & OS
+.idea/
+.vscode/
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db

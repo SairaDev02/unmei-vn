@@ -1,0 +1,33 @@
+# Every tracked text file is stored and checked out with LF, so what Windows
+# packages is byte-identical to what Linux packages:
+# `cargo package` reads the working tree, and this machine's
+# `core.autocrlf=true` would otherwise hand it CRLF `.rs` sources. The entries
+# below opt specific files out (`-text`) or restate this rule where a tool
+# reads the bytes. `scripts/check-invariants.py --rules eol` enforces it.
+* text=auto eol=lf
+
+# Shell scripts must keep LF line endings so Git hooks run unchanged on
+# Windows, Git Bash, and Linux checkouts regardless of core.autocrlf.
+.githooks/* text eol=lf
+*.sh text eol=lf
+
+# Authoring output fixtures are compared as raw bytes, so Git must never
+# normalize or whitespace-check them: RON pretty output legitimately carries
+# CRLF, which `git diff --check` would report as trailing whitespace.
+cli/tests/fixtures/** -text -diff
+
+# Bevy's vendored font license is compared by SHA-256 against the `v0.19.1` tag
+# (`app/assets/fonts/README.md`), so Git must neither normalize nor
+# whitespace-check its bytes. The upstream text carries a trailing space.
+app/assets/fonts/FiraMono-LICENSE -text -diff
+
+# Generated documentation indexes are compared byte-for-byte against the Git
+# index and committed trees, so a checkout must yield the LF bytes the generator
+# wrote regardless of core.autocrlf.
+docs/INDEX.md text eol=lf
+docs/adr/INDEX.md text eol=lf
+docs/guide/INDEX.md text eol=lf
+
+# The notices template is rendered into release archives, so a checkout must hand
+# cargo-about the same LF bytes on every platform regardless of core.autocrlf.
+packaging/third-party-licenses.hbs text eol=lf

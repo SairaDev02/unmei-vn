@@ -1,0 +1,21 @@
+// npcs/ace.ron — everything the author CLI generates/edits lives in this one file.
+// Wire mapping: instructions + criteria become the Decisions request for
+// question "greet"; the chosen action id (or fallback on failure) becomes
+// a jump to <prefix>.<action_id> in the calling scene.
+(
+    id: "ace",
+    name: "Ace",
+    model: "typesafe/jev-1.13",
+    decisions: {
+        "greet": (
+            instructions: "How does Ace greet the player at the school gate, given how much she trusts them?",
+            state_keys: ["affinity_level", "met_ace"],
+            criteria: {
+                "warm": "An affectionate, open greeting fitting a player Ace trusts (affinity_level high).",
+                "cold": "A distant, guarded greeting fitting a player she does not yet trust (affinity_level low).",
+                "none": "Neither description fits the state.",
+            },
+            fallback: "cold",
+        ),
+    },
+)

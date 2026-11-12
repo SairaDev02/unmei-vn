@@ -1,0 +1,316 @@
+name: check
+
+# The minimal gate every change runs through: fmt, clippy and the workspace
+# tests under a pinned toolchain, plus the PR trigger and the superseded-run
+# concurrency below, the fast `actionlint` job, and the repository-invariant
+# steps that fail before the fmt gate. The `--locked` flag sits on every Cargo
+# invocation that resolves dependencies, so the gate verifies the committed
+# `Cargo.lock` instead of silently repairing it. The `workflow_call` trigger
+# lets the candidate coordinator rerun the gate at a candidate SHA. This file is
+# the gate only: the heavier real-binary boot check lives in `boot.yml` (on
+# demand via `workflow_dispatch`, not per push), and the candidate, coverage,
+# dependency-policy and publication stages each own their own workflow.
+
+on:
+  # Every pushed branch keeps its per-push gate, PR or not: feature and
+  # prototype branches must stay able to run CI on their own.
+  push:
+  # PRs targeting `main` add the merge-context gate. The default activity
+  # types (`opened`, `synchronize`, `reopened`) are what we want, so no
+  # `types` block.
+  pull_request:
+    branches:
+      - main
+  # The candidate coordinator calls this gate at the candidate SHA, so a
+  # candidate is always gate-checked at its own commit rather than at the
+  # coordinator's. `sha` is optional: empty means the triggering ref's commit,
+  # which is what push and PR runs want (neither declares this input).
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit SHA to check; empty checks out the triggering commit
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+# Cancel superseded runs only within the same event and ref/PR. The event
+# name keeps a branch's push check and its PR check in separate groups (they
+# verify different contexts), the PR number or ref keys the group to one
+# branch or PR, and the workflow name stops this from reaching `boot.yml` or
+# any future workflow.
+#
+# A called gate passes the candidate SHA as its input, so it keys on
+# that SHA instead of a ref and can never share a group with a push or PR run.
+# Push and PR runs pass no `sha`, so their group is unchanged.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ inputs.sha || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+# Bevy debug binaries are enormous; without this the test link fills the
+# runner's disk (gh runners report it as `ld terminated with signal 7`).
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  # Fast gate that compiles nothing: lint the workflow files in parallel with
+  # the Rust job, so a YAML or expression mistake fails in seconds instead of
+  # after the Linux dependencies and the workspace build.
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    env:
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      SHELLCHECK_VERSION: 0.11.0
+      SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+      RUFF_VERSION: 0.17.4
+      RUFF_SHA256: 3ab2b34aeacdbc1ea5c529cdbda3e05792633d587228123fd09f3b5a0facb27a
+    steps:
+      # An explicit `ref` is the input SHA, empty for push and PR runs. Those
+      # resolve to `github.sha`, the commit the default checkout picks anyway:
+      # the pushed commit, or the PR's merge commit.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
+      # All three linters are pinned by version and by SHA-256, so the job runs
+      # the reviewed builds rather than whatever `latest` resolves to.
+      - name: Install actionlint, ShellCheck and Ruff
+        run: |
+          set -euo pipefail
+
+          actionlint_archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$actionlint_archive" \
+            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$actionlint_archive"
+          echo "${ACTIONLINT_SHA256}  $RUNNER_TEMP/$actionlint_archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$actionlint_archive" -C "$RUNNER_TEMP"
+          rm "$RUNNER_TEMP/$actionlint_archive"
+
+          shellcheck_archive="shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          curl -fsSLo "$RUNNER_TEMP/$shellcheck_archive" \
+            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/$shellcheck_archive"
+          echo "${SHELLCHECK_SHA256}  $RUNNER_TEMP/$shellcheck_archive" | sha256sum --check --strict
+          tar -xJf "$RUNNER_TEMP/$shellcheck_archive" -C "$RUNNER_TEMP"
+          rm "$RUNNER_TEMP/$shellcheck_archive"
+
+          # Ruff ships a standalone binary per target; the archive holds one
+          # `ruff` executable beside its licence.
+          ruff_archive="ruff-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSLo "$RUNNER_TEMP/$ruff_archive" \
+            "https://github.com/astral-sh/ruff/releases/download/${RUFF_VERSION}/$ruff_archive"
+          echo "${RUFF_SHA256}  $RUNNER_TEMP/$ruff_archive" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/$ruff_archive" -C "$RUNNER_TEMP"
+          rm "$RUNNER_TEMP/$ruff_archive"
+          "$RUNNER_TEMP/ruff-x86_64-unknown-linux-gnu/ruff" --version
+
+      # actionlint checks every `run:` script, so ShellCheck 0.11.0 is passed
+      # explicitly instead of letting actionlint pick up whatever the runner
+      # image ships. Pyflakes stays off (`-pyflakes=`): the pinned actionlint
+      # release does not bundle it. Inline Python needs separate syntax and
+      # targeted validation; repository invariants run from
+      # `scripts/check-invariants.py`. With no file arguments, actionlint
+      # discovers and lints every workflow file, including `check.yml` and
+      # `boot.yml` (both `.yml` and `*.yaml`).
+      - name: Lint workflow files
+        run: |
+          "$RUNNER_TEMP/actionlint" \
+            -color \
+            -pyflakes= \
+            -shellcheck="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
+
+      # Lint the gate's own scripts and the hook, so a defect in the tooling
+      # cannot pass review just because the Rust gate is green.
+      # Ruff reads only: `E4,E7,E9,F` are import, syntax and pyflakes defects,
+      # selected explicitly so a Ruff default change cannot widen the gate, and
+      # there is no `--fix`, formatter, preview rule or config file to drift.
+      # `--isolated --no-cache` makes the run depend on the pinned binary and the
+      # file contents alone. The listed files are `check-invariants.py` plus the
+      # modules the 20,000-byte authored-file limit made it split into, so the
+      # rule covers the same code whichever file it lives in. ShellCheck runs the
+      # hook as POSIX `sh`, the shell its shebang declares.
+      #
+      # Measured on a Windows host against these files: Ruff 73 ms and ShellCheck
+      # 71 ms warm, so the pair stays far inside the roughly 60-second budget for
+      # this job. Treat the budget as review-triggering, not as an assertion.
+      - name: Lint the gate scripts and the commit hook
+        run: |
+          "$RUNNER_TEMP/ruff-x86_64-unknown-linux-gnu/ruff" check \
+            --no-cache \
+            --isolated \
+            --select E4,E7,E9,F \
+            scripts/doctor.py \
+            scripts/check-invariants.py \
+            scripts/invariants_core.py \
+            scripts/invariants_eol.py \
+            scripts/license_policy.py
+
+          "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
+            -s sh \
+            .githooks/pre-commit
+
+  check:
+    name: fmt, clippy, test
+    runs-on: ubuntu-latest
+    steps:
+      # Same `ref` rule as the `actionlint` job above: the candidate SHA when
+      # called, the triggering commit otherwise.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
+      # The documentation tooling is deterministic, standard library only and
+      # costs seconds, so it runs before the Linux dependency install and never
+      # beside the Rust gates. This step is also where the Linux evidence for the
+      # docs tooling comes from: the same suites and the committed-snapshot check
+      # a developer runs by hand. `check --checkout` reads HEAD, so a clean
+      # worktree cannot mask a stale index and the verdict does not depend on the
+      # pre-commit hook. The hyphen glob is deliberate:
+      # `test_docs_frontmatter_cases.py` holds parser fixtures, not a suite, and
+      # must not be executed as one.
+      - name: Documentation structure checks
+        run: |
+          set -euo pipefail
+
+          for suite in scripts/test-docs-*.py; do
+            python3 "$suite"
+          done
+
+          # GNU `time -v` records the wall time and the maximum resident set
+          # size for the provisional resource targets; where `/usr/bin/time` is
+          # absent the plain command still runs and the gate is unchanged.
+          if [ -x /usr/bin/time ]; then
+            /usr/bin/time -v python3 scripts/docs.py check --checkout
+          else
+            python3 scripts/docs.py check --checkout
+          fi
+
+      # The packaging script's logic suite needs no cargo, rustup, node or
+      # network: it loads `scripts/package.py` and exercises its pure helpers.
+      # The full archive build stays out of CI: the packaging rehearsal proves
+      # it, so no build job is added here.
+      - name: Packaging script logic tests
+        run: python3 scripts/test-package.py
+
+      # The candidate-record script's logic suite is the same shape: standard
+      # library only, a throwaway repository as `origin`, and no network, cargo
+      # or rustup. It proves each eligibility refusal, the immutable record and
+      # its slot resets, every `verify` mismatch and each appendix header, so a
+      # regression shows here rather than in the candidate coordinator.
+      - name: Candidate record script logic tests
+        run: python3 scripts/test-candidate-record.py
+
+      # The coordinator's own two scripts: the facts assembly (which rechecks
+      # every sum and reads the slot files) and the archive acceptance (which
+      # runs the released executables but starts no window). Both are standard
+      # library only, so they run on every push while the coordinator itself
+      # runs on a dispatch.
+      - name: Candidate coordinator script logic tests
+        run: python3 scripts/test-candidate-facts.py
+
+      - name: Archive acceptance script logic tests
+        run: python3 scripts/test-archive-accept.py
+
+      # The Linux walk's suite drives the real step logic against a fake player
+      # through the one `Runner` seam, so it needs no X server, xdotool or
+      # archive: every push checks that a missed wait still names its step. The
+      # walk itself runs only on a hosted `ubuntu-24.04` runner, where a real
+      # display and a real player exist.
+      - name: Linux walk script logic tests
+        run: python3 scripts/test-linux-walk.py
+
+      # The coverage job's slot assembly is the only logic `coverage.yml` owns:
+      # it reconciles the three cargo-llvm-cov views, applies the report
+      # allowlist, checks the witness receipt and maps each step outcome to a
+      # slot status. Standard library only, so this proves it on every push
+      # while the measurement itself stays on the candidate run.
+      - name: Coverage slot logic tests
+        run: python3 scripts/test-coverage-slot.py
+
+      # Advisory documentation complexity report. It never blocks this
+      # job: `continue-on-error` keeps a finding from turning the gate red, the
+      # report itself exits 0 for findings, and the step runs after the hard
+      # checks so it cannot suppress them. The wheels are pinned by hash so the
+      # install runs the reviewed builds; a failed install is tolerated and the
+      # report then prints its one visible `report unavailable:` line. The
+      # parser is installed inside this step only, so the hook and the suites in
+      # the step above stay standard library only.
+      - name: Advisory documentation complexity report
+        continue-on-error: true
+        run: |
+          set -uo pipefail
+
+          python3 -m pip install --disable-pip-version-check --require-hashes \
+            --only-binary=:all: -r scripts/docs-report-requirements.txt || true
+
+          # The parser makes the independently established fixture suite run here
+          # instead of skipping. Its status is kept, not swallowed: the report
+          # below still runs so the summary is produced, and the step then ends
+          # with the suite's status so a failing suite shows as a failed step
+          # while `continue-on-error` keeps the job green. The report's own
+          # status is deliberately dropped, so the advisory report never blocks.
+          python3 scripts/test-docs-report.py
+          suite=$?
+          python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY"
+          exit "$suite"
+
+      # Bevy links ALSA (audio) and udev (gamepads) on Linux; its default
+      # feature set also builds the Wayland backend through pkg-config.
+      # `system_font_discovery` (`app/Cargo.toml`) pulls parley's fontconfig
+      # backend on Linux, so the fontconfig headers are needed too.
+      - name: Install Linux dependencies
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+          libfontconfig1-dev
+
+      # With no argument, rustup installs the active toolchain: the pinned one
+      # from rust-toolchain.toml, with its rustfmt and clippy components.
+      # (`rustup show` no longer auto-installs as of rustup 1.30.)
+      - name: Install pinned toolchain
+        run: rustup toolchain install --no-self-update
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # The invariant checks cost seconds and compile nothing, so they run
+      # before fmt, clippy and the workspace build. `--self-test` first proves
+      # each rule still rejects a controlled invalid case, so a rule that has
+      # gone insensitive cannot report a vacuous pass. The engine, line-ending
+      # and license rules run on every branch and PR: a Bevy dependency in
+      # `unmei-engine` is wrong wherever it appears, a CRLF checkout changes what
+      # `cargo package` stages into a release archive, and
+      # `deny.toml` must carry exactly the accepted licenses of
+      # `packaging/about.toml` wherever either file changes.
+      - name: Repository invariants (self-test, engine, line endings, licenses)
+        run: |
+          python3 scripts/check-invariants.py --self-test
+          python3 scripts/check-invariants.py --rules engine
+          python3 scripts/check-invariants.py --rules eol
+          python3 scripts/check-invariants.py --rules licenses
+
+      # The path rules read `git ls-files`, so an ignored local scratch
+      # directory cannot fail them, and they describe what lands on `main`. A
+      # `prototype/<issue>-<name>` branch carries tracked `app/prototype/`
+      # content by design, because a prototype is evidence kept off `main`;
+      # gating them on every push would fail those branches' whole job — fmt,
+      # clippy and the tests included. They guard the merge instead: a push to
+      # `main`, or a PR into it, checked at the merge commit.
+      - name: Repository invariants (tracked prototype and scratch paths)
+        if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+        run: python3 scripts/check-invariants.py --rules paths
+
+      - name: cargo fmt --check
+        run: cargo fmt --check
+
+      # `--locked` on both: a stale `Cargo.lock` fails the gate here rather
+      # than being resolved past it. `cargo fmt --check` above stays flag-free
+      # because it neither resolves nor builds dependencies.
+      - name: cargo clippy
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: cargo test
+        run: cargo test --locked --workspace

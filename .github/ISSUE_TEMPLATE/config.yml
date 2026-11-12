@@ -1,0 +1,10 @@
+blank_issues_enabled: false
+# The export fills the repository token in each URL. Quoted, because a plain
+# YAML scalar cannot start with `@`.
+contact_links:
+  - name: Security vulnerability
+    url: "https://github.com/SairaDev02/unmei-vn/security/advisories/new"
+    about: Please report security issues via private vulnerability reporting — do not open a public issue.
+  - name: Question or open-ended idea
+    url: "https://github.com/SairaDev02/unmei-vn/discussions"
+    about: Ask a question or discuss an open-ended idea in Discussions — an issue is for a defect or a concrete request.

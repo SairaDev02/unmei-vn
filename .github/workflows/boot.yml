@@ -1,0 +1,199 @@
+name: boot
+
+# Boots the real shipping binary under a virtual display and asserts it starts
+# without panicking. The optimized builds dominate the run (~30 min cold, and a
+# failing job cannot save the rust-cache), so it runs on demand: by hand via
+# `workflow_dispatch`, and from the candidate coordinator via `workflow_call`
+# at the candidate SHA. There is no schedule and no per-push trigger.
+#
+# The deterministic per-push gate stays in `check.yml`: `fmt`, `clippy`, the
+# workspace tests and the headless `shipping_schedule` test that builds the
+# shipping composition's schedules with `ambiguity_detection: Error`. This
+# workflow carries the half `check` cannot see: the real binary starting up.
+#
+# The rendered `monitor_smoke` walk is deliberately not automated here: it is
+# the human rendered residual - a real compositor, a real GPU and the
+# per-surface screenshots - not a CI check. See `docs/testing.md` Sec
+# Shipped Path for the walk's rules. Its reading check is cadence-
+# independent (`app/examples/monitor_smoke/main.rs`): a paging key is held for
+# exactly one frame, a step is measured one frame after it applies, and each
+# reading compares the reader's own stored anchor with the drawn top-visible
+# row, so a slow software-rendered frame cannot make it one page stale.
+
+on:
+  workflow_dispatch:
+  # The candidate coordinator calls this boot at the candidate SHA. `sha` is
+  # optional: empty means the triggering ref's commit, which is what a manual
+  # dispatch wants (it declares no such input).
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit SHA to boot; empty boots the triggering commit
+        required: false
+        type: string
+        default: ""
+      # The candidate coordinator records this boot as the `linux-shipping-boot`
+      # slot, so a failed boot must not redden the run: the slot carries the
+      # verdict and the final gate step steps aside. A manual dispatch keeps it.
+      record_only:
+        description: Record the verdict in the slot without failing the job
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+# Bevy debug binaries are enormous; without this the boot links fill the
+# runner's disk (gh runners report it as `ld terminated with signal 7`).
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+
+jobs:
+  # In `record_only` mode no step may fail the job: the coordinator reads the
+  # verdict from the slot, so a failed install, cache restore or upload is that
+  # slot's own status rather than a red run.
+  boot:
+    name: boot the shipping binary
+    runs-on: ubuntu-latest
+    steps:
+      # An explicit `ref` is the input SHA, empty for a manual dispatch. A
+      # dispatch resolves to `github.sha`, the commit the default checkout
+      # picks anyway.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        continue-on-error: ${{ inputs.record_only == true }}
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
+      # The workspace build dependencies, plus the virtual display, the runtime
+      # `libxkbcommon-x11` that winit dlopens (the `-dev` package alone does not
+      # ship it), and the Mesa software rasterizer the real window and renderer
+      # need under Xvfb.
+      - name: Install Linux dependencies
+        continue-on-error: ${{ inputs.record_only == true }}
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+          libxkbcommon-x11-0 libfontconfig1-dev xvfb xauth libgl1-mesa-dri
+          mesa-vulkan-drivers
+
+      - name: Install pinned toolchain
+        continue-on-error: ${{ inputs.record_only == true }}
+        run: rustup toolchain install --no-self-update
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        continue-on-error: ${{ inputs.record_only == true }}
+
+      # The verdict is a slot, so the boot itself never fails the job:
+      # `continue-on-error` leaves the job green and `Fail on a failed boot`, at
+      # the end, reds it unless the caller asked for a record.
+      - name: Boot unmei-play
+        id: boot
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+
+          log=""
+          code=0
+
+          # Run a GUI command under a virtual display for at most `seconds`,
+          # tee its combined output, and leave the exit status in `code`. The
+          # screen is fixed so the run is not at the mercy of Xvfb's default
+          # geometry.
+          start_under_xvfb() {
+            local seconds="$1"
+            shift
+            log="$(mktemp)"
+            set +e
+            xvfb-run -a -s "-screen 0 1920x1080x24" timeout --signal=KILL "$seconds" "$@" >"$log" 2>&1
+            code=$?
+            set -e
+            cat "$log"
+          }
+
+          assert_no_panic() {
+            if grep -Eq "panicked|Error when initializing schedule" "$log"; then
+              echo "::error::$1 panicked"
+              exit 1
+            fi
+          }
+
+          # A healthy `unmei-play` has no frame cap, so the bound killing it is
+          # the expected outcome: `timeout` exits 124 (137 if the shell folds
+          # SIGKILL). Any other exit status means the app stopped on its own.
+          expect_bounded_kill() {
+            local label="$1" seconds="$2"
+            shift 2
+            start_under_xvfb "$seconds" "$@"
+            if [ "$code" -ne 124 ] && [ "$code" -ne 137 ]; then
+              echo "::error::$label exited $code instead of running to the ${seconds}s bound"
+              exit 1
+            fi
+            assert_no_panic "$label"
+          }
+
+          # A temp copy of the demo pack: the run's `.log`, `.save.ron`,
+          # `.settings.ron` and `.read.ron` siblings never land in the checkout.
+          # `mktemp -d` gives a fresh directory, so no cleanup delete is needed.
+          pack="$(mktemp -d)/demo-pack"
+          cp -r examples/demo-pack "$pack"
+
+          # `--locked`: build the committed dependency resolution, never a
+          # freshly resolved one.
+          cargo build --locked -p unmei-app --bin unmei-play
+          expect_bounded_kill debug-unmei-play 20 ./target/debug/unmei-play "$pack"
+
+          # The `--dev` launch is the release binary with the full developer
+          # composition (drawer, F5/F9, capture) forced on.
+          cargo build --locked -p unmei-app --bin unmei-play --release
+          expect_bounded_kill release-dev-unmei-play 20 ./target/release/unmei-play --dev "$pack"
+
+          # The normal launch is what a player runs: the same release binary
+          # without `--dev`, so the shipping composition with no drawer,
+          # developer keys or capture. It is the boot a release archive must
+          # survive, and the same bounded-survival and no-panic assertions
+          # apply.
+          expect_bounded_kill release-unmei-play 20 ./target/release/unmei-play "$pack"
+
+      # The slot the candidate record reads. A step outcome cannot carry a
+      # reason, so the verdict and its detail land in one JSON file, which is
+      # uploaded even when the boot failed. Only a boot that ran and failed is
+      # `failed`; a boot skipped or cancelled because setup broke never reached a
+      # verdict, so it is `inconclusive`.
+      - name: Write the boot slot
+        continue-on-error: ${{ inputs.record_only == true }}
+        if: always()
+        env:
+          BOOT_OUTCOME: ${{ steps.boot.outcome }}
+        run: |
+          set -euo pipefail
+          case "$BOOT_OUTCOME" in
+            success) status=passed
+                     reason='three bounded boots ran to their bound with no panic' ;;
+            failure) status=failed
+                     reason='a bounded boot exited early or panicked; see this job log' ;;
+            *)       status=inconclusive
+                     reason="the boot did not run (outcome: ${BOOT_OUTCOME:-none}); an earlier setup step failed, see this job log" ;;
+          esac
+          python3 scripts/candidate_facts.py slot --name linux-shipping-boot \
+            --status "$status" --reason "$reason" --out "$RUNNER_TEMP/boot-slot.json"
+
+      - name: Upload the boot slot
+        continue-on-error: ${{ inputs.record_only == true }}
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: boot-slot-${{ inputs.sha || github.sha }}-attempt${{ github.run_attempt }}
+          path: ${{ runner.temp }}/boot-slot.json
+          if-no-files-found: error
+          retention-days: 90
+
+      # A manual dispatch has no `record_only`, so a failed boot still fails it.
+      # `always()` keeps that diagnosis even when writing the slot is what broke.
+      - name: Fail on a failed boot
+        if: ${{ always() && inputs.record_only != true && steps.boot.outcome != 'success' }}
+        run: |
+          echo "::error::the shipping binary did not survive its bounded boots"
+          exit 1

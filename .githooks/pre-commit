@@ -1,0 +1,29 @@
+#!/bin/sh
+set -eu
+
+# Check staged whitespace errors without modifying the index or working tree.
+git diff --cached --check
+
+# Resolve the interpreter once: `python3` first, then `python` on a Windows
+# install that has no `python3` alias. Nothing below writes or stages.
+if command -v python3 >/dev/null 2>&1; then
+    python='python3'
+elif command -v python >/dev/null 2>&1; then
+    python='python'
+else
+    echo 'pre-commit: Python 3 is required for the staged checks; see CONTRIBUTING.md.' >&2
+    exit 1
+fi
+
+# Inspect staged Git blobs (not unstaged working-tree changes).
+"$python" scripts/check-staged-token-limit.py
+
+# Reject a validator whose working-tree copy is not the one in the index, then
+# validate the staged documentation snapshot with that same implementation.
+"$python" scripts/docs_guard.py
+"$python" scripts/docs.py check --staged
+
+# Rust formatting is checked only when Rust source files are staged.
+if git diff --cached --name-only --diff-filter=ACMR -- '*.rs' | grep -q .; then
+    cargo fmt --all -- --check
+fi

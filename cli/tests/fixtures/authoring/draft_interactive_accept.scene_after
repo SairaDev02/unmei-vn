@@ -1,0 +1,37 @@
+# scenes/first_meeting.unmei — scene id: first_meeting
+# A school gate, morning. The player meets Ace and finds her letter.
+
+bg school_gate
+play music_morning
+
+Ace: Who goes there?
+
+sprite ace neutral
+Ace: You're not from around here, are you?
+
+choice
+  "Ask about the letter" -> ask_letter
+  "Stay silent" -> silence
+end
+
+label ask_letter
+set met_ace = true
+set letters_found = 1
+play sfx_paper_rustle
+Ace: A letter? Ah... you saw that.
+set affinity_level = "high"
+jump converge
+
+label silence
+set met_ace = true
+set affinity_level = "low"
+Ace: ...Fine, don't talk. See if I care.
+jump converge
+
+label converge
+stop music_morning
+jump reunion
+
+# The pack's decide point lives in scenes/reunion.unmei:
+#   decide ace.greet -> reply
+# with reply.warm / reply.cold / reply.none labels there.

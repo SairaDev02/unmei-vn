@@ -1,0 +1,12 @@
+(
+    instructions: "How does Ace greet, given trust?",
+    state_keys: [
+        "affinity_level",
+        "met_ace",
+    ],
+    criteria: {
+        "warm": "affectionate",
+    },
+    fallback: "warm",
+)
+--dry-run: nothing written

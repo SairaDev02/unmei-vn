@@ -1,0 +1,8 @@
+Brief for `start` in first_meeting (end with an empty line; empty for none):
+--- draft of `start` in first_meeting ---
+Ace: Who goes there?
+--- end draft ---
+Type 'accept' to write, 'discard' to write nothing, or free-text feedback to regenerate:
+✔ Generated and validated: first_meeting `start` (attempt 1)
+  1 say-line(s) · run L7 · speakers: Ace
+Wrote scenes/first_meeting.unmei

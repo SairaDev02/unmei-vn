@@ -1,0 +1,100 @@
+# Third-party license notices for the player and the CLI.
+#
+# `scripts/package.py` runs this once per binary and target, for example:
+#
+#   cargo about generate --fail --locked \
+#     -c packaging/about.toml -m app/Cargo.toml \
+#     --target x86_64-pc-windows-msvc \
+#     -o THIRD-PARTY-LICENSES packaging/third-party-licenses.hbs
+#
+# `--target` is not in cargo-about 0.9.3's generate documentation; it exists as a
+# repeatable flag that overrides `targets` (src/cargo-about/generate.rs). Passing
+# one triple per run keeps this file single-sourced instead of duplicating it
+# four ways, and yields exactly the per-scope graph rather than a union.
+#
+# These 13 licenses are also the `[licenses] allow` list of the root
+# `deny.toml`, which cargo-deny reads to gate a dependency change and which no
+# tool shares with this file. `scripts/check-invariants.py --rules licenses`
+# fails when the two sets differ, so an addition here needs the same addition
+# there.
+
+# Priority list. The first accepted license that satisfies a crate's expression
+# is the one whose text ships, so the order decides which `OR` branch is
+# rendered. Apache-2.0 leads: 307 of the player's 411 crates carry it as an
+# alternative, one canonical Apache-2.0 text serves all of them, and Apache-2.0
+# §4(a) asks only for a copy of the license, not per-crate attribution. MIT is
+# next, so MIT-only crates still ship their own copyright line. `OpenSSL` is last
+# and exists only because the built-in `ring` workaround clarifies `ring` to
+# `ISC AND OpenSSL AND MIT`: ring's BoringSSL derived files are under the OpenSSL
+# license, and the manifest's declared `Apache-2.0 AND ISC` does not describe
+# them.
+accepted = [
+    "Apache-2.0",
+    "MIT",
+    "BSD-3-Clause",
+    "BSD-2-Clause",
+    "ISC",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+    "BSL-1.0",
+    "MIT-0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "OpenSSL",
+]
+
+# Graph scope. Build dependencies are compile-time only and still listed, as
+# cargo-deny's `include-build` default does; dev-dependencies never reach a
+# shipped binary and are excluded.
+ignore-build-dependencies = false
+ignore-dev-dependencies = true
+
+# Workspace members are not third-party code. `unmei-engine` is also a path
+# dependency, which cargo-about disregards without `--include-local`; this entry
+# additionally drops any member that is `publish = false` (`unmei-app`).
+private = { ignore = true }
+
+# Built-in clarifications. `ring` packages four license texts in one `LICENSE`
+# file and declares a `license` expression that does not match them, so its text
+# is bound by hash inside the tool (docs: cli/generate/workarounds.md).
+workarounds = ["ring"]
+
+# Crate-specific clarifications (research 0026 §3.3). Each one binds a license
+# text from the crate's own repository at the commit it was published from, and
+# fails closed: a version bump that changes the file drops the clarification, the
+# crate is re-scanned, and `--fail` rejects a crate that then has no usable text.
+#
+# Only these two of the 23 crates without a root license file need an entry. Of
+# the other 21, 19 declare Apache-2.0, BSL-1.0, MIT-0 or CC0-1.0, whose canonical
+# SPDX text is the license itself and which carry no attribution duty for object
+# code, so an entry would add a hash to maintain and change nothing in the
+# output. Several publish only a short pointer such as "Licensed under the
+# Apache License, Version 2.0" (gpu-descriptor, dasp_sample), which would replace
+# the license with a stub. `constgebra` and `hexf-parse` have no license file
+# anywhere in their repositories, so there is nothing to bind. `gilrs` and
+# `gilrs-core` were tried and dropped: they are Apache-2.0 under this priority
+# list, so their stated text is the canonical one, and binding their GitLab copy
+# added a network dependency for no change to the output.
+
+# `svg_fmt` declares the slash form `MIT/Apache-2.0` but is MIT only upstream.
+# Clarifying it to MIT ships the upstream text with its copyright line instead
+# of the attribution-free canonical text.
+[svg_fmt.clarify]
+license = "MIT"
+
+[[svg_fmt.clarify.git]]
+path = "LICENSE"
+license = "MIT"
+checksum = "7e98bed7f100747aaae7d82ab94fbe6b76fd6b84b09a3aaa413bff8196d0fbb1"
+
+# `taffy` is MIT-only. The canonical MIT text carries no copyright line, and MIT
+# requires the notice to travel with copies, so the upstream text supplies the
+# attribution (taffy's authors and the `stretch` fork it came from).
+[taffy.clarify]
+license = "MIT"
+
+[[taffy.clarify.git]]
+path = "LICENSE.md"
+license = "MIT"
+checksum = "a7083ef3dd41a65eeb2162c2c091b0082e2724fb4c6ed029b363c7840d244ecd"

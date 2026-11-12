@@ -1,0 +1,7 @@
+// Declared initial state. Every key a script `set`s or an NPC config
+// lists in state_keys must be declared here.
+(
+    affinity_level: "low",
+    met_ace: false,
+    letters_found: 0,
+)

@@ -1,0 +1,43 @@
+[package]
+name = "unmei"
+version.workspace = true
+edition = "2021"
+description = "The unmei author CLI: generates and edits NPC decision configs via any OpenAI-compatible chat endpoint, fully offline in output."
+license = "MIT"
+# The export fills this token with the public repository URL. It stays visibly
+# unresolved until then, so a release refuses while it remains.
+repository = "https://github.com/SairaDev02/unmei-vn"
+readme = "README.md"
+rust-version = "1.98"
+keywords = ["visual-novel", "authoring", "cli", "llm", "openai"]
+categories = ["command-line-utilities", "development-tools"]
+# The integration tests drive `examples/demo-pack` and the binary, so they stay
+# in the repository and its CI and out of the published package.
+exclude = ["tests/"]
+
+[[bin]]
+name = "unmei"
+path = "src/main.rs"
+
+[dependencies]
+unmei-engine = { workspace = true, features = ["network"] }
+clap = { version = "4", features = ["derive"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+# The provider's HTTP client (`cli/src/provider.rs`); rustls avoids an OpenSSL
+# system dependency.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ron = "0.10"
+log = "0.4"
+env_logger = "0.11"
+# `env_logger`'s own filter parser. Parsing here (rather than through
+# `env_logger::from_env`) keeps a malformed `RUST_LOG` from being echoed by
+# `env_filter`'s direct stderr warning, so this must resolve the same
+# `env_filter` major that `env_logger` applies filters with.
+env_filter = { version = "2", default-features = false, features = ["std"] }
+thiserror = "2"
+tempfile = "3"
+
+[dev-dependencies]
+assert_cmd = "2"

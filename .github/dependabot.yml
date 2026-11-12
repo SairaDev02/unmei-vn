@@ -1,0 +1,24 @@
+# Every third-party action in the workflows is pinned to a full commit SHA,
+# which freezes it until someone proposes the next reviewed commit. Dependabot
+# is that proposer: it opens a weekly PR and rewrites the `# vX.Y.Z` comment on
+# the pinned line. Its PRs are reviewed like any other change; merging one is
+# the review.
+
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR for the whole set: these pins move together, and a single diff
+    # keeps the SHAs and their version comments easy to check against the
+    # upstream tags.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    # Matches the repository's `ci: ...` commit style, so a bot commit reads
+    # like the hand-written CI commits beside it.
+    commit-message:
+      prefix: ci
