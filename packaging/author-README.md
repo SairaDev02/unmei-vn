@@ -24,7 +24,7 @@ You do not need Rust or Cargo.
    On Windows, `unmei.exe` is unsigned. If SmartScreen shows **Windows protected your PC**, choose
    **More info**, then **Run anyway**. Where Windows 11's **Smart App Control** is on, it can block an
    unsigned program outright, with no prompt. The Guide's
-   [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/troubleshooting.md#smart-app-control) covers this case.
+   [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/troubleshooting.md#smart-app-control) covers this case.
 2. Open a terminal in the extracted folder, the one that holds `unmei` (`unmei.exe` on Windows) and
    `demo-pack/`.
 3. Confirm that the CLI runs. This check needs no key. Where the commands on this page show `unmei`,
@@ -135,10 +135,10 @@ with the path of your pack folder:
 ```
 
 The Guide has step-by-step pages:
-[Install the Unmei authoring CLI](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/install-the-cli.md),
-[Write your first Unmei pack](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/write-your-first-pack.md) and
-[Use the authoring CLI](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/author-with-the-cli.md), which covers `author npc` and
-`author draft`. The Guide's [home page](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/README.md) links the content format overview.
+[Install the Unmei authoring CLI](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/install-the-cli.md),
+[Write your first Unmei pack](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/write-your-first-pack.md) and
+[Use the authoring CLI](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/author-with-the-cli.md), which covers `author npc` and
+`author draft`. The Guide's [home page](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/README.md) links the content format overview.
 
 If an AI coding agent edits your pack, point it at `demo-pack/AGENT-GUIDE.md`.
 

@@ -54,7 +54,9 @@ A result that does not match closes the pull request with the checklist item cit
 
 An issue arrives carrying `needs-triage`. Triage ends in one of three ways: accept the issue, ask for the information it lacks, or close it as `wontfix`. [CONTRIBUTING.md § Contribution paths](../CONTRIBUTING.md#contribution-paths) states what acceptance requires and which labels it applies.
 
-Triage reads these signals:
+An issue opened through the [question form](../.github/ISSUE_TEMPLATE/question.yml) is answered in the issue and then closed. It is not accepted as work. When the answer shows a defect or a request, the maintainer asks the reporter to open a bug report or a feature request.
+
+For a bug report or a feature request, triage reads these signals:
 
 - a version or commit, which the [bug form](../.github/ISSUE_TEMPLATE/bug_report.yml) requires;
 - steps that reproduce the problem, and the behavior the reporter expected instead;
@@ -83,7 +85,7 @@ Trust rises by what a reporter has already produced. The ladder has three rungs,
 
 | Rung | Who reaches it | What it allows |
 | --- | --- | --- |
-| 1 | Anyone | Opens an issue through the [bug form](../.github/ISSUE_TEMPLATE/bug_report.yml) or the [feature form](../.github/ISSUE_TEMPLATE/feature_request.yml). |
+| 1 | Anyone | Opens an issue through the [bug form](../.github/ISSUE_TEMPLATE/bug_report.yml), the [feature form](../.github/ISSUE_TEMPLATE/feature_request.yml) or the [question form](../.github/ISSUE_TEMPLATE/question.yml). |
 | 2 | A reporter whose two issues were accepted without a `needs-info` round | The maintainer may invite the reporter to open pull requests. |
 | 3 | An invited collaborator | Opens pull requests against accepted issues, through [the same two gates](#the-two-pull-request-gates). |
 
