@@ -22,7 +22,7 @@ You do not need Rust or Cargo.
 1. Extract the CLI archive into a folder you can write to.
 
    On Windows, `unmei.exe` is unsigned. If SmartScreen shows **Windows protected your PC**, choose
-   **More info**, then **Run anyway**. Where Windows 11's **Smart App Control** is on, it blocks an
+   **More info**, then **Run anyway**. Where Windows 11's **Smart App Control** is on, it can block an
    unsigned program outright, with no prompt. The Guide's
    [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/troubleshooting.md#smart-app-control) covers this case.
 2. Open a terminal in the extracted folder, the one that holds `unmei` (`unmei.exe` on Windows) and

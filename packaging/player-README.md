@@ -21,8 +21,8 @@ You need Windows x64 or Linux x64. There is no macOS player archive and no insta
 3. Start the player from that folder:
    - **Windows:** double-click `unmei-play.exe`. The beta is not code-signed. If Windows shows
      **Windows protected your PC**, choose **More info**, then **Run anyway**. Windows 11's
-     **Smart App Control**, where it is on, blocks an unsigned app outright instead of showing
-     that screen. The player then does not start. The Guide's
+     **Smart App Control**, where it is on, can block an unsigned app outright instead of showing
+     that screen. If it does, the player does not start. The Guide's
      [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/troubleshooting.md#smart-app-control) covers what
      Windows offers. On Windows, a console window also opens beside the game. Closing that window
      closes the game.

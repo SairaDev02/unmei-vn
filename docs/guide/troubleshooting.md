@@ -50,12 +50,13 @@ from Windows, not from Unmei. Microsoft's
 [Smart App Control FAQ](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions)
 states them, and this section applies them to Unmei:
 
-- While Smart App Control is on, the 0.1.0 player and the authoring CLI cannot start, because both are
-  unsigned.
+- While Smart App Control is on, it can refuse to start the player or the authoring CLI, because both
+  are unsigned. Windows decides for each program, so this page cannot say in advance which one it
+  refuses. On one test machine with the 0.1.0 archives, it refused the CLI and let the player start.
 - Windows offers no way to let a single app through.
 - Smart App Control checks every app on the machine, so turning it off lowers that protection for all
-  of them. The only way to run the 0.1.0 player and the authoring CLI is to turn Smart App Control off
-  in the Windows Security app settings. Microsoft's
+  of them. When Smart App Control refuses the player or the CLI, the only way to run that program is
+  to turn Smart App Control off in the Windows Security app settings. Microsoft's
   [Smart App Control overview](https://learn.microsoft.com/en-us/windows/apps/develop/smart-app-control/overview)
   shows its state under **Settings** → **Windows Security** → **App and Browser Control**.
 - The FAQ says that Windows updates allow Smart App Control to be turned back on without a clean
