@@ -14,9 +14,11 @@ import hashlib
 import importlib
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
 
@@ -958,6 +960,159 @@ class AppendixTests(unittest.TestCase):
             self.lib.build_record(supplied, None, "2026-11-07T00:00:00Z")
         self.assertIn("detail", str(raised.exception))
 
+
+
+REPOSITORY = SCRIPT.parent.parent
+RUNBOOK = REPOSITORY / "docs" / "release-runbook.md"
+PUBLISH_WORKFLOW = REPOSITORY / ".github" / "workflows" / "publish.yml"
+CLI_CRATE = f"unmei-{VERSION}.crate"
+# The checks that read files a command downloaded. Their file names are part of
+# what the script verifies, so the documented download paths must satisfy them.
+DOWNLOAD_CHECKS = ("verify index-cksum", "verify download-crate", "verify release-assets")
+
+# Stand-ins for the network and the interpreter, prepended to each documented
+# block: `curl` serves a fixture file named after the URL's last part, and
+# `python3 scripts/candidate_record.py` runs this checkout's script.
+SHELL_STUBS = """
+curl() {
+  local out="" url=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -o) out="$2"; shift 2 ;;
+      -*) shift ;;
+      *) url="$1"; shift ;;
+    esac
+  done
+  cp "$SERVED/${url##*/}" "$out"
+}
+sleep() { :; }
+python3() { shift; "$UNMEI_PYTHON" "$UNMEI_SCRIPT" "$@" --time "$UNMEI_TIME"; }
+"""
+
+
+def sh_blocks(text):
+    """Every `sh` fenced block in a Markdown text, dedented, in document order."""
+    blocks, current = [], None
+    for line in text.splitlines():
+        if current is None:
+            if line.strip() == "```sh":
+                current = []
+        elif line.strip() == "```":
+            blocks.append(textwrap.dedent("\n".join(current)))
+            current = None
+        else:
+            current.append(line)
+    return blocks
+
+
+def workflow_step_run(text, step_name):
+    """The `run: |` body of the named step in a workflow file, dedented."""
+    lines = text.splitlines()
+    start = next(i for i, line in enumerate(lines)
+                 if line.strip() == f"- name: {step_name}")
+    run = next(i for i in range(start + 1, len(lines))
+               if lines[i].strip() == "run: |")
+    indent = len(lines[run]) - len(lines[run].lstrip())
+    body = []
+    for line in lines[run + 1:]:
+        if line.strip() and len(line) - len(line.lstrip()) <= indent:
+            break
+        body.append(line)
+    return textwrap.dedent("\n".join(body))
+
+
+class DocumentedCommandTests(unittest.TestCase):
+    """The runbook's and publish.yml's download checks, run as written.
+
+    Each block runs in bash against fixture downloads, so a documented file name
+    or `--dir` that the script rejects fails here instead of during a release.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        load_candidate_record()
+        cls.lib = sys.modules["candidate_record_lib"]
+        cls.appendices = sys.modules["candidate_record_appendix"]
+
+    def setUp(self) -> None:
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.root = Path(self.tempdir.name)
+        self.served = self.root / "served"
+        self.served.mkdir()
+        self.files = {
+            PLAYER_WINDOWS: b"windows archive",
+            PLAYER_LINUX: b"linux archive",
+            ENGINE_CRATE: b"engine crate",
+            CLI_CRATE: b"cli crate",
+        }
+        payload = facts()
+        for job in ("packaging-windows", "packaging-linux"):
+            payload["hashes"].append({"job": job, "name": CLI_CRATE, "kind": "crate",
+                                      "sha256": DIGEST_1, "bytes": 9})
+        for entry in payload["hashes"]:
+            if entry["name"] in self.files:
+                entry["sha256"] = digest_of(self.files[entry["name"]])
+        self.record = self.lib.build_record(payload, None, MOMENT)
+        self.record_path = self.root / "candidate-record.json"
+        self.record_path.write_bytes(self.lib.record_bytes(self.record))
+        for crate, name in (("unmei-engine", ENGINE_CRATE), ("unmei", CLI_CRATE)):
+            (self.served / name).write_bytes(self.files[name])
+            (self.served / crate).write_text(json.dumps(
+                {"name": crate, "vers": VERSION,
+                 "cksum": digest_of(self.files[name])}) + "\n", encoding="utf-8")
+
+    def write_appendix(self, stage, name):
+        (self.root / name).write_text(self.appendices.template(
+            stage, self.record, self.lib.sha256_file(self.record_path), "Jesse",
+            MOMENT, "Windows 11"), encoding="utf-8")
+
+    def run_block(self, block, **variables):
+        environment = dict(os.environ, SERVED=self.served.as_posix(),
+                           UNMEI_PYTHON=Path(sys.executable).as_posix(),
+                           UNMEI_SCRIPT=SCRIPT.as_posix(), UNMEI_TIME=MOMENT,
+                           VERSION=VERSION, **variables)
+        result = subprocess.run(["bash", "-c", SHELL_STUBS + block],
+                                cwd=str(self.root), env=environment, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.assertEqual(result.returncode, 0,
+                         f"{block}\n--- stdout\n{result.stdout}\n--- stderr\n{result.stderr}")
+
+    def stage_release_downloads(self, *directories):
+        sums = "".join(f"{digest_of(data)}  {name}\n" for name, data in self.files.items())
+        for directory in directories:
+            (self.root / directory).mkdir()
+            (self.root / directory / "SHA256SUMS").write_text(sums, encoding="utf-8")
+            for name in (PLAYER_WINDOWS, PLAYER_LINUX):
+                (self.root / directory / name).write_bytes(self.files[name])
+
+    def test_the_runbook_download_checks_pass_in_order(self) -> None:
+        blocks = [block for block in sh_blocks(RUNBOOK.read_text(encoding="utf-8"))
+                  if any(check in block for check in DOWNLOAD_CHECKS)]
+        for check in ("verify index-cksum", "verify download-crate"):
+            for crate in ("unmei-engine", "unmei"):
+                self.assertTrue(
+                    any(check in block and any(
+                        line.rstrip().endswith(f"--name {crate}")
+                        for line in block.splitlines()) for block in blocks),
+                    f"the runbook gives no `{check}` command for {crate}")
+        self.write_appendix("engine-publication", "engine-publication.md")
+        self.write_appendix("cli-publication", "cli-publication.md")
+        self.write_appendix("release-assets", "release-assets.md")
+        # § 8 downloads the draft into published/ and the public release into
+        # public/; neither holds the crates, which crates.io serves.
+        self.stage_release_downloads("published", "public")
+
+        for block in blocks:
+            with self.subTest(block=block.splitlines()[0]):
+                self.run_block(block, RECORD_DIR=self.root.as_posix())
+
+    def test_the_publish_workflow_download_checks_pass(self) -> None:
+        block = workflow_step_run(PUBLISH_WORKFLOW.read_text(encoding="utf-8"),
+                                  "Check the published cksum and the download")
+        self.write_appendix("engine-publication", "appendix.md")
+        self.run_block(block, CRATE="unmei-engine",
+                       RECORD_DIR=self.root.as_posix() + "/")
 
 
 if __name__ == "__main__":

@@ -213,23 +213,27 @@ Run these commands in the clone, with `$SHA` checked out and no changes to track
    cargo publish -p unmei-engine --locked
    ```
 
-7. Prove what crates.io received. Fetch the sparse-index entry and verify its checksum:
+7. Prove what crates.io received. Fetch the sparse-index entry and verify its checksum. The check also requires the saved file's path to end in the sparse-index path, `un/me/unmei-engine`:
 
    ```sh
-   curl -fsSL "https://index.crates.io/un/me/unmei-engine" -o index-engine.json
+   mkdir -p registry/index/un/me
+   curl -fsSL "https://index.crates.io/un/me/unmei-engine" \
+     -o registry/index/un/me/unmei-engine
    python3 scripts/candidate_record.py verify index-cksum \
      --record "$RECORD_DIR/candidate-record.json" \
-     --appendix engine-publication.md --index-file index-engine.json --name unmei-engine
+     --appendix engine-publication.md \
+     --index-file registry/index/un/me/unmei-engine --name unmei-engine
    ```
 
-8. Download the published `.crate` and verify it:
+8. Download the published `.crate` and verify it. The check also requires the file name `unmei-engine-$VERSION.crate`:
 
    ```sh
    curl -fsSL "https://static.crates.io/crates/unmei-engine/unmei-engine-$VERSION.crate" \
-     -o published-engine.crate
+     -o "registry/unmei-engine-$VERSION.crate"
    python3 scripts/candidate_record.py verify download-crate \
      --record "$RECORD_DIR/candidate-record.json" \
-     --appendix engine-publication.md --crate published-engine.crate --name unmei-engine
+     --appendix engine-publication.md \
+     --crate "registry/unmei-engine-$VERSION.crate" --name unmei-engine
    ```
 
 The index and the download lag an upload, so retry steps 7 and 8 for up to 2 minutes, as `publish.yml` does, before you treat a failure as real.
@@ -274,7 +278,24 @@ The CLI's own registry check could not run before the engine existed, so it runs
    cargo publish -p unmei --locked
    ```
 
-6. Repeat the index and download checks of § 6 steps 7 and 8 for `unmei`. Use the index URL `https://index.crates.io/un/me/unmei`, the download URL `https://static.crates.io/crates/unmei/unmei-$VERSION.crate`, the appendix `cli-publication.md` and `--name unmei`.
+6. Repeat the index and download checks of § 6 steps 7 and 8 for `unmei`, with the same retry:
+
+   ```sh
+   curl -fsSL "https://index.crates.io/un/me/unmei" -o registry/index/un/me/unmei
+   python3 scripts/candidate_record.py verify index-cksum \
+     --record "$RECORD_DIR/candidate-record.json" \
+     --appendix cli-publication.md \
+     --index-file registry/index/un/me/unmei --name unmei
+   ```
+
+   ```sh
+   curl -fsSL "https://static.crates.io/crates/unmei/unmei-$VERSION.crate" \
+     -o "registry/unmei-$VERSION.crate"
+   python3 scripts/candidate_record.py verify download-crate \
+     --record "$RECORD_DIR/candidate-record.json" \
+     --appendix cli-publication.md \
+     --crate "registry/unmei-$VERSION.crate" --name unmei
+   ```
 
 7. Install from the registry, as an author does:
 
@@ -326,13 +347,13 @@ The CLI's own registry check could not run before the engine existed, so it runs
    gh release download "v$VERSION" --repo "$REPO" --dir published
    ```
 
-6. Check every sum in the `release-assets` appendix before you publish the draft:
+6. Check every sum in the `release-assets` appendix before you publish the draft. `SHA256SUMS` also lists the two `.crate` files, which the release does not carry, so the check also reads `registry/`, where § 6 and § 7 saved them:
 
    ```sh
    python3 scripts/candidate_record.py verify release-assets \
      --record "$RECORD_DIR/candidate-record.json" \
      --appendix release-assets.md \
-     --dir published --sums published/SHA256SUMS
+     --dir published --dir registry --sums published/SHA256SUMS
    ```
 
 7. Publish the release. This step makes the draft and its assets public:
@@ -347,13 +368,13 @@ The CLI's own registry check could not run before the engine existed, so it runs
    gh release download "v$VERSION" --repo "$REPO" --dir public --clobber
    ```
 
-9. Verify the public download:
+9. Verify the public download, with the `.crate` files from `registry/` as in step 6:
 
    ```sh
    python3 scripts/candidate_record.py verify release-assets \
      --record "$RECORD_DIR/candidate-record.json" \
      --appendix release-assets.md \
-     --dir public --sums public/SHA256SUMS
+     --dir public --dir registry --sums public/SHA256SUMS
    ```
 
 ## 9. Close out

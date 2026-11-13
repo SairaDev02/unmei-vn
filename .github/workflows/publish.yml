@@ -225,28 +225,33 @@ jobs:
         if: ${{ ! inputs.dry_run }}
         run: |
           set -euo pipefail
-          index_url="https://index.crates.io/${CRATE:0:2}/${CRATE:2:2}/${CRATE}"
+          # The checks also read the file names: the index file's path must end in
+          # its sparse-index path, and the download must keep its registry name.
+          index_path="${CRATE:0:2}/${CRATE:2:2}/${CRATE}"
+          index_file="registry/index/${index_path}"
+          crate_file="registry/${CRATE}-${VERSION}.crate"
+          mkdir -p "$(dirname "$index_file")"
           for attempt in $(seq 1 12); do
-            if curl -fsSL "$index_url" -o index.json; then break; fi
+            if curl -fsSL "https://index.crates.io/${index_path}" -o "$index_file"; then break; fi
             echo "the index does not list ${CRATE} yet (attempt ${attempt})"
             sleep 10
           done
           python3 scripts/candidate_record.py verify index-cksum \
             --record "${RECORD_DIR}candidate-record.json" \
             --appendix appendix.md \
-            --index-file index.json \
+            --index-file "$index_file" \
             --name "$CRATE"
 
           crate_url="https://static.crates.io/crates/${CRATE}/${CRATE}-${VERSION}.crate"
           for attempt in $(seq 1 12); do
-            if curl -fsSL "$crate_url" -o "published-${CRATE}.crate"; then break; fi
+            if curl -fsSL "$crate_url" -o "$crate_file"; then break; fi
             echo "the download is not available yet (attempt ${attempt})"
             sleep 10
           done
           python3 scripts/candidate_record.py verify download-crate \
             --record "${RECORD_DIR}candidate-record.json" \
             --appendix appendix.md \
-            --crate "published-${CRATE}.crate" \
+            --crate "$crate_file" \
             --name "$CRATE"
 
       - name: Upload the publication appendix
