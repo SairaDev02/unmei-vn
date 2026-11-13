@@ -6,7 +6,7 @@ This page explains how to report an issue and how an accepted issue becomes a ch
 
 - **Bugs:** open a [bug report](.github/ISSUE_TEMPLATE/bug_report.yml) with steps to reproduce.
 - **Features and ideas:** open a [feature request](.github/ISSUE_TEMPLATE/feature_request.yml).
-- **Questions and open-ended ideas:** ask in [Discussions](https://github.com/SairaDev02/unmei-vn/discussions). An issue is for a defect or a concrete request.
+- **Questions and open-ended ideas:** open a [question](.github/ISSUE_TEMPLATE/question.yml).
 - **Security vulnerabilities:** do not open a public issue. Follow [SECURITY.md](SECURITY.md) and use GitHub's private vulnerability reporting.
 
 An issue starts with the `needs-triage` label when it is opened. A maintainer triages each issue into one of these labels:

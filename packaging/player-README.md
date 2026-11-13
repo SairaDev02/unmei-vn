@@ -23,7 +23,7 @@ You need Windows x64 or Linux x64. There is no macOS player archive and no insta
      **Windows protected your PC**, choose **More info**, then **Run anyway**. Windows 11's
      **Smart App Control**, where it is on, can block an unsigned app outright instead of showing
      that screen. If it does, the player does not start. The Guide's
-     [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/troubleshooting.md#smart-app-control) covers what
+     [Smart App Control section](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/troubleshooting.md#smart-app-control) covers what
      Windows offers. On Windows, a console window also opens beside the game. Closing that window
      closes the game.
    - **Linux:** run `./unmei-play` from a terminal opened in that folder.
@@ -98,7 +98,7 @@ To have a language model decide Ace's reactions live, you need an
 [OpenRouter](https://openrouter.ai) API key. Each decision is one request. OpenRouter bills it to
 your account at the price of the decision model that the demo pack names for Ace. To set the key,
 press **Esc**, choose **Settings**, go to the **Decisions** group and paste the key. The Guide's
-[Paste the key in Settings](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/live-decisions.md#paste-the-key-in-settings) lists each
+[Paste the key in Settings](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/live-decisions.md#paste-the-key-in-settings) lists each
 step.
 
 The key is stored for your user account only, never in this folder, so the folder can be shared

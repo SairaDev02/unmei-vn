@@ -1,0 +1,11 @@
+name: Question
+description: Ask a question or raise an open-ended idea
+labels: [ 'needs-triage' ]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: What you want to know or discuss. Name the Unmei version or the Guide page it concerns, if any.
+    validations:
+      required: true
