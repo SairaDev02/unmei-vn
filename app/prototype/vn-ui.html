@@ -1,0 +1,680 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Not part of the player build. Lives on branch
+  `prototype/vn-ui-redesign` only; never merge to main.
+
+  Question: what should Unmei's default VN look be (play frame, title, Esc
+  menu) for the improved demo pack and default installs?
+
+  Plan: four structurally different variants of one shared VN model (the
+  demo pack's real script, background, Ace sprites and bundled fonts), at the
+  1280x720 reference frame, switchable via `?variant=A|B|C|D` and the
+  floating bottom bar. `?screen=title|play|menu` picks the surface.
+
+  Run (from the repository root):
+      python -m http.server 8137
+  then open http://localhost:8137/app/prototype/vn-ui.html
+
+  Bevy-feasibility constraint: every variant uses only what Bevy 0.19 UI
+  draws — solid/alpha fills, linear/radial gradients, borders, corner radius,
+  box shadow, text shadow, images. No backdrop-filter, filter, clip-path or
+  blend modes. Animations are simple opacity/offset loops.
+
+  Simulated: the `decide ace.greet` request (≈2.4 s, warm if affinity is
+  high, else cold), save slots (static), Settings/Gallery/Timeline views.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Unmei VN UI variants</title>
+<style>
+@font-face { font-family: Plex; src: url(../assets/fonts/IBMPlexSans-Regular.ttf); font-weight: 400; }
+@font-face { font-family: Plex; src: url(../assets/fonts/IBMPlexSans-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: Plex; src: url(../assets/fonts/IBMPlexSans-Bold.ttf); font-weight: 700; }
+@font-face { font-family: Fira; src: url(../assets/fonts/FiraMono-Medium.ttf); font-weight: 500; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #050608; overflow: hidden; }
+body { font-family: Plex, sans-serif; color: #e6e6eb; }
+#viewport { position: absolute; inset: 0 0 64px 0; display: flex; align-items: center; justify-content: center; }
+#stage { width: 1280px; height: 720px; position: relative; overflow: hidden; transform-origin: center; background: #0b0d12; flex: none; }
+.scr { position: absolute; inset: 0; }
+.bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+.mono { font-family: Fira, monospace; font-weight: 500; }
+[data-act] { cursor: pointer; }
+.dis { opacity: .38; cursor: default; }
+@keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+@keyframes dots { 0% { opacity: .2 } 50% { opacity: 1 } 100% { opacity: .2 } }
+@keyframes sweep { from { left: -30% } to { left: 100% } }
+.dots i { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: currentColor; margin: 0 2px; animation: dots 1s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s } .dots i:nth-child(3) { animation-delay: .4s }
+
+/* ───────────── A · Classic ADV box ───────────── */
+.vA .sprite { position: absolute; bottom: 0; left: 50%; height: 600px; transform: translateX(-50%); }
+.vA .box { position: absolute; left: 72px; right: 72px; bottom: 28px; height: 178px; padding: 34px 40px 0;
+  background: linear-gradient(180deg, rgba(16,18,26,.95), rgba(10,11,16,.97)); border: 1px solid rgba(255,255,255,.14);
+  border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.45); }
+.vA .plate { position: absolute; top: -20px; left: 28px; padding: 6px 22px; border-radius: 8px; background: #e69e5c; color: #17130f;
+  font-weight: 600; font-size: 19px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+.vA .prose { font-size: 25px; line-height: 1.5; }
+.vA .prose.narr { font-style: italic; color: #cfd2dc; }
+.vA .next { position: absolute; right: 26px; bottom: 44px; color: #e69e5c; animation: blink 1s infinite; }
+.vA .quick { position: absolute; left: 40px; right: 26px; bottom: 10px; display: flex; gap: 22px; font-size: 12px; color: rgba(205,205,215,.45); letter-spacing: .08em; }
+.vA .quick span:hover { color: #e6e6eb; } .vA .quick .on { color: #e69e5c; }
+.vA .quick .grow { flex: 1; }
+.vA .choices { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.vA .choice { padding: 16px 22px; background: rgba(14,16,22,.88); border: 1px solid rgba(255,255,255,.16); border-radius: 10px; font-size: 21px; display: flex; gap: 16px; align-items: center; }
+.vA .choice:hover { border-color: #e69e5c; box-shadow: 0 0 0 1px #e69e5c; }
+.vA .choice b { font-family: Fira; font-weight: 500; font-size: 14px; color: #e69e5c; border: 1px solid rgba(230,158,92,.5); border-radius: 6px; padding: 2px 8px; }
+.vA .thinking { color: #e69e5c; font-size: 21px; display: flex; gap: 14px; align-items: center; }
+.vA .thinking small { font-family: Fira; font-size: 12px; color: rgba(205,205,215,.45); margin-left: auto; }
+.vA .t-scrim { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(8,9,13,.86) 0%, rgba(8,9,13,.55) 38%, rgba(8,9,13,0) 62%); }
+.vA .t-col { position: absolute; left: 104px; top: 150px; width: 420px; }
+.vA .t-word { font-weight: 700; font-size: 64px; letter-spacing: -.02em; line-height: 1; }
+.vA .t-tag { font-family: Fira; font-size: 12px; letter-spacing: .34em; color: #e69e5c; margin: 14px 0 46px; }
+.vA .t-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.vA .t-menu li { font-size: 22px; padding: 8px 0 8px 26px; position: relative; color: #c9ccd6; }
+.vA .t-menu li.f { color: #fff; } .vA .t-menu li.f::before { content: ''; position: absolute; left: 0; top: 50%; width: 12px; height: 2px; background: #e69e5c; }
+.vA .t-menu li.rule { margin-top: 14px; }
+.vA .t-reason { font-family: Fira; font-size: 12px; color: rgba(205,205,215,.55); margin-top: 26px; }
+.vA .t-legend { position: absolute; right: 40px; bottom: 26px; font-family: Fira; font-size: 12px; color: rgba(255,255,255,.55); }
+.vA .m-dim { position: absolute; inset: 0; background: rgba(6,7,10,.62); }
+.vA .drawer { position: absolute; right: 0; top: 0; bottom: 0; width: 470px; background: #12141b; border-left: 1px solid rgba(255,255,255,.1); box-shadow: -20px 0 50px rgba(0,0,0,.5); padding: 34px 32px; display: flex; flex-direction: column; }
+.vA .d-head { display: flex; align-items: baseline; justify-content: space-between; }
+.vA .d-head b { font-size: 24px; font-weight: 700; } .vA .d-head span { font-family: Fira; font-size: 12px; color: rgba(205,205,215,.5); }
+.vA .seg { display: flex; margin: 24px 0 18px; background: #0b0c11; border-radius: 9px; padding: 3px; }
+.vA .seg span { flex: 1; text-align: center; padding: 8px 0; font-size: 14px; border-radius: 7px; color: #a9acb8; }
+.vA .seg span.on { background: #262935; color: #fff; }
+.vA .slot { display: grid; grid-template-columns: 96px 1fr auto; align-items: center; gap: 12px; padding: 14px 14px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; margin-bottom: 8px; background: #181a22; }
+.vA .slot .k { font-weight: 600; font-size: 15px; } .vA .slot .meta { font-family: Fira; font-size: 12px; color: rgba(205,205,215,.6); line-height: 1.5; }
+.vA .slot .act { font-size: 13px; padding: 6px 12px; border-radius: 7px; background: #262935; }
+.vA .slot .act.warn { color: #e6a35c; }
+.vA .d-nav { margin-top: auto; display: flex; flex-direction: column; gap: 2px; }
+.vA .d-nav div { padding: 10px 4px; font-size: 16px; color: #c9ccd6; border-top: 1px solid rgba(255,255,255,.06); display: flex; justify-content: space-between; }
+.vA .d-nav div span { font-family: Fira; font-size: 11px; color: rgba(205,205,215,.4); }
+.vA .d-nav .resume { color: #e69e5c; font-weight: 600; }
+.vA .ph { font-size: 15px; color: rgba(205,205,215,.55); padding: 30px 6px; }
+
+/* ───────────── B · Novel page (NVL) ───────────── */
+.vB .veil { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(9,10,14,.94) 0%, rgba(9,10,14,.90) 56%, rgba(9,10,14,.35) 76%, rgba(9,10,14,.15) 100%); }
+.vB .sprite { position: absolute; bottom: -40px; right: 90px; height: 620px; }
+.vB .page { position: absolute; left: 96px; top: 70px; width: 640px; bottom: 60px; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; }
+.vB .runhead { position: absolute; left: 96px; top: 32px; font-family: Fira; font-size: 12px; letter-spacing: .2em; color: rgba(205,205,215,.4); }
+.vB .p { font-size: 22px; line-height: 1.62; margin-top: 18px; color: rgba(230,230,235,.42); }
+.vB .p.cur { color: #ecedf2; }
+.vB .p .who { display: block; font-family: Fira; font-size: 12px; letter-spacing: .22em; color: #e69e5c; margin-bottom: 2px; }
+.vB .p.narr { font-style: italic; }
+.vB .p.pick { color: rgba(230,158,92,.6); font-size: 18px; } .vB .p.pick::before { content: '→ '; }
+.vB .p.dec { font-family: Fira; font-size: 12px; letter-spacing: .14em; color: rgba(205,205,215,.4); }
+.vB .opts { margin-top: 22px; display: flex; flex-direction: column; gap: 6px; }
+.vB .opt { font-size: 22px; padding: 6px 0; color: #ecedf2; border-bottom: 1px solid rgba(255,255,255,.08); }
+.vB .opt b { font-family: Fira; font-weight: 500; font-size: 15px; color: #e69e5c; margin-right: 16px; }
+.vB .opt:hover { color: #e69e5c; }
+.vB .caret { color: #e69e5c; animation: blink 1s infinite; margin-left: 6px; font-size: 18px; }
+.vB .foot { position: absolute; left: 96px; bottom: 24px; font-family: Fira; font-size: 11px; color: rgba(205,205,215,.35); letter-spacing: .06em; }
+.vB .wait { margin-top: 18px; font-style: italic; font-size: 20px; color: rgba(230,158,92,.85); }
+.vB .t-veil { position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 45%, rgba(9,10,14,.55) 0%, rgba(9,10,14,.92) 75%); }
+.vB .t-frame { position: absolute; inset: 40px; border: 1px solid rgba(255,255,255,.18); }
+.vB .t-frame::after { content: ''; position: absolute; inset: 8px; border: 1px solid rgba(255,255,255,.07); }
+.vB .t-center { position: absolute; left: 0; right: 0; top: 200px; text-align: center; }
+.vB .t-tag { font-family: Fira; font-size: 12px; letter-spacing: .5em; color: #e69e5c; }
+.vB .t-word { font-weight: 700; font-size: 92px; letter-spacing: -.03em; margin: 16px 0 10px; }
+.vB .t-rule { width: 60px; height: 1px; background: rgba(255,255,255,.35); margin: 0 auto; }
+.vB .t-menu { position: absolute; left: 0; right: 0; bottom: 116px; display: flex; justify-content: center; gap: 0; font-size: 17px; }
+.vB .t-menu span { padding: 6px 22px; color: #a9acb8; border-right: 1px solid rgba(255,255,255,.14); }
+.vB .t-menu span:last-child { border-right: 0; }
+.vB .t-menu span.f { color: #fff; text-decoration: underline; text-decoration-color: #e69e5c; text-underline-offset: 8px; text-decoration-thickness: 2px; }
+.vB .t-reason { position: absolute; left: 0; right: 0; bottom: 78px; text-align: center; font-family: Fira; font-size: 12px; color: rgba(205,205,215,.5); }
+.vB .contents { position: absolute; inset: 0; background: #0d0e12; display: grid; grid-template-columns: 420px 1fr; }
+.vB .c-left { padding: 70px 0 60px 96px; border-right: 1px solid rgba(255,255,255,.08); display: flex; flex-direction: column; }
+.vB .c-left .lbl { font-family: Fira; font-size: 12px; letter-spacing: .3em; color: rgba(205,205,215,.4); margin-bottom: 26px; }
+.vB .c-left .it { font-size: 34px; font-weight: 600; color: rgba(230,230,235,.35); padding: 4px 0; }
+.vB .c-left .it.on { color: #fff; } .vB .c-left .it.on::after { content: ' ·'; color: #e69e5c; }
+.vB .c-left .it:hover { color: #e6e6eb; }
+.vB .c-left .bot { margin-top: auto; font-size: 16px; color: #a9acb8; display: flex; flex-direction: column; gap: 10px; }
+.vB .c-left .bot .resume { color: #e69e5c; }
+.vB .c-right { padding: 70px 96px 60px 70px; }
+.vB .c-right h2 { font-size: 15px; font-weight: 400; color: rgba(205,205,215,.55); margin-bottom: 30px; }
+.vB .ledger { display: grid; grid-template-columns: 110px 1fr auto; column-gap: 18px; }
+.vB .ledger > div { padding: 18px 0; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 18px; }
+.vB .ledger .k { font-family: Fira; font-size: 13px; color: rgba(205,205,215,.55); padding-top: 22px; }
+.vB .ledger .meta small { display: block; font-family: Fira; font-size: 12px; color: rgba(205,205,215,.45); margin-top: 4px; }
+.vB .ledger .act { color: #e69e5c; font-size: 15px; padding-top: 21px; } .vB .ledger .act.dis { color: #a9acb8; }
+.vB .ph { font-size: 18px; color: rgba(205,205,215,.5); }
+
+/* ───────────── C · Cinematic letterbox ───────────── */
+.vC .bar { position: absolute; left: 0; right: 0; background: #060709; }
+.vC .bar.top { top: 0; height: 64px; display: flex; align-items: center; padding: 0 40px; gap: 16px; }
+.vC .bar.bot { bottom: 0; height: 176px; padding: 30px 160px 0; text-align: center; }
+.vC .scene { font-family: Fira; font-size: 12px; letter-spacing: .24em; color: rgba(205,205,215,.45); }
+.vC .cue { margin-left: auto; font-family: Fira; font-size: 12px; letter-spacing: .2em; color: rgba(230,158,92,.6); }
+.vC .sprite { position: absolute; bottom: 176px; left: 50%; transform: translateX(-30%); height: 470px; }
+.vC .who { font-size: 13px; font-weight: 600; letter-spacing: .3em; color: #e69e5c; text-transform: uppercase; margin-bottom: 10px; }
+.vC .prose { font-size: 24px; line-height: 1.45; text-shadow: 0 2px 6px #000; }
+.vC .prose.narr { color: #babdc8; font-style: italic; }
+.vC .pills { display: flex; justify-content: center; gap: 18px; margin-top: 18px; }
+.vC .pill { padding: 14px 30px; border-radius: 999px; border: 1px solid rgba(255,255,255,.25); font-size: 19px; }
+.vC .pill:hover { background: #e69e5c; color: #111; border-color: #e69e5c; }
+.vC .pill b { font-family: Fira; font-weight: 500; font-size: 13px; opacity: .6; margin-right: 10px; }
+.vC .ask { font-size: 14px; color: rgba(205,205,215,.5); letter-spacing: .1em; }
+.vC .track { position: absolute; left: 0; right: 0; top: 0; height: 2px; overflow: hidden; background: rgba(230,158,92,.12); }
+.vC .track i { position: absolute; top: 0; width: 30%; height: 2px; background: #e69e5c; animation: sweep 1.2s linear infinite; }
+.vC .deciding { font-size: 20px; color: #e69e5c; margin-top: 18px; }
+.vC .deciding small { display: block; font-family: Fira; font-size: 12px; color: rgba(205,205,215,.4); margin-top: 10px; letter-spacing: .1em; }
+.vC .hint { position: absolute; right: 40px; bottom: 14px; font-family: Fira; font-size: 11px; color: rgba(205,205,215,.25); }
+.vC .t-shade { position: absolute; left: 0; right: 0; bottom: 0; height: 320px; background: linear-gradient(180deg, rgba(6,7,9,0), rgba(6,7,9,.92) 70%); }
+.vC .t-word { position: absolute; left: 72px; bottom: 150px; font-weight: 700; font-size: 110px; letter-spacing: -.04em; line-height: .9; text-shadow: 0 4px 30px rgba(0,0,0,.5); }
+.vC .t-tag { position: absolute; left: 78px; bottom: 296px; font-family: Fira; font-size: 12px; letter-spacing: .4em; color: #e69e5c; }
+.vC .t-row { position: absolute; left: 72px; right: 72px; bottom: 56px; display: flex; gap: 40px; font-size: 17px; border-top: 1px solid rgba(255,255,255,.14); padding-top: 22px; }
+.vC .t-row span { color: #a9acb8; } .vC .t-row span.f { color: #fff; } .vC .t-row span.f::before { content: '▸ '; color: #e69e5c; }
+.vC .t-row .end { margin-left: auto; }
+.vC .t-reason { position: absolute; left: 72px; bottom: 24px; font-family: Fira; font-size: 12px; color: rgba(205,205,215,.45); }
+.vC .sheet { position: absolute; left: 0; right: 0; bottom: 0; height: 430px; background: #0a0b0e; border-top: 1px solid rgba(255,255,255,.1); box-shadow: 0 -30px 60px rgba(0,0,0,.6); padding: 26px 72px; }
+.vC .tabs { display: flex; gap: 34px; font-size: 16px; border-bottom: 1px solid rgba(255,255,255,.1); }
+.vC .tabs span { padding: 0 0 14px; color: #8d909c; } .vC .tabs span.on { color: #fff; box-shadow: inset 0 -2px 0 #e69e5c; }
+.vC .tabs .r { margin-left: auto; color: #e69e5c; }
+.vC .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 30px; }
+.vC .frame { height: 250px; border-radius: 6px; overflow: hidden; background: #15171d; border: 1px solid rgba(255,255,255,.08); display: flex; flex-direction: column; }
+.vC .frame .art { flex: 1; background-size: cover; background-position: center; position: relative; }
+.vC .frame .art.empty { background: repeating-linear-gradient(135deg, #14161b 0 10px, #181a20 10px 20px); }
+.vC .frame .art span { position: absolute; left: 12px; top: 10px; font-family: Fira; font-size: 11px; letter-spacing: .14em; padding: 3px 8px; background: rgba(0,0,0,.6); border-radius: 4px; }
+.vC .frame .cap { padding: 12px 14px; font-size: 15px; display: flex; flex-direction: column; gap: 4px; }
+.vC .frame .cap small { font-family: Fira; font-size: 11px; color: rgba(205,205,215,.5); }
+.vC .frame .cap em { font-style: normal; color: #e69e5c; font-size: 13px; }
+.vC .frame .cap em.dis { color: #8d909c; }
+.vC .ph { margin-top: 40px; color: rgba(205,205,215,.5); }
+
+/* ───────────── D · Chat side panel ───────────── */
+.vD .stagebg { position: absolute; left: 0; top: 0; bottom: 0; width: 820px; background-size: cover; background-position: 40% center; }
+.vD .sprite { position: absolute; bottom: 0; left: 410px; transform: translateX(-50%); height: 560px; }
+.vD .panel { position: absolute; right: 0; top: 0; bottom: 0; width: 460px; background: #101217; border-left: 1px solid rgba(255,255,255,.06); display: flex; flex-direction: column; }
+.vD .ph-head { height: 72px; display: flex; align-items: center; gap: 14px; padding: 0 24px; border-bottom: 1px solid rgba(255,255,255,.07); }
+.vD .av { width: 38px; height: 38px; border-radius: 19px; background: #3d4f7a; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 16px; flex: none; }
+.vD .ph-head b { font-size: 17px; font-weight: 600; display: block; } .vD .ph-head small { font-family: Fira; font-size: 11px; color: rgba(205,205,215,.45); }
+.vD .ph-head .cue { margin-left: auto; font-family: Fira; font-size: 11px; color: rgba(230,158,92,.65); letter-spacing: .14em; }
+.vD .log { flex: 1; padding: 18px 22px; display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; overflow: hidden; }
+.vD .sys { align-self: center; text-align: center; font-size: 15px; font-style: italic; color: rgba(205,205,215,.55); max-width: 360px; line-height: 1.45; }
+.vD .div { align-self: center; font-family: Fira; font-size: 10px; letter-spacing: .2em; color: rgba(205,205,215,.3); }
+.vD .msg { display: flex; gap: 10px; align-items: flex-end; }
+.vD .msg .av { width: 28px; height: 28px; font-size: 12px; }
+.vD .bub { background: #1f2330; padding: 11px 15px; border-radius: 16px 16px 16px 4px; font-size: 17px; line-height: 1.45; max-width: 330px; }
+.vD .me { align-self: flex-end; background: #e69e5c; color: #17130f; padding: 10px 15px; border-radius: 16px 16px 4px 16px; font-size: 16px; }
+.vD .tag { margin-left: 38px; font-family: Fira; font-size: 10px; letter-spacing: .1em; color: rgba(230,158,92,.6); }
+.vD .old { opacity: .55; }
+.vD .replies { padding: 14px 22px 18px; border-top: 1px solid rgba(255,255,255,.07); display: flex; flex-direction: column; gap: 8px; min-height: 64px; }
+.vD .reply { border: 1px solid rgba(230,158,92,.55); color: #f0c49b; border-radius: 12px; padding: 11px 15px; font-size: 16px; display: flex; gap: 12px; }
+.vD .reply:hover { background: rgba(230,158,92,.12); }
+.vD .reply b { font-family: Fira; font-weight: 500; font-size: 12px; opacity: .6; }
+.vD .tap { font-family: Fira; font-size: 11px; color: rgba(205,205,215,.35); display: flex; justify-content: space-between; padding-top: 10px; }
+.vD .t-panel { padding: 64px 40px; }
+.vD .t-word { font-weight: 700; font-size: 48px; letter-spacing: -.02em; }
+.vD .t-tag { font-family: Fira; font-size: 11px; letter-spacing: .34em; color: #e69e5c; margin: 10px 0 44px; }
+.vD .row { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; margin-bottom: 4px; border: 2px solid transparent; }
+.vD .row.f { border-color: #e69e5c; background: #171a22; }
+.vD .row .ic { width: 36px; height: 36px; border-radius: 10px; background: #1f2330; display: flex; align-items: center; justify-content: center; font-size: 15px; color: #e69e5c; flex: none; }
+.vD .row b { font-size: 17px; font-weight: 600; display: block; } .vD .row small { font-family: Fira; font-size: 11px; color: rgba(205,205,215,.45); }
+.vD .row.sep { margin-top: 18px; }
+.vD .t-legend { position: absolute; bottom: 22px; left: 40px; font-family: Fira; font-size: 11px; color: rgba(205,205,215,.35); }
+.vD .grp { font-family: Fira; font-size: 10px; letter-spacing: .24em; color: rgba(205,205,215,.4); margin: 18px 4px 8px; }
+.vD .m-body { flex: 1; padding: 6px 22px; overflow: hidden; }
+.vD .srow { display: flex; align-items: center; gap: 14px; padding: 11px 14px; background: #171a22; border-radius: 10px; margin-bottom: 6px; }
+.vD .srow .k { width: 74px; font-weight: 600; font-size: 14px; } .vD .srow .meta { flex: 1; font-family: Fira; font-size: 11px; color: rgba(205,205,215,.55); line-height: 1.5; }
+.vD .srow em { font-style: normal; font-size: 13px; color: #e69e5c; } .vD .srow em.dis { color: #8d909c; }
+.vD .seg { display: inline-flex; background: #0b0c11; border-radius: 8px; padding: 3px; margin-left: auto; }
+.vD .seg span { padding: 5px 14px; font-size: 13px; border-radius: 6px; color: #a9acb8; } .vD .seg span.on { background: #262935; color: #fff; }
+.vD .m-body .row { padding: 7px 12px; margin-bottom: 0; } .vD .m-body .grp { margin: 12px 4px 6px; }
+.vD .m-art-dim { position: absolute; left: 0; top: 0; bottom: 0; width: 820px; background: rgba(6,7,10,.55); }
+
+/* ───────────── Prototype switcher (not part of any design) ───────────── */
+#proto-bar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
+  background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 6px 24px rgba(0,0,0,.6); font: 13px system-ui, sans-serif; z-index: 10; white-space: nowrap; }
+#proto-bar button { border: 0; background: #eee; border-radius: 999px; padding: 6px 11px; font: inherit; cursor: pointer; }
+#proto-bar button:hover { background: #ddd; } #proto-bar button.on { background: #111; color: #fff; }
+#proto-bar .lbl { font-weight: 700; min-width: 210px; text-align: center; }
+#proto-bar .sep { width: 1px; height: 20px; background: #ccc; margin: 0 4px; }
+#proto-bar .tag { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #c33; }
+#proto-state { position: fixed; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: #8a8d98; z-index: 10; }
+#proto-toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: #fff; color: #111; padding: 6px 14px; border-radius: 8px; font: 13px system-ui; opacity: 0; transition: opacity .2s; z-index: 11; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage"></div></div>
+<div id="proto-state"></div>
+<div id="proto-toast"></div>
+<div id="proto-bar">
+  <span class="tag">PROTOTYPE</span>
+  <button data-nav="-1" title="Previous variant (←)">←</button>
+  <span class="lbl" id="proto-label"></span>
+  <button data-nav="1" title="Next variant (→)">→</button>
+  <span class="sep"></span>
+  <button data-scr="title">Title</button>
+  <button data-scr="play">Play</button>
+  <button data-scr="menu">Esc menu</button>
+  <span class="sep"></span>
+  <button data-jump="choice" title="New game, run to the player choice">@choice</button>
+  <button data-jump="decide" title="New game, run to the decide point (in flight)">@decide</button>
+  <button data-jump="epilogue" title="New game, run into the epilogue">@epilogue</button>
+</div>
+<script>
+// ── Assets (the demo pack and bundled fonts, read in place) ──
+const ASSETS = '../../examples/demo-pack/assets/';
+const BG = ASSETS + 'backgrounds/school_gate.png';
+const SPRITE = m => ASSETS + 'sprites/ace/' + m + '.png';
+const PACK = { name: 'unmei demo', tagline: 'a demo pack' };
+
+// ── The demo pack's script, hand-flattened (scenes/*.unmei) ──
+const BLOCKS = {
+  start: [{ scene: 'first_meeting' },
+    { say: 'Narrator', t: 'Morning light. A folded letter on the ground, half under a shoe.' },
+    { sprite: 'neutral' },
+    { say: 'Ace', t: "You're not from around here, are you?" },
+    { choice: [['Ask about the letter', 'ask'], ['Stay silent', 'silence']] }],
+  ask: [{ set: { met: true, letters: 1 } }, { say: 'Ace', t: 'A letter? Ah... you saw that.' }, { set: { aff: 'high' } }, { go: 'reunion' }],
+  silence: [{ set: { met: true, aff: 'low' } }, { say: 'Ace', t: "...Fine, don't talk. See if I care." }, { go: 'reunion' }],
+  reunion: [{ scene: 'reunion' }, { sprite: null },
+    { say: 'Narrator', t: "The gate again, hours later. She's still there." },
+    { sprite: 'neutral' }, { decide: 'ace.greet' }],
+  'reply.warm': [{ sprite: 'happy' }, { say: 'Ace', t: 'You came back! I... hoped you would.' }, { go: 'epilogue' }],
+  'reply.cold': [{ sprite: 'neutral' }, { say: 'Ace', t: "Oh. It's you." }, { go: 'epilogue' }],
+  epilogue: null, // built from state on entry, like the scene's if/else
+};
+function epilogue(v) {
+  const L = [{ scene: 'epilogue' }];
+  if (v.aff === 'high') {
+    L.push({ say: 'Narrator', t: 'She lingers by the gate, in no hurry to leave.' });
+    L.push({ say: 'Ace', t: v.letters > 0 ? 'Keep it. It suits you.' : 'Next time, bring me something.' });
+  } else L.push({ say: 'Narrator', t: 'She is already walking away.' });
+  if (v.met) L.push({ say: 'Narrator', t: 'You will see her again.' });
+  L.push({ end: true });
+  return L;
+}
+
+const SLOTS = [
+  { k: 'Slot 1', st: 'Ok', scene: 'reunion', at: '12 Nov 2026 14:03' },
+  { k: 'Slot 2', st: 'Empty' },
+  { k: 'Slot 3', st: 'Unreadable', reason: 'saved by a newer Unmei (save version 3)' },
+  { k: 'Autosave', st: 'Ok', scene: 'first_meeting', at: '14 Nov 2026 09:41', auto: true },
+];
+const TABS = ['Save', 'Load', 'Timeline', 'Gallery', 'Settings'];
+function slotAction(sl, tab) {
+  if (tab === 'Save') {
+    if (sl.auto) return { t: 'Load-only', dis: true };
+    return { t: sl.st === 'Empty' ? 'Save here' : 'Overwrite', warn: sl.st !== 'Empty' };
+  }
+  if (sl.st === 'Ok') return { t: 'Load' };
+  return { t: sl.st === 'Empty' ? '—' : 'Can’t load', dis: true };
+}
+function slotMeta(sl) {
+  if (sl.st === 'Ok') return [sl.scene, sl.at];
+  if (sl.st === 'Empty') return ['—', 'no save yet'];
+  return ['Unreadable', sl.reason];
+}
+
+// ── Runtime model (in memory only) ──
+const S = {
+  screen: 'title', started: false, block: 'start', i: 0, code: [], vars: {},
+  scene: '', sprite: null, wait: null, line: null, shown: 0, choice: null,
+  decide: null, log: [], auto: false, skip: false, tab: 'Save', tf: 1,
+};
+let decideTimer = null;
+
+function newGame() {
+  clearTimeout(decideTimer);
+  Object.assign(S, { started: true, vars: {}, sprite: null, log: [], decide: null, screen: 'play' });
+  enter('start');
+}
+function enter(block) {
+  S.block = block; S.i = 0;
+  S.code = block === 'epilogue' ? epilogue(S.vars) : BLOCKS[block];
+  run();
+}
+function run() {
+  for (;;) {
+    const b = S.code[S.i++];
+    if (!b) { S.wait = 'end'; return; }
+    if (b.scene) { S.scene = b.scene; S.log.push({ kind: 'scene', t: b.scene }); continue; }
+    if ('sprite' in b) { S.sprite = b.sprite; continue; }
+    if (b.set) { Object.assign(S.vars, b.set); continue; }
+    if (b.go) return enter(b.go);
+    if (b.say) { S.wait = 'say'; S.line = { who: b.say, t: b.t }; S.shown = 0; S.log.push({ kind: 'say', who: b.say, t: b.t }); return; }
+    if (b.choice) { S.wait = 'choice'; S.choice = b.choice; return; }
+    if (b.decide) {
+      S.wait = 'decide'; S.decide = { id: b.decide, status: 'in flight' };
+      decideTimer = setTimeout(resolveDecide, 2400);
+      return;
+    }
+    if (b.end) { S.wait = 'end'; S.line = null; return; }
+  }
+}
+function resolveDecide() {
+  const action = S.vars.aff === 'high' ? 'warm' : 'cold';
+  S.decide = { id: S.decide.id, status: 'answered', action, by: 'model' };
+  if (S.screen === 'menu') { S.decide.held = true; render(); return; } // held until resume
+  applyDecide();
+}
+function applyDecide() {
+  S.log.push({ kind: 'decided', action: S.decide.action, by: S.decide.by });
+  const a = S.decide.action; S.decide = null;
+  enter('reply.' + a); render();
+}
+function full() { return S.line && S.shown >= S.line.t.length; }
+function advance() {
+  if (S.screen !== 'play') return;
+  if (S.wait === 'say') {
+    if (!full()) { S.shown = S.line.t.length; paintProse(); return; }
+    run(); render();
+  } else if (S.wait === 'end') { S.screen = 'title'; S.started = false; render(); }
+}
+function choose(n) {
+  if (S.screen !== 'play' || S.wait !== 'choice' || !S.choice[n]) return;
+  const [t, go] = S.choice[n];
+  S.log.push({ kind: 'pick', t }); S.choice = null;
+  enter(go); render();
+}
+function openMenu() { if (!S.started) return; S.screen = 'menu'; render(); }
+function resume() { S.screen = 'play'; if (S.decide && S.decide.held) applyDecide(); else render(); }
+
+const TITLE_ITEMS = () => [
+  { label: 'Continue', ic: '▶', sub: S.started ? S.scene : 'No autosave yet', dis: !S.started },
+  { label: 'New Game', ic: '✦', sub: 'from the beginning' },
+  { label: 'Settings', ic: '⚙', sub: 'audio, play, decisions' },
+  { label: 'Gallery', ic: '▦', sub: 'stills you have seen' },
+  { label: 'Quit', ic: '⏻', sub: '', rule: true },
+];
+function titleAct(n) {
+  const it = TITLE_ITEMS()[n]; if (!it || it.dis) return;
+  if (it.label === 'Continue') { S.screen = 'play'; render(); }
+  else if (it.label === 'New Game') { newGame(); render(); }
+  else toast(it.label + ' is out of scope for this prototype');
+}
+function reasonLine() { return S.started ? S.scene : 'No autosave yet'; }
+
+// ── Shared bits each variant may use (no shared layout) ──
+const isNarr = w => w === 'Narrator';
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const proseSpan = cls => `<span class="${cls}" data-prose></span>`;
+const dots = '<span class="dots"><i></i><i></i><i></i></span>';
+const cueText = () => S.skip ? 'SKIP' : S.auto ? 'AUTO' : '';
+
+// ───────────── Variant A · Classic ADV box ─────────────
+const VariantA = {
+  name: 'Classic ADV box',
+  title() {
+    const items = TITLE_ITEMS();
+    return `<div class="scr vA"><div class="bg" style="background-image:url(${BG})"></div><div class="t-scrim"></div>
+      <div class="t-col"><div class="t-word">${PACK.name}</div><div class="t-tag">${PACK.tagline.toUpperCase()}</div>
+      <ul class="t-menu">${items.map((it, i) => `<li class="${i === S.tf ? 'f' : ''} ${it.dis ? 'dis' : ''} ${it.rule ? 'rule' : ''}" data-act="title:${i}">${it.label}</li>`).join('')}</ul>
+      <div class="t-reason">${reasonLine()}</div></div>
+      <div class="t-legend">↑/↓ move · Enter select · click to choose</div></div>`;
+  },
+  frame() {
+    let box = '';
+    if (S.wait === 'say' || S.wait === 'decide' || S.wait === 'choice' || S.wait === 'end') {
+      const who = S.wait === 'decide' ? 'Ace' : S.line && S.line.who;
+      let inner;
+      if (S.wait === 'decide') inner = `<div class="thinking">Ace is deciding how to greet you ${dots}<small>ace.greet · ${S.decide.status}</small></div>`;
+      else if (S.wait === 'end') inner = `<div class="prose narr">— End of the demo. Click to return to the title. —</div>`;
+      else inner = proseSpan('prose' + (isNarr(who) ? ' narr' : ''));
+      box = `<div class="box" data-act="advance">
+        ${who && !isNarr(who) && S.wait !== 'end' ? `<div class="plate">${who}</div>` : ''}
+        <div class="prose ${isNarr(who) ? 'narr' : ''}">${inner}</div>
+        ${S.wait === 'say' ? '<div class="next" data-next>▼</div>' : ''}
+        <div class="quick mono"><span data-act="menu:Save">SAVE</span><span data-act="menu:Load">LOAD</span>
+          <span data-act="auto" class="${S.auto ? 'on' : ''}">AUTO</span><span data-act="skip" class="${S.skip ? 'on' : ''}">SKIP</span>
+          <span data-act="menu:Timeline">LOG</span><span class="grow"></span><span data-act="menu:Settings">MENU · ESC</span></div></div>`;
+    }
+    const choices = S.wait === 'choice' ? `<div class="choices">${S.choice.map(([t], i) => `<div class="choice" data-act="choose:${i}"><b>${i + 1}</b>${esc(t)}</div>`).join('')}</div>` : '';
+    return `<div class="bg" style="background-image:url(${BG})"></div>
+      ${S.sprite ? `<img class="sprite" src="${SPRITE(S.sprite)}">` : ''}${choices}${box}`;
+  },
+  play() { return `<div class="scr vA">${this.frame()}</div>`; },
+  menu() {
+    const slots = S.tab === 'Save' || S.tab === 'Load';
+    return `<div class="scr vA">${this.frame()}<div class="m-dim" data-act="resume"></div>
+      <div class="drawer"><div class="d-head"><b>${PACK.name}</b><span>scene: ${S.scene}</span></div>
+      <div class="seg">${TABS.slice(0, 2).map(t => `<span class="${t === S.tab ? 'on' : ''}" data-act="tab:${t}">${t}</span>`).join('')}</div>
+      ${slots ? SLOTS.map(sl => { const a = slotAction(sl, S.tab), [m1, m2] = slotMeta(sl);
+        return `<div class="slot"><div class="k">${sl.k}</div><div class="meta">${m1}<br>${m2}</div><div class="act ${a.dis ? 'dis' : ''} ${a.warn ? 'warn' : ''}">${a.t}</div></div>`; }).join('')
+        : `<div class="ph">${S.tab} view — follows the chosen variant.</div>`}
+      <div class="d-nav">
+        <div data-act="tab:Timeline">Timeline<span>T</span></div><div data-act="tab:Gallery">Gallery<span>G</span></div>
+        <div data-act="tab:Settings">Settings<span>⚙</span></div><div data-act="title">Exit to title<span></span></div>
+        <div class="resume" data-act="resume">▶ Resume<span>ESC</span></div></div></div></div>`;
+  },
+};
+
+// ───────────── Variant B · Novel page (NVL) ─────────────
+const VariantB = {
+  name: 'Novel page (NVL)',
+  title() {
+    const items = TITLE_ITEMS();
+    return `<div class="scr vB"><div class="bg" style="background-image:url(${BG})"></div><div class="t-veil"></div><div class="t-frame"></div>
+      <div class="t-center"><div class="t-tag">${PACK.tagline.toUpperCase()}</div><div class="t-word">${PACK.name}</div><div class="t-rule"></div></div>
+      <div class="t-menu">${items.map((it, i) => `<span class="${i === S.tf ? 'f' : ''} ${it.dis ? 'dis' : ''}" data-act="title:${i}">${it.label}</span>`).join('')}</div>
+      <div class="t-reason">${reasonLine()}</div></div>`;
+  },
+  frame() {
+    // The page holds the current scene's lines; earlier lines dim.
+    let lastScene = 0; S.log.forEach((e, i) => { if (e.kind === 'scene') lastScene = i; });
+    const page = S.log.slice(lastScene + 1);
+    const curIdx = S.wait === 'say' ? page.length - 1 : -1;
+    const ps = page.map((e, i) => {
+      if (e.kind === 'pick') return `<div class="p pick">${esc(e.t)}</div>`;
+      if (e.kind === 'decided') return `<div class="p dec">ACE DECIDED · ${e.action.toUpperCase()}</div>`;
+      const cur = i === curIdx;
+      return `<div class="p ${cur ? 'cur' : ''} ${isNarr(e.who) ? 'narr' : ''}">${isNarr(e.who) ? '' : `<span class="who">${e.who.toUpperCase()}</span>`}${cur ? proseSpan('') + '<span class="caret" data-next>▍</span>' : esc(e.t)}</div>`;
+    }).join('');
+    let tail = '';
+    if (S.wait === 'choice') tail = `<div class="opts">${S.choice.map(([t], i) => `<div class="opt" data-act="choose:${i}"><b>${i + 1}</b>${esc(t)}</div>`).join('')}</div>`;
+    if (S.wait === 'decide') tail = `<div class="wait">Ace looks at you, deciding ${dots}</div>`;
+    if (S.wait === 'end') tail = `<div class="wait">— end of the demo —</div>`;
+    return `<div class="bg" style="background-image:url(${BG})"></div><div class="veil"></div>
+      ${S.sprite ? `<img class="sprite" src="${SPRITE(S.sprite)}">` : ''}
+      <div class="runhead">${PACK.name.toUpperCase()} · ${S.scene.replace('_', ' ').toUpperCase()}${cueText() ? ' · ' + cueText() : ''}</div>
+      <div class="page" data-act="advance">${ps}${tail}</div>
+      <div class="foot">Space next · 1–9 choose · A auto · Tab skip · Esc contents</div>`;
+  },
+  play() { return `<div class="scr vB">${this.frame()}</div>`; },
+  menu() {
+    const slots = S.tab === 'Save' || S.tab === 'Load';
+    return `<div class="scr vB"><div class="contents">
+      <div class="c-left"><div class="lbl">CONTENTS</div>
+        ${TABS.map(t => `<div class="it ${t === S.tab ? 'on' : ''}" data-act="tab:${t}">${t}</div>`).join('')}
+        <div class="bot"><span class="resume" data-act="resume">▶ Resume reading</span><span data-act="title">Exit to title</span></div></div>
+      <div class="c-right">${slots ? `<h2>${S.tab === 'Save' ? 'Save your place' : 'Return to a page'} — you are in <b>${S.scene}</b></h2>
+        <div class="ledger">${SLOTS.map(sl => { const a = slotAction(sl, S.tab), [m1, m2] = slotMeta(sl);
+          return `<div class="k">${sl.k.toUpperCase()}</div><div class="meta">${m1}<small>${m2}</small></div><div class="act ${a.dis ? 'dis' : ''}">${a.t}</div>`; }).join('')}</div>`
+        : `<div class="ph">${S.tab} — follows the chosen variant.</div>`}</div></div></div>`;
+  },
+};
+
+// ───────────── Variant C · Cinematic letterbox ─────────────
+const VariantC = {
+  name: 'Cinematic letterbox',
+  title() {
+    const items = TITLE_ITEMS();
+    return `<div class="scr vC"><div class="bg" style="background-image:url(${BG})"></div><div class="t-shade"></div>
+      <div class="t-tag">${PACK.tagline.toUpperCase()}</div><div class="t-word">${PACK.name}</div>
+      <div class="t-row">${items.map((it, i) => `<span class="${i === S.tf ? 'f' : ''} ${it.dis ? 'dis' : ''} ${it.rule ? 'end' : ''}" data-act="title:${i}">${it.label}</span>`).join('')}</div>
+      <div class="t-reason">${reasonLine()}</div></div>`;
+  },
+  frame() {
+    let bot = '';
+    if (S.wait === 'say') bot = `${isNarr(S.line.who) ? '' : `<div class="who">${S.line.who}</div>`}${proseSpan('prose' + (isNarr(S.line.who) ? ' narr' : ''))}`;
+    if (S.wait === 'choice') bot = `<div class="ask">${S.line ? esc(S.line.who.toUpperCase() + ' — ' + S.line.t) : 'CHOOSE'}</div><div class="pills">${S.choice.map(([t], i) => `<div class="pill" data-act="choose:${i}"><b>${i + 1}</b>${esc(t)}</div>`).join('')}</div>`;
+    if (S.wait === 'decide') bot = `<div class="track"><i></i></div><div class="deciding">Ace is deciding ${dots}<small>DECISION · ACE.GREET · ${S.decide.status.toUpperCase()}</small></div>`;
+    if (S.wait === 'end') bot = `<div class="prose narr">End of the demo.</div>`;
+    return `<div class="bg" style="background-image:url(${BG})"></div>
+      ${S.sprite ? `<img class="sprite" src="${SPRITE(S.sprite)}">` : ''}
+      <div class="bar top"><span class="scene">${S.scene.replace('_', ' ').toUpperCase()}</span><span class="cue">${cueText()}</span></div>
+      <div class="bar bot" data-act="advance">${bot}<div class="hint">Esc menu</div></div>`;
+  },
+  play() { return `<div class="scr vC">${this.frame()}</div>`; },
+  menu() {
+    const slots = S.tab === 'Save' || S.tab === 'Load';
+    return `<div class="scr vC">${this.frame()}<div class="sheet">
+      <div class="tabs">${TABS.map(t => `<span class="${t === S.tab ? 'on' : ''}" data-act="tab:${t}">${t}</span>`).join('')}
+        <span class="r" data-act="title" style="color:#8d909c">Exit to title</span><span data-act="resume" style="color:#e69e5c">▶ Resume</span></div>
+      ${slots ? `<div class="strip">${SLOTS.map(sl => { const a = slotAction(sl, S.tab), [m1, m2] = slotMeta(sl);
+        return `<div class="frame"><div class="art ${sl.st === 'Ok' ? '' : 'empty'}" style="${sl.st === 'Ok' ? `background-image:url(${BG})` : ''}"><span>${sl.k.toUpperCase()}</span></div>
+          <div class="cap">${m1}<small>${m2}</small><em class="${a.dis ? 'dis' : ''}">${a.t}</em></div></div>`; }).join('')}</div>`
+        : `<div class="ph">${S.tab} — follows the chosen variant.</div>`}</div></div>`;
+  },
+};
+
+// ───────────── Variant D · Chat side panel ─────────────
+const VariantD = {
+  name: 'Chat side panel',
+  title() {
+    const items = TITLE_ITEMS();
+    return `<div class="scr vD"><div class="stagebg" style="background-image:url(${BG})"></div>      <div class="panel"><div class="t-panel"><div class="t-word">${PACK.name}</div><div class="t-tag">${PACK.tagline.toUpperCase()}</div>
+      ${items.map((it, i) => `<div class="row ${i === S.tf ? 'f' : ''} ${it.dis ? 'dis' : ''} ${it.rule ? 'sep' : ''}" data-act="title:${i}"><div class="ic">${it.ic}</div><div><b>${it.label}</b><small>${it.sub}</small></div></div>`).join('')}
+      </div><div class="t-legend">↑/↓ move · Enter select · click to choose</div></div></div>`;
+  },
+  head() {
+    return `<div class="ph-head"><div class="av">A</div><div><b>Ace</b><small>${S.scene} · ${PACK.name}</small></div><span class="cue">${cueText()}</span></div>`;
+  },
+  log() {
+    const n = S.log.length;
+    const items = S.log.slice(-9).map((e, k) => {
+      const i = n - Math.min(n, 9) + k, last = i === n - 1 && S.wait === 'say', old = i < n - 4 ? 'old' : '';
+      if (e.kind === 'scene') return `<div class="div ${old}">— ${e.t.replace('_', ' ').toUpperCase()} —</div>`;
+      if (e.kind === 'pick') return `<div class="me ${old}">${esc(e.t)}</div>`;
+      if (e.kind === 'decided') return `<div class="tag ${old}">decided live · ${e.action}</div>`;
+      const body = last ? proseSpan('') : esc(e.t);
+      if (isNarr(e.who)) return `<div class="sys ${old}">${body}</div>`;
+      return `<div class="msg ${old}"><div class="av">A</div><div class="bub">${body}</div></div>`;
+    }).join('');
+    const typing = S.wait === 'decide' ? `<div class="msg"><div class="av">A</div><div class="bub">${dots}</div></div><div class="tag">deciding · ${S.decide.id} · ${S.decide.status}</div>` : '';
+    return `<div class="log">${items}${typing}${S.wait === 'end' ? '<div class="div">— END OF THE DEMO —</div>' : ''}</div>`;
+  },
+  frame(panelInner) {
+    return `<div class="stagebg" style="background-image:url(${BG})"></div>
+      ${S.sprite ? `<img class="sprite" src="${SPRITE(S.sprite)}">` : ''}<div class="panel">${panelInner}</div>`;
+  },
+  play() {
+    const replies = S.wait === 'choice'
+      ? S.choice.map(([t], i) => `<div class="reply" data-act="choose:${i}"><b>${i + 1}</b>${esc(t)}</div>`).join('')
+      : `<div class="tap"><span>click or Space to continue</span><span>A auto · Tab skip · Esc menu</span></div>`;
+    return `<div class="scr vD" >${this.frame(`${this.head()}<div style="flex:1;display:flex" data-act="advance">${this.log()}</div><div class="replies">${replies}</div>`)}</div>`;
+  },
+  menu() {
+    const slots = S.tab === 'Save' || S.tab === 'Load';
+    const body = `<div class="ph-head"><div class="av">≡</div><div><b>Paused</b><small>${S.scene} · ${PACK.name}</small></div>
+        <div class="seg">${TABS.slice(0, 2).map(t => `<span class="${t === S.tab ? 'on' : ''}" data-act="tab:${t}">${t}</span>`).join('')}</div></div>
+      <div class="m-body"><div class="grp">${slots ? 'SLOTS' : S.tab.toUpperCase()}</div>
+      ${slots ? SLOTS.map(sl => { const a = slotAction(sl, S.tab), [m1, m2] = slotMeta(sl);
+        return `<div class="srow"><div class="k">${sl.k}</div><div class="meta">${m1}<br>${m2}</div><em class="${a.dis ? 'dis' : ''}">${a.t}</em></div>`; }).join('')
+        : `<div class="srow"><div class="meta">${S.tab} — follows the chosen variant.</div></div>`}
+      <div class="grp">EXPLORE</div>
+      <div class="row" data-act="tab:Timeline"><div class="ic">≣</div><div><b>Timeline</b><small>scenes in order</small></div></div>
+      <div class="row" data-act="tab:Gallery"><div class="ic">▦</div><div><b>Gallery</b><small>stills you have seen</small></div></div>
+      <div class="row" data-act="tab:Settings"><div class="ic">⚙</div><div><b>Settings</b><small>audio, play, decisions</small></div></div></div>
+      <div class="replies"><div class="reply" data-act="resume"><b>ESC</b>Resume</div><div class="tap"><span data-act="title">Exit to title</span><span></span></div></div>`;
+    return `<div class="scr vD">${this.frame(body)}<div class="m-art-dim" data-act="resume"></div></div>`;
+  },
+};
+
+// ── Switcher wiring ──
+const VARIANTS = { A: VariantA, B: VariantB, C: VariantC, D: VariantD };
+const KEYS = Object.keys(VARIANTS);
+const params = new URLSearchParams(location.search);
+let cur = KEYS.includes(params.get('variant')) ? params.get('variant') : 'A';
+const want = params.get('screen');
+const stage = document.getElementById('stage');
+
+function syncUrl() {
+  const p = new URLSearchParams(location.search);
+  p.set('variant', cur); p.set('screen', S.screen);
+  history.replaceState(null, '', '?' + p);
+}
+function render() {
+  const V = VARIANTS[cur];
+  stage.innerHTML = V[S.screen]();
+  paintProse();
+  document.getElementById('proto-label').textContent = `${cur} (${V.name})`;
+  document.querySelectorAll('[data-scr]').forEach(b => b.classList.toggle('on', b.dataset.scr === S.screen));
+  const d = S.decide ? ` · decide=${S.decide.id}:${S.decide.status}${S.decide.held ? '(held)' : ''}` : '';
+  document.getElementById('proto-state').textContent =
+    `variant=${cur} screen=${S.screen} scene=${S.scene || '-'} wait=${S.wait || '-'}${d} · vars=${JSON.stringify(S.vars)} · auto=${S.auto} skip=${S.skip}`;
+  syncUrl();
+}
+function paintProse() {
+  // At a choice the question stays on screen in full.
+  const t = !S.line ? '' : S.wait === 'say' ? S.line.t.slice(0, S.shown) : S.wait === 'choice' ? S.line.t : '';
+  stage.querySelectorAll('[data-prose]').forEach(el => { el.textContent = t; });
+  stage.querySelectorAll('[data-next]').forEach(el => { el.style.visibility = full() ? 'visible' : 'hidden'; });
+}
+function setVariant(k) { cur = k; render(); }
+function toast(t) { const el = document.getElementById('proto-toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.opacity = 0, 1600); }
+function setScreen(scr) {
+  if (scr !== 'title' && !S.started) newGame();
+  if (scr === 'menu') S.tab = 'Save';
+  if (scr === 'play' && S.decide && S.decide.held) { S.screen = 'play'; applyDecide(); return; }
+  S.screen = scr; render();
+}
+function jump(target) {
+  newGame();
+  for (let n = 0; n < 40; n++) {
+    if (target === 'choice' && S.wait === 'choice') break;
+    if (target === 'decide' && S.wait === 'decide') break;
+    if (target === 'epilogue' && S.scene === 'epilogue') break;
+    if (S.wait === 'say') run(); else if (S.wait === 'choice') choose(0);
+    else if (S.wait === 'decide') { clearTimeout(decideTimer); S.decide = { id: S.decide.id, status: 'answered', action: 'warm', by: 'model' }; applyDecide(); }
+    else break;
+  }
+  S.screen = 'play'; render();
+}
+
+// Text reveal (~45 cps), auto and skip.
+let autoAt = 0;
+setInterval(() => {
+  if (S.screen !== 'play' || S.wait !== 'say') return;
+  if (S.skip) { S.shown = S.line.t.length; run(); render(); return; }
+  if (!full()) { S.shown = Math.min(S.line.t.length, S.shown + 1); paintProse(); autoAt = performance.now() + 1500 + S.line.t.length * 20; return; }
+  if (S.auto && performance.now() > autoAt) { run(); render(); }
+}, 22);
+
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]'); if (nav) { const i = KEYS.indexOf(cur); setVariant(KEYS[(i + +nav.dataset.nav + KEYS.length) % KEYS.length]); return; }
+  const scr = e.target.closest('[data-scr]'); if (scr) { setScreen(scr.dataset.scr); return; }
+  const j = e.target.closest('[data-jump]'); if (j) { jump(j.dataset.jump); return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const [verb, arg] = a.dataset.act.split(':');
+  if (verb === 'advance') advance();
+  else if (verb === 'choose') choose(+arg);
+  else if (verb === 'title') { if (arg !== undefined) { S.tf = +arg; titleAct(+arg); } else { S.screen = 'title'; render(); } }
+  else if (verb === 'menu') { S.tab = arg; openMenu(); }
+  else if (verb === 'tab') { S.tab = arg; render(); }
+  else if (verb === 'resume') resume();
+  else if (verb === 'auto') { S.auto = !S.auto; render(); }
+  else if (verb === 'skip') { S.skip = !S.skip; render(); }
+  e.stopPropagation();
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+    const i = KEYS.indexOf(cur); setVariant(KEYS[(i + (e.key === 'ArrowRight' ? 1 : -1) + KEYS.length) % KEYS.length]); e.preventDefault(); return;
+  }
+  if (S.screen === 'title') {
+    const n = TITLE_ITEMS().length;
+    if (e.key === 'ArrowDown') { S.tf = (S.tf + 1) % n; render(); }
+    if (e.key === 'ArrowUp') { S.tf = (S.tf - 1 + n) % n; render(); }
+    if (e.key === 'Enter') titleAct(S.tf);
+    return;
+  }
+  if (e.key === 'Escape') { S.screen === 'menu' ? resume() : (S.tab = 'Save', openMenu()); return; }
+  if (S.screen !== 'play') return;
+  if (e.key === ' ' || e.key === 'Enter') { advance(); e.preventDefault(); }
+  if (/^[1-9]$/.test(e.key)) choose(+e.key - 1);
+  if (e.key === 'a' || e.key === 'A') { S.auto = !S.auto; render(); }
+  if (e.key === 'Tab') { S.skip = !S.skip; render(); e.preventDefault(); }
+});
+function fit() { const s = Math.min(innerWidth / 1280, (innerHeight - 64) / 720); stage.style.transform = `scale(${s})`; }
+addEventListener('resize', fit); fit();
+
+if (want === 'play' || want === 'menu') { newGame(); S.screen = want; }
+render();
+</script>
+</body>
+</html>
