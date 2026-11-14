@@ -8,8 +8,9 @@
 
   Plan: four structurally different variants of one shared VN model (the
   demo pack's real script, background, Ace sprites and bundled fonts), at the
-  1280x720 reference frame, switchable via `?variant=A|B|C|D` and the
-  floating bottom bar. `?screen=title|play|menu` picks the surface.
+  1280x720 reference frame, switchable via `?variant=A|B|C|D|E` and the
+  floating bottom bar. E mixes the picks (A play/title, B Esc menu).
+  `?screen=title|play|menu` picks the surface.
 
   Run (from the repository root):
       python -m http.server 8137
@@ -230,7 +231,7 @@ body { font-family: Plex, sans-serif; color: #e6e6eb; }
   background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 6px 24px rgba(0,0,0,.6); font: 13px system-ui, sans-serif; z-index: 10; white-space: nowrap; }
 #proto-bar button { border: 0; background: #eee; border-radius: 999px; padding: 6px 11px; font: inherit; cursor: pointer; }
 #proto-bar button:hover { background: #ddd; } #proto-bar button.on { background: #111; color: #fff; }
-#proto-bar .lbl { font-weight: 700; min-width: 210px; text-align: center; }
+#proto-bar .lbl { font-weight: 700; min-width: 250px; text-align: center; }
 #proto-bar .sep { width: 1px; height: 20px; background: #ccc; margin: 0 4px; }
 #proto-bar .tag { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #c33; }
 #proto-state { position: fixed; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: #8a8d98; z-index: 10; }
@@ -575,8 +576,18 @@ const VariantD = {
   },
 };
 
+// ───────────── Variant E · Mix (picked 2026-11-14) ─────────────
+// A's dialogue box, centred choices and left-list title; B's full-screen
+// contents page as the Esc menu.
+const VariantE = {
+  name: 'Mix: A play + title, B menu',
+  title: () => VariantA.title(),
+  play: () => VariantA.play(),
+  menu: () => VariantB.menu(),
+};
+
 // ── Switcher wiring ──
-const VARIANTS = { A: VariantA, B: VariantB, C: VariantC, D: VariantD };
+const VARIANTS = { A: VariantA, B: VariantB, C: VariantC, D: VariantD, E: VariantE };
 const KEYS = Object.keys(VARIANTS);
 const params = new URLSearchParams(location.search);
 let cur = KEYS.includes(params.get('variant')) ? params.get('variant') : 'A';
