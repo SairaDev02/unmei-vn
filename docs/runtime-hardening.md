@@ -22,7 +22,7 @@ keywords:
 Sections so far:
 
 - **Save slots** — settled 2026-09-28.
-- **Menu overlay** — settled 2026-09-28; prototype-validated, layout B, the card grid.
+- **Menu overlay** — settled 2026-09-28; prototype-validated, layout B, the card grid. Its layout is superseded 2026-11-14 by the contents page of [Default look](title-and-menu.md#default-look).
 - **Audio settings** — settled 2026-09-28.
 - **Player comfort** — settled.
 - **Runtime failure posture** — settled.
@@ -214,6 +214,8 @@ Settled 2026-09-28. Prototype-validated: the clickable stub lived on a throwaway
 
 ### 1. Shape
 
+*(Amended 2026-11-14: the layout below — rail, top bar, card grid and the dimmed freeze — is superseded by the contents page of [Default look](title-and-menu.md#default-look) §4. The overlay's contents, actions and pause doctrine stand.)*
+
 One overlay, opened with **Esc**, over a dimmed, blurred freeze of the game. It is the single pause surface for the hardening effort: save/load **and** settings live here, and the gallery joins them ([Gallery](title-and-menu.md#gallery)).
 
 ```
@@ -288,7 +290,7 @@ Placement is this section's decision; the **contents** are not. Ranges, defaults
 - **Manual save is allowed in any parked state**, including with a request in flight: it captures the parked decision-wait, which re-fires on load. The autosave is unaffected by the overlay — crossings and resolves keep writing it.
 - **The overlay itself never writes the autosave**, except through a held answer: a held **model** answer applied on resume counts as a model-answered resolve and writes the autosave exactly once, while a held **fallback** resolution writes nothing ([Save slots](#save-slots) §4). Opening or closing with no answer writes nothing.
 
-**Input.** *(Amended 2026-10-11: the following underlying menu inputs are inert while [Monitor → Interaction](#interaction) owns input, on its transition frames and for quarantined holds afterward. Esc dismisses Monitor first, without cancelling/backing out/resuming this menu; the existing presentation pause remains in force.)* Mouse and keyboard are equal citizens: click any card or control; `↑`/`↓`/`←`/`→` move focus across the 2×2 grid, `Tab` cycles the top-bar controls, `Enter`/`Space` activates, `Esc` backs out, digits `1`–`3` focus a manual slot. Focus is always visible. Gamepad and rebinding are **not** covered; they are out of scope for this section.
+**Input.** *(Amended 2026-10-11: the following underlying menu inputs are inert while [Monitor → Interaction](#interaction) owns input, on its transition frames and for quarantined holds afterward. Esc dismisses Monitor first, without cancelling/backing out/resuming this menu; the existing presentation pause remains in force.)* *(Amended 2026-11-14: the grid walk is replaced by [Default look](title-and-menu.md#default-look) §4's ledger walk.)* Mouse and keyboard are equal citizens: click any card or control; `↑`/`↓`/`←`/`→` move focus across the 2×2 grid, `Tab` cycles the top-bar controls, `Enter`/`Space` activates, `Esc` backs out, digits `1`–`3` focus a manual slot. Focus is always visible. Gamepad and rebinding are **not** covered; they are out of scope for this section.
 
 The **Settings view deviates deliberately**: there, `↑`/`↓` move between controls and `←`/`→` adjust the focused slider, so the grid's focus rule does not also have to be a slider's value rule. [Audio settings](#audio-settings) §5 fixes that model for the audio group; [player comfort](#player-comfort) inherits it.
 
@@ -312,6 +314,8 @@ The **Settings view deviates deliberately**: there, `↑`/`↓` move between con
 **2026-10-05 (gallery).** The top bar gains its `Gallery` control and §1 now names the gallery view alongside Settings; the surface's behavior is [Gallery](title-and-menu.md#gallery). §6's second `Esc` moment now reads “one level” and names the gallery's back-out — the count stays four. §5's group list is untouched: the gallery is not reachable from Settings.
 
 **2026-10-08 (Timeline).** This amendment adds the fifth view and overlay-only top-bar door before Gallery (§1), explicitly leaves Settings unchanged and without a Timeline door (§5), and adds Timeline's one-level Esc back-out and confirmed-jump cancellation rule (§6). The slot-grid Tab cycle gains Timeline; sub-views retain Save → Load. The surface and its validation rules live in [Timeline](title-and-menu.md#timeline).
+
+**2026-11-14 (default look).** §1's layout and §6's grid walk are superseded by the contents page of [Default look](title-and-menu.md#default-look) §4, and `Exit to title` moves from the Settings rail to the page's foot. The contents, actions, confirms and pause doctrine are unchanged.
 
 **2026-10-08 (text skip).** §5's Play row drops “skip is out”: skip is not a preference and gains no Settings row — its `Tab` toggle and held `Ctrl` are [Text skip](#text-skip)'s. Nothing else in this section changes.
 
@@ -478,7 +482,7 @@ play: (
 - A **manual advance** while the dwell is running restarts a full 2.0 s; a player clicking through is never raced into the next line. Completing a reveal with a press is **not** an advance: it ends the reveal, which is exactly when the dwell starts, so the line then gets its full 2.0 s.
 - **Auto holds** at a choice-wait, a decision-wait and end-of-scene. It only ever calls the say-advance path: it never picks a choice, never resolves or cancels a decision, and never advances while a Decisions request is in flight.
 - It pauses with the presentation: with the overlay open, no dwell fires and the timer does not accumulate. Closing resumes it.
-- **In-play:** `A` toggles auto. While it is on, a dim uppercase **`AUTO`** cue sits at the dialogue band's bottom-right (`bottom: 40px`, `right: 48px`, ≈50 % alpha) — absolutely positioned in an otherwise empty corner, so turning auto on moves no text. Neither `A` nor `F11` is an advance or a choice input: Space/Enter/left-click and 1–9 keep those, and both keys are inert at a choice-wait.
+- *(Amended 2026-11-14: the corner cue is replaced by the lit `Auto A` label of [Default look](title-and-menu.md#default-look) §1's quick row.)* **In-play:** `A` toggles auto. While it is on, a dim uppercase **`AUTO`** cue sits at the dialogue band's bottom-right (`bottom: 40px`, `right: 48px`, ≈50 % alpha) — absolutely positioned in an otherwise empty corner, so turning auto on moves no text. Neither `A` nor `F11` is an advance or a choice input: Space/Enter/left-click and 1–9 keep those, and both keys are inert at a choice-wait.
 - The cue is the only in-play comfort indicator; fullscreen gets none.
 
 ### 5. Fullscreen
@@ -498,7 +502,7 @@ play: (
 - **Reset** resets the `play` section only (`text_speed` → `0.0`, `auto` → `false`, `fullscreen` → `false`), confirms once, persists on leave, and never touches `audio` or deletes the file.
 - **In-play:** `A` toggles auto, `F11` toggles fullscreen. Both are ignored while the overlay is open **or Monitor owns the input/transition frame** ([Interaction](#interaction), amended 2026-10-11) — the overlay owns input there ([Menu overlay](#menu-overlay) §6) — and both show their state through the existing surfaces (the `AUTO` cue; the Settings switch).
 - A hotkey toggle **marks the settings dirty and rides [audio settings](#audio-settings) §6's flush points**; there is no write on key press, and the app-exit flush keeps a toggle made just before quitting.
-- The always-visible in-play help line is updated to carry them and to drop the F5/F9 text the overlay replaces — e.g. `Space/Enter/click advance · Tab skip · Ctrl skip all · 1-9 choose · A auto · F11 fullscreen · Esc menu`. Exact punctuation is the build's; the skip tokens are [Text skip](#text-skip) §7's *(amended 2026-10-08)*. *(Amended 2026-10-11: F5/F9 remain developer-only under [Dev mode](#dev-mode); they stay absent from this player legend even when enabled.)*
+- *(Amended 2026-11-14: the help line is retired; the quick row of [Default look](title-and-menu.md#default-look) §1 carries the keys.)* The always-visible in-play help line is updated to carry them and to drop the F5/F9 text the overlay replaces — e.g. `Space/Enter/click advance · Tab skip · Ctrl skip all · 1-9 choose · A auto · F11 fullscreen · Esc menu`. Exact punctuation is the build's; the skip tokens are [Text skip](#text-skip) §7's *(amended 2026-10-08)*. *(Amended 2026-10-11: F5/F9 remain developer-only under [Dev mode](#dev-mode); they stay absent from this player legend even when enabled.)*
 
 ### 7. No engine surface
 
@@ -594,7 +598,7 @@ Every failure class a player can hit, with its surface, recovery path and verdic
 A single transient line for the rows whose **Surface** column says Notice — the postures' one player-facing surface.
 
 - **App-side presentation state only**: a `Notice` resource holding at most one `(text, remaining)` pair, rendered by a presentation system. It never advances the runner, never cancels an in-flight Decisions request, and never writes the autosave.
-- **Placement**: top-right (`top: 12px`, `right: 48px`), right-aligned — the one empty corner, since the help line is top-left, the dialogue band is the bottom, and the `AUTO` cue ([Player comfort](#player-comfort) §4) is bottom-right. Plain text in a dim tint; no icon, no colour coding and no animation is specified beyond §3's lifetime.
+- *(Amended 2026-11-14: the slot stands; the help line and the corner cue it names are retired by [Default look](title-and-menu.md#default-look) §1.)* **Placement**: top-right (`top: 12px`, `right: 48px`), right-aligned — the one empty corner, since the help line is top-left, the dialogue band is the bottom, and the `AUTO` cue ([Player comfort](#player-comfort) §4) is bottom-right. Plain text in a dim tint; no icon, no colour coding and no animation is specified beyond §3's lifetime.
 - **Lifetime**: roughly 5 s of **unpaused** time. The timer freezes while the [menu overlay](#menu-overlay) is open and resumes on close, exactly like the text-speed reveal ([Player comfort](#player-comfort) §3), so a line is never consumed while the world is frozen.
 - **One slot**: a second failure replaces the first. A failure fires **once per occurrence** — a repeated failed autosave re-notices at each failed write rather than going quiet, so what the player reads is always the current state.- **It never consumes input**: no key and no click is intercepted, and the Notice is not dismissed by a press. `Esc` still performs exactly [menu overlay](#menu-overlay) §6's four moments — the Notice is deliberately not a fifth.
 - **Text**: one short string per failure (§5). What the player reads is a prefix of what the log records.
@@ -1274,7 +1278,7 @@ Screenshots and the fixture pack land in the gitignored `target/monitor-acceptan
 
 #### The panel (Q1–Q2, verdict A)
 
-- **Bottom drawer, dialogue-reserved.** At the 1280×720 reference the panel spans **x 24–1256 (1232 wide)** and **y 212–572 (360 tall)** — a 24px side inset and a **148px bottom reservation** that keeps the live dialogue band (bottom 40), the cue slot (bottom 40 / right 48), the help line (top 12 / left 16) and the player Notice (top 12 / right 48) visible and unmoved while the panel is open. Opening, closing, resizing, filtering or scrolling the panel never reflows, shifts or dims those elements, and the drawer adds no reservation of its own to them.
+- *(Amended 2026-11-14: the drawer moves to y 212–500 with a 220px reservation and an 11-row log body, clearing the taller dialogue box of [Default look](title-and-menu.md#default-look) §5.)* **Bottom drawer, dialogue-reserved.** At the 1280×720 reference the panel spans **x 24–1256 (1232 wide)** and **y 212–572 (360 tall)** — a 24px side inset and a **148px bottom reservation** that keeps the live dialogue band (bottom 40), the cue slot (bottom 40 / right 48), the help line (top 12 / left 16) and the player Notice (top 12 / right 48) visible and unmoved while the panel is open. Opening, closing, resizing, filtering or scrolling the panel never reflows, shifts or dims those elements, and the drawer adds no reservation of its own to them.
 - **Chrome**: a **header** row (≈52px) carrying the `Monitor` label and the three settled controls on one line — **Show everything** checkbox, **Follow latest**, **Close** — then the **log body** (≈293px, about 15 single-line rows), then a one-line **status footer** (≈13px). The three-control Tab cycle, first-open focus, pointer/keyboard activation and all focus rules remain [Interaction](#interaction)'s.
 - **Status line** (panel-local; the log-stream and interaction sections' wording, not re-invented): the active view (`showing unmei:: only` / `showing everything`), the readout `retained · shown` plus the three saturating counters `evicted · lost · truncated`, the marked `updating view` and `older lines expired` flags, the reader state (`following latest` / `reading older lines`) and a short `F3/Esc close · Tab cycles controls` hint. No counter or flag is a retained line, a tracing event, a Notice or a new failure class.
 - **Losing alternatives, kept only as the prototype's comparison**: B, a right column (460px wide, full height under the Notice) which covers the cue slot and the right of the dialogue band and wraps long lines harder; C, a centred 880px column over a full-window scrim, which hides the live scene behind the menu overlay's dimmer. **Neither is built**, and Monitor is not another MenuView by assumption — the verdict is the drawer.
@@ -1368,7 +1372,7 @@ Settled 2026-10-08. **Built** — shipped 2026-10-14. Consumes [Read log](#read-
 
 ### 7. Cue and labels
 
-- **One cue, `SKIP`.** A dim uppercase `SKIP` sits exactly where `AUTO` does — the dialogue band's bottom-right (`bottom: 40px`, `right: 48px`), ≈50 % alpha, mono ([Type system](title-and-menu.md#type-system)) — and shows whenever either mode is engaged: the `Tab` toggle while it runs, and a held `Ctrl` including while it waits at a choice, a decision or scene end. It is hidden on title surfaces exactly like `AUTO` ([Title](title-and-menu.md#title) §1), `AUTO` is not shown while skip runs, and the cue follows the **effective** state, so a disarmed hold shows nothing.
+- *(Amended 2026-11-14: this bullet, the help-line bullet, the approved cue layout and the dialogue reservation below are superseded by [Default look](title-and-menu.md#default-look) §1: the lit `Skip Tab` label is the indicator. When it lights is unchanged.)* **One cue, `SKIP`.** A dim uppercase `SKIP` sits exactly where `AUTO` does — the dialogue band's bottom-right (`bottom: 40px`, `right: 48px`), ≈50 % alpha, mono ([Type system](title-and-menu.md#type-system)) — and shows whenever either mode is engaged: the `Tab` toggle while it runs, and a held `Ctrl` including while it waits at a choice, a decision or scene end. It is hidden on title surfaces exactly like `AUTO` ([Title](title-and-menu.md#title) §1), `AUTO` is not shown while skip runs, and the cue follows the **effective** state, so a disarmed hold shows nothing.
 - **No Settings row.** Skip is not a preference: the Play group stays Text speed, Auto, Fullscreen plus its reset, and `play` gains no field.
 - **The help line carries the keys.** Tokens: `Space/Enter/click advance · Tab skip · Ctrl skip all · 1-9 choose · A auto · F11 fullscreen · Esc menu`; exact punctuation is the build's ([Player comfort](#player-comfort) §6, amended). The title's legend is unchanged.
 - **Approved cue layout** *(folded 2026-10-08 from the prototype that decided the cue and the Timeline layout, whose prototype page is the primary source)*: `SKIP` is **20px Fira Mono Medium**, warm `rgba(230,158,92,.5)`; `AUTO` is the same size/face in neutral `rgba(217,217,230,.5)`. They share the existing right/bottom slot above and are mutually exclusive during effective skip. The prototype's original “beside AUTO” is superseded; its adjacent 120px option is comparison-only.
