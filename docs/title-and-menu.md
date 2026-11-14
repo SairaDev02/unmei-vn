@@ -21,6 +21,7 @@ Sections so far:
 - **Type system** — settled 2026-10-04.
 - **Timeline** — settled 2026-10-08 (behaviour), prototype-validated: roomier layout A.
 - **Gallery** — settled 2026-10-05, prototype-validated; layout B, the framed-card grid.
+- **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. Not built.
 
 The Settings view these sections extend — its shape, its pause doctrine and its focus conventions — is [Menu overlay](runtime-hardening.md#menu-overlay)'s and is inherited, not re-decided here.
 
@@ -270,6 +271,8 @@ The title's layout, art and backdrop — including what shows behind the title a
 
 Settled 2026-10-02. Prototype-validated: the clickable stub lives on a throwaway prototype branch at `app/prototype/title.html` (out of `main`), three layouts over one title model. The **title card** (variant B) won; the rail-and-dossier (A) and the command bar (C) remain comparison-only. **Built.**
 
+*(Amended 2026-11-14: §1, §2's art bullet, §4, §5, §7 and §8's layout tests are superseded by [Default look](#default-look) §3, which moves the title to a left column and draws a veil over pack art. §3's wordmark source, §6 and the title's behaviour stand.)*
+
 This section covers only the title's **look**: its layout, its backdrop, its wordmark, where Continue's reason line and the legend sit, and where the Settings view and the Gallery row live *(amended 2026-10-05)*: the Gallery caption is retired with the row's disabled state. What the title *is* — the boot gate, the five buttons' semantics, Continue's precedence, focus, the confirms — is [Title](#title)'s and is inherited, not re-decided. Where a look rule would need a behaviour rule, this section flags [Title](#title) rather than inventing one. The panel, focus-ring and tone vocabulary is [Menu overlay](runtime-hardening.md#menu-overlay)'s.
 
 ### 1. Shape
@@ -387,6 +390,7 @@ Amendments to this section are dated and made **in place**, with a note here say
 - **2026-10-04**: the typeface, motion and sub-1280 deferrals are settled — §3 names the wordmark's face, §7's wordmark row follows it, §8 gains its face test, and the Out-of-scope lines are rewritten. The type system is [Type system](#type-system)'s; the minimum window size is [runtime-hardening § Fullscreen](runtime-hardening.md#5-fullscreen)'s.
 - **2026-10-05**: the `Gallery` row is enabled and its caption retired — the intro, §1's mock, §6, §7's caption row and §8 are amended in place. The gallery itself is [Gallery](#gallery).
 - **2026-10-14**: the settled banner above now reads **Built** — the look shipped. No look rule changed.
+- **2026-11-14**: the default look's redesign supersedes §1, §2's art bullet (the no-veil rule), §4, §5, §7 and §8's layout tests; the pointer above the intro names them. The owner is [Default look](#default-look) §3.
 
 ### Out of scope for this section
 
@@ -422,6 +426,8 @@ One rule: **prose and control labels take the sans; annotations and machine valu
 | Startup error screen | the intro line | the pack path; the error lines; the quit footer |
 | Notices | the Notice text | — |
 
+*(Amended 2026-11-14: the Title, Dialogue band and Esc overlay rows are replaced by [Default look](#default-look) §6's rows.)*
+
 The error screen's mono half is an **inferred** application of the rule (the intro was settled as sans, the machine lines were not); it is flagged here so a reviewer can overturn it cheaply. The slot card's split was settled directly (2026-10-04).
 
 ### 3. Weights
@@ -434,7 +440,7 @@ The error screen's mono half is an **inferred** application of the rule (the int
 
 Two surfaces hold prose and machine text in one node; each renders as `TextSpan` children of the one text node, every span carrying its own `TextFont` and `TextColor` explicitly rather than inheriting:
 
-- **the dialogue say-line** — the root text is the mono speaker prefix (`Ace: `) and one span is the sans prose; the reveal updates the prose span;
+- *(Superseded 2026-11-14 by [Default look](#default-look) §6: the name tab and the prose are separate nodes.)* **the dialogue say-line** — the root text is the mono speaker prefix (`Ace: `) and one span is the sans prose; the reveal updates the prose span;
 - **the slot card** — sans spans for the label and the action label, mono spans for kind, status, detail and saved-at.
 
 ### 5. Validation rules (the build's test list)
@@ -456,6 +462,7 @@ Amendments to this section are dated and made **in place**, with a note here say
 - **2026-10-04**: the section is new — the typeface deferral settled with the two families, the split, the weights and the mixed-string spans.
 - **2026-10-05**: the gallery joins §1's surface list, §2's table, §3's heading list and §5's tests, and the Title row's Gallery-caption references (§2, §4, §5) are retired with the row's caption ([Title layout](#title-layout) §6). The split and the weights are unchanged.
 - **2026-10-14**: the settled banner above now reads **Built** — the faces and the split shipped. No face, split or weight rule changed.
+- **2026-11-14**: §2's Title, Dialogue band and Esc overlay rows and §4's dialogue bullet are superseded by [Default look](#default-look) §6. The faces and weights are unchanged.
 
 ### Out of scope for this section
 
@@ -797,3 +804,116 @@ Locked focus deliberately communicates **progression and relative position**, ne
 - **2026-10-08**: this section and the Sections-so-far entry land; Title's booked read-log/chapter pointer is superseded in place. Gallery's top-bar cycle, Menu overlay §1/§5/§6 and Read log §6 are amended in place to name the Timeline and its scene-entry flush opportunity. The glossary gains Timeline and the retired chapter alias.
 - **Not part of this behaviour contract:** feature implementation, card geometry/visuals (now recorded in Layout), historical checkpoint rewind, save-format changes, settings/CLI changes, runner jump-rule changes, gamepad or rebinding. **2026-10-08 clarification:** the prerequisite New Game “unchanged log” and absent-log “whole launch” wording flags are resolved by the build-spec synthesis: retain existing knowledge with ordinary entry additions/flushes, and initialize empty with later same-launch revisits eligible. Timeline still consumes the same monotone-visit and mark-at-park rules.
 - **2026-10-14**: the settled banner above now reads **Built** — the surface and the overlay selection shipped. No rule changed.
+- **2026-11-14**: the Timeline view moves into the right column of the Esc menu's contents page, and its rail, Back control and Resume give way to the page's left column ([Default look](#default-look) §4). The cards, walk, confirm and jump rules are unchanged.
+
+---
+
+## Default look
+
+Settled 2026-11-14. **Not built.** Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
+
+This section is the one owner of the default look of the play frame, the title and the Esc menu, for the improved demo pack and every default install. Where an earlier layout rule disagrees, this section wins, and that rule carries a dated pointer here. Behaviour — the title's states and confirms, the pause doctrine, the skip and auto rules, the slot actions, the Timeline and Gallery contracts — is unchanged unless a numbered point below says otherwise. Faces follow [Type system](#type-system) as amended by §6.
+
+### 1. Play frame
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                                                      Notice   │
+│                                                               │
+│                           (sprite)                            │
+│    ┌─────┐                                                    │
+│ ┌──┤ Ace ├───────────────────────────────────────────────┐    │
+│ │  └─────┘                                               │    │
+│ │  A letter? Ah... you saw that.                         │    │
+│ │                                                      ▼ │    │
+│ │  Save  Load  Auto A  Skip Tab  Log           Menu Esc  │    │
+│ └────────────────────────────────────────────────────────┘    │
+└───────────────────────────────────────────────────────────────┘
+```
+
+- **The dialogue box** spans the frame's width less a 72px side inset, sits 28px above the bottom edge and is 178px tall, so its top edge is at y 514 at the 1280×720 reference. Fill: a vertical gradient from `rgba(16,18,26,.95)` to `rgba(10,11,16,.97)`, a 1px `rgba(255,255,255,.14)` hairline, a 14px corner radius and a soft drop shadow. Sprites stand behind it.
+- **The name tab** overlaps the box's top edge at its left (28px in, 20px above), filled with the `FOCUS` orange and carrying the say-line's speaker in dark text. **Narration has no tab**: a say-line with speaker `Narrator` renders its prose alone, in the dim tone, as [Say-lines and narration](content-format.md#say-lines-and-narration) already requires ("no speaker sprite/name plate"). The prototype's italics are not adopted, because [Type system](#type-system) ships no italic face.
+- **The prose** is 25px with a 1.5 line height, inside 40px side padding. The reveal, its speed and its pause rules are [Player comfort](runtime-hardening.md#player-comfort) §3's. A blinking `▼` advance marker shows at the box's right once the line is fully revealed.
+- **At a decision-wait** the box shows the existing `<npc_id> is deciding…` line in the `FOCUS` tone with an animated three-dot marker, and no tab. **At end of scene** it shows the existing `— end of scene —` line.
+- **The quick row** runs along the bottom of the box, 12px mono in the faint tone, in this order: `Save`, `Load`, `Auto A`, `Skip Tab`, `Log`, then `Menu Esc` right-aligned. Each control is clickable, and a click on the row never also advances the line:
+  - `Save` and `Load` open the Esc menu at that section, from any parked state where `Esc` opens it.
+  - `Auto A` and `Skip Tab` act exactly as `A` and `Tab` do, including where those keys are inert ([Player comfort](runtime-hardening.md#player-comfort) §4, [Text skip](runtime-hardening.md#text-skip)).
+  - `Log` opens the **Backlog**, a new surface that is not yet specified. Until the Backlog is settled and built, the row has no `Log` control and the other controls close over its place.
+  - `Menu Esc` opens the Esc menu as `Esc` does.
+- **The mode indicator is the lit label.** `Auto A` renders in the `FOCUS` tone while auto is on; `Skip Tab` renders in the `FOCUS` tone whenever skip is effective, the held-`Ctrl` force skip included. The exclusivity rule stands: while skip runs, `Auto A` is not lit. This replaces the separate `AUTO`/`SKIP` corner cue.
+- **There is no help line.** The quick row's key labels, the `▼` marker and the numbered choice buttons carry the keys in play; `Space`/`Enter`/left-click, `Ctrl` and `F11` are not shown in play. The README's controls table is unchanged.
+- **The Notice** keeps its top-right slot (`top: 12px`, `right: 48px`).
+- The box, the tab and the quick row are hidden on title surfaces, exactly as the dialogue band is today.
+
+### 2. Player choices
+
+- At a choice-wait the options render as **numbered buttons stacked in the centre of the frame**: 560px wide, starting 150px from the top, 14px apart, each with 16px×22px padding, a `rgba(14,16,22,.88)` fill, a 1px hairline and a 10px radius. The option text is 21px; the option's number sits in a small mono badge outlined in the `FOCUS` tone. Hover and keyboard focus take the `FOCUS` ring.
+- **The question stays on screen.** The box keeps showing the say-line the player read before the choice, fully revealed, with its tab and without the `▼` marker. This is presentation state only: the app remembers the last say-line it rendered. No `Wait` changes and nothing is saved, so after a load onto a choice-wait the box is empty.
+- `1`–`9` and clicks pick exactly as today.
+
+### 3. Title
+
+- **The layout is a left column, not a centred one.** The column starts 104px from the left edge and 150px from the top and is 420px wide. From the top: the wordmark (64px Plex Sans Bold, tight tracking), the tagline (12px mono, uppercase, 0.34em tracking, accent tone, 14px above and 46px below), the five rows in [Title](#title) §2's order, then Continue's reason line 26px below the rows.
+- **Rows are text-only**, 22px, with no panel behind them. The focused row is white with a 12px×2px `FOCUS` bar to its left; unfocused rows are in the muted tone, and a disabled row is dimmed but stays in the walk. `Quit` sits 14px below the other four, in place of the hairline rule.
+- **The legend** keeps [Title](#title) §6's string and sits at the frame's bottom right (40px in, 26px up), in mono.
+- **A veil is drawn over the backdrop.** Over the pack's `title_backdrop` and over the default gradient alike, the title draws a left-to-right gradient from `rgba(8,9,13,.86)` at the left edge through `rgba(8,9,13,.55)` at 38% to transparent at 62%. The wordmark, rows and reason line stay readable over any art, so their contrast is no longer the pack's responsibility alone. The art is otherwise drawn as authored.
+- **Settings from the title** opens the contents page of §4 on its Settings section, over the same backdrop and veil instead of the page fill, with only the `Settings` entry and `← Back to title` in the left column. The Gallery's title door keeps its current layout.
+
+### 4. Esc menu: the contents page
+
+```
+┌──────────────────────┬────────────────────────────────────────┐
+│ CONTENTS             │ Save your place — you are in reunion   │
+│                      │                                        │
+│ Save ·               │ SLOT 1    reunion             Overwrite│
+│ Load                 │           12 Nov 2026 14:03            │
+│ Timeline             │ SLOT 2    —                   Save here│
+│ Gallery              │ SLOT 3    Unreadable          Overwrite│
+│ Settings             │ AUTOSAVE  first_meeting       Load-only│
+│                      │                                        │
+│ ▶ Resume reading     │                                        │
+│ Exit to title        │                                        │
+└──────────────────────┴────────────────────────────────────────┘
+```
+
+- **One opaque full-frame page** replaces the overlay's rail, top bar, card grid and dimmed freeze: a `#0d0e12` fill with a 420px left column and a right column, divided by a hairline. The play frame is not drawn behind it. The pause doctrine is unchanged ([Menu overlay](runtime-hardening.md#menu-overlay) §6).
+- **The left column** holds a small mono `CONTENTS` label, then the sections as large SemiBold entries in order (`Save`, `Load`, `Timeline`, `Gallery`, `Settings`), with the current one white and marked with an orange `·` and the others in the faint tone. At the column's foot sit `▶ Resume reading` in the `FOCUS` tone and `Exit to title`. The page replaces the rail, so the pack name and the current scene move into the right column's heading.
+- **Save and Load** show the slots as a ledger in the right column: a heading line (`Save your place — you are in <scene>` or `Return to a page — you are in <scene>`), then one row per slot in `Slot::ALL` order. A row holds the slot label (mono), the scene id or status over the saved-at line, and the action at the row's right, in the `FOCUS` tone or the muted tone when disabled. The ledger shows exactly the fields of [Menu overlay](runtime-hardening.md#menu-overlay) §2 and the actions of §3; the legacy entry becomes a final ledger row, in save mode only, under §4's rules.
+- **Timeline, Gallery and Settings** render their current views in the right column. Their own rails, back controls and Resume give way to the left column. This section does not redesign their interiors.
+- **The walk.** `Tab` cycles the sections exactly as the top bar did (Save → Load → Timeline → Gallery → Settings, and Save → Load inside the sub-views). In Save and Load, `↑`/`↓` walk the ledger rows, the legacy row included, and `1`–`3` focus a manual slot; `←`/`→` do nothing there. `Enter`/`Space` activate, focus wears the `FOCUS` ring, and pointer and keyboard are equal. `Esc` keeps its four moments, so it also resumes from the slots. Settings, Gallery and Timeline keep their own walks.
+- **Exit to title moves** from the Settings view's rail to the contents page's foot, so every section reaches it, with [Title](#title) §5's confirm.
+
+### 5. Monitor clearance
+
+The box's top edge rises to y 514, so the dev-only Monitor drawer moves up to keep the dialogue visible: the drawer spans **y 212–500 (288 tall)**, a **220px bottom reservation**, and its log body shrinks to about 221px, about 11 single-line rows. Everything else in [The panel](runtime-hardening.md#the-panel-q1q2-verdict-a) stands.
+
+### 6. Faces
+
+[Type system](#type-system) §2's split holds, with these rows replacing its Title, Dialogue band and Esc overlay rows:
+
+| Surface | Sans (Plex) | Mono (Fira Mono Medium) |
+| --- | --- | --- |
+| Dialogue box | the name tab (SemiBold); the say-line prose; the deciding line; the choice option text | the quick row; the choice number badges |
+| Title | the wordmark (Bold); the five row labels | the tagline; Continue's reason line; the legend |
+| Contents page | the section entries (SemiBold); Resume and Exit to title; the ledger heading and scene id | the `CONTENTS` label; the slot labels; the saved-at and status lines |
+
+The say-line is no longer a mixed string: the tab and the prose are separate nodes, so [Type system](#type-system) §4's dialogue bullet no longer applies.
+
+### 7. Validation rules (the build's test list)
+
+- At 1280×720 the box, tab, prose, `▼` marker and quick row render at §1's geometry; long prose wraps inside the box; narration shows no tab.
+- Every quick-row control does exactly what its key does, and a click on the row never advances the line; with the Backlog unbuilt, the row has no `Log` control.
+- `Auto A` and `Skip Tab` light and unlight in the same frame as the auto preference and effective skip, held `Ctrl` included, and `Auto A` is unlit while skip runs.
+- At a choice-wait the previous say-line stays in the box, fully revealed and without `▼`; after a load onto a choice-wait the box is empty.
+- The title renders §3's left column and veil over pack art and over the default gradient, and fits in all four title states, including the longest `SlotInfo::Unreadable` reason.
+- The contents page opens on Save from `Esc`, `Menu Esc` and the `Save` control, and on Load from the `Load` control; `Tab`, the ledger walk and the digits behave as §4 says; `Esc` keeps its four moments.
+- The Monitor drawer measures y 212–500 and intersects neither the box nor the Notice.
+- Every string's face follows §6.
+
+### Amendments
+
+- **2026-11-14**: the section is new. It supersedes, each with a dated pointer in place: [Title layout](#title-layout) §1, §2's art bullet, §4, §5, §7 and §8's layout tests; [Type system](#type-system) §2's Title, Dialogue band and Esc overlay rows and §4's dialogue bullet; the Timeline's [Layout](#layout-1) rail; [Menu overlay](runtime-hardening.md#menu-overlay) §1 and §6's grid walk; [Player comfort](runtime-hardening.md#player-comfort) §4's `AUTO` cue and §6's help line; [The Notice](runtime-hardening.md#3-the-notice)'s placement reason; [Text skip](runtime-hardening.md#text-skip) §7's cue, help-line and dialogue-reservation bullets; and [The panel](runtime-hardening.md#the-panel-q1q2-verdict-a)'s drawer numbers.
+
+### Out of scope for this section
+
+The Backlog itself (a new surface, to be specified in its own section); the interiors of the Settings, Gallery and Timeline views; motion beyond the `▼` and three-dot loops; gamepad support and input rebinding; any `engine/` change; and window sizes below 1280×720.
