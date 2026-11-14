@@ -43,7 +43,7 @@ Generated discovery index. Edit a document's frontmatter, then run
 - [Coverage evidence and reporting contract for item seven](testing-coverage-evidence.md) — The item-seven coverage-evidence contract — measured tests and source, the subprocess capture witness, the command contract and the retained bundle. (`verification`, `evidence-record`, `ci`, `external-dependency`)
 - [Human player smoke checklist and evidence boundary](testing-human-smoke.md) — The item-seven human smoke checklist — safe preflight, fixture recipes, per-case expectations, and the blank future record with its custody rules. (`verification`, `evidence-record`, `player-input`)
 - [Testing policy for the engine, CLI and player](testing.md) — Which tests each crate needs, how to fake external dependencies, and the validation gates and shipped-path evidence completion requires. (`verification`, `ci`)
-- [Title and menu — the start screen, Gallery and Timeline contracts](title-and-menu.md) — The title-screen contracts — Decisions settings, the title's states and layout, the type system, the Gallery and the Timeline. (`decisions`, `credentials`, `presentation-surface`, `gallery`, `timeline`, `player-input`)
+- [Title and menu — the start screen, Gallery and Timeline contracts](title-and-menu.md) — The title-screen contracts — Decisions settings, the title's states and layout, the type system, the Gallery, the Timeline, the default look and the Backlog. (`decisions`, `credentials`, `presentation-surface`, `gallery`, `timeline`, `player-input`)
   - [Decisions settings](title-and-menu.md#decisions-settings)
   - [Title](title-and-menu.md#title)
   - [Title layout](title-and-menu.md#title-layout)

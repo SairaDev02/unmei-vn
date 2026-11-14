@@ -136,6 +136,10 @@ _Avoid_: asset browser, image viewer, art book
 The pause surface listing a pack's scenes in its declared order, with visited scenes selectable and unvisited scenes hidden as `???`. Selecting a visited scene starts it from the beginning with the current state and staging carried over — not a historical rewind.
 _Avoid_: chapter timeline, chapter select, scene history
 
+**Backlog**:
+The contents page's scrollback of the live session: the say-lines shown, the choices picked and a `<npc_id> decided` marker per resolved decision, newest last, at most 200. Held in memory only, cleared when New Game, a load or a Timeline jump replaces the position. Not the read log, which records what was ever read, not the order.
+_Avoid_: history, log screen, rollback
+
 **Still view**:
 The gallery's one sub-view: a single entry shown full-window over the gallery's backdrop, with its label as the caption; `←`/`→` browse the entries and `↑`/`↓`, `Esc` or a click return to the grid. Inert — it never advances the script or writes anything.
 _Avoid_: lightbox, viewer, full-screen mode
