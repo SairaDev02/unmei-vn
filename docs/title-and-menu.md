@@ -1,6 +1,6 @@
 ---
 title: Title and menu — the start screen, Gallery and Timeline contracts
-summary: The title-screen contracts — Decisions settings, the title's states and layout, the type system, the Gallery and the Timeline.
+summary: The title-screen contracts — Decisions settings, the title's states and layout, the type system, the Gallery, the Timeline, the default look and the Backlog.
 keywords:
   - decisions
   - credentials
@@ -22,6 +22,7 @@ Sections so far:
 - **Timeline** — settled 2026-10-08 (behaviour), prototype-validated: roomier layout A.
 - **Gallery** — settled 2026-10-05, prototype-validated; layout B, the framed-card grid.
 - **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. Not built.
+- **Backlog** — settled 2026-11-14: the session scrollback the quick row's `Log` opens. Not built.
 
 The Settings view these sections extend — its shape, its pause doctrine and its focus conventions — is [Menu overlay](runtime-hardening.md#menu-overlay)'s and is inherited, not re-decided here.
 
@@ -838,7 +839,7 @@ This section is the one owner of the default look of the play frame, the title a
 - **The quick row** runs along the bottom of the box, 12px mono in the faint tone, in this order: `Save`, `Load`, `Auto A`, `Skip Tab`, `Log`, then `Menu Esc` right-aligned. Each control is clickable, and a click on the row never also advances the line:
   - `Save` and `Load` open the Esc menu at that section, from any parked state where `Esc` opens it.
   - `Auto A` and `Skip Tab` act exactly as `A` and `Tab` do, including where those keys are inert ([Player comfort](runtime-hardening.md#player-comfort) §4, [Text skip](runtime-hardening.md#text-skip)).
-  - `Log` opens the **Backlog**, a new surface that is not yet specified. Until the Backlog is settled and built, the row has no `Log` control and the other controls close over its place.
+  - `Log` opens the **Backlog**, a new surface that is not yet specified. Until the Backlog is settled and built, the row has no `Log` control and the other controls close over its place. *(2026-11-14: the Backlog is specified in [Backlog](#backlog), not yet built; the control reads `Log L` there, and `L` and a play-frame wheel-up open it too.)*
   - `Menu Esc` opens the Esc menu as `Esc` does.
 - **The mode indicator is the lit label.** `Auto A` renders in the `FOCUS` tone while auto is on; `Skip Tab` renders in the `FOCUS` tone whenever skip is effective, the held-`Ctrl` force skip included. The exclusivity rule stands: while skip runs, `Auto A` is not lit. This replaces the separate `AUTO`/`SKIP` corner cue.
 - **There is no help line.** The quick row's key labels, the `▼` marker and the numbered choice buttons carry the keys in play; `Space`/`Enter`/left-click, `Ctrl` and `F11` are not shown in play. The README's controls table is unchanged.
@@ -877,10 +878,10 @@ This section is the one owner of the default look of the play frame, the title a
 ```
 
 - **One opaque full-frame page** replaces the overlay's rail, top bar, card grid and dimmed freeze: a `#0d0e12` fill with a 420px left column and a right column, divided by a hairline. The play frame is not drawn behind it. The pause doctrine is unchanged ([Menu overlay](runtime-hardening.md#menu-overlay) §6).
-- **The left column** holds a small mono `CONTENTS` label, then the sections as large SemiBold entries in order (`Save`, `Load`, `Timeline`, `Gallery`, `Settings`), with the current one white and marked with an orange `·` and the others in the faint tone. At the column's foot sit `▶ Resume reading` in the `FOCUS` tone and `Exit to title`. The page replaces the rail, so the pack name and the current scene move into the right column's heading.
+- **The left column** holds a small mono `CONTENTS` label, then the sections as large SemiBold entries in order (`Save`, `Load`, `Timeline`, `Gallery`, `Settings`; *2026-11-14: [Backlog](#backlog) §4 adds `Backlog` after `Load` when built*), with the current one white and marked with an orange `·` and the others in the faint tone. At the column's foot sit `▶ Resume reading` in the `FOCUS` tone and `Exit to title`. The page replaces the rail, so the pack name and the current scene move into the right column's heading.
 - **Save and Load** show the slots as a ledger in the right column: a heading line (`Save your place — you are in <scene>` or `Return to a page — you are in <scene>`), then one row per slot in `Slot::ALL` order. A row holds the slot label (mono), the scene id or status over the saved-at line, and the action at the row's right, in the `FOCUS` tone or the muted tone when disabled. The ledger shows exactly the fields of [Menu overlay](runtime-hardening.md#menu-overlay) §2 and the actions of §3; the legacy entry becomes a final ledger row, in save mode only, under §4's rules.
 - **Timeline, Gallery and Settings** render their current views in the right column. Their own rails, back controls and Resume give way to the left column. This section does not redesign their interiors.
-- **The walk.** `Tab` cycles the sections exactly as the top bar did (Save → Load → Timeline → Gallery → Settings, and Save → Load inside the sub-views). In Save and Load, `↑`/`↓` walk the ledger rows, the legacy row included, and `1`–`3` focus a manual slot; `←`/`→` do nothing there. `Enter`/`Space` activate, focus wears the `FOCUS` ring, and pointer and keyboard are equal. `Esc` keeps its four moments, so it also resumes from the slots. Settings, Gallery and Timeline keep their own walks.
+- **The walk.** `Tab` cycles the sections exactly as the top bar did (Save → Load → Timeline → Gallery → Settings, and Save → Load inside the sub-views; *2026-11-14: [Backlog](#backlog) §5 inserts Backlog after Load when built*). In Save and Load, `↑`/`↓` walk the ledger rows, the legacy row included, and `1`–`3` focus a manual slot; `←`/`→` do nothing there. `Enter`/`Space` activate, focus wears the `FOCUS` ring, and pointer and keyboard are equal. `Esc` keeps its four moments, so it also resumes from the slots. Settings, Gallery and Timeline keep their own walks.
 - **Exit to title moves** from the Settings view's rail to the contents page's foot, so every section reaches it, with [Title](#title) §5's confirm.
 
 ### 5. Monitor clearance
@@ -916,4 +917,108 @@ The say-line is no longer a mixed string: the tab and the prose are separate nod
 
 ### Out of scope for this section
 
-The Backlog itself (a new surface, to be specified in its own section); the interiors of the Settings, Gallery and Timeline views; motion beyond the `▼` and three-dot loops; gamepad support and input rebinding; any `engine/` change; and window sizes below 1280×720.
+The Backlog itself (a new surface, to be specified in its own section); the interiors of the Settings, Gallery and Timeline views; motion beyond the `▼` and three-dot loops; gamepad support and input rebinding; any `engine/` change; and window sizes below 1280×720. *(2026-11-14: the Backlog is now specified in [Backlog](#backlog).)*
+
+---
+
+## Backlog
+
+Settled 2026-11-14, one requirements review. **Not built.** No prototype was run: the Backlog renders in the right column of [Default look](#default-look) §4's contents page and reuses its tones and faces.
+
+This section owns the **Backlog**: the scrollback of what passed on screen in the live session — the say-lines shown, the choices picked and the decisions resolved — and the surface the quick row's `Log` control opens ([Default look](#default-look) §1). The contents page, its left column, Resume and `Exit to title` are [Default look](#default-look) §4's; the pause doctrine and Esc's four moments are [Menu overlay](runtime-hardening.md#menu-overlay) §6's; both are inherited, not re-decided here. The Backlog is not the [Read log](runtime-hardening.md#read-log): that file records which lines were ever read, and the Backlog records the order things happened in the live session.
+
+### 1. What an entry is
+
+- **A say entry** is one say-line park: the speaker and the text of that park's `Wait::Say`, as rendered. A `{var}` line keeps the text it showed on that visit. Speaker `Narrator` stores no name, exactly as the box shows no tab ([Default look](#default-look) §1).
+- **A choice entry** is the display text of the option the player picked, recorded when the pick succeeds. The options not picked are not recorded.
+- **A decision entry** is the line `<npc_id> decided`, recorded when a resolution is applied to the runner: a model answer and the author fallback alike, and a held answer when it lands on resume. The action id, the criterion and whether the fallback answered are never recorded or shown. They are author-internal, and the outcome shows in the say-lines that follow.
+- **Nothing else is an entry**: no staging command, scene crossing, label jump, end-of-scene marker or Notice.
+
+### 2. When entries are recorded
+
+- **A say entry lands on the park transition**, the same transition the read log marks on ([Read log](runtime-hardening.md#read-log) §4): once per park, however long it lasts, and before the line has finished revealing. The line on screen is therefore always the newest entry.
+- **Every say-park counts.** A manual advance, auto, a seen skip and a force skip each record the lines they park on. The read log's force-skip exemption ([Text skip](runtime-hardening.md#text-skip) §8) is about read marks and does not apply here.
+- **The boot park behind the title records nothing**, as it marks nothing in the read log. Play entry records the line play is entered on.
+- **A landing say-park records its line.** After a New Game, a load or a Timeline landing, the first entry of the new history is the line the player lands on, if it is a say-line.
+- **One writer.** The history is one app resource, appended only by the play path at these moments and cleared only by the replacements in §3. The Backlog view reads it and never changes it.
+
+### 3. Lifetime
+
+- **In memory only, for the live session.** The history is never written to a slot, the autosave, the read log, the settings file or any other file, and is never read back. `SaveFile` and `SAVE_VERSION` do not change, and [ADR 0006](adr/0006-save-slots-on-disk-format-and-version-policy.md) is untouched.
+- **Replacing the position clears it.** A New Game, any slot load (the Load section and Continue's autosave path alike) and a confirmed Timeline jump each empty the history, so it always describes the path to the current position. The clear happens with the replacement's other cleanup and only when the replacement succeeds: a refused load or a refused Timeline restore leaves the history as it was.
+- **Pausing does not clear it.** Opening and closing the contents page, `Exit to title`, and Continue resuming the live session ([Title](#title) §5) keep the history exactly, as they keep the session.
+- **A relaunch starts empty**, like the live session. After Continue loads the autosave, the history holds only the line it lands on, or nothing on a choice-wait, decision-wait or scene end, matching [Default look](#default-look) §2's empty box after a load.
+- **The last 200 entries are kept.** Recording a 201st drops the oldest. Say, choice and decision entries count alike.
+
+### 4. Doors
+
+- **A section of the contents page**, named `Backlog` and placed after `Load` in the left column: `Save`, `Load`, `Backlog`, `Timeline`, `Gallery`, `Settings`. Clicking the entry selects it, as for any section.
+- **Three ways in from play.** Each opens the contents page on the Backlog from any parked state where `Esc` opens the page: say-wait mid-reveal or revealed, choice-wait, decision-wait with the request in flight or the answer held, and scene end.
+  - The quick row's control, which reads `Log L`, between `Skip Tab` and `Menu Esc`.
+  - The `L` key.
+  - The mouse wheel scrolled up over the play frame.
+- **Opening is the presentation pause** ([Menu overlay](runtime-hardening.md#menu-overlay) §6). It freezes the reveal, the auto dwell and the Notice countdown, holds a completed answer until resume, and ends a running seen skip on the frame it opens, exactly as `Esc` does ([Text skip](runtime-hardening.md#text-skip) §3). Auto's preference survives.
+- **Inert elsewhere.** `L` and the wheel do nothing on title surfaces, where the box is hidden. A wheel down in play does nothing. While the contents page is open on another section, `L` does nothing and the wheel scrolls only what that section scrolls. While Monitor owns input, both are inert ([Interaction](runtime-hardening.md#interaction)).
+- **No title door.** The Backlog is the live session's history, and the title is not in a session.
+
+### 5. The view and its walk
+
+- **The right column** holds a heading line, `What came before — you are in <scene>`, over a scrolling body of entries, oldest at the top and newest at the bottom, with the legend at the column's foot. Only the body scrolls.
+- **Each entry renders as it was shown.** A say entry is its speaker in the `FOCUS` tone over its prose; a narration entry is its prose alone in the dim tone; a choice entry is `→ <option text>` in the `FOCUS` tone; a decision entry is `<npc_id> decided` in the faint tone. Faces are §7's. Long text wraps and is never truncated.
+- **It opens at the newest entry**, scrolled to the bottom, on every open and on every return to the section by `Tab` or a click. No scroll position is remembered.
+- **Read-only.** Entries are not walk stops and carry no focus ring, and nothing in the body activates. `↑`/`↓` and the wheel scroll by one entry, `PageUp`/`PageDown` by the body's visible height, `Home` to the oldest entry and `End` to the newest. Scrolling clamps at both ends and does not wrap. `Enter`, `Space`, `←`/`→` and the digits do nothing here.
+- **The section walk.** From the Save and Load sections and from the Backlog, `Tab` cycles Save → Load → Backlog → Timeline → Gallery → Settings → Save. Inside the Timeline, Gallery and Settings sub-views it keeps Save → Load.
+- **`Esc` keeps its four moments, unchanged.** The Backlog is a section, not a sub-view: with no confirm open, `Esc` from it closes the page and resumes play, as it does from the slots.
+- **An empty history** shows the heading line over the single line `Nothing to look back on yet.`
+
+### 6. Skip, auto and the read log
+
+- **Recording never touches the read log.** It adds no mark, visited scene, dirty flag or flush moment, and the Backlog does not consult the log. Entries carry no read or unread styling.
+- **Browsing writes nothing.** Opening, scrolling, switching sections and closing write no file and read no slot.
+- **Skip and auto need no new rule.** They advance through parks, and those parks record entries under §2. Resuming from the Backlog leaves seen skip off and force skip under its existing release rule ([Text skip](runtime-hardening.md#text-skip) §5); auto's dwell resumes under the pause doctrine.
+- **The engine is unchanged.** `Wait`, `ScriptRunner` and the decision seam already expose everything an entry needs. The history, its cap and its clears are `app/` state, realized by the Backlog's own presentation owner ([ADR 0013](adr/0013-presentation-surface-partition.md)).
+
+### 7. Copy and faces
+
+| Where | String | Face |
+| --- | --- | --- |
+| Quick row control | `Log L` | mono |
+| Left-column entry | `Backlog` | sans SemiBold |
+| Heading line | `What came before — you are in <scene>` | sans |
+| Say entry | the speaker, then the prose | sans SemiBold, then sans |
+| Choice entry | `→ <option text>` | sans |
+| Decision entry | `<npc_id> decided` | mono |
+| Empty state | `Nothing to look back on yet.` | sans |
+| Legend | `↑/↓ scroll · PgUp/PgDn page · Home/End ends · Esc resume` | mono |
+
+### 8. Validation rules (the build's test list)
+
+- A session of say-lines, one choice and one decision records, in order, one say entry per park, `→ <picked option>` and `<npc_id> decided`. The unpicked options, staging commands and scene crossings record nothing.
+- A model-answered decision and a fallback decision each record exactly `<npc_id> decided`; no action id or fallback reason appears in the history or the view. A held answer records its entry when it is applied on resume, not when it arrives.
+- A `{var}` say-line parked on twice with different values records two entries with the two texts. A `Narrator` line records no speaker and renders without one.
+- The line on screen is the newest entry from its park frame onward, mid-reveal included.
+- Seen skip, force skip and auto each record every line they park on, and force skip still writes no read mark.
+- The boot park records nothing; New Game's first say-line is the first entry.
+- New Game, a manual load, Continue's autosave load and a confirmed Timeline jump each leave a history holding only the landing say-line, or nothing at a non-say park. A refused load and a refused Timeline restore leave the history unchanged.
+- Opening and closing the page, `Exit to title` then Continue on the live session, and a settings change leave the history unchanged.
+- Recording 201 entries keeps the newest 200 and drops the first.
+- Recording, opening, scrolling and closing write no file and read no slot: the slot, autosave, read-log and settings files stay byte-identical, and `SaveFile`/`SAVE_VERSION` are unchanged.
+- `Log L`, `L` and a wheel-up each open the contents page on the Backlog from say-wait (mid-reveal and revealed), choice-wait, decision-wait in flight, a held answer and scene end, leaving `runner.wait()` and `pc` unchanged. A click on `Log L` does not advance the line.
+- `L` and the wheel are inert on the title, a wheel down in play does nothing, and both are inert while Monitor owns input.
+- Opening the Backlog ends a running seen skip on that frame. The reveal, the auto dwell and the Notice countdown are frozen while it is up and resume on close.
+- The left column lists Save, Load, Backlog, Timeline, Gallery, Settings. `Tab` cycles Save → Load → Backlog → Timeline → Gallery → Settings → Save from the slots and the Backlog, and Save → Load in the sub-views.
+- The view opens scrolled to the newest entry on every open and every return to the section. `↑`/`↓`, the wheel, `PageUp`/`PageDown`, `Home` and `End` scroll as §5 says and clamp without wrapping. `Enter`, `Space`, `←`/`→` and the digits do nothing, and no entry takes focus.
+- `Esc` from the Backlog with no confirm open resumes play in one press.
+- An empty history renders the heading line and `Nothing to look back on yet.`
+- At 1280×720, long prose wraps inside the right column without truncation, and the heading and legend stay put while the body scrolls. This is checked on the rendered build.
+- Every string in §7 renders verbatim in its face.
+
+### Amendments
+
+Amendments to this section are dated and made **in place**, with a note here saying what changed. The vocabulary this section introduces, **Backlog**, is in [`GLOSSARY.md`](../GLOSSARY.md#pause--menu).
+
+- **2026-11-14**: the section is new. [Default look](#default-look) §1's `Log` bullet, §4's left column and walk, and its Out of scope line carry dated pointers here. The Backlog adds the `L` key, the play-frame wheel-up and a sixth contents-page section. No save, read-log, settings or engine contract changes.
+
+### Out of scope for this section
+
+Jumping back or rolling back to an entry; voice or audio replay; keeping the history across launches, in a save slot or in any file; search, filtering, copying text out and read or unread styling; a title door; a layout prototype; gamepad support and input rebinding; any `engine/` change; and window sizes below 1280×720.
