@@ -1,6 +1,6 @@
 ---
 title: One narrow decision-resolver seam without a vendor abstraction
-summary: The provider stays a concrete OpenRouter client; one narrow DecisionResolver trait abstracts the resolved landing.
+summary: The provider stays one concrete client, now NanoGPT's (ADR 0015); one narrow DecisionResolver trait abstracts the resolved landing.
 keywords:
   - decisions
   - ownership
@@ -45,3 +45,7 @@ The split is the honest reading of the evidence. The provider research found not
 ## Amendment (2026-10-14, seam implemented)
 
 **Implemented.** The hardening build cut the seam this record decided: `DecisionResolver` lives in `engine/`'s always-compiled `decision` module, `DecisionsClient` implements it behind the existing `network` feature, and the app holds `Option<Arc<dyn DecisionResolver>>` in `RuntimeConfig`, with `None` keeping the offline posture. The original rationale and consequences — including the design-sketch lifetime/`Send` bounds, first-build ordering and **"Nothing is implemented"** wording — describe this record's planning date, not the current state; the three rules the seam was cut for — [Menu overlay](../runtime-hardening.md#menu-overlay)'s held answer and load-cancels-the-request, and [Runtime failure posture](../runtime-hardening.md#runtime-failure-posture)'s defensive hold — are now driven in-process by a jointly controllable fake (`app/src/tests.rs`). The decision, its rejected alternatives and the four revisit triggers above are unchanged.
+
+## Amendment (2026-11-15, NanoGPT replaces OpenRouter)
+
+[ADR 0015](0015-nanogpt-is-the-one-provider.md) replaces OpenRouter with NanoGPT as the one provider. The concrete client named above becomes NanoGPT's decisions client, and `DecisionsClient` stays the seam's one real implementation. A replacement is not a second provider, so the revisit triggers above are unchanged and none has fired. "OpenRouter" in the record above describes the provider at the time.

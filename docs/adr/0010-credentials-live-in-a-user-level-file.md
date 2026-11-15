@@ -1,6 +1,6 @@
 ---
 title: Credentials live in a user-level file
-summary: The OpenRouter key lives in one user-level plain-text file; preferences stay in the pack's settings file.
+summary: The provider key lives in one user-level plain-text file; preferences stay in the pack's settings file.
 keywords:
   - credentials
   - settings-file
@@ -33,3 +33,7 @@ Why the asymmetry, in one line: **preferences are cheap, reproducible, and belon
 - **Failure routing is inherited, not invented**: a **failed read** is a log-only silent degradation (nothing was lost, play is not blocked); a **failed write** is a Notice (the player's key was not persisted) through the existing funnel ([ADR 0008](0008-player-first-failure-posture.md)).
 - **Plain text is part of the decision's cost, and its benefit**: no structured format means no parse failure, so no error type, message or fingerprint path can leak the value — at the price that a future non-key credential would need its own file or a format decision of its own.
 - **Revisit triggers.** Reopen this record when **the CLI needs a stored key** (unification of the app's file with the authoring CLI's env-only contract becomes worth its own decision), or when **an OS-keychain requirement appears** (a second secret, a platform or store policy, or a threat model the plain file does not meet). Neither is scheduled.
+
+## Amendment (2026-11-15, NanoGPT replaces OpenRouter)
+
+[ADR 0015](0015-nanogpt-is-the-one-provider.md) makes NanoGPT the one provider. The file, its path, its read posture and the override rule are unchanged. It now holds a NanoGPT key, and the override variable becomes `NANOGPT_API_KEY`. A key that starts with `sk-or-`, from the file or the variable, is never sent: the key row shows it as an OpenRouter key and the file is left as it is. "OpenRouter" and `OPENROUTER_API_KEY` in the record above describe the provider at the time.
