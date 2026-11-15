@@ -1,0 +1,576 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Not part of the player build. Lives on branch
+  `prototype/8-vn-visual-language` only; never merge to main.
+
+  Question: which visual language (colour, type, shape, depth, ornament)
+  should dress the settled variant E layout (docs/title-and-menu.md
+  § Default look)?
+
+  Plan: three visual languages, each written as a DESIGN.md
+  (https://github.com/google-labs-code/design.md, format "alpha") in
+  `visual-language/<name>/DESIGN.md`, rendered on one shared variant E
+  structure and switchable via `?variant=A|B|C` and the floating bar.
+  `?screen=title|play|menu` picks the surface. Variants differ in visual
+  language on purpose, not in layout: E's geometry is settled.
+
+  The DESIGN.md files drive the mockup: the page fetches each file, parses
+  its YAML front matter, resolves `{group.token}` references and emits CSS
+  custom properties (--c-*, --r-*, --s-*, --k-<component>-*) and one
+  `.t-<name>` class per typography token. Edit a DESIGN.md and reload.
+  Gradients, shadows and ornaments (which DESIGN.md keeps in prose) are
+  hand-written per language below, built from those variables.
+
+  Run (from the repository root):
+      python -m http.server 8137
+  then open http://localhost:8137/app/prototype/vn-visual.html
+  Lint: npx -p @google/design.md designmd lint app/prototype/visual-language/<name>/DESIGN.md
+
+  Bevy-feasibility constraint (as in vn-ui.html): solid/alpha fills,
+  linear/radial gradients, borders, corner radius, box shadow, text shadow,
+  images. No backdrop-filter, filter, clip-path, blend modes or inset
+  shadows. Animations are opacity/offset loops.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PROTOTYPE · Unmei visual languages</title>
+<style>
+@font-face { font-family: "IBM Plex Sans"; src: url(../assets/fonts/IBMPlexSans-Regular.ttf); font-weight: 400; }
+@font-face { font-family: "IBM Plex Sans"; src: url(../assets/fonts/IBMPlexSans-SemiBold.ttf); font-weight: 600; }
+@font-face { font-family: "IBM Plex Sans"; src: url(../assets/fonts/IBMPlexSans-Bold.ttf); font-weight: 700; }
+@font-face { font-family: "Fira Mono"; src: url(../assets/fonts/FiraMono-Medium.ttf); font-weight: 500; }
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #050608; overflow: hidden; }
+body { font-family: "IBM Plex Sans", sans-serif; }
+#viewport { position: absolute; inset: 0 0 64px 0; display: flex; align-items: center; justify-content: center; }
+body.tok #viewport { right: 380px; }
+#stage { width: 1280px; height: 720px; position: relative; overflow: hidden; transform-origin: center; background: #0b0d12; flex: none; }
+.scr { position: absolute; inset: 0; }
+.bg { position: absolute; inset: 0; background-size: cover; background-position: center; }
+[data-act] { cursor: pointer; }
+.dis { opacity: .45; cursor: default; }
+.upper { text-transform: uppercase; }
+@keyframes blink { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }
+@keyframes pulse { 0% { opacity: .35 } 50% { opacity: 1 } 100% { opacity: .35 } }
+@keyframes bounce { 0%, 100% { transform: translateY(0) } 50% { transform: translateY(-5px) } }
+.dots i { display: inline-block; width: 6px; height: 6px; border-radius: 3px; background: currentColor; margin: 0 2px; animation: pulse 1s infinite; }
+.dots i:nth-child(2) { animation-delay: .2s } .dots i:nth-child(3) { animation-delay: .4s }
+
+/* ── Variant E structure (geometry from § Default look; shared by all languages) ── */
+.rule, .edge, .t-back, .orb { display: none; }
+.sprite { position: absolute; bottom: 0; left: 50%; height: 600px; transform: translateX(-50%); }
+.box { position: absolute; left: 72px; right: 72px; bottom: 28px; height: 178px; padding: 34px 40px 0; }
+.plate { position: absolute; top: -20px; left: 28px; padding: 6px 22px; }
+.next { position: absolute; right: 26px; bottom: 44px; animation: blink 1s infinite; }
+.quick { position: absolute; left: 40px; right: 26px; bottom: 10px; display: flex; gap: 22px; }
+.quick .grow { flex: 1; }
+.choices { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); width: 560px; display: flex; flex-direction: column; gap: 14px; }
+.choice { position: relative; padding: 16px 22px; display: flex; gap: 16px; align-items: center; }
+.badge { flex: none; display: flex; align-items: center; justify-content: center; width: var(--k-choice-badge-size); height: var(--k-choice-badge-size);
+  border-radius: var(--k-choice-badge-r); background: var(--k-choice-badge-bg); color: var(--k-choice-badge-fg); letter-spacing: 0; }
+.thinking { display: flex; gap: 14px; align-items: center; }
+.thinking small { margin-left: auto; }
+.t-col { position: absolute; left: 104px; top: 150px; width: 420px; }
+.t-tag { margin: 14px 0 46px; }
+.t-menu { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.t-menu li { padding: 8px 0 8px 26px; position: relative; }
+.t-menu li.rule-above { margin-top: 14px; }
+.t-reason { margin-top: 26px; }
+.t-legend { position: absolute; right: 40px; bottom: 26px; }
+.contents { position: absolute; inset: 0; display: grid; grid-template-columns: 420px 1fr; }
+.c-left { position: relative; padding: 70px 0 60px 96px; display: flex; flex-direction: column; }
+.c-left .lbl { margin-bottom: 26px; }
+.c-left .it { padding: 4px 0; position: relative; }
+.c-left .bot { margin-top: auto; display: flex; flex-direction: column; gap: 10px; }
+.c-right { padding: 70px 96px 60px 70px; }
+.c-right h2 { font-weight: 400; margin-bottom: 26px; }
+.srow { display: grid; grid-template-columns: 110px 1fr auto; column-gap: 18px; align-items: center; padding: 16px 18px; margin-bottom: 10px; }
+.srow small { display: block; margin-top: 2px; }
+
+/* ───────────── A · Washi (visual-language/washi/DESIGN.md) ───────────── */
+.L-washi .box { background: var(--k-dialogue-box-bg); color: var(--k-dialogue-box-fg); border: 1px solid var(--c-rule);
+  border-radius: var(--k-dialogue-box-r); box-shadow: 0 2px 0 var(--c-shade); }
+.L-washi .rule { display: block; position: absolute; inset: var(--s-inner-rule); border: var(--k-dialogue-rule-width) solid var(--k-dialogue-rule-bg); pointer-events: none; }
+.L-washi .plate { top: -16px; padding: var(--k-speaker-plate-pad) 18px; background: var(--k-speaker-plate-bg); color: var(--k-speaker-plate-fg); border-radius: var(--k-speaker-plate-r); text-transform: uppercase; }
+.L-washi .narr { color: var(--k-narration-fg); }
+.L-washi .next { color: var(--c-primary); }
+.L-washi .quick { color: var(--c-ink-muted); } .L-washi .quick span:hover, .L-washi .quick .on { color: var(--c-primary); }
+.L-washi .choice { background: var(--k-choice-bg); color: var(--k-choice-fg); border: 1px solid var(--c-rule); border-radius: var(--k-choice-r); box-shadow: 0 2px 0 var(--c-shade); }
+.L-washi .choice .rule { inset: 4px; }
+.L-washi .choice:hover, .L-washi .choice.f { background: var(--k-choice-focus-bg); color: var(--k-choice-focus-fg); }
+.L-washi .choice:hover::before, .L-washi .choice.f::before { content: ''; position: absolute; left: -1px; top: -1px; bottom: -1px; width: 4px; background: var(--c-primary); }
+.L-washi .thinking { color: var(--c-ink-muted); } .L-washi .thinking .dots { color: var(--c-ink); }
+.L-washi .t-back { display: block; position: absolute; left: 0; top: 0; bottom: 0; width: var(--k-title-sheet-width); background: var(--k-title-sheet-bg); border-right: 1px solid var(--c-rule); box-shadow: 2px 0 0 var(--c-shade); }
+.L-washi .t-word { color: var(--k-title-sheet-fg); }
+.L-washi .t-tag { color: var(--c-primary); }
+.L-washi .t-menu li { color: var(--c-ink-muted); }
+.L-washi .t-menu li.f { color: var(--k-title-item-focus-fg); }
+.L-washi .t-menu li.f::before { content: ''; position: absolute; left: 0; top: 50%; width: 14px; height: 2px; background: var(--c-primary); }
+.L-washi .t-menu li.rule-above { border-top: 1px solid var(--c-rule); padding-top: 18px; }
+.L-washi .t-reason { color: var(--c-ink-muted); }
+.L-washi .t-legend { color: rgba(255,255,255,.8); text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+.L-washi .contents { background: var(--k-menu-page-bg); color: var(--k-menu-page-fg); }
+.L-washi .c-left { border-right: 1px solid var(--c-rule); }
+.L-washi .c-left .lbl, .L-washi .c-right h2 { color: var(--c-ink-muted); }
+.L-washi .c-left .it { color: var(--c-ink-muted); opacity: .6; }
+.L-washi .c-left .it.on { color: var(--k-menu-entry-active-fg); opacity: 1; }
+.L-washi .c-left .it.on::after { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 5px; background: var(--c-primary); margin-left: 14px; vertical-align: middle; }
+.L-washi .c-left .bot .resume { color: var(--c-primary); }
+.L-washi .srow { background: var(--k-slot-row-bg); color: var(--k-slot-row-fg); border-radius: var(--k-slot-row-r); border-top: 1px solid var(--c-rule); margin-bottom: 6px; }
+.L-washi .srow small, .L-washi .srow .k { color: var(--c-ink-muted); }
+.L-washi .act { color: var(--c-primary); } .L-washi .act.warn { text-decoration: underline; text-underline-offset: 4px; } .L-washi .act.dis { color: var(--c-ink-muted); }
+
+/* ───────────── B · Dusk (visual-language/dusk/DESIGN.md) ───────────── */
+.L-dusk .box { background: linear-gradient(180deg, rgba(var(--rgb-surface-top), .92), rgba(var(--rgb-surface), .94)); color: var(--k-dialogue-box-fg);
+  border: 1px solid rgba(var(--rgb-edge), .28); border-radius: var(--k-dialogue-box-r); box-shadow: 0 12px 40px rgba(var(--rgb-glow), .25); }
+.L-dusk .edge { display: block; position: absolute; top: -1px; left: 30%; width: 40%; height: 1px; background: var(--c-primary); box-shadow: 0 0 12px var(--c-primary); }
+.L-dusk .plate { top: -17px; padding: var(--k-speaker-plate-pad) 20px; background: var(--k-speaker-plate-bg); color: var(--k-speaker-plate-fg); border-radius: var(--k-speaker-plate-r); box-shadow: 0 0 18px rgba(var(--rgb-glow), .55); }
+.L-dusk .narr { color: var(--k-narration-fg); }
+.L-dusk .next { color: var(--c-primary); }
+.L-dusk .quick { color: var(--c-text-muted); } .L-dusk .quick span:hover { color: var(--c-text); } .L-dusk .quick .on { color: var(--c-secondary); }
+.L-dusk .choice { padding: 14px 26px; background: linear-gradient(180deg, rgba(var(--rgb-surface-top), .9), rgba(var(--rgb-surface), .92)); color: var(--k-choice-fg);
+  border: 1px solid rgba(var(--rgb-edge), .28); border-radius: var(--k-choice-r); box-shadow: 0 8px 26px rgba(var(--rgb-glow), .2); }
+.L-dusk .choice:hover, .L-dusk .choice.f { background: var(--k-choice-focus-bg); color: var(--k-choice-focus-fg); border-color: var(--c-primary); box-shadow: 0 0 24px rgba(var(--rgb-glow), .55); }
+.L-dusk .thinking { color: var(--c-text-muted); } .L-dusk .thinking .dots { display: none; }
+.L-dusk .orb { display: block; width: var(--k-deciding-orb-size); height: var(--k-deciding-orb-size); border-radius: 50%; background: var(--k-deciding-orb-bg); box-shadow: 0 0 16px var(--c-secondary); animation: pulse 1.4s infinite; }
+.L-dusk .t-back { display: block; position: absolute; inset: 0;
+  background: radial-gradient(ellipse 62% 95% at 8% 55%, rgba(var(--rgb-night), .82) 0%, rgba(var(--rgb-horizon), .5) 45%, rgba(var(--rgb-horizon), 0) 78%); }
+.L-dusk .t-word { color: var(--c-text); text-shadow: 0 0 30px rgba(var(--rgb-glow), .7); }
+.L-dusk .t-tag { color: var(--c-secondary); }
+.L-dusk .t-menu li { padding: 8px 18px; margin-left: -18px; width: fit-content; color: var(--c-text-muted); border-radius: var(--k-title-item-focus-r); }
+.L-dusk .t-menu li.f { background: rgba(var(--rgb-surface), .85); color: var(--k-title-item-focus-fg); border: 1px solid rgba(var(--rgb-edge), .35); box-shadow: 0 0 22px rgba(var(--rgb-glow), .45); }
+.L-dusk .t-menu li.f::before { content: '●'; color: var(--c-primary); font-size: 10px; margin-right: 12px; vertical-align: 3px; }
+.L-dusk .t-reason { color: var(--c-text-muted); }
+.L-dusk .t-legend { color: rgba(var(--rgb-text), .7); text-shadow: 0 1px 6px rgba(0,0,0,.8); }
+.L-dusk .contents { background: var(--k-menu-page-bg); color: var(--k-menu-page-fg); }
+.L-dusk .c-left { background: radial-gradient(ellipse 120% 70% at 0% 100%, rgba(var(--rgb-horizon), .7), rgba(var(--rgb-horizon), 0) 70%); border-right: 1px solid rgba(var(--rgb-edge), .14); }
+.L-dusk .c-left .lbl, .L-dusk .c-right h2 { color: var(--c-text-muted); }
+.L-dusk .c-left .it { color: var(--c-text-muted); opacity: .55; }
+.L-dusk .c-left .it.on { color: var(--k-menu-entry-active-fg); opacity: 1; text-shadow: 0 0 18px rgba(var(--rgb-glow), .8); }
+.L-dusk .c-left .bot .resume { color: var(--c-primary); }
+.L-dusk .srow { background: linear-gradient(180deg, rgba(var(--rgb-surface-top), .9), var(--k-slot-row-bg)); color: var(--k-slot-row-fg); border-radius: var(--k-slot-row-r); border: 1px solid rgba(var(--rgb-edge), .18); }
+.L-dusk .srow small, .L-dusk .srow .k { color: var(--c-text-muted); }
+.L-dusk .act { color: var(--c-primary); } .L-dusk .act.warn { color: var(--c-secondary); } .L-dusk .act.dis { color: var(--c-text-muted); }
+
+/* ───────────── C · Pop (visual-language/pop/DESIGN.md) ───────────── */
+.L-pop .box { background: var(--k-dialogue-box-bg); color: var(--k-dialogue-box-fg); border: var(--s-stroke) solid var(--c-ink);
+  border-radius: var(--k-dialogue-box-r); box-shadow: var(--s-drop) var(--s-drop) 0 var(--c-ink); }
+.L-pop .plate { top: -22px; padding: var(--k-speaker-plate-pad) 20px; background: var(--k-speaker-plate-bg); color: var(--k-speaker-plate-fg); border: var(--s-stroke) solid var(--c-ink);
+  border-radius: var(--k-speaker-plate-r); box-shadow: 3px 3px 0 var(--c-ink); text-transform: uppercase; }
+.L-pop .narr { color: var(--k-narration-fg); }
+.L-pop .next { color: var(--c-primary); }
+.L-pop .quick { color: var(--c-ink-soft); }
+.L-pop .quick .on, .L-pop .quick span:hover { color: var(--c-ink); background: var(--c-tertiary); border-radius: 999px; padding: 0 8px; margin: 0 -8px; }
+.L-pop .choice { background: var(--k-choice-bg); color: var(--k-choice-fg); border: var(--s-stroke) solid var(--c-ink); border-radius: var(--k-choice-r); box-shadow: var(--s-drop) var(--s-drop) 0 var(--c-ink); }
+.L-pop .choice:hover, .L-pop .choice.f { background: var(--k-choice-focus-bg); color: var(--k-choice-focus-fg); transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--c-ink); }
+.L-pop .badge { border: 2px solid var(--c-ink); }
+.L-pop .thinking { color: var(--c-ink-soft); }
+.L-pop .thinking .dots { color: var(--c-ink); background: var(--c-white); border: 2px solid var(--c-ink); border-radius: 999px; padding: 6px 10px; }
+.L-pop .thinking .dots i { animation: bounce .9s infinite; opacity: 1; }
+.L-pop .t-word { color: var(--c-cream); text-shadow: 4px 4px 0 var(--c-ink); }
+.L-pop .t-tag { display: inline-block; color: var(--c-cream); background: var(--c-ink); padding: 5px 12px; border-radius: 999px; }
+.L-pop .t-word { white-space: nowrap; }
+.L-pop .t-menu { gap: 8px; }
+.L-pop .t-menu li { width: fit-content; padding: 6px 22px; background: var(--k-title-item-bg); color: var(--k-title-item-fg); border: var(--s-stroke) solid var(--c-ink);
+  border-radius: var(--k-title-item-r); box-shadow: 4px 4px 0 var(--c-ink); }
+.L-pop .t-menu li.f { background: var(--k-title-item-focus-bg); color: var(--k-title-item-focus-fg); transform: translate(-2px, -2px); box-shadow: 6px 6px 0 var(--c-ink); }
+.L-pop .t-menu li.dis { opacity: .7; }
+.L-pop .t-menu li.rule-above { margin-top: 6px; }
+.L-pop .t-reason, .L-pop .t-legend { display: inline-block; color: var(--c-ink); background: var(--c-cream); border: 2px solid var(--c-ink); border-radius: 999px; padding: 4px 12px; }
+.L-pop .contents { background: var(--k-menu-page-bg); color: var(--k-menu-page-fg); }
+.L-pop .c-left { border-right: var(--s-stroke) solid var(--c-ink); }
+.L-pop .c-left .lbl, .L-pop .c-right h2 { color: var(--c-ink-soft); }
+.L-pop .c-left .it { width: fit-content; padding: 4px 20px; margin: 0 0 8px -20px; border: var(--s-stroke) solid transparent; border-radius: 999px; opacity: .6; }
+.L-pop .c-left .it.on { background: var(--k-menu-entry-active-bg); color: var(--k-menu-entry-active-fg); border-color: var(--c-ink); box-shadow: 4px 4px 0 var(--c-ink); opacity: 1; }
+.L-pop .c-left .bot .resume { color: var(--c-ink); font-weight: 700; }
+.L-pop .srow { background: var(--k-slot-row-bg); color: var(--k-slot-row-fg); border: var(--s-stroke) solid var(--c-ink); border-radius: var(--k-slot-row-r); box-shadow: 4px 4px 0 var(--c-ink); margin-bottom: 14px; }
+.L-pop .srow small, .L-pop .srow .k { color: var(--c-ink-soft); }
+.L-pop .act { background: var(--k-slot-action-bg); color: var(--k-slot-action-fg); border: 2px solid var(--c-ink); border-radius: var(--k-slot-action-r); padding: 4px 14px; font-weight: 700; }
+.L-pop .act.warn { background: var(--c-primary); } .L-pop .act.dis { background: var(--c-cream-deep); }
+
+/* ───────────── Prototype chrome (not part of any design) ───────────── */
+#proto-bar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; align-items: center; gap: 6px;
+  background: #fff; color: #111; border-radius: 999px; padding: 6px 10px; box-shadow: 0 6px 24px rgba(0,0,0,.6); font: 13px system-ui, sans-serif; z-index: 10; white-space: nowrap; }
+#proto-bar button { border: 0; background: #eee; border-radius: 999px; padding: 6px 11px; font: inherit; cursor: pointer; }
+#proto-bar button:hover { background: #ddd; } #proto-bar button.on { background: #111; color: #fff; }
+#proto-bar .lbl { font-weight: 700; min-width: 170px; text-align: center; }
+#proto-bar .sep { width: 1px; height: 20px; background: #ccc; margin: 0 4px; }
+#proto-bar .tag { font-size: 10px; font-weight: 700; letter-spacing: .12em; color: #c33; }
+#proto-state { position: fixed; left: 12px; top: 10px; font: 11px ui-monospace, monospace; color: #8a8d98; z-index: 10; }
+#proto-toast { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); background: #fff; color: #111; padding: 6px 14px; border-radius: 8px; font: 13px system-ui; opacity: 0; transition: opacity .2s; z-index: 11; }
+#proto-tok { display: none; position: fixed; right: 0; top: 0; bottom: 0; width: 380px; background: #f6f6f6; color: #111; font: 12px system-ui, sans-serif; overflow: auto; padding: 14px 16px 80px; z-index: 9; }
+body.tok #proto-tok { display: block; }
+#proto-tok h3 { font-size: 13px; margin: 14px 0 6px; } #proto-tok h3:first-child { margin-top: 0; }
+#proto-tok .row { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+#proto-tok .sw { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #0003; flex: none; }
+#proto-tok code { font: 11px ui-monospace, monospace; }
+#proto-tok .bad { color: #c22; font-weight: 700; } #proto-tok .ok { color: #297a3a; }
+#proto-tok .warn { background: #fff3c4; padding: 6px 8px; border-radius: 6px; margin: 6px 0; }
+</style>
+<style id="tokens"></style>
+</head>
+<body>
+<div id="viewport"><div id="stage"></div></div>
+<div id="proto-state"></div>
+<div id="proto-toast"></div>
+<div id="proto-tok"></div>
+<div id="proto-bar">
+  <span class="tag">PROTOTYPE</span>
+  <button data-nav="-1" title="Previous language (←)">←</button>
+  <span class="lbl" id="proto-label"></span>
+  <button data-nav="1" title="Next language (→)">→</button>
+  <span class="sep"></span>
+  <button data-scr="title">Title</button>
+  <button data-scr="play">Play</button>
+  <button data-scr="menu">Esc menu</button>
+  <span class="sep"></span>
+  <button data-jump="choice" title="New game, run to the player choice">@choice</button>
+  <button data-jump="decide" title="New game, run to the decide point (in flight)">@decide</button>
+  <button data-jump="epilogue" title="New game, run into the epilogue">@epilogue</button>
+  <span class="sep"></span>
+  <button data-tok title="Show the parsed DESIGN.md tokens (T)">Tokens</button>
+</div>
+<script>
+// ── The three DESIGN.md files ──
+const LANGS = {
+  A: { id: 'washi', file: 'visual-language/washi/DESIGN.md' },
+  B: { id: 'dusk', file: 'visual-language/dusk/DESIGN.md' },
+  C: { id: 'pop', file: 'visual-language/pop/DESIGN.md' },
+};
+const BUNDLED = ['IBM Plex Sans', 'Fira Mono'];
+
+// Minimal YAML front-matter reader: nested maps and scalars only, which is
+// all these files use. Not a general YAML parser.
+function parseFront(md) {
+  const m = md.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  const root = {}; const stack = [{ indent: -1, obj: root }];
+  for (const line of m[1].split(/\r?\n/)) {
+    if (/^\s*(#|$)/.test(line)) continue;
+    const indent = line.match(/^ */)[0].length;
+    const kv = line.trim().match(/^([^:]+):\s*(.*)$/);
+    while (stack[stack.length - 1].indent >= indent) stack.pop();
+    const top = stack[stack.length - 1].obj, key = kv[1].trim(), val = kv[2];
+    if (val === '') { const o = {}; top[key] = o; stack.push({ indent, obj: o }); }
+    else top[key] = val.replace(/^"(.*)"$/, '$1').replace(/^'(.*)'$/, '$1');
+  }
+  return root;
+}
+function resolve(root, v, depth = 0) {
+  const r = typeof v === 'string' && v.match(/^\{(.+)\}$/);
+  if (!r || depth > 8) return v;
+  return resolve(root, r[1].split('.').reduce((o, k) => o && o[k], root), depth + 1);
+}
+function rgbOf(hex) {
+  const h = hex.replace('#', '');
+  const f = h.length <= 4 ? h.split('').map(c => c + c).join('') : h;
+  return [0, 2, 4].map(i => parseInt(f.slice(i, i + 2), 16));
+}
+function lum(hex) {
+  return rgbOf(hex).map(c => { c /= 255; return c <= .03928 ? c / 12.92 : ((c + .055) / 1.055) ** 2.4; })
+    .reduce((s, c, i) => s + c * [.2126, .7152, .0722][i], 0);
+}
+const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+const fontStack = f => BUNDLED.includes(f) ? `"${f}"` : `"${f}", "Yu Mincho", "Hiragino Mincho ProN", Georgia, serif`;
+
+function tokensCss(key, T) {
+  const sc = `.L-${LANGS[key].id}`, vars = [];
+  for (const [k, v] of Object.entries(T.colors || {})) {
+    vars.push(`--c-${k}: ${v}`);
+    if (/^#/.test(v)) vars.push(`--rgb-${k}: ${rgbOf(v).join(',')}`);
+  }
+  for (const [k, v] of Object.entries(T.rounded || {})) vars.push(`--r-${k}: ${v}`);
+  for (const [k, v] of Object.entries(T.spacing || {})) vars.push(`--s-${k}: ${v}`);
+  const P = { backgroundColor: 'bg', textColor: 'fg', rounded: 'r', padding: 'pad', size: 'size', height: 'height', width: 'width' };
+  for (const [c, props] of Object.entries(T.components || {}))
+    for (const [p, v] of Object.entries(props)) if (P[p]) vars.push(`--k-${c}-${P[p]}: ${resolve(T, v)}`);
+  let css = `${sc} { ${vars.join('; ')} }\n`;
+  for (const [k, t] of Object.entries(T.typography || {})) {
+    css += `${sc} .t-${k} { font-family: ${fontStack(t.fontFamily)}; font-size: ${t.fontSize}; font-weight: ${t.fontWeight}; ` +
+      `line-height: ${t.lineHeight || 'normal'}; letter-spacing: ${t.letterSpacing || 'normal'}; }\n`;
+  }
+  return css;
+}
+
+function tokenPanel(key) {
+  const T = LANGS[key].tokens; const esc2 = s => String(s).replace(/</g, '&lt;');
+  let h = `<h3>${esc2(T.name)} · <code>${LANGS[key].file}</code></h3><div>${esc2(T.description || '')}</div>`;
+  const missing = [...new Set(Object.values(T.typography || {}).map(t => t.fontFamily))].filter(f => !BUNDLED.includes(f));
+  if (missing.length) h += `<div class="warn">Not bundled: ${missing.join(', ')} — shown with a system fallback.</div>`;
+  h += '<h3>colors</h3>' + Object.entries(T.colors).map(([k, v]) => `<div class="row"><span class="sw" style="background:${v}"></span><code>${k}</code><code style="margin-left:auto">${v}</code></div>`).join('');
+  h += '<h3>typography</h3>' + Object.entries(T.typography).map(([k, t]) => `<div class="row"><code>${k}</code><span style="margin-left:auto">${t.fontFamily} ${t.fontWeight} ${t.fontSize}/${t.lineHeight}</span></div>`).join('');
+  h += '<h3>rounded · spacing</h3><code>' + Object.entries(T.rounded).map(([k, v]) => `${k}=${v}`).join(' ') + '<br>' + Object.entries(T.spacing).map(([k, v]) => `${k}=${v}`).join(' ') + '</code>';
+  h += '<h3>components (WCAG contrast)</h3>' + Object.entries(T.components).map(([c, p]) => {
+    const bg = resolve(T, p.backgroundColor), fg = resolve(T, p.textColor);
+    const cr = bg && fg && /^#/.test(bg) && /^#/.test(fg) ? contrast(bg, fg) : null;
+    return `<div class="row">${bg ? `<span class="sw" style="background:${bg}"></span>` : ''}${fg ? `<span class="sw" style="background:${fg}"></span>` : ''}<code>${c}</code>
+      ${cr ? `<span class="${cr >= 4.5 ? 'ok' : 'bad'}" style="margin-left:auto">${cr.toFixed(2)}:1</span>` : ''}</div>`;
+  }).join('');
+  return h;
+}
+
+// ── Assets (the demo pack and bundled fonts, read in place) ──
+const ASSETS = '../../examples/demo-pack/assets/';
+const BG = ASSETS + 'backgrounds/school_gate.png';
+const SPRITE = m => ASSETS + 'sprites/ace/' + m + '.png';
+const PACK = { name: 'unmei demo', tagline: 'a demo pack' };
+
+// ── The demo pack's script, hand-flattened (as in vn-ui.html) ──
+const BLOCKS = {
+  start: [{ scene: 'first_meeting' },
+    { say: 'Narrator', t: 'Morning light. A folded letter on the ground, half under a shoe.' },
+    { sprite: 'neutral' },
+    { say: 'Ace', t: "You're not from around here, are you?" },
+    { choice: [['Ask about the letter', 'ask'], ['Stay silent', 'silence']] }],
+  ask: [{ set: { met: true, letters: 1 } }, { say: 'Ace', t: 'A letter? Ah... you saw that.' }, { set: { aff: 'high' } }, { go: 'reunion' }],
+  silence: [{ set: { met: true, aff: 'low' } }, { say: 'Ace', t: "...Fine, don't talk. See if I care." }, { go: 'reunion' }],
+  reunion: [{ scene: 'reunion' }, { sprite: null },
+    { say: 'Narrator', t: "The gate again, hours later. She's still there." },
+    { sprite: 'neutral' }, { decide: 'ace.greet' }],
+  'reply.warm': [{ sprite: 'happy' }, { say: 'Ace', t: 'You came back! I... hoped you would.' }, { go: 'epilogue' }],
+  'reply.cold': [{ sprite: 'neutral' }, { say: 'Ace', t: "Oh. It's you." }, { go: 'epilogue' }],
+  epilogue: null,
+};
+function epilogue(v) {
+  const L = [{ scene: 'epilogue' }];
+  if (v.aff === 'high') {
+    L.push({ say: 'Narrator', t: 'She lingers by the gate, in no hurry to leave.' });
+    L.push({ say: 'Ace', t: v.letters > 0 ? 'Keep it. It suits you.' : 'Next time, bring me something.' });
+  } else L.push({ say: 'Narrator', t: 'She is already walking away.' });
+  if (v.met) L.push({ say: 'Narrator', t: 'You will see her again.' });
+  L.push({ end: true });
+  return L;
+}
+const SLOTS = [
+  { k: 'Slot 1', st: 'Ok', scene: 'reunion', at: '12 Nov 2026 14:03' },
+  { k: 'Slot 2', st: 'Empty' },
+  { k: 'Slot 3', st: 'Unreadable', reason: 'saved by a newer Unmei (save version 3)' },
+  { k: 'Autosave', st: 'Ok', scene: 'first_meeting', at: '14 Nov 2026 09:41', auto: true },
+];
+const TABS = ['Save', 'Load', 'Timeline', 'Gallery', 'Settings'];
+function slotAction(sl, tab) {
+  if (tab === 'Save') {
+    if (sl.auto) return { t: 'Load-only', dis: true };
+    return { t: sl.st === 'Empty' ? 'Save here' : 'Overwrite', warn: sl.st !== 'Empty' };
+  }
+  if (sl.st === 'Ok') return { t: 'Load' };
+  return { t: sl.st === 'Empty' ? '—' : 'Can’t load', dis: true };
+}
+function slotMeta(sl) {
+  if (sl.st === 'Ok') return [sl.scene, sl.at];
+  if (sl.st === 'Empty') return ['—', 'no save yet'];
+  return ['Unreadable', sl.reason];
+}
+
+// ── Runtime model (in memory only) ──
+const S = {
+  screen: 'title', started: false, block: 'start', i: 0, code: [], vars: {},
+  scene: '', sprite: null, wait: null, line: null, shown: 0, choice: null, cf: 0,
+  decide: null, log: [], auto: false, skip: false, tab: 'Save', tf: 1,
+};
+let decideTimer = null;
+function newGame() {
+  clearTimeout(decideTimer);
+  Object.assign(S, { started: true, vars: {}, sprite: null, log: [], decide: null, screen: 'play' });
+  enter('start');
+}
+function enter(block) { S.block = block; S.i = 0; S.code = block === 'epilogue' ? epilogue(S.vars) : BLOCKS[block]; run(); }
+function run() {
+  for (;;) {
+    const b = S.code[S.i++];
+    if (!b) { S.wait = 'end'; return; }
+    if (b.scene) { S.scene = b.scene; continue; }
+    if ('sprite' in b) { S.sprite = b.sprite; continue; }
+    if (b.set) { Object.assign(S.vars, b.set); continue; }
+    if (b.go) return enter(b.go);
+    if (b.say) { S.wait = 'say'; S.line = { who: b.say, t: b.t }; S.shown = 0; return; }
+    if (b.choice) { S.wait = 'choice'; S.choice = b.choice; S.cf = 0; return; }
+    if (b.decide) { S.wait = 'decide'; S.decide = { id: b.decide, status: 'in flight' }; decideTimer = setTimeout(resolveDecide, 2400); return; }
+    if (b.end) { S.wait = 'end'; S.line = null; return; }
+  }
+}
+function resolveDecide() {
+  S.decide = { id: S.decide.id, status: 'answered', action: S.vars.aff === 'high' ? 'warm' : 'cold' };
+  if (S.screen === 'menu') { S.decide.held = true; render(); return; }
+  applyDecide();
+}
+function applyDecide() { const a = S.decide.action; S.decide = null; enter('reply.' + a); render(); }
+function full() { return S.line && S.shown >= S.line.t.length; }
+function advance() {
+  if (S.screen !== 'play') return;
+  if (S.wait === 'say') { if (!full()) { S.shown = S.line.t.length; paintProse(); return; } run(); render(); }
+  else if (S.wait === 'end') { S.screen = 'title'; S.started = false; render(); }
+}
+function choose(n) {
+  if (S.screen !== 'play' || S.wait !== 'choice' || !S.choice[n]) return;
+  const go = S.choice[n][1]; S.choice = null; enter(go); render();
+}
+function openMenu() { if (!S.started) return; S.screen = 'menu'; render(); }
+function resume() { S.screen = 'play'; if (S.decide && S.decide.held) applyDecide(); else render(); }
+const TITLE_ITEMS = () => [
+  { label: 'Continue', dis: !S.started }, { label: 'New Game' }, { label: 'Settings' }, { label: 'Gallery' }, { label: 'Quit', rule: true },
+];
+function titleAct(n) {
+  const it = TITLE_ITEMS()[n]; if (!it || it.dis) return;
+  if (it.label === 'Continue') { S.screen = 'play'; render(); }
+  else if (it.label === 'New Game') { newGame(); render(); }
+  else toast(it.label + ' is out of scope for this prototype');
+}
+
+// ── Variant E structure, rendered once for every language ──
+const isNarr = w => w === 'Narrator';
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+const dots = '<span class="dots"><i></i><i></i><i></i></span>';
+const E = {
+  title() {
+    return `<div class="bg" style="background-image:url(${BG})"></div><div class="t-back"></div>
+      <div class="t-col"><div class="t-word t-wordmark">${PACK.name}</div><div class="t-tag t-label upper">${PACK.tagline}</div>
+      <ul class="t-menu">${TITLE_ITEMS().map((it, i) => `<li class="t-title-item ${i === S.tf ? 'f' : ''} ${it.dis ? 'dis' : ''} ${it.rule ? 'rule-above' : ''}" data-act="title:${i}">${it.label}</li>`).join('')}</ul>
+      <div class="t-reason t-label">${S.started ? S.scene : 'No autosave yet'}</div></div>
+      <div class="t-legend t-label">↑/↓ move · Enter select · click to choose</div>`;
+  },
+  play() {
+    let box = '';
+    if (S.wait) {
+      const who = S.wait === 'decide' ? 'Ace' : S.line && S.line.who;
+      const narr = isNarr(who) && S.wait !== 'decide';
+      let inner;
+      if (S.wait === 'decide') inner = `<div class="thinking t-prose"><span class="orb"></span>${dots}<span>Ace is deciding how to greet you</span><small class="t-label">ace.greet · ${S.decide.status}</small></div>`;
+      else if (S.wait === 'end') inner = `<div class="t-narration narr">— End of the demo. Click to return to the title. —</div>`;
+      else inner = `<span class="${narr ? 't-narration narr' : 't-prose'}" data-prose></span>`;
+      box = `<div class="box" data-act="advance"><i class="rule"></i><i class="edge"></i>
+        ${who && !narr && S.wait !== 'end' ? `<div class="plate t-name">${who}</div>` : ''}
+        <div>${inner}</div>
+        ${S.wait === 'say' ? '<div class="next" data-next>▼</div>' : ''}
+        <div class="quick t-label"><span data-act="menu:Save">SAVE</span><span data-act="menu:Load">LOAD</span>
+          <span data-act="auto" class="${S.auto ? 'on' : ''}">AUTO</span><span data-act="skip" class="${S.skip ? 'on' : ''}">SKIP</span>
+          <span data-act="menu:Timeline">LOG</span><span class="grow"></span><span data-act="menu:Settings">MENU · ESC</span></div></div>`;
+    }
+    const choices = S.wait === 'choice' ? `<div class="choices">${S.choice.map(([t], i) =>
+      `<div class="choice t-choice ${i === S.cf ? 'f' : ''}" data-act="choose:${i}"><i class="rule"></i><b class="badge t-label">${i + 1}</b>${esc(t)}</div>`).join('')}</div>` : '';
+    return `<div class="bg" style="background-image:url(${BG})"></div>${S.sprite ? `<img class="sprite" src="${SPRITE(S.sprite)}">` : ''}${choices}${box}`;
+  },
+  menu() {
+    const slots = S.tab === 'Save' || S.tab === 'Load';
+    return `<div class="contents">
+      <div class="c-left"><div class="lbl t-label">CONTENTS</div>
+        ${TABS.map(t => `<div class="it t-menu-entry ${t === S.tab ? 'on' : ''}" data-act="tab:${t}">${t}</div>`).join('')}
+        <div class="bot t-body"><span class="resume" data-act="resume">▶ Resume reading</span><span data-act="title">Exit to title</span></div></div>
+      <div class="c-right">${slots ? `<h2 class="t-body">${S.tab === 'Save' ? 'Save your place' : 'Return to a page'} — you are in <b>${S.scene}</b></h2>
+        ${SLOTS.map(sl => { const a = slotAction(sl, S.tab), [m1, m2] = slotMeta(sl);
+          return `<div class="srow"><div class="k t-label">${sl.k.toUpperCase()}</div><div class="t-body">${m1}<small class="t-label">${m2}</small></div>
+            <div class="act t-body ${a.dis ? 'dis' : ''} ${a.warn ? 'warn' : ''}">${a.t}</div></div>`; }).join('')}`
+        : `<h2 class="t-body">${S.tab} — out of scope for this prototype.</h2>`}</div></div>`;
+  },
+};
+
+// ── Switcher wiring ──
+const KEYS = Object.keys(LANGS);
+const params = new URLSearchParams(location.search);
+let cur = KEYS.includes(params.get('variant')) ? params.get('variant') : 'A';
+const stage = document.getElementById('stage');
+function syncUrl() { const p = new URLSearchParams(location.search); p.set('variant', cur); p.set('screen', S.screen); history.replaceState(null, '', '?' + p); }
+function render() {
+  const L = LANGS[cur];
+  stage.innerHTML = `<div class="scr L-${L.id}">${E[S.screen]()}</div>`;
+  paintProse();
+  document.getElementById('proto-label').textContent = `${cur} (${L.tokens.name.replace('Unmei ', '')})`;
+  document.querySelectorAll('[data-scr]').forEach(b => b.classList.toggle('on', b.dataset.scr === S.screen));
+  document.getElementById('proto-tok').innerHTML = tokenPanel(cur);
+  const d = S.decide ? ` · decide=${S.decide.id}:${S.decide.status}${S.decide.held ? '(held)' : ''}` : '';
+  document.getElementById('proto-state').textContent = `variant=${cur} lang=${L.id} screen=${S.screen} scene=${S.scene || '-'} wait=${S.wait || '-'}${d} · vars=${JSON.stringify(S.vars)}`;
+  syncUrl();
+}
+function paintProse() {
+  const t = !S.line ? '' : S.wait === 'say' ? S.line.t.slice(0, S.shown) : S.wait === 'choice' ? S.line.t : '';
+  stage.querySelectorAll('[data-prose]').forEach(el => { el.textContent = t; });
+  stage.querySelectorAll('[data-next]').forEach(el => { el.style.visibility = full() ? 'visible' : 'hidden'; });
+}
+function toast(t) { const el = document.getElementById('proto-toast'); el.textContent = t; el.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => el.style.opacity = 0, 1600); }
+function setScreen(scr) {
+  if (scr !== 'title' && !S.started) newGame();
+  if (scr === 'menu') S.tab = 'Save';
+  if (scr === 'play' && S.decide && S.decide.held) { S.screen = 'play'; applyDecide(); return; }
+  S.screen = scr; render();
+}
+function jump(target) {
+  newGame();
+  for (let n = 0; n < 40; n++) {
+    if (target === 'choice' && S.wait === 'choice') break;
+    if (target === 'decide' && S.wait === 'decide') break;
+    if (target === 'epilogue' && S.scene === 'epilogue') break;
+    if (S.wait === 'say') run(); else if (S.wait === 'choice') choose(0);
+    else if (S.wait === 'decide') { clearTimeout(decideTimer); S.decide = { action: 'warm' }; applyDecide(); }
+    else break;
+  }
+  if (S.wait === 'say') S.shown = S.line.t.length;
+  S.screen = 'play'; render();
+}
+let autoAt = 0;
+setInterval(() => {
+  if (S.screen !== 'play' || S.wait !== 'say') return;
+  if (S.skip) { S.shown = S.line.t.length; run(); render(); return; }
+  if (!full()) { S.shown = Math.min(S.line.t.length, S.shown + 1); paintProse(); autoAt = performance.now() + 1500 + S.line.t.length * 20; return; }
+  if (S.auto && performance.now() > autoAt) { run(); render(); }
+}, 22);
+function cycle(dir) { const i = KEYS.indexOf(cur); cur = KEYS[(i + dir + KEYS.length) % KEYS.length]; render(); }
+function toggleTok() { document.body.classList.toggle('tok'); fit(); }
+document.addEventListener('click', e => {
+  const nav = e.target.closest('[data-nav]'); if (nav) { cycle(+nav.dataset.nav); return; }
+  if (e.target.closest('[data-tok]')) { toggleTok(); return; }
+  const scr = e.target.closest('[data-scr]'); if (scr) { setScreen(scr.dataset.scr); return; }
+  const j = e.target.closest('[data-jump]'); if (j) { jump(j.dataset.jump); return; }
+  const a = e.target.closest('[data-act]'); if (!a) return;
+  const [verb, arg] = a.dataset.act.split(':');
+  if (verb === 'advance') advance();
+  else if (verb === 'choose') choose(+arg);
+  else if (verb === 'title') { if (arg !== undefined) { S.tf = +arg; titleAct(+arg); } else { S.screen = 'title'; render(); } }
+  else if (verb === 'menu') { S.tab = arg; openMenu(); }
+  else if (verb === 'tab') { S.tab = arg; render(); }
+  else if (verb === 'resume') resume();
+  else if (verb === 'auto') { S.auto = !S.auto; render(); }
+  else if (verb === 'skip') { S.skip = !S.skip; render(); }
+  e.stopPropagation();
+});
+document.addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea, [contenteditable]')) return;
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { cycle(e.key === 'ArrowRight' ? 1 : -1); e.preventDefault(); return; }
+  if (e.key === 't' || e.key === 'T') { toggleTok(); return; }
+  if (S.screen === 'title') {
+    const n = TITLE_ITEMS().length;
+    if (e.key === 'ArrowDown') { S.tf = (S.tf + 1) % n; render(); }
+    if (e.key === 'ArrowUp') { S.tf = (S.tf - 1 + n) % n; render(); }
+    if (e.key === 'Enter') titleAct(S.tf);
+    return;
+  }
+  if (e.key === 'Escape') { S.screen === 'menu' ? resume() : (S.tab = 'Save', openMenu()); return; }
+  if (S.screen !== 'play') return;
+  if (S.wait === 'choice' && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { S.cf = (S.cf + (e.key === 'ArrowDown' ? 1 : -1) + S.choice.length) % S.choice.length; render(); return; }
+  if (S.wait === 'choice' && e.key === 'Enter') { choose(S.cf); return; }
+  if (e.key === ' ' || e.key === 'Enter') { advance(); e.preventDefault(); }
+  if (/^[1-9]$/.test(e.key)) choose(+e.key - 1);
+  if (e.key === 'a' || e.key === 'A') { S.auto = !S.auto; render(); }
+  if (e.key === 'Tab') { S.skip = !S.skip; render(); e.preventDefault(); }
+});
+function fit() {
+  const w = innerWidth - (document.body.classList.contains('tok') ? 380 : 0);
+  stage.style.transform = `scale(${Math.min(w / 1280, (innerHeight - 64) / 720)})`;
+}
+addEventListener('resize', fit); fit();
+
+(async () => {
+  let css = '';
+  for (const k of KEYS) {
+    const md = await (await fetch(LANGS[k].file, { cache: 'no-store' })).text();
+    LANGS[k].tokens = parseFront(md);
+    css += tokensCss(k, LANGS[k].tokens);
+  }
+  document.getElementById('tokens').textContent = css;
+  const want = params.get('screen');
+  if (want === 'play' || want === 'menu') { newGame(); S.screen = want; }
+  render();
+})();
+</script>
+</body>
+</html>
