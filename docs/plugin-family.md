@@ -12,7 +12,7 @@ keywords:
 ---
 # Plugin family — requirements
 
-**Status (2026-11-15).** Reviewed 2026-11-15 in one requirements review; awaiting acceptance. **Not specified, not built.** Nothing here changes a contract yet. [Contracts this will amend](#8-contracts-this-will-amend) names each contract a requirement will change, and [Amendments to the UI plugin requirements](#7-amendments-to-the-ui-plugin-requirements) names each accepted UI plugin requirement it overrides.
+**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** Each kind's build-ready spec is the next phase. [Amendments to the UI plugin requirements](#7-amendments-to-the-ui-plugin-requirements) names each UI plugin requirement this page overrides; those are amended. No other contract changes yet: [Contracts this will amend](#8-contracts-this-will-amend) names each one a spec will change.
 
 **What this is.** [UI plugins](ui-plugins.md) give a pack its own look as data. This page extends the same model to more of the visual novel development experience: translations, the stage behind the dialogue box, interface sound and per-speaker style, a check and preview for the whole pack, and the author CLI's drafting rules. Each is a **plugin kind**: a folder of data in the pack with its own format version.
 
@@ -109,7 +109,7 @@ These are additions to the UI plugin's interface, not a new kind.
 
 ## 7. Amendments to the UI plugin requirements
 
-Accepting this page means the following accepted [UI plugin](ui-plugins.md) requirements change. They are not amended yet; the next step amends `ui-plugins.md` in place, with a dated pointer here.
+This page overrides the following [UI plugin](ui-plugins.md) requirements. Each was amended in place on 2026-11-15, with a dated pointer to the requirement here that overrides it.
 
 - **R4** (never behaviour): allows a speaker's reveal pace (U6) and interface sounds (U1).
 - **R9** ("not a localisation system"): copy keys become the interface side of language packs (L2).

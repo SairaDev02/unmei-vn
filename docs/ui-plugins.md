@@ -10,7 +10,7 @@ keywords:
 ---
 # UI plugins — requirements
 
-**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** The build-ready spec is the next phase. Nothing here changes a contract yet: where a requirement will amend an existing contract, [Contracts this will amend](#9-contracts-this-will-amend) names it.
+**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** The build-ready spec is the next phase. *(Amended 2026-11-15: the [Plugin family](plugin-family.md) requirements override R4, R9, R10, R12, R13, R19, R22, R23 and §12; each carries a dated pointer.)* Nothing here changes a contract yet: where a requirement will amend an existing contract, [Contracts this will amend](#9-contracts-this-will-amend) names it.
 
 **What this is.** A **UI plugin** gives a content pack its own look on the title, the play frame, the Esc menu and every other player-facing surface. An author's coding agent writes it as data, checks it and previews it with the player, then installs it by copying it into the pack. Variant E, the settled [Default look](title-and-menu.md#default-look), becomes the **reference plugin**: the look a pack gets with no plugin, and the fallback when its plugin fails.
 
@@ -36,17 +36,25 @@ keywords:
   - presentation copy (R9).
 
   It may not change behaviour: which controls exist, what they do, keys, walks and focus order, states and confirms, the pause doctrine, skip and auto, saves, the read log, the Backlog's recording, or any engine contract.
+
+  *(Amended 2026-11-15: [Plugin family](plugin-family.md) U1 and U5–U7 add interface sounds and per-speaker style to what a plugin may change. A speaker's reveal pace is the one timing a plugin sets: it scales the player's text speed and never gates input.)*
 - **R5 — Items keep engine order.** Where a slot holds a list (title rows, contents-page sections, ledger rows, cards, Backlog entries), the engine renders the items in their specified order. A plugin styles and places the list, never reorders or drops items, so what the player sees matches the walk.
 - **R6 — Every player-facing surface, full reach.** R4 applies, in full, to the title (with its Settings and Gallery title doors), the play frame (box, name tab, prose, choices, quick row, markers), the Esc menu's contents page, and the interiors of its sections: Save and Load, Backlog, Timeline, Gallery with its still view, and Settings, plus the confirm dialogs on those surfaces.
 - **R7 — Excluded surfaces.** The startup error screen, the Notice and the dev-only Monitor are always drawn in the built-in look. A broken plugin must never be able to hide a failure.
 - **R8 — Whole tree per surface, engine content as slots.** For each surface it restyles, a plugin writes that surface's full node tree. The engine's content and controls appear as named slots the tree places: for example the prose, the speaker, the quick-row controls, the title rows, the ledger and the cards. A surface the plugin does not restyle keeps the reference plugin's tree. Leaving a surface out is not a failure.
 - **R9 — Copy through a keyed table that keeps its information.** A plugin may override presentation copy only through a fixed table of string keys: for example the deciding line, headings, legends, section labels, empty states and confirm prompts. Each key declares the placeholders an override must keep (such as `{npc}`, `{scene}` or `{slot}`), so no override can drop what the player needs to know. Engine-supplied reasons, such as why a slot is unreadable, stay verbatim. Pack content (say-lines, option text, the pack name and the tagline) is never presentation copy. The copy table is not a localisation system.
+
+  *(Amended 2026-11-15: the copy keys are now also the interface side of language packs. A language may translate them and a plugin's overrides of them ([Plugin family](plugin-family.md) L2).)*
 - **R10 — Motion: looped keyframes on ornament.** A plugin may declare repeating keyframe loops of opacity, offset, scale and rotation, on ornament nodes only. Slots and controls never animate. There are no transitions between surfaces or states, and no timing that could delay or gate input.
+
+  *(Amended 2026-11-15: this still binds UI plugins, and menu surfaces stay static. Motion on the stage behind the play frame belongs to the stage plugin, under [Plugin family](plugin-family.md) S5.)*
 
 ## 3. Where a plugin lives and how it is chosen
 
 - **R11 — One plugin per pack, at `ui/`.** A pack has at most one plugin, in the pack's `ui/` folder, described by `ui/plugin.ron`. If the folder exists, the player uses it. `pack.ron` gains no field. Installing a plugin means copying a plugin folder to the pack's `ui/`.
 - **R12 — The author chooses.** The pack's plugin is the only plugin. There is no player-level or user-level plugin and no player override.
+
+  *(Amended 2026-11-15: this still holds for the look. The player does choose the language, from the pack's list ([Plugin family](plugin-family.md) L4).)*
 
 ## 4. Trust and failure
 
@@ -54,6 +62,8 @@ keywords:
   - confinement: every file a plugin names resolves inside its `ui/` folder, with no absolute paths, no `..` and no escape through a symlink;
   - resource caps: on file count, file sizes, image dimensions, node count and tree depth;
   - no network access of any kind.
+
+  *(Amended 2026-11-15: confinement and caps also cover the plugin's sound files ([Plugin family](plugin-family.md) U2).)*
 - **R14 — Failure: the whole default look, and a visible Notice.** When the pack's plugin is invalid, has an unsupported format version (R27) or fails while loading, the player drops the whole plugin and shows the reference plugin on every surface. It logs the reason to `<pack-dir>.log`, and shows a Notice that the pack's look failed to load. The player never shows a partial mix of a plugin and the default. The pack still plays.
 - **R15 — What fails a plugin.** Any check error (R22) fails the whole plugin at boot. The player runs the same rules as the check, so a plugin that passes the check loads (R24).
 
@@ -66,6 +76,8 @@ keywords:
 ## 6. Fonts and assets
 
 - **R19 — A plugin ships its own fonts and images.** Fonts and images live inside the plugin's `ui/` folder, under R13's confinement and caps. The player's five embedded faces (IBM Plex Sans Regular, SemiBold and Bold; Fira Mono Regular and Medium, per [Type system](title-and-menu.md#type-system)) are usable by name without shipping them.
+
+  *(Amended 2026-11-15: a plugin may also ship `.ogg` interface sounds and voice blips in `ui/` ([Plugin family](plugin-family.md) U2, U5). The player also embeds fallback faces for other scripts ([Plugin family](plugin-family.md) L9).)*
 - **R20 — Font licences are declared and checked.** `ui/plugin.ron` names a licence and a licence-text file for every font it ships, and may do so for images. The check fails a font that has no declaration, or whose licence-text file is missing. The check does not judge whether a licence allows redistribution. The licence texts ship inside the pack.
 
 ## 7. Developing and checking a plugin
@@ -77,7 +89,11 @@ keywords:
   - text contrast is at least WCAG AA: 4.5:1 for body text and 3:1 for large text;
   - text is at least a minimum size;
   - all of R9, R13, R20 and R27.
+
+  *(Amended 2026-11-15: the flag is `unmei-play <pack> --check`, which checks the whole pack and every plugin kind, adds warnings and offers `--format json` ([Plugin family](plugin-family.md) C1–C3).)*
 - **R23 — The preview.** A player author flag (for example `--ui-preview <dir>`) renders every surface the plugin can reach in fixed fixture states to 1280×720 PNGs, through the player's own renderer. The states cover the title's states, a say-line, narration, a choice-wait, a decision-wait, scene end, each contents-page section, the still view and each confirm. An agent checks its work by looking at the PNGs.
+
+  *(Amended 2026-11-15: the flag is `--preview <dir>`, which also renders script lines (`--at`, `--scene`) and motion as keyframe strips ([Plugin family](plugin-family.md) C1, C4–C7).)*
 - **R24 — One code path.** The check, the preview and the boot path use the same parsing, rules and renderer, so what passes the check is exactly what loads, and what the preview shows is exactly what the player draws.
 
 ## 8. Versioning
@@ -119,3 +135,5 @@ These details follow from the requirements and are settled in the spec, not here
 ## 12. Out of scope
 
 Behaviour changes of any kind; runtime composition, hot reload and live reload; code plugins (WASM, scripting, dynamic libraries, custom player builds); player-level or user-level plugins and overrides; signing, allowlists and install prompts; a plugin registry or distribution channel; transitions between surfaces or states; localisation; styling the error screen, the Notice or Monitor; the demo pack's own mood, which waits for the demo pack's story rewrite and can then become its first real plugin; gamepad support and input rebinding; window sizes below 1280×720.
+
+*(Amended 2026-11-15: localisation is now in scope, as language packs ([Plugin family](plugin-family.md) §2).)*
