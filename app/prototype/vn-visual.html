@@ -3,8 +3,14 @@
   PROTOTYPE — throwaway. Not part of the player build. Lives on branch
   `prototype/8-vn-visual-language` only; never merge to main.
 
-  Question: which mood (colour, type, shape, depth, ornament) should dress
-  the settled variant E layout (docs/title-and-menu.md § Default look)?
+  Question: which mood (colour, type, shape, depth, ornament) should the
+  demo pack wear over the settled variant E layout (docs/title-and-menu.md
+  § Default look)?
+  Scope (2026-11-15): moods are for the demo pack only. The default look
+  stays the neutral variant E, so authors can have their own agent develop
+  their pack's UI. Any choice waits on the demo pack's story rewrite and on
+  a per-pack styling mechanism that does not exist yet (pack.ron has no
+  field for a pack's own look).
   Round 2 (2026-11-15): Jesse found round 1 (Washi, Dusk, Pop) too generic.
   The moods now follow StyleShift's mood styles (https://styleshift.design/
   styles): Gothic, Cottagecore, Y2K / Frutiger Aero. Rule: no purple
@@ -37,7 +43,8 @@
 
   Fonts: the moods use OFL faces that are not bundled (UnifrakturMaguntia,
   Cormorant Garamond, Cinzel, Lora, Caveat, Nunito). The mockup loads them
-  from Google Fonts, so it needs a network connection.
+  from Google Fonts, so it needs a network connection. A winning mood's
+  fonts would ship with the demo pack, not the player.
 -->
 <html lang="en">
 <head>

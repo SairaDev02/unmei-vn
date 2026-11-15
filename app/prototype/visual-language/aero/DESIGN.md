@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Unmei Aero
-description: PROTOTYPE mood C for the default look (variant E). Optimistic early-2000s gloss after StyleShift's Y2K / Frutiger Aero mood. Sky, water and lime; jelly buttons, gloss highlights and rising bubbles.
+description: PROTOTYPE demo-pack mood C, over the variant E layout. Optimistic early-2000s gloss after StyleShift's Y2K / Frutiger Aero mood. Sky, water and lime; jelly buttons, gloss highlights and rising bubbles.
 colors:
   primary: "#0A66AD"
   secondary: "#7ED321"
@@ -138,11 +138,11 @@ components:
 
 # Unmei Aero
 
-PROTOTYPE. Mood C of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Inspired by StyleShift's Y2K / Frutiger Aero mood (styleshift.design/styles/y2k-aero). Prototype rule: no purple.
+PROTOTYPE. Mood C of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Scope: a mood is for the **demo pack only**. The default look stays the neutral variant E, so authors can have their own agent develop their pack's UI. Two things gate any choice: the demo pack's story rewrite (a mood must follow the story's genre and setting), and a per-pack styling mechanism, which does not exist yet (`pack.ron` has no field for a pack's own look). Inspired by StyleShift's Y2K / Frutiger Aero mood (styleshift.design/styles/y2k-aero). Prototype rule: no purple.
 
 ## Overview
 
-Optimistic futurism: technology and nature in harmony, before cynicism. Every surface is glossy and full of air, like a jelly button or a water droplet on glass, and the palette is sky, water and new leaves. It suits the demo's school-gate morning and blue sky, and gives a default install a bright, inviting first impression instead of a dark one.
+Optimistic futurism: technology and nature in harmony, before cynicism. Every surface is glossy and full of air, like a jelly button or a water droplet on glass, and the palette is sky, water and new leaves. It suits the demo's school-gate morning and blue sky, and gives the demo a bright, inviting first impression instead of a dark one.
 
 ## Colors
 
@@ -162,7 +162,7 @@ Bright and saturated, but always blue-green, never toward violet.
 - Weights stay medium to heavy (600 for reading, 800 for names and the wordmark): confident, never thin.
 - The wordmark is deep sky with a white highlight below and a soft blue shadow, like embossed plastic on the white title card.
 - Codes: Fira Mono stays for engine strings.
-- Nunito is not bundled. It is SIL OFL 1.1 and would be bundled under `app/assets/fonts/` if this mood wins. The mockup loads it from Google Fonts.
+- Nunito is not bundled. It is SIL OFL 1.1 and would ship with the demo pack, not the player, if this mood wins. The mockup loads it from Google Fonts.
 
 ## Layout
 
@@ -201,4 +201,4 @@ Inflated: 30px on panels, 18px on slot rows, full capsules on plates, choices, t
 
 ## Bevy feasibility
 
-Linear and radial gradients, alpha fills, 2px borders, large radii, a blurred coloured `BoxShadow`, `TextShadow`, and offset or opacity loops. No `backdrop-filter`. It needs one new bundled font.
+Linear and radial gradients, alpha fills, 2px borders, large radii, a blurred coloured `BoxShadow`, `TextShadow`, and offset or opacity loops. No `backdrop-filter`. It needs one font shipped with the pack.

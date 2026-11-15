@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Unmei Gothic
-description: PROTOTYPE mood A for the default look (variant E). Dark romance after StyleShift's Gothic mood, with its violet removed. Stone, candlelight and crimson; lancet arches and Roman numerals.
+description: PROTOTYPE demo-pack mood A, over the variant E layout. Dark romance after StyleShift's Gothic mood, with its violet removed. Stone, candlelight and crimson; lancet arches and Roman numerals.
 colors:
   primary: "#8E1B24"
   primary-bright: "#A3232E"
@@ -139,7 +139,7 @@ components:
 
 # Unmei Gothic
 
-PROTOTYPE. Mood A of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Inspired by StyleShift's Gothic mood (styleshift.design/styles/gothic). Prototype rule: no purple, so the mood's violet is dropped and crimson and candle gold carry it alone.
+PROTOTYPE. Mood A of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Scope: a mood is for the **demo pack only**. The default look stays the neutral variant E, so authors can have their own agent develop their pack's UI. Two things gate any choice: the demo pack's story rewrite (a mood must follow the story's genre and setting), and a per-pack styling mechanism, which does not exist yet (`pack.ron` has no field for a pack's own look). Inspired by StyleShift's Gothic mood (styleshift.design/styles/gothic). Prototype rule: no purple, so the mood's violet is dropped and crimson and candle gold carry it alone.
 
 ## Overview
 
@@ -161,7 +161,7 @@ Dark romance. The screen is a candlelit chapel at night: the text appears as lig
 - **Reading:** Cormorant Garamond 500. Large (28px), because Cormorant's small x-height reads thin on dark at smaller sizes.
 - **Inscriptions:** Cinzel capitals with wide tracking for speaker names, title rows, the quick row and labels: lettering cut into stone.
 - **Codes:** Fira Mono stays for engine strings (`ace.greet · in flight`).
-- None of UnifrakturMaguntia, Cormorant Garamond or Cinzel is bundled. All three are SIL OFL 1.1 and would be bundled under `app/assets/fonts/` if this mood wins. The mockup loads them from Google Fonts.
+- None of UnifrakturMaguntia, Cormorant Garamond or Cinzel is bundled. All three are SIL OFL 1.1 and would ship with the demo pack, not the player, if this mood wins. The mockup loads them from Google Fonts.
 
 ## Layout
 
@@ -195,4 +195,4 @@ Hard right angles everywhere except the lancet: a full-height panel with a round
 
 ## Bevy feasibility
 
-Linear and radial gradients, 1px borders, nested bordered nodes, a large top-only corner radius for the arch (`BorderRadius` per corner), a coloured blurred `BoxShadow`, and opacity loops. It needs three new bundled fonts.
+Linear and radial gradients, 1px borders, nested bordered nodes, a large top-only corner radius for the arch (`BorderRadius` per corner), a coloured blurred `BoxShadow`, and opacity loops. It needs three fonts shipped with the pack.

@@ -1,7 +1,7 @@
 ---
 version: alpha
 name: Unmei Cottagecore
-description: PROTOTYPE mood B for the default look (variant E). Slow, handmade warmth after StyleShift's Cottagecore mood. Linen and parchment, sage and dusty rose, a handwritten hand and pressed flowers.
+description: PROTOTYPE demo-pack mood B, over the variant E layout. Slow, handmade warmth after StyleShift's Cottagecore mood. Linen and parchment, sage and dusty rose, a handwritten hand and pressed flowers.
 colors:
   primary: "#55694A"
   secondary: "#9E524D"
@@ -142,11 +142,11 @@ components:
 
 # Unmei Cottagecore
 
-PROTOTYPE. Mood B of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Inspired by StyleShift's Cottagecore mood (styleshift.design/styles/cottagecore). Prototype rule: no purple.
+PROTOTYPE. Mood B of three, laid over the settled variant E layout (`docs/title-and-menu.md` § Default look). Scope: a mood is for the **demo pack only**. The default look stays the neutral variant E, so authors can have their own agent develop their pack's UI. Two things gate any choice: the demo pack's story rewrite (a mood must follow the story's genre and setting), and a per-pack styling mechanism, which does not exist yet (`pack.ron` has no field for a pack's own look). Inspired by StyleShift's Cottagecore mood (styleshift.design/styles/cottagecore). Prototype rule: no purple.
 
 ## Overview
 
-Slow beauty and handmade warmth. The interface is a letter written at a kitchen table: parchment and linen, a pen hand for names, pressed flowers in the corners. It is imperfect on purpose: corners are uneven, cards sit a degree off true, as if placed by hand. It matches the demo's opening, a folded letter on the ground, and makes the default install feel personal rather than technical.
+Slow beauty and handmade warmth. The interface is a letter written at a kitchen table: parchment and linen, a pen hand for names, pressed flowers in the corners. It is imperfect on purpose: corners are uneven, cards sit a degree off true, as if placed by hand. It matches the demo's opening, a folded letter on the ground, and makes the demo feel personal rather than technical.
 
 ## Colors
 
@@ -166,7 +166,7 @@ No pure colours: everything is slightly faded, warm and aged, as if dyed with na
 - **Hand:** Caveat for the wordmark, speaker names and choice letters. It looks like ink from a pen.
 - **Labels:** Lora at 13px in sentence case. No spaced capitals: they would feel clinical here.
 - **Codes:** Fira Mono stays for engine strings.
-- Neither Lora nor Caveat is bundled. Both are SIL OFL 1.1 and would be bundled under `app/assets/fonts/` if this mood wins. The mockup loads them from Google Fonts.
+- Neither Lora nor Caveat is bundled. Both are SIL OFL 1.1 and would ship with the demo pack, not the player, if this mood wins. The mockup loads them from Google Fonts.
 
 ## Layout
 
@@ -200,4 +200,4 @@ Organic and uneven. The box uses four different corner radii (18/28/16/30px, aro
 
 ## Bevy feasibility
 
-Solid fills, 1px borders, nested bordered nodes, per-corner `BorderRadius`, a blurred `BoxShadow`, and opacity loops. The tilts need `UiTransform` rotation (added in Bevy 0.17); confirm it is present in 0.19 before building. If not, drop the tilts and keep the uneven corners. It needs two new bundled fonts.
+Solid fills, 1px borders, nested bordered nodes, per-corner `BorderRadius`, a blurred `BoxShadow`, and opacity loops. The tilts need `UiTransform` rotation (added in Bevy 0.17); confirm it is present in 0.19 before building. If not, drop the tilts and keep the uneven corners. It needs two fonts shipped with the pack.
