@@ -11,7 +11,7 @@ keywords:
 ---
 # NanoGPT — requirements
 
-**Status (2026-11-16).** Requirements reviewed on 2026-11-15 (three rounds, 12 questions), with a follow-up round on default models on 2026-11-16 (four questions); awaiting acceptance. **Not built.** By decision (N21), no separate spec follows: this page is precise enough to build from, and the build PR amends each contract named in [Contracts this will amend](#10-contracts-this-will-amend). The decision record is [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md). This work takes priority over all other pending development, including the Keiko spec and the plugin family specs.
+**Status (2026-11-16).** Requirements reviewed on 2026-11-15 (three rounds, 12 questions), with a follow-up round on default models on 2026-11-16 (four questions); the decision pin moved to `typesafe/jev-1.14` on 2026-11-16. Awaiting acceptance. **Not built.** By decision (N21), no separate spec follows: this page is precise enough to build from, and the build PR amends each contract named in [Contracts this will amend](#10-contracts-this-will-amend). The decision record is [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md). This work takes priority over all other pending development, including the Keiko spec and the plugin family specs.
 
 **What this is.** Unmei calls an LLM service in two places. At play time the runtime resolves each decision point through OpenRouter's alpha Decisions API (`POST https://openrouter.ai/api/alpha/decisions`). Offline, the `unmei author` CLI drafts prose and generates decision configs through an OpenAI-compatible chat endpoint, which defaults to `https://openrouter.ai/api`. OpenRouter has become a liability on cost and on content screening. **NanoGPT** replaces it as the one provider for both.
 
@@ -22,7 +22,7 @@ keywords:
   - A question can come back as `{ "type": "refusal" }`.
   - A `score` question takes 2 to 10 levels.
   - `usage` carries `estimated_cost` unless the request sends `include_usage: true`, which returns the recorded `cost`.
-  - Only decision models answer: `typesafe/jev-1.13` (the demo pack's pin), `typesafe/jev-latest`, `liquid/d1`, `perplexity/pplx-decider-v1.2`, `cloudflare/clef` and `cloudflare/clef-flash`. They are listed at `GET /api/v1/decision-models`, not `/api/v1/models`.
+  - Only decision models answer. `GET /api/v1/decision-models` listed 20 on 2026-11-16, among them `typesafe/jev-1.13` (the demo pack's pin today) and `typesafe/jev-1.14`, both at $0.042 per million input tokens. They are not in `/api/v1/models`.
   - Billing counts input tokens only.
 - An OpenAI-compatible chat endpoint, `POST https://api.nano-gpt.com/api/v1/chat/completions`, that accepts `response_format` with a strict `json_schema` and the `provider` object, including `require_parameters` ([chat completions](https://docs.nano-gpt.com/api-reference/endpoint/chat-completion.md), [migrating from OpenRouter](https://docs.nano-gpt.com/migrate-from-openrouter.md)). Model ids use the same `vendor/model` form as OpenRouter. About half of OpenRouter's catalog matches exactly.
 - Bearer authentication. Keys look like `sk-nano-<uuid>`, and older keys are a plain UUID. A missing or invalid key gets `401`. After repeated rejections NanoGPT answers `429` with `code: "authentication_rate_limited"` and a `Retry-After` of up to 15 minutes ([authentication](https://docs.nano-gpt.com/authentication.md), [errors](https://docs.nano-gpt.com/api-reference/miscellaneous/error-handling.md)). No endpoint is labelled as a key check.
@@ -42,7 +42,7 @@ keywords:
 - **N4 — The endpoint.** The default Decisions endpoint becomes `https://api.nano-gpt.com/api/v1/decisions`. The request body stays `{ model, state, questions }`, with one question per call and the state filtered to the config's `state_keys`.
 - **N5 — Actual cost.** Every Decisions request sends `include_usage: true`, so the cost the session log and the Monitor show is the recorded charge, not an estimate. No other field is added to the request (N18).
 - **N6 — A refusal takes the fallback.** A `{ "type": "refusal" }` answer lands on the author's fallback, like any unusable answer. It has its own categorical diagnostic, "the model refused the question", so the session log and the Monitor tell a refusal apart from a broken response. Like any fallback, it does not refresh the autosave, and the player sees no Notice.
-- **N7 — The demo pin stays.** The demo pack keeps `typesafe/jev-1.13`. The build confirms with one live call that NanoGPT answers it. If the call fails, the build stops and brings the pin back to the maintainer rather than choosing a replacement model.
+- **N7 — The demo pin becomes `typesafe/jev-1.14`.** The demo pack's NPC pins `typesafe/jev-1.14` in place of `typesafe/jev-1.13`, and the docs that quote the demo's pin follow. A test that uses a model id only as an arbitrary string need not change. The build confirms with one live call that NanoGPT answers the pin. If the call fails, the build stops and brings the pin back to the maintainer rather than choosing a replacement model.
 - **N8 — Everything else is unchanged.** The landing rules, the fallback posture, the timeouts, the categorical diagnostics, the model-pin provenance rule, the no-redirect rule and the held-answer and cancellation behavior stay as they are.
 
 ## 3. Keys
@@ -77,7 +77,7 @@ keywords:
 The runtime and the CLI have no built-in model today. An NPC with no `model` pin never calls the model and takes the fallback. The CLI stops before any request when no authoring model is set. Yet `unmei author npc --create` writes every new NPC with no pin, so an NPC the CLI creates stays offline until the author edits the file, and nothing tells the author.
 
 - **N24 — No runtime default.** The runtime has no built-in decision model. An NPC with no pin in the pack's data never calls the model, as today. A shipped pack plays the same across engine upgrades, and "no pin" keeps its meaning: this NPC is decided offline.
-- **N25 — `--create` writes a pin.** `unmei author npc --create` writes a `model` pin into the new NPC file. The pin comes from, highest first: a new `--decision-model <MODEL>` flag; a new optional `decision_model` field in `unmei.author.ron`; the CLI's built-in default decision model, `typesafe/jev-1.13` (the demo pack's pin, under N7's live check). The default applies only at creation and only in the CLI. Once written, the pin is the author's data, and the runtime never fills one in. Replacing a config in an existing NPC never adds, changes or removes its pin. An author who wants an offline NPC deletes the line.
+- **N25 — `--create` writes a pin.** `unmei author npc --create` writes a `model` pin into the new NPC file. The pin comes from, highest first: a new `--decision-model <MODEL>` flag; a new optional `decision_model` field in `unmei.author.ron`; the CLI's built-in default decision model, `typesafe/jev-1.14` (the demo pack's pin, under N7's live check). The default applies only at creation and only in the CLI. Once written, the pin is the author's data, and the runtime never fills one in. Replacing a config in an existing NPC never adds, changes or removes its pin. An author who wants an offline NPC deletes the line.
 - **N26 — The CLI notes a missing pin.** Wherever the CLI loads and reports on the whole pack, today `unmei author draft --list` and the validation gate before a write, it reports each NPC that has decision configs but no pin. The report is a note that never fails the command, because an offline NPC is valid. The plugin family's planned `--check` ([C1](plugin-family.md#5-pack-wide-check-and-preview)) takes the same note when it is specified.
 - **N27 — No authoring default.** The authoring model keeps no built-in default, as today: the CLI stops before any request when neither `--model` nor `unmei.author.ron` names one. The prose style and how willingly a model writes fiction are the author's choice. The demo pack ships no `unmei.author.ron`.
 - **N28 — A verified example.** Every authoring model id that the Guide, the CLI contract and the archive READMEs give as an example is a NanoGPT chat model. The build confirms with a live call that NanoGPT serves it and honors a strict `json_schema` `response_format`, so a first-time author does not land on the free-text fallback.
@@ -104,7 +104,7 @@ These are not amended yet. The build amends each in place, with a dated pointer.
 - [Command surface and write unit](author-cli.md#1-command-surface): the `--decision-model` flag and the pin `--create` writes (N25). Its line saying `--create` writes an "optional `model`" describes a field the code never writes today; N25 makes it true.
 - [Validation gate](author-cli.md#3-validation-gate-before-any-write) and [drafting](author-cli-drafting.md): the missing-pin note (N26).
 - [Drafting provider](author-cli-drafting.md): the pointer to `author-cli.md` §4 and its variable names.
-- [Decision configs](content-format.md#4-decision-configs-and-decision-points): the ten-level limit (N20), the refusal in the fallback list (N6) and, beside the optional `model`, that the runtime has no default (N24).
+- [Decision configs](content-format.md#4-decision-configs-and-decision-points): the ten-level limit (N20), the refusal in the fallback list (N6), the example's pin (N7) and, beside the optional `model`, that the runtime has no default (N24).
 - [Provider seam](runtime-hardening.md#provider-seam): the concrete client is NanoGPT's (N2).
 - [Architecture](architecture.md): the data flow and contract map entries that name OpenRouter.
 - [Keiko K19](keiko.md#4-decisions-sandbox-and-faults): "a key check that cannot reach OpenRouter" becomes "cannot reach NanoGPT".
@@ -112,7 +112,8 @@ These are not amended yet. The build amends each in place, with a dated pointer.
 - ADRs [0009](adr/0009-decision-resolver-seam.md), [0010](adr/0010-credentials-live-in-a-user-level-file.md) and [0014](adr/0014-cli-diagnostics-and-terminal-credential-safety.md): already amended by this page's PR with a pointer to ADR 0015. The build changes no ADR.
 - `LANGUAGE.md` P1 and P2: the live-decisions page's job and the player's assumed lack of a key name NanoGPT.
 - The Guide (`docs/guide/`), `README.md`, `packaging/player-README.md`, `packaging/author-README.md`, `engine/README.md`, `cli/README.md` and the root rustdoc in `engine/src/lib.rs`.
-- `GLOSSARY.md`: the changes in §10.
+- `examples/demo-pack/npcs/ace.ron` and the Monitor acceptance fixture that copies it: the pin (N7).
+- `GLOSSARY.md`: the changes in §11.
 
 ## 11. Glossary changes
 

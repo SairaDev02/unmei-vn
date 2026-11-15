@@ -21,7 +21,7 @@ Unmei called OpenRouter in two places: the runtime's Decisions calls (`POST /api
 - **A provider abstraction or a provider plugin now.** Rejected for the same reason: one provider has one implementation. The overrides already cover a compatible endpoint.
 - **Send a stored OpenRouter key to NanoGPT and let it fail with `401`.** Rejected: it hands an OpenRouter credential to a third party, and the player sees "rejected" with no reason.
 - **Move the key to a new credential file and ignore the old one.** Rejected: the old key stays on disk unread, and nothing tells the player why decisions stopped working. Refusing an `sk-or-` key keeps one file and names the cause in the key row.
-- **Opt into NanoGPT's moderation or zero data retention.** Rejected: moderation is paid, screens input only and is not listed for decisions. Zero data retention is documented for only one decision model, which would rule out the demo's pin.
+- **Opt into NanoGPT's moderation or zero data retention.** Rejected: moderation is paid, screens input only and is not listed for decisions. Zero data retention covers only some decision models, not the demo's Jev pin, so requiring it would rule that pin out.
 
 ## Consequences
 
