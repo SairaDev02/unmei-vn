@@ -72,17 +72,7 @@ keywords:
 
 - **N20 — At most ten levels.** A `score` decision config needs two to ten levels. The loader rejects more than ten, so `unmei check` and the CLI's validation gate report it, and a pack never plays a `score` question that always falls back.
 
-## 8. Default models
-
-The runtime and the CLI have no built-in model today. An NPC with no `model` pin never calls the model and takes the fallback. The CLI stops before any request when no authoring model is set. Yet `unmei author npc --create` writes every new NPC with no pin, so an NPC the CLI creates stays offline until the author edits the file, and nothing tells the author.
-
-- **N24 — No runtime default.** The runtime has no built-in decision model. An NPC with no pin in the pack's data never calls the model, as today. A shipped pack plays the same across engine upgrades, and "no pin" keeps its meaning: this NPC is decided offline.
-- **N25 — `--create` writes a pin.** `unmei author npc --create` writes a `model` pin into the new NPC file. The pin comes from, highest first: a new `--decision-model <MODEL>` flag; a new optional `decision_model` field in `unmei.author.ron`; the CLI's built-in default decision model, `typesafe/jev-1.14` (the demo pack's pin, under N7's live check). The default applies only at creation and only in the CLI. Once written, the pin is the author's data, and the runtime never fills one in. Replacing a config in an existing NPC never adds, changes or removes its pin. An author who wants an offline NPC deletes the line.
-- **N26 — The CLI notes a missing pin.** Wherever the CLI loads and reports on the whole pack, today `unmei author draft --list` and the validation gate before a write, it reports each NPC that has decision configs but no pin. The report is a note that never fails the command, because an offline NPC is valid. The plugin family's planned `--check` ([C1](plugin-family.md#5-pack-wide-check-and-preview)) takes the same note when it is specified.
-- **N27 — No authoring default.** The authoring model keeps no built-in default, as today: the CLI stops before any request when neither `--model` nor `unmei.author.ron` names one. The prose style and how willingly a model writes fiction are the author's choice. The demo pack ships no `unmei.author.ron`.
-- **N28 — A verified example.** Every authoring model id that the Guide, the CLI contract and the archive READMEs give as an example is a NanoGPT chat model. The build confirms with a live call that NanoGPT serves it and honors a strict `json_schema` `response_format`, so a first-time author does not land on the free-text fallback.
-
-## 9. Process and release
+## 8. Process and release
 
 - **N21 — Requirements, then build.** No separate spec. The build PR amends the contracts in §10 and lands the glossary changes in §11.
 - **N22 — No dedicated release.** The migration merges to `main` and ships with a later release. That release's notes tell players to get a NanoGPT key and authors to update `UNMEI_API_KEY`.
@@ -94,6 +84,16 @@ The runtime and the CLI have no built-in model today. An NPC with no `model` pin
 - `cargo test --workspace` passes, with tests for N6 (a refusal answer), N10 to N12 (an `sk-or-` key from each source is never sent, and the key row and the CLI say why), N13, N14's status mapping, N20, N25's precedence (flag, file, built-in; replace leaves the pin alone) and N26's note.
 - The example authoring model passes N28's live call.
 - No contract, Guide page, archive README, crate README or rustdoc names OpenRouter as the provider. A mention that records history, such as an ADR's context, may stay.
+
+## 9. Default models
+
+The runtime and the CLI have no built-in model today. An NPC with no `model` pin never calls the model and takes the fallback. The CLI stops before any request when no authoring model is set. Yet `unmei author npc --create` writes every new NPC with no pin, so an NPC the CLI creates stays offline until the author edits the file, and nothing tells the author.
+
+- **N24 — No runtime default.** The runtime has no built-in decision model. An NPC with no pin in the pack's data never calls the model, as today. A shipped pack plays the same across engine upgrades, and "no pin" keeps its meaning: this NPC is decided offline.
+- **N25 — `--create` writes a pin.** `unmei author npc --create` writes a `model` pin into the new NPC file. The pin comes from, highest first: a new `--decision-model <MODEL>` flag; a new optional `decision_model` field in `unmei.author.ron`; the CLI's built-in default decision model, `typesafe/jev-1.14` (the demo pack's pin, under N7's live check). The default applies only at creation and only in the CLI. Once written, the pin is the author's data, and the runtime never fills one in. Replacing a config in an existing NPC never adds, changes or removes its pin. An author who wants an offline NPC deletes the line.
+- **N26 — The CLI notes a missing pin.** Wherever the CLI loads and reports on the whole pack, today `unmei author draft --list` and the validation gate before a write, it reports each NPC that has decision configs but no pin. The report is a note that never fails the command, because an offline NPC is valid. The plugin family's planned `--check` ([C1](plugin-family.md#5-pack-wide-check-and-preview)) takes the same note when it is specified.
+- **N27 — No authoring default.** The authoring model keeps no built-in default, as today: the CLI stops before any request when neither `--model` nor `unmei.author.ron` names one. The prose style and how willingly a model writes fiction are the author's choice. The demo pack ships no `unmei.author.ron`.
+- **N28 — A verified example.** Every authoring model id that the Guide, the CLI contract and the archive READMEs give as an example is a NanoGPT chat model. The build confirms with a live call that NanoGPT serves it and honors a strict `json_schema` `response_format`, so a first-time author does not land on the free-text fallback.
 
 ## 10. Contracts this will amend
 
