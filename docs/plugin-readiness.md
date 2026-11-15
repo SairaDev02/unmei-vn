@@ -109,6 +109,8 @@ These pieces serve more than one kind. Building them once, early, avoids designi
 
 ## 4. Suggested spec order
 
+*(Amended 2026-11-15: [Keiko](keiko.md) K30 puts Keiko's spec before every step below, and step 1's preview consumes Keiko's replay (K29). The order of the steps among themselves is unchanged.)*
+
 1. **Check and preview, with G1 and G2.** It needs no plugin kind, authors and agents can use it at once, and every later kind reports through it (UI R24). The preview's fixture states start with today's surfaces.
 2. **Authoring profile.** It is small, touches only the CLI, and is independent of the player. It can run alongside step 1.
 3. **UI plugin with variant E (R17), including G3 and G6.** This is the largest piece, and it waits for step 1's diagnostics.

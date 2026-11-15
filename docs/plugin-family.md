@@ -12,7 +12,7 @@ keywords:
 ---
 # Plugin family — requirements
 
-**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** Each kind's build-ready spec is the next phase. [Amendments to the UI plugin requirements](#7-amendments-to-the-ui-plugin-requirements) names each UI plugin requirement this page overrides; those are amended. No other contract changes yet: [Contracts this will amend](#8-contracts-this-will-amend) names each one a spec will change.
+**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** Each kind's build-ready spec is the next phase. *(Amended 2026-11-15: the [Keiko](keiko.md) requirements override C4, C5 and two items in [Left to the spec](#9-left-to-the-spec); each carries a dated pointer.)* [Amendments to the UI plugin requirements](#7-amendments-to-the-ui-plugin-requirements) names each UI plugin requirement this page overrides; those are amended. No other contract changes yet: [Contracts this will amend](#8-contracts-this-will-amend) names each one a spec will change.
 
 **What this is.** [UI plugins](ui-plugins.md) give a pack its own look as data. This page extends the same model to more of the visual novel development experience: translations, the stage behind the dialogue box, interface sound and per-speaker style, a check and preview for the whole pack, and the author CLI's drafting rules. Each is a **plugin kind**: a folder of data in the pack with its own format version.
 
@@ -94,7 +94,11 @@ These are additions to the UI plugin's interface, not a new kind.
   - Flow lint: unreachable labels and scenes, a `decide` with no label for one of its landing keys, and a scene that neither ends nor jumps.
 - **C3 — Errors and warnings, as text or JSON.** An error fails the check with a non-zero exit. A warning passes and is reported; partial and stale translations, flow lint and authoring-profile lint on hand-written lines are warnings. Output is readable text by default. `--format json` gives each finding's file, the path inside it, a rule id and the message.
 - **C4 — What the preview renders.** UI R23's fixture states for every surface, plus `--at <scene>:<line>`, the real frame at that say-line, choice or decide, and `--scene <id>`, every park in a scene.
+
+  *(Amended 2026-11-15: the replay that reaches `--at` and `--scene` is Keiko's. The preview consumes it and keeps no replay of its own ([Keiko](keiko.md) K29).)*
 - **C5 — Reaching a line offline.** The preview replays from the top of the scene with the declared initial state. Each choice takes its first option and each decision lands on its fallback, with no API call and no key needed. `--state <file>` and `--pick` override these.
+
+  *(Amended 2026-11-15: Keiko owns this replay and the formats of `--state` and `--pick`. The preview's defaults stand: the first option and the fallback, with no key ([Keiko](keiko.md) K15, K29).)*
 - **C6 — Motion as keyframe strips.** A park with motion renders its start, middle and end as separate PNGs.
 - **C7 — No GPU needed.** The preview runs on the software rasterizer CI already boots on, so an agent in a container can use it. Its frames may differ slightly from GPU frames; the native Monitor walk stays the rendered gate.
 
@@ -142,11 +146,11 @@ These are not amended yet. Each spec amends its contracts in place, with a dated
 - How "partial" appears in the Language setting, and whether it shows a completeness figure.
 - Whether a slow speaker's pace (U6) should also delay auto, which today waits for the reveal to finish before its 2.0 s dwell.
 - That per-speaker pace and voice blips have no effect at the default text speed, Instant, and whether the default should change for packs that use them.
-- The `--state` file format and the `--pick` syntax, and the error when the default picks cannot reach a target line.
+- The `--state` file format and the `--pick` syntax, and the error when the default picks cannot reach a target line. *(Amended 2026-11-15: these move to Keiko's spec ([Keiko](keiko.md) K29).)*
 - The preview's flags for a language and for Reduce motion.
 - Whether the stale-translation report is part of `--check` only or also a CLI command.
 - Where voice notes belong when the glossary already holds some (the demo glossary describes how Ace speaks); the profile is the intended home.
-- The order the kinds are specified and built in.
+- The order the kinds are specified and built in. *(Amended 2026-11-15: Keiko's spec comes before every kind's; the order among the kinds stays open ([Keiko](keiko.md) K30).)*
 
 ## 10. Out of scope
 

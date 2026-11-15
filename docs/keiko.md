@@ -11,11 +11,11 @@ keywords:
 ---
 # Keiko — requirements
 
-**Status (2026-11-15).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions), awaiting acceptance. **Not specified, not built.** The build-ready spec is the next phase. Nothing here changes a contract yet: [Contracts this will amend](#9-contracts-this-will-amend) names each one the spec will change.
+**Status (2026-11-15).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions), awaiting acceptance. **Not specified, not built.** The build-ready spec is the next phase. [Amendments to the plugin family requirements](#9-amendments-to-the-plugin-family-requirements) names each plugin family requirement this page overrides; those are amended. No other contract changes yet: [Contracts this will amend](#10-contracts-this-will-amend) names each one the spec will change.
 
 **What this is.** Unmei's tests today stop short of the player. The headless app tests assert ECS-level state transitions. The Monitor examples drive a real window with a real GPU. The [human smoke checklist](testing-human-smoke.md) is the only end-to-end pass over menus, saves, skip, the Timeline and failures, and a person runs it by hand. An author has nothing beyond playing their own pack. **Keiko** (稽古, rehearsal) plays a pack the way a player does and checks what that player would perceive. A coding agent can drive it from a shell without a person present. Authors test their own packs with it. Maintainers test Unmei with it through the demo pack and fixture packs.
 
-**Prior art.** Ren'Py's [automated testing](https://www.renpy.org/doc/html/testcases.html) puts `testcase` blocks in the game: steps such as `advance`, `click "Save"` and `assert`, text selectors, and pixel-compared screenshots. [Ink-Tester](https://github.com/wildwinter/Ink-Tester) plays an ink story thousands of times with random choices and reports which lines were reached. [inkcheck](https://glama.ai/mcp/servers/chaoz23/inkcheck) explores an ink story's reachable states within limits and reports an exact path to each problem. [bevy_brp_mcp](https://docs.rs/bevy_brp_mcp) lets an agent drive a running Bevy app over the Bevy Remote Protocol. Keiko takes Ren'Py's step vocabulary and inkcheck's exhaustive, reproducible exploration. It drops pixel comparison and live remote control (§10).
+**Prior art.** Ren'Py's [automated testing](https://www.renpy.org/doc/html/testcases.html) puts `testcase` blocks in the game: steps such as `advance`, `click "Save"` and `assert`, text selectors, and pixel-compared screenshots. [Ink-Tester](https://github.com/wildwinter/Ink-Tester) plays an ink story thousands of times with random choices and reports which lines were reached. [inkcheck](https://glama.ai/mcp/servers/chaoz23/inkcheck) explores an ink story's reachable states within limits and reports an exact path to each problem. [bevy_brp_mcp](https://docs.rs/bevy_brp_mcp) lets an agent drive a running Bevy app over the Bevy Remote Protocol. Keiko takes Ren'Py's step vocabulary and inkcheck's exhaustive, reproducible exploration. It drops pixel comparison and live remote control (§12).
 
 ---
 
@@ -80,11 +80,20 @@ keywords:
 - The `check` workflow runs the demo pack's and the fixture packs' cases, plus a bounded exploration of the demo pack, on every push.
 - The demo pack's `AGENT-GUIDE.md` and the Guide describe Keiko (K28).
 
-## 9. Contracts this will amend
+## 9. Amendments to the plugin family requirements
+
+This page overrides the following [plugin family](plugin-family.md) requirements. Each was amended in place on 2026-11-15, with a dated pointer to the requirement here that overrides it.
+
+- **C4** (what the preview renders): the replay that reaches `--at` and `--scene` is Keiko's (K29).
+- **C5** (reaching a line offline): Keiko owns the replay and the `--state` and `--pick` formats; the preview's defaults stand (K29).
+- **§9** (left to the spec): the `--state` and `--pick` formats move to Keiko's spec (K29), and Keiko's spec comes before every kind's (K30).
+
+The [plugin readiness](plugin-readiness.md) audit's suggested spec order carries the same dated pointer (K30).
+
+## 10. Contracts this will amend
 
 These are not amended yet. The spec amends each in place, with a dated pointer.
 
-- [Plugin family C4 and C5](plugin-family.md#5-pack-wide-check-and-preview): the preview's replay is Keiko's, and its `--pick` and `--state` formats move to Keiko's spec (K29).
 - [Pack layout](content-format.md#2-pack-layout): the optional `tests/` folder (K6).
 - [Crate boundaries](architecture.md#crate-boundaries-and-invariants): `unmei-play` gains the Keiko commands (K3).
 - [Testing policy](testing.md): Keiko as the player-level end-to-end layer, and its `check` gate (Done when).
@@ -106,7 +115,7 @@ These are not amended yet. The spec amends each in place, with a dated pointer.
 | **Exploration** | Keiko walking every choice option and landing key of a pack within a budget. | fuzzing, random walk, crawl |
 | **Finding** | A problem exploration reports, saved as a case that reproduces it. | failure, bug, error (each means something narrower) |
 
-## 10. Left to the spec
+## 11. Left to the spec
 
 - The step syntax, the full fixed fault list and the JSON shape of an observation.
 - The command and flag names under `unmei-play`.
@@ -117,6 +126,6 @@ These are not amended yet. The spec amends each in place, with a dated pointer.
 - How a case chooses a language once language packs exist.
 - Whether `--check` validates `.keiko` files, and whether packaging leaves `tests/` out of a shipped pack.
 
-## 11. Out of scope
+## 12. Out of scope
 
 Pixel-compared screenshots; performance measurement; proof that audio is heard, rendering on a real GPU, or physical input (the human walk keeps these); live remote control of a running player over the Bevy Remote Protocol or MCP; an agent skill shipped for one vendor; Keiko results as release evidence (K31).
