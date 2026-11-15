@@ -50,6 +50,7 @@ Generated discovery index. Edit a document's frontmatter, then run
   - [Type system](title-and-menu.md#type-system)
   - [Gallery](title-and-menu.md#gallery)
   - [Timeline](title-and-menu.md#timeline)
+- [UI plugins — requirements for a pack's own look](ui-plugins.md) — The accepted requirements for UI plugins — declarative per-pack looks an author's agent writes, checks and previews, with variant E as the reference plugin. (`presentation-surface`, `content-pack`, `pack-validation`, `failure-posture`, `prototype`)
 
 ## Child directories
 
