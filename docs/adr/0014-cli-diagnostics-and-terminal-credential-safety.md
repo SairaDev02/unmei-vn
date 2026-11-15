@@ -67,3 +67,7 @@ Clap straight to the process streams. `RUST_LOG` is parsed with `env_filter`'s
 fallible, non-printing API: a malformed spec is ignored and reported through the
 masked logger sink instead of `env_filter`'s own stderr warning, while a valid spec
 is applied as before.
+
+## Amendment (2026-11-15, NanoGPT replaces OpenRouter)
+
+[ADR 0015](0015-nanogpt-is-the-one-provider.md) makes NanoGPT the one provider. The CLI's recognized key variables become `UNMEI_API_KEY`, then `NANOGPT_API_KEY`, and the terminal mask covers exactly those two. `OPENROUTER_API_KEY` is no longer read or masked. Both halves of this decision are otherwise unchanged.
