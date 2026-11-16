@@ -234,6 +234,7 @@ fn npc_command<'a>(fx: &'a Fixture, chat: &'a Chat) -> NpcCommand<'a, Chat> {
         dry_run: false,
         client: chat,
         model: "author/m1",
+        decision_pin: None,
     }
 }
 
@@ -668,4 +669,202 @@ async fn draft_writer_refuses_backslash_and_colon_scene_stems_on_native_windows(
             "refusal changes no pack byte and leaves no temporary"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// The decision pin (N25) and the missing-pin note (N26)
+// ---------------------------------------------------------------------------
+
+const NOTE_ACE: &str = "note: npc `ace` has decision configs but no model pin, so its decision points always take the fallback";
+const NOTE_ZED: &str = "note: npc `zed` has decision configs but no model pin, so its decision points always take the fallback";
+
+fn create_reply() -> String {
+    serde_json::json!({
+        "GEN": {
+            "instructions": "How does Nova greet, given trust?",
+            "state_keys": ["affinity_level"],
+            "criteria": { "warm": "warm", "cold": "cold", "none": "neither" },
+            "fallback": "cold"
+        },
+        "NPC": { "id": "nova", "name": "Nova" }
+    })
+    .to_string()
+}
+
+fn create_command<'a>(
+    fx: &'a Fixture,
+    chat: &'a Chat,
+    pin: Option<&'a str>,
+) -> NpcCommand<'a, Chat> {
+    NpcCommand {
+        npc_id: "nova",
+        create: true,
+        interactive: false,
+        decision_pin: pin,
+        ..npc_command(fx, chat)
+    }
+}
+
+/// Strip the demo NPC's pin and add a second unpinned NPC, `zed`, then reload
+/// the fixture's pack, so the note has something to report (sorted by id).
+fn unpin_pack(fx: &mut Fixture) {
+    let ace = std::fs::read_to_string(fx.root.join("npcs/ace.ron")).unwrap();
+    let unpinned = ace.replace(
+        "    model: \"typesafe/jev-1.14\",
+",
+        "",
+    );
+    assert_ne!(ace, unpinned, "the demo pin line was removed");
+    std::fs::write(fx.root.join("npcs/ace.ron"), &unpinned).unwrap();
+    std::fs::write(
+        fx.root.join("npcs/zed.ron"),
+        unpinned.replace("id: \"ace\"", "id: \"zed\""),
+    )
+    .unwrap();
+    fx.pack = unmei_engine::load_pack(&fx.root).unwrap().pack;
+}
+
+fn notes(io: &Io) -> Vec<String> {
+    io.err()
+        .lines()
+        .filter(|line| line.starts_with("note: "))
+        .map(str::to_string)
+        .collect()
+}
+
+/// N25: `--create` writes the pin into the new NPC file; the pack loads with it.
+#[tokio::test]
+async fn create_writes_the_pin_into_the_new_npc_file() {
+    let fx = fixture();
+    let chat = Chat::free(vec![Ok(create_reply())]);
+    let mut io = Io::new("");
+
+    runner::run_npc(
+        create_command(&fx, &chat, Some("pin/x")),
+        &mut io.terminal(),
+    )
+    .await
+    .unwrap();
+
+    let written = std::fs::read_to_string(fx.root.join("npcs/nova.ron")).unwrap();
+    assert!(written.contains("model: \"pin/x\""), "{written}");
+    let loaded = unmei_engine::load_pack(&fx.root).unwrap();
+    assert_eq!(loaded.pack.npcs["nova"].model.as_deref(), Some("pin/x"));
+}
+
+/// N25: a dry run shows the pin it would write, and writes nothing.
+#[tokio::test]
+async fn create_dry_run_shows_the_pin() {
+    let fx = fixture();
+    let before = pack_bytes(&fx.root);
+    let chat = Chat::free(vec![Ok(create_reply())]);
+    let mut io = Io::new("");
+    let command = NpcCommand {
+        dry_run: true,
+        ..create_command(&fx, &chat, Some("pin/x"))
+    };
+
+    runner::run_npc(command, &mut io.terminal()).await.unwrap();
+
+    assert!(io.out().contains("pin/x"), "{}", io.out());
+    assert_eq!(pack_bytes(&fx.root), before);
+}
+
+/// N25: replace never adds, changes or removes a pin, whatever pin it is handed.
+#[tokio::test]
+async fn replace_leaves_the_pin_alone() {
+    let fx = fixture();
+    let chat = Chat::free(vec![Ok(valid_npc_reply())]);
+    let mut io = Io::new("");
+    let command = NpcCommand {
+        interactive: false,
+        decision_pin: Some("pin/other"),
+        ..npc_command(&fx, &chat)
+    };
+    runner::run_npc(command, &mut io.terminal()).await.unwrap();
+    let written = std::fs::read_to_string(fx.root.join("npcs/ace.ron")).unwrap();
+    assert!(
+        written.contains("model: \"typesafe/jev-1.14\""),
+        "{written}"
+    );
+    assert!(!written.contains("pin/other"), "{written}");
+
+    // An unpinned NPC stays unpinned.
+    let mut fx = fixture();
+    unpin_pack(&mut fx);
+    let chat = Chat::free(vec![Ok(valid_npc_reply())]);
+    let mut io = Io::new("");
+    let command = NpcCommand {
+        interactive: false,
+        decision_pin: Some("pin/other"),
+        ..npc_command(&fx, &chat)
+    };
+    runner::run_npc(command, &mut io.terminal()).await.unwrap();
+    let written = std::fs::read_to_string(fx.root.join("npcs/ace.ron")).unwrap();
+    assert!(!written.contains("model:"), "{written}");
+}
+
+/// N26: the gate of `author npc` notes each unpinned NPC with decision configs,
+/// once per NPC sorted by id, once per command even across regenerations.
+#[tokio::test]
+async fn npc_gate_notes_each_unpinned_npc_once_sorted() {
+    let mut fx = fixture();
+    unpin_pack(&mut fx);
+    let chat = Chat::free(vec![Ok(valid_npc_reply()), Ok(valid_npc_reply())]);
+    let mut io = Io::new(
+        "tighter
+accept
+",
+    );
+
+    runner::run_npc(npc_command(&fx, &chat), &mut io.terminal())
+        .await
+        .unwrap();
+
+    assert_eq!(notes(&io), vec![NOTE_ACE.to_string(), NOTE_ZED.to_string()]);
+    assert!(!io.out().contains("note:"), "notes go to stderr only");
+}
+
+/// N26: with a pinned pack there is no note; for `--create` the newly pinned
+/// NPC is not reported but another unpinned NPC still is.
+#[tokio::test]
+async fn npc_gate_note_skips_pinned_and_the_created_npc() {
+    let fx = fixture();
+    let chat = Chat::free(vec![Ok(valid_npc_reply())]);
+    let mut io = Io::new("");
+    let command = NpcCommand {
+        interactive: false,
+        ..npc_command(&fx, &chat)
+    };
+    runner::run_npc(command, &mut io.terminal()).await.unwrap();
+    assert!(notes(&io).is_empty(), "{}", io.err());
+
+    let mut fx = fixture();
+    unpin_pack(&mut fx);
+    let chat = Chat::free(vec![Ok(create_reply())]);
+    let mut io = Io::new("");
+    runner::run_npc(
+        create_command(&fx, &chat, Some("pin/x")),
+        &mut io.terminal(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(notes(&io), vec![NOTE_ACE.to_string(), NOTE_ZED.to_string()]);
+    assert!(!io.err().contains("`nova`"), "{}", io.err());
+}
+
+/// N26: the gate of `author draft` carries the same note, once.
+#[tokio::test]
+async fn draft_gate_notes_each_unpinned_npc_once_sorted() {
+    let mut fx = fixture();
+    unpin_pack(&mut fx);
+    let chat = Chat::structured(vec![Ok(valid_draft_reply())]);
+    let mut io = Io::new("");
+
+    runner::run_draft(draft_once(&fx, &chat), &mut io.terminal())
+        .await
+        .unwrap();
+
+    assert_eq!(notes(&io), vec![NOTE_ACE.to_string(), NOTE_ZED.to_string()]);
+    assert!(!io.out().contains("note:"), "notes go to stderr only");
 }

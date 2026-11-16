@@ -187,7 +187,7 @@ fn run_cli(args: &[&str], envs: &[(&str, &str)]) -> assert_cmd::Command {
     let mut cmd = assert_cmd::Command::cargo_bin("unmei").unwrap();
     cmd.args(args);
     cmd.env("UNMEI_API_KEY", "test-key-1");
-    cmd.env("OPENROUTER_API_KEY", "");
+    cmd.env("NANOGPT_API_KEY", "");
     for (k, v) in envs {
         cmd.env(k, v);
     }
@@ -428,7 +428,7 @@ fn missing_key_fails_fast_without_network() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", ""), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", ""), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .failure()
@@ -681,7 +681,7 @@ fn unmei_key_precedence_is_observed_on_the_wire() {
         ],
         &[
             ("UNMEI_API_KEY", "unmei-key-1"),
-            ("OPENROUTER_API_KEY", "openrouter-key-2"),
+            ("NANOGPT_API_KEY", "nanogpt-key-2"),
         ],
     )
     .assert()
@@ -695,7 +695,7 @@ fn unmei_key_precedence_is_observed_on_the_wire() {
         requests[0]
     );
     assert!(
-        !request.contains("openrouter-key-2"),
+        !request.contains("nanogpt-key-2"),
         "the non-selected key never reaches the wire: {}",
         requests[0]
     );
@@ -2114,7 +2114,7 @@ fn assert_masked(label: &str, stream: &str, values: &[&str]) {
 #[test]
 fn argument_errors_mask_both_known_values() {
     let selected = "unmei-argument-key-3471";
-    let other = "openrouter-argument-key-9265";
+    let other = "nanogpt-argument-key-9265";
     for value in [selected, other] {
         let out = run_cli(
             &[
@@ -2126,7 +2126,7 @@ fn argument_errors_mask_both_known_values() {
                 "--type",
                 value,
             ],
-            &[("UNMEI_API_KEY", selected), ("OPENROUTER_API_KEY", other)],
+            &[("UNMEI_API_KEY", selected), ("NANOGPT_API_KEY", other)],
         )
         .assert()
         .code(2)
@@ -2142,13 +2142,13 @@ fn argument_errors_mask_both_known_values() {
     }
 }
 
-/// RED: the OpenRouter fallback key is masked when the higher-precedence
+/// RED: the NanoGPT fallback key is masked when the higher-precedence
 /// `UNMEI_API_KEY` is empty rather than absent.
 #[test]
-fn the_openrouter_fallback_value_is_masked_when_unmei_key_is_empty() {
+fn the_nanogpt_fallback_value_is_masked_when_unmei_key_is_empty() {
     let fx = Fixture::new();
     let endpoint = format!("http://{}", fx.addr);
-    let key = "openrouter-fallback-key-8104";
+    let key = "nanogpt-fallback-key-8104";
     fx.push(
         &serde_json::json!({
             "GEN": {
@@ -2176,7 +2176,7 @@ fn the_openrouter_fallback_value_is_masked_when_unmei_key_is_empty() {
             "author/m1",
             "--dry-run",
         ],
-        &[("UNMEI_API_KEY", ""), ("OPENROUTER_API_KEY", key)],
+        &[("UNMEI_API_KEY", ""), ("NANOGPT_API_KEY", key)],
     )
     .assert()
     .success()
@@ -2188,7 +2188,7 @@ fn the_openrouter_fallback_value_is_masked_when_unmei_key_is_empty() {
         stdout.contains("Greet with"),
         "the ordinary preview survives: {stdout}"
     );
-    assert_masked("openrouter fallback preview", &stdout, &[key]);
+    assert_masked("nanogpt fallback preview", &stdout, &[key]);
 }
 
 /// RED: `--help`/`--version` still take the successful stdout route now
@@ -2224,7 +2224,7 @@ fn help_and_version_still_render_on_stdout() {
         &["author", "npc", "--help"],
         &[
             ("UNMEI_API_KEY", ""),
-            ("OPENROUTER_API_KEY", ""),
+            ("NANOGPT_API_KEY", ""),
             ("RUST_LOG", "warn"),
         ],
     )
@@ -2246,7 +2246,7 @@ fn dry_run_preview_masks_both_values_but_not_the_prompt_or_files() {
     let fx = Fixture::new();
     let endpoint = format!("http://{}", fx.addr);
     let selected = "unmei-preview-key-5182";
-    let other = "openrouter-preview-key-7043";
+    let other = "nanogpt-preview-key-7043";
     let before = std::fs::read_to_string(fx.pack_root.join("npcs/ace.ron")).unwrap();
     fx.push(
         &serde_json::json!({
@@ -2277,7 +2277,7 @@ fn dry_run_preview_masks_both_values_but_not_the_prompt_or_files() {
             "author/m1",
             "--dry-run",
         ],
-        &[("UNMEI_API_KEY", selected), ("OPENROUTER_API_KEY", other)],
+        &[("UNMEI_API_KEY", selected), ("NANOGPT_API_KEY", other)],
     )
     .assert()
     .success()
@@ -2332,7 +2332,7 @@ fn exhaustion_best_output_masks_the_known_value() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .failure()
@@ -2376,7 +2376,7 @@ fn validation_corrections_keep_the_literal_value() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .success();
@@ -2416,7 +2416,7 @@ fn exhaustion_validation_errors_are_masked() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .failure()
@@ -2468,7 +2468,7 @@ fn a_rust_log_spec_carrying_a_key_is_masked_through_the_logger_sink() {
         ],
         &[
             ("UNMEI_API_KEY", key),
-            ("OPENROUTER_API_KEY", ""),
+            ("NANOGPT_API_KEY", ""),
             ("RUST_LOG", &format!("{key}=a=b")),
         ],
     )
@@ -2508,7 +2508,7 @@ fn a_malformed_rust_log_diagnostic_cannot_leak_a_fixed_phrase_credential() {
         ],
         &[
             ("UNMEI_API_KEY", key),
-            ("OPENROUTER_API_KEY", ""),
+            ("NANOGPT_API_KEY", ""),
             ("RUST_LOG", "module=bogus"),
         ],
     )
@@ -2531,7 +2531,7 @@ fn a_malformed_rust_log_diagnostic_cannot_leak_a_fixed_phrase_credential() {
 fn setup_errors_mask_known_values_outside_the_runner() {
     let fx = Fixture::new();
     let key = "unmei-brief-file-key-8823";
-    let other = "openrouter-brief-file-key-4417";
+    let other = "nanogpt-brief-file-key-4417";
     let missing = fx.pack_root.join(format!("{key}-brief.md"));
 
     let out = run_cli(
@@ -2546,7 +2546,7 @@ fn setup_errors_mask_known_values_outside_the_runner() {
             "--pack",
             fx.pack_root.to_str().unwrap(),
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", other)],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", other)],
     )
     .assert()
     .code(1)
@@ -2590,7 +2590,7 @@ fn a_preview_is_masked_but_the_written_scene_is_not_rewritten() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .success()
@@ -2634,7 +2634,7 @@ fn draft_list_masks_the_known_value() {
             "--pack",
             fx.pack_root.to_str().unwrap(),
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .assert()
     .success()
@@ -2675,7 +2675,7 @@ fn interactive_brief_prompt_masks_the_known_value() {
             "--model",
             "author/m1",
         ],
-        &[("UNMEI_API_KEY", key), ("OPENROUTER_API_KEY", "")],
+        &[("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "")],
     )
     .write_stdin("discard\n")
     .assert()
@@ -3472,7 +3472,7 @@ fn assert_target_refusal(fx: &Fixture, args: &[&str], needle: &str) {
     owned.push("--base-url");
     owned.push(&endpoint);
 
-    let out = run_cli(&owned, &[("UNMEI_API_KEY", ""), ("OPENROUTER_API_KEY", "")])
+    let out = run_cli(&owned, &[("UNMEI_API_KEY", ""), ("NANOGPT_API_KEY", "")])
         .assert()
         .failure()
         .get_output()
@@ -3679,4 +3679,296 @@ fn draft_write_into_a_bom_scene_drops_the_mark_and_stays_loadable() {
         "Ace: Who goes there? You don't look like you're from the school."
     );
     unmei_engine::load_pack(&fx.pack_root).expect("the written scene still loads");
+}
+
+// ---------------------------------------------------------------------------
+// NanoGPT migration (docs/nanogpt.md N9-N13, N15, N25, N26, N28)
+// ---------------------------------------------------------------------------
+
+fn help_text(args: &[&str]) -> String {
+    let out = run_cli(args, &[]).assert().success().get_output().clone();
+    format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    )
+}
+
+/// N15/N25/N28: help names the NanoGPT default endpoint and the new flag, and
+/// mentions OpenRouter nowhere.
+#[test]
+fn help_names_nanogpt_and_the_decision_model_flag() {
+    let npc = help_text(&["author", "npc", "--help"]);
+    assert!(npc.contains("--decision-model"), "{npc}");
+    assert!(npc.contains("typesafe/jev-1.14"), "{npc}");
+    let draft = help_text(&["author", "draft", "--help"]);
+    for (surface, text) in [("npc", &npc), ("draft", &draft)] {
+        assert!(
+            text.contains("https://api.nano-gpt.com/api"),
+            "{surface}: {text}"
+        );
+        assert!(
+            !text.to_lowercase().contains("openrouter"),
+            "{surface}: {text}"
+        );
+    }
+}
+
+/// N25: `--decision-model` is valid only with `--create`.
+#[test]
+fn decision_model_requires_create() {
+    let fx = Fixture::new();
+    let requests_before = fx.requests.lock().unwrap().len();
+    let out = run_cli(
+        &[
+            "author",
+            "npc",
+            "ace",
+            "--question",
+            "greet",
+            "--decision-model",
+            "pin/x",
+            "--pack",
+            fx.pack_root.to_str().unwrap(),
+            "--base-url",
+            &format!("http://{}", fx.addr),
+            "--model",
+            "author/m1",
+        ],
+        &[],
+    )
+    .assert()
+    .failure()
+    .get_output()
+    .clone();
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.contains("--create"), "{stderr}");
+    assert_eq!(fx.requests.lock().unwrap().len(), requests_before);
+}
+
+/// N12: a resolved `sk-or-` key stops the CLI before any network call, whatever
+/// `base_url` is, names the variable, never prints the key, and does not fall
+/// through to the next variable.
+#[test]
+fn openrouter_key_stops_before_any_network_call() {
+    let key = "sk-or-v1-leakcheck-5521";
+    for (var, envs) in [
+        (
+            "UNMEI_API_KEY",
+            vec![("UNMEI_API_KEY", key), ("NANOGPT_API_KEY", "good-nano-key")],
+        ),
+        (
+            "NANOGPT_API_KEY",
+            vec![("UNMEI_API_KEY", ""), ("NANOGPT_API_KEY", key)],
+        ),
+    ] {
+        let fx = Fixture::new();
+        let out = run_cli(
+            &[
+                "author",
+                "npc",
+                "ace",
+                "--question",
+                "greet",
+                "--pack",
+                fx.pack_root.to_str().unwrap(),
+                "--base-url",
+                &format!("http://{}", fx.addr),
+                "--model",
+                "author/m1",
+            ],
+            &envs,
+        )
+        .assert()
+        .failure()
+        .code(1)
+        .get_output()
+        .clone();
+        let all = format!(
+            "{}{}",
+            String::from_utf8_lossy(&out.stdout),
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert!(
+            all.contains(&format!(
+                "{var} holds an OpenRouter key, which Unmei never sends; set it to a NanoGPT key"
+            )),
+            "{all}"
+        );
+        assert!(!all.contains("leakcheck"), "the key leaked: {all}");
+        assert!(
+            fx.requests.lock().unwrap().is_empty(),
+            "no network call for an OpenRouter key"
+        );
+    }
+}
+
+/// N25: an empty or whitespace-only `--decision-model` is an error before any
+/// network call, and writes nothing.
+#[test]
+fn empty_decision_model_flag_errors_before_any_network_call() {
+    for flag in ["", "  "] {
+        let fx = Fixture::new();
+        let before = pack::pack_bytes(&fx.pack_root);
+        let out = run_cli(
+            &[
+                "author",
+                "npc",
+                "nova",
+                "--create",
+                "--question",
+                "greet",
+                "--decision-model",
+                flag,
+                "--pack",
+                fx.pack_root.to_str().unwrap(),
+                "--base-url",
+                &format!("http://{}", fx.addr),
+                "--model",
+                "author/m1",
+            ],
+            &[],
+        )
+        .assert()
+        .failure()
+        .get_output()
+        .clone();
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(stderr.contains("--decision-model"), "{stderr}");
+        assert!(fx.requests.lock().unwrap().is_empty());
+        assert_eq!(pack::pack_bytes(&fx.pack_root), before);
+    }
+}
+
+/// N25: end to end, `--create` pins with precedence flag > file > built-in, and
+/// a later replace leaves the pin alone and ignores `decision_model`.
+#[test]
+fn create_pin_precedence_end_to_end_and_replace_ignores_it() {
+    let fx = Fixture::new();
+    let endpoint = format!("http://{}", fx.addr);
+    let create = |id: &str, extra: &[&str]| {
+        let mut args = vec![
+            "author",
+            "npc",
+            id,
+            "--create",
+            "--question",
+            "greet",
+            "--pack",
+            fx.pack_root.to_str().unwrap(),
+            "--base-url",
+            &endpoint,
+            "--model",
+            "author/m1",
+        ];
+        args.extend_from_slice(extra);
+        run_cli(&args, &[]).assert().success();
+    };
+    let pin_of = |id: &str| {
+        unmei_engine::load_pack(&fx.pack_root).unwrap().pack.npcs[id]
+            .model
+            .clone()
+    };
+
+    create("nova", &[]);
+    assert_eq!(pin_of("nova").as_deref(), Some("typesafe/jev-1.14"));
+
+    std::fs::write(
+        fx.pack_root.join("unmei.author.ron"),
+        r#"( decision_model: "file/pin" )"#,
+    )
+    .unwrap();
+    create("iris", &[]);
+    assert_eq!(pin_of("iris").as_deref(), Some("file/pin"));
+    create("lena", &["--decision-model", "flag/pin"]);
+    assert_eq!(pin_of("lena").as_deref(), Some("flag/pin"));
+
+    // Replace ignores the file's pin (even a blank one) and leaves ace's alone.
+    std::fs::write(
+        fx.pack_root.join("unmei.author.ron"),
+        r#"( decision_model: "  " )"#,
+    )
+    .unwrap();
+    run_cli(
+        &[
+            "author",
+            "npc",
+            "ace",
+            "--question",
+            "greet",
+            "--pack",
+            fx.pack_root.to_str().unwrap(),
+            "--base-url",
+            &endpoint,
+            "--model",
+            "author/m1",
+        ],
+        &[],
+    )
+    .assert()
+    .success();
+    assert_eq!(pin_of("ace").as_deref(), Some("typesafe/jev-1.14"));
+}
+
+/// N26: `draft --list` notes each unpinned NPC on stderr, sorted by id, and
+/// leaves stdout exactly the run list.
+#[test]
+fn draft_list_notes_unpinned_npcs_on_stderr_only() {
+    let fx = Fixture::new();
+    let ace = fx.pack_root.join("npcs/ace.ron");
+    let src = std::fs::read_to_string(&ace).unwrap();
+    let unpinned = src.replace("    model: \"typesafe/jev-1.14\",\n", "");
+    assert_ne!(src, unpinned);
+    std::fs::write(&ace, &unpinned).unwrap();
+    std::fs::write(
+        fx.pack_root.join("npcs/zed.ron"),
+        unpinned.replace("id: \"ace\"", "id: \"zed\""),
+    )
+    .unwrap();
+
+    let list = |envs: &[(&str, &str)]| {
+        run_cli(
+            &[
+                "author",
+                "draft",
+                "first_meeting",
+                "--list",
+                "--pack",
+                fx.pack_root.to_str().unwrap(),
+            ],
+            envs,
+        )
+        .assert()
+        .success()
+        .get_output()
+        .clone()
+    };
+    let out = list(&[]);
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let note = |id: &str| {
+        format!("note: npc `{id}` has decision configs but no model pin, so its decision points always take the fallback")
+    };
+    let ace_at = stderr
+        .find(&note("ace"))
+        .unwrap_or_else(|| panic!("{stderr}"));
+    let zed_at = stderr
+        .find(&note("zed"))
+        .unwrap_or_else(|| panic!("{stderr}"));
+    assert!(ace_at < zed_at, "sorted by id: {stderr}");
+    assert_eq!(stderr.matches("note: ").count(), 2, "{stderr}");
+    assert!(
+        !stdout.contains("note:"),
+        "stdout stays the run list: {stdout}"
+    );
+
+    // The note goes through the masked terminal path: a key value that appears
+    // in a note's text is redacted.
+    let masked = list(&[("UNMEI_API_KEY", "fallback")]);
+    let stderr = String::from_utf8_lossy(&masked.stderr);
+    assert!(stderr.contains("note: npc `ace`"), "{stderr}");
+    assert!(
+        !stderr.contains("fallback"),
+        "masked value leaked: {stderr}"
+    );
 }

@@ -1,7 +1,9 @@
 //! The `unmei` binary: the authoring CLI for Unmei content packs.
 //!
 //! `unmei author npc <NPC_ID> --question <QID>` generates or replaces one NPC
-//! decision config through any OpenAI-compatible chat endpoint. It validates
+//! decision config through an OpenAI-compatible chat endpoint, NanoGPT's by
+//! default (`https://api.nano-gpt.com/api`; example authoring model
+//! `deepseek/deepseek-v4.1-flash`). It validates
 //! the config against the whole content pack, then writes it, or prints it
 //! with `--dry-run`. Scene text, state and other NPCs stay untouched.
 //!
@@ -78,7 +80,11 @@ enum AuthorCommand {
         /// Authoring chat model (required unless set in unmei.author.ron).
         #[arg(long)]
         model: Option<String>,
-        /// OpenAI-compatible endpoint (default: https://openrouter.ai/api).
+        /// Decision model pin written into the new NPC file; only with --create
+        /// (default: `decision_model` in unmei.author.ron, else typesafe/jev-1.14).
+        #[arg(long, value_name = "MODEL", requires = "create")]
+        decision_model: Option<String>,
+        /// OpenAI-compatible endpoint (default: https://api.nano-gpt.com/api).
         #[arg(long)]
         base_url: Option<String>,
         /// Print the generated RON; write nothing.
@@ -112,7 +118,7 @@ enum AuthorCommand {
         /// Authoring chat model (required unless set in unmei.author.ron).
         #[arg(long)]
         model: Option<String>,
-        /// OpenAI-compatible endpoint (default: https://openrouter.ai/api).
+        /// OpenAI-compatible endpoint (default: https://api.nano-gpt.com/api).
         #[arg(long)]
         base_url: Option<String>,
         /// Print the drafted run; write nothing.
@@ -162,6 +168,7 @@ fn main() {
                 interactive,
                 pack,
                 model,
+                decision_model,
                 base_url,
                 dry_run,
             } => run_author_npc(
@@ -174,6 +181,7 @@ fn main() {
                 interactive,
                 pack,
                 model,
+                decision_model,
                 base_url,
                 dry_run,
                 &stdout,
@@ -358,6 +366,10 @@ fn run_author_draft(
         let mut out = stdout.clone();
         write!(out, "{}", draft::render_list(&runs))?;
         out.flush()?;
+        // N26: the pack-wide note goes to stderr; stdout stays the run list.
+        let mut err = stderr.clone();
+        runner::write_missing_pin_notes(&loaded.pack, &mut err)?;
+        err.flush()?;
         return Ok(());
     }
 
@@ -373,6 +385,8 @@ fn run_author_draft(
         pack_root: &pack_root,
         model: model.as_deref(),
         base_url: base_url.as_deref(),
+        decision_model: None,
+        create: false,
     })
     .map_err(CliError::Message)?;
 
@@ -437,6 +451,7 @@ fn run_author_npc(
     interactive: bool,
     pack: Option<PathBuf>,
     model: Option<String>,
+    decision_model: Option<String>,
     base_url: Option<String>,
     dry_run: bool,
     stdout: &mask::MaskedStream<std::io::Stdout>,
@@ -456,6 +471,8 @@ fn run_author_npc(
         pack_root: &pack_root,
         model: model.as_deref(),
         base_url: base_url.as_deref(),
+        decision_model: decision_model.as_deref(),
+        create,
     })
     .map_err(CliError::Message)?;
 
@@ -485,6 +502,7 @@ fn run_author_npc(
         dry_run,
         client: &client,
         model: &provider.model,
+        decision_pin: provider.decision_pin.as_deref(),
     };
 
     let stdin = std::io::stdin();
