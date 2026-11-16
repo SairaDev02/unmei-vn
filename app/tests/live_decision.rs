@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
+use unmei_app::menu::{MenuFocus, MenuState};
 use unmei_app::{PendingDecision, Runtime, RuntimeConfig, RuntimeCorePlugin};
 use unmei_engine::{DecisionsClient, Wait};
 
@@ -53,7 +54,16 @@ fn live_app(client: DecisionsClient) -> App {
         .init_resource::<ButtonInput<MouseButton>>()
         .insert_resource(RuntimeConfig::new(demo_pack_root(), Some(Arc::new(client))))
         .add_plugins(RuntimeCorePlugin);
-    app.update(); // Startup: load the pack
+    app.update(); // Startup: load the pack, then show the gated title
+
+    // Play starts only through the title's New Game, as it does for a player.
+    // The demo pack has no autosave here, so New Game starts at once.
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleNewGame;
+    tap(&mut app, KeyCode::Enter);
+    assert!(
+        !app.world().resource::<MenuState>().open,
+        "New Game must close the title and start play"
+    );
     app
 }
 
