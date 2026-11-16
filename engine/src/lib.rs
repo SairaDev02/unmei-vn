@@ -11,8 +11,8 @@
 //!
 //! The `network` feature is off by default, so a consumer that only loads packs
 //! does not build the HTTP client or its dependencies. The feature adds the
-//! OpenRouter Decisions client (`decision::client`), which resolves decision
-//! points through the OpenRouter Decisions API. docs.rs builds this crate with
+//! NanoGPT Decisions client (`decision::client`), which resolves decision
+//! points through the NanoGPT Decisions API. docs.rs builds this crate with
 //! the feature on.
 //!
 //! # Stability

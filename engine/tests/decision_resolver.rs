@@ -2,7 +2,7 @@
 //! [`DecisionsClient::decide_with_fallback`] for the same answer and for the
 //! same error — asserted, not assumed.
 //!
-//! A throwaway loopback HTTP server stands in for OpenRouter, so this runs
+//! A throwaway loopback HTTP server stands in for NanoGPT, so this runs
 //! in-process with no key and no real network. Gated on the `network` feature
 //! like the live smoke test, but never `#[ignore]`d.
 //!

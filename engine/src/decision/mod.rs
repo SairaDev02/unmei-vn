@@ -1,7 +1,7 @@
-//! OpenRouter **Decisions** wire layer.
+//! NanoGPT **Decisions** wire layer.
 //!
 //! Maps the author-facing [`DecisionConfig`] + flat state map onto the
-//! `POST /api/alpha/decisions` wire contract, validates the response
+//! `POST /api/v1/decisions` wire contract, validates the response
 //! (check `type` before reading fields; a missing key or unexpected type is an
 //! error), and applies the author-fallback posture (any failure ⇒ the config's
 //! `fallback` action, engine logs and continues offline).
@@ -27,16 +27,27 @@ pub use seam::{resolve_or_fallback, DecisionResolver, KeyCheck, KeyVerdict, Reso
 #[cfg(test)]
 mod tests;
 
-/// Default Decisions endpoint. The URL is one config value; `UNMEI_DECISIONS_URL`
-/// and [`client::DecisionsClient::new`] can override it (alpha prefix may move).
-pub const DEFAULT_ENDPOINT: &str = "https://openrouter.ai/api/alpha/decisions";
+/// Default Decisions endpoint (NanoGPT). The URL is one config value;
+/// `UNMEI_DECISIONS_URL` and [`client::DecisionsClient::new`] can override it
+/// (an unsupported escape hatch to another compatible endpoint).
+pub const DEFAULT_ENDPOINT: &str = "https://api.nano-gpt.com/api/v1/decisions";
 
 /// The key-validation endpoint, a module constant **beside** the decisions
-/// endpoint and deliberately **independent of `UNMEI_DECISIONS_URL`**: the
-/// override exists because the alpha decisions prefix can move, while
-/// `/api/v1/key` is the stable `/api/v1` surface on the same origin
-/// (`docs/title-and-menu.md` § Decisions settings §3).
-pub const KEY_ENDPOINT: &str = "https://openrouter.ai/api/v1/key";
+/// endpoint and deliberately **independent of `UNMEI_DECISIONS_URL`**: an
+/// override points the decisions call elsewhere, but the key check always asks
+/// NanoGPT, whose `GET /api/v1/api-keys/current` reads and spends no balance
+/// (`docs/title-and-menu.md` § Decisions settings, `docs/nanogpt.md` N14).
+pub const KEY_ENDPOINT: &str = "https://api.nano-gpt.com/api/v1/api-keys/current";
+
+/// The prefix of an OpenRouter-format API key. Unmei never sends such a key to
+/// any endpoint (`docs/nanogpt.md` N10); this constant and [`is_openrouter_key`]
+/// are the one home of that rule.
+pub const OPENROUTER_KEY_PREFIX: &str = "sk-or-";
+
+/// Whether `key`, trimmed, is in OpenRouter's key format.
+pub fn is_openrouter_key(key: &str) -> bool {
+    key.trim().starts_with(OPENROUTER_KEY_PREFIX)
+}
 
 /// The key-validation ping's bounded timeout: a hung endpoint must resolve to
 /// [`KeyVerdict::Unreachable`], never stall the commit flow.
@@ -49,7 +60,8 @@ pub const KEY_CHECK_TIMEOUT: std::time::Duration = std::time::Duration::from_sec
 /// credential; only the pin the caller asked for is trusted provenance.
 pub const UNVERIFIED_MODEL: &str = "unverified response model";
 
-/// The Decisions request body: `{ model, state, questions }`.
+/// The Decisions request body: `{ model, state, questions, include_usage }`.
+/// NanoGPT rejects unknown fields, so nothing else is added.
 ///
 /// Crate-internal: a caller resolves through [`DecisionResolver`], which owns
 /// the request's construction.
@@ -61,6 +73,9 @@ pub(crate) struct DecisionRequest {
     pub state: HashMap<String, StateValue>,
     /// Keyed by question id; one entry per call.
     pub questions: HashMap<String, Question>,
+    /// Always `true`: the response then carries the recorded `cost`, not an
+    /// estimate.
+    pub include_usage: bool,
 }
 
 /// One question in a request. The wire keeps one `criteria` field whose shape
@@ -97,6 +112,7 @@ pub(crate) fn build_decision_request(
         model: model.to_string(),
         state: filtered,
         questions: HashMap::from([(question_id.to_string(), question)]),
+        include_usage: true,
     }
 }
 
@@ -135,8 +151,12 @@ pub(crate) enum Answer {
         #[serde(default)]
         confidence: Option<f64>,
     },
+    /// The model declined the question; carries no fields.
+    Refusal,
 }
 
+/// Token counts and the recorded charge. Only `cost` (USD) is read: the
+/// `estimated_cost` NanoGPT sends without `include_usage` is ignored.
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub(crate) struct Usage {
     #[serde(default)]
@@ -207,6 +227,10 @@ pub enum DecisionError {
     Task,
     #[error("Decisions API returned HTTP {status}")]
     Status { status: u16 },
+    #[error("the model refused the question `{0}`")]
+    Refused(String),
+    #[error("an OpenRouter key is never sent")]
+    OpenRouterKey,
 }
 
 /// Restrict a successful response's echoed model to the requested pin.
@@ -293,6 +317,7 @@ pub(crate) fn decision_from_response(
                 legend: None,
             })
         }
+        Answer::Refusal => Err(DecisionError::Refused(question_id.to_string())),
         Answer::Score {
             score,
             legend,
@@ -349,12 +374,12 @@ pub fn decision_from_body(
     decision_from_response(&response, question_id, config)
 }
 
-/// The pure status mapping: `200` → [`KeyVerdict::Accepted`]; `401`/`403` →
+/// The pure status mapping: any `2xx` → [`KeyVerdict::Accepted`]; `401`/`403` →
 /// [`KeyVerdict::Rejected`]; anything else — including `0`, the transport
 /// error sentinel — → [`KeyVerdict::Unreachable`].
 pub(crate) fn verdict_from_status(status: u16) -> KeyVerdict {
     match status {
-        200 => KeyVerdict::Accepted,
+        200..=299 => KeyVerdict::Accepted,
         401 | 403 => KeyVerdict::Rejected,
         _ => KeyVerdict::Unreachable,
     }

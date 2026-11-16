@@ -7756,7 +7756,7 @@ fn manual_slots_and_the_credential_file_survive_a_new_game() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
     let credential = credentials::credentials_path_in(config_dir.path());
-    let key = format!("sk-or-v1-{}", "m".repeat(60));
+    let key = format!("sk-nano-{}", "m".repeat(60));
     credentials::write(config_dir.path(), &key).unwrap();
     let credential_before = std::fs::read(&credential).unwrap();
 
@@ -9409,10 +9409,10 @@ fn no_key_state_gates_continue_or_new_game() {
         KeyRow::NotSet,
         KeyRow::Invalid,
         KeyRow::Set {
-            fingerprint: "sk-or-\u{2026}a1b2".to_string(),
+            fingerprint: "sk-nano-\u{2026}a1b2".to_string(),
         },
         KeyRow::FromEnvironment {
-            fingerprint: "sk-or-\u{2026}env".to_string(),
+            fingerprint: "sk-nano-\u{2026}env".to_string(),
         },
     ];
 
@@ -9786,7 +9786,7 @@ fn the_decisions_group_renders_last_with_the_read_only_key_row_and_path_line() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
     let path = credentials::credentials_path_in(config_dir.path());
-    let key = format!("sk-or-v1-{}", "a".repeat(60));
+    let key = format!("sk-nano-{}", "a".repeat(60));
     let fingerprint = credentials::fingerprint(&key);
 
     // The overlay door.
@@ -9838,7 +9838,7 @@ fn the_decisions_group_renders_last_with_the_read_only_key_row_and_path_line() {
         all_texts(&titled).iter().any(|text| text == "Decisions"),
         "the Decisions group is shared by both doors"
     );
-    let titled_expected = format!("Set \u{2014} sk-or-\u{2026}{}", "a".repeat(4));
+    let titled_expected = format!("Set \u{2014} sk-nano-\u{2026}{}", "a".repeat(4));
     assert_eq!(
         key_row_text(&titled).as_deref(),
         Some(titled_expected.as_str())
@@ -9848,7 +9848,7 @@ fn the_decisions_group_renders_last_with_the_read_only_key_row_and_path_line() {
 #[test]
 fn the_key_row_renders_the_environment_state_with_the_env_note() {
     let pack = temp_pack();
-    let env = "sk-or-v1-0123456789abcdef";
+    let env = "sk-nano-0123456789abcdef";
     let mut app = app_for_pack(pack.path().join("pack"));
     app.init_resource::<crate::presentation::MenuBuilt>();
     app.insert_resource(CredentialsState {
@@ -10334,7 +10334,7 @@ fn a_shape_failure_logs_once_without_quoting_the_value_or_its_fingerprint() {
     let dir = tempfile::tempdir().unwrap();
     let config_dir = dir.path().join("unmei");
     std::fs::create_dir_all(&config_dir).unwrap();
-    let value = "sk-or-v1-not-a-key-because of the space";
+    let value = "sk-nano-not-a-key-because of the space";
     std::fs::write(credentials::credentials_path_in(&config_dir), value).unwrap();
 
     let launch = credentials::resolve_launch(Some(&config_dir), None, |_| {
@@ -10429,7 +10429,7 @@ fn open_settings_with_ui(app: &mut App) {
 fn the_key_field_starts_empty_hides_the_key_and_shows_the_placeholder_only_on_not_set() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
-    let key = format!("sk-or-v1-{}", "a".repeat(60));
+    let key = format!("sk-nano-{}", "a".repeat(60));
     credentials::write(config_dir.path(), &key).unwrap();
 
     let mut app = app_for_pack(pack.path().join("pack"));
@@ -10487,7 +10487,7 @@ fn the_from_environment_row_has_no_editable_field() {
         config_dir: None,
         path: None,
         row: KeyRow::FromEnvironment {
-            fingerprint: "sk-or-\u{2026}abcd".to_string(),
+            fingerprint: "sk-nano-\u{2026}abcd".to_string(),
         },
     });
     open_settings_with_ui(&mut app);
@@ -10541,7 +10541,7 @@ fn the_key_field_focus_model_walks_edits_commits_and_discards() {
     // key without a network call.
     press_and_update(&mut app, KeyCode::Enter);
     assert!(menu(&app).key_editing);
-    let key = format!("sk-or-v1-{}", "b".repeat(60));
+    let key = format!("sk-nano-{}", "b".repeat(60));
     set_field_text(&mut app, &key);
     press_and_update(&mut app, KeyCode::Enter);
     assert!(!menu(&app).key_editing);
@@ -10618,7 +10618,7 @@ fn clear_key_confirms_once_deletes_the_file_and_returns_the_resolver_to_none() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
     let path = credentials::credentials_path_in(config_dir.path());
-    let key = format!("sk-or-v1-{}", "c".repeat(60));
+    let key = format!("sk-nano-{}", "c".repeat(60));
     credentials::write(config_dir.path(), &key).unwrap();
 
     let mut app = app_for_pack(pack.path().join("pack"));
@@ -10675,7 +10675,7 @@ fn clear_key_is_disabled_while_the_environment_variable_wins() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
     let path = credentials::credentials_path_in(config_dir.path());
-    let key = format!("sk-or-v1-{}", "d".repeat(60));
+    let key = format!("sk-nano-{}", "d".repeat(60));
     credentials::write(config_dir.path(), &key).unwrap();
 
     let mut app = app_for_pack(pack.path().join("pack"));
@@ -10703,7 +10703,7 @@ fn opening_settings_picks_up_a_hand_edit_without_rewriting_the_file() {
     let pack = temp_pack();
     let config_dir = tempfile::tempdir().unwrap();
     let path = credentials::credentials_path_in(config_dir.path());
-    let first = format!("sk-or-v1-{}", "e".repeat(60));
+    let first = format!("sk-nano-{}", "e".repeat(60));
     credentials::write(config_dir.path(), &first).unwrap();
     let bytes = std::fs::read(&path).unwrap();
 
@@ -10728,7 +10728,7 @@ fn opening_settings_picks_up_a_hand_edit_without_rewriting_the_file() {
     );
 
     // A hand-edit behind the app is picked up on the next open.
-    let second = format!("sk-or-v1-{}", "f".repeat(60));
+    let second = format!("sk-nano-{}", "f".repeat(60));
     std::fs::write(&path, &second).unwrap();
     open_settings(&mut app);
     assert_eq!(
@@ -10949,7 +10949,7 @@ fn a_failed_write_runs_no_ping_and_keeps_the_row_and_buffer() {
     // `create_new` fail before any byte lands.
     std::fs::create_dir(rig.path.with_extension("tmp")).unwrap();
 
-    let key = format!("sk-or-v1-{}", "w".repeat(60));
+    let key = format!("sk-nano-{}", "w".repeat(60));
     captures::take();
     commit_key_at(&mut rig.app, &key);
     rig.app.update();
@@ -10986,7 +10986,7 @@ fn a_failed_write_runs_no_ping_and_keeps_the_row_and_buffer() {
 fn a_committed_key_is_on_disk_before_the_ping_and_shows_accepted() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "a".repeat(60));
+    let key = format!("sk-nano-{}", "a".repeat(60));
     commit_key_at(&mut rig.app, &key);
 
     assert!(rig.path.exists(), "the write precedes the ping");
@@ -11022,7 +11022,7 @@ fn a_committed_key_is_on_disk_before_the_ping_and_shows_accepted() {
 fn an_unreachable_ping_shows_not_checked_and_rebuilds_the_resolver() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "b".repeat(60));
+    let key = format!("sk-nano-{}", "b".repeat(60));
     commit_key_at(&mut rig.app, &key);
 
     pump_until(&mut rig.app, |_| checker.calls() == 1);
@@ -11051,7 +11051,7 @@ fn a_rejected_ping_keeps_the_file_and_leaves_the_resolver_alone() {
         .resource_mut::<DecisionChannel>()
         .resolver = Some(original.clone());
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "c".repeat(60));
+    let key = format!("sk-nano-{}", "c".repeat(60));
     commit_key_at(&mut rig.app, &key);
 
     pump_until(&mut rig.app, |_| checker.calls() == 1);
@@ -11087,7 +11087,7 @@ fn a_rejected_ping_keeps_the_file_and_leaves_the_resolver_alone() {
 fn a_ping_that_never_answers_still_leaves_the_key_on_disk() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "d".repeat(60));
+    let key = format!("sk-nano-{}", "d".repeat(60));
     commit_key_at(&mut rig.app, &key);
 
     pump_until(&mut rig.app, |_| checker.calls() == 1);
@@ -11125,7 +11125,7 @@ fn there_is_no_standing_ping_at_launch_or_on_view_open() {
 fn a_rejected_verdict_is_live_not_persisted() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "e".repeat(60));
+    let key = format!("sk-nano-{}", "e".repeat(60));
     commit_key_at(&mut rig.app, &key);
     pump_until(&mut rig.app, |_| checker.calls() == 1);
     checker.release(KeyVerdict::Rejected);
@@ -11154,7 +11154,7 @@ fn an_accepted_key_applies_in_session_to_a_decision_without_a_relaunch() {
     let mut rig = key_check_rig(Arc::new(resolver.clone()));
     let checker = rig.checker.clone();
 
-    let key = format!("sk-or-v1-{}", "f".repeat(60));
+    let key = format!("sk-nano-{}", "f".repeat(60));
     commit_key_at(&mut rig.app, &key);
     pump_until(&mut rig.app, |_| checker.calls() == 1);
     checker.release(KeyVerdict::Accepted);
@@ -11201,7 +11201,7 @@ fn a_shape_failure_commit_never_quotes_the_value_in_a_log() {
     captures::install();
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     force_single_threaded(&mut rig.app);
-    let secret = "sk-or-v1-not-a-key-because of the space";
+    let secret = "sk-nano-not-a-key-because of the space";
     captures::take();
 
     commit_key_at(&mut rig.app, secret);
@@ -11235,7 +11235,7 @@ fn a_commit_without_a_checker_is_trusted_without_a_ping() {
     // `HttpKeyCheck`; the offline default only exists for hostless worlds.
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     rig.app.insert_resource(crate::KeyCheckChannel::default());
-    let key = format!("sk-or-v1-{}", "g".repeat(60));
+    let key = format!("sk-nano-{}", "g".repeat(60));
     commit_key_at(&mut rig.app, &key);
 
     let fingerprint = credentials::fingerprint(&key);
@@ -11262,7 +11262,7 @@ fn clearing_while_checking_cancels_the_ping_and_never_lands_a_stale_verdict() {
         .resource_mut::<DecisionChannel>()
         .resolver = Some(original.clone());
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "h".repeat(60));
+    let key = format!("sk-nano-{}", "h".repeat(60));
     commit_key_at(&mut rig.app, &key);
     pump_until(&mut rig.app, |_| checker.calls() == 1);
     assert_eq!(
@@ -11316,7 +11316,7 @@ fn a_ping_verdict_never_quotes_the_key_in_a_log() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     force_single_threaded(&mut rig.app);
     let checker = rig.checker.clone();
-    let unreachable = format!("sk-or-v1-{}", "i".repeat(60));
+    let unreachable = format!("sk-nano-{}", "i".repeat(60));
 
     // Unreachable: the warn names the outcome, never the key.
     captures::take();
@@ -11345,7 +11345,7 @@ fn a_ping_verdict_never_quotes_the_key_in_a_log() {
 
     // Rejected: same rule.
     checker.reset();
-    let rejected = format!("sk-or-v1-{}", "j".repeat(60));
+    let rejected = format!("sk-nano-{}", "j".repeat(60));
     captures::take();
     commit_key_at(&mut rig.app, &rejected);
     pump_until(&mut rig.app, |_| checker.calls() == 2);
@@ -17754,7 +17754,7 @@ fn a_notice_keeps_its_countdown_under_monitor() {
 fn a_key_check_completes_while_monitor_is_open() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
     let checker = rig.checker.clone();
-    let key = format!("sk-or-v1-{}", "k".repeat(60));
+    let key = format!("sk-nano-{}", "k".repeat(60));
     commit_key_at(&mut rig.app, &key);
     pump_until(&mut rig.app, |_| checker.calls() == 1);
     assert_eq!(
@@ -20686,4 +20686,135 @@ fn arrival_batches_under_an_incomplete_refresh_settle_complete() {
     let work = app.world().resource::<MonitorWork>();
     assert_eq!(work.scanned, 0, "settled frames scan nothing");
     assert_eq!(work.text_ops, 0, "settled frames materialize nothing");
+}
+
+// ---------------------------------------------------------------------------
+// OpenRouter keys are never sent (docs/nanogpt.md N10, N11)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_typed_openrouter_key_is_refused_before_any_write_ping_or_resolver_change() {
+    let original: Arc<dyn DecisionResolver> = Arc::new(FakeResolver::new(model_answer("warm")));
+    let mut rig = key_check_rig(original.clone());
+    rig.app
+        .world_mut()
+        .resource_mut::<DecisionChannel>()
+        .resolver = Some(original.clone());
+    let typed = format!("sk-or-v1-{}", "t".repeat(60));
+
+    commit_key_at(&mut rig.app, &format!("  {typed}  "));
+    for _ in 0..3 {
+        rig.app.update();
+    }
+
+    assert_eq!(
+        rig.app.world().resource::<CredentialsState>().row,
+        KeyRow::OpenRouterKey
+    );
+    assert_eq!(field_text(&rig.app), "", "the field is cleared");
+    assert!(!rig.path.exists(), "nothing is written");
+    assert_eq!(rig.checker.calls(), 0, "no ping");
+    assert!(rig.keys.lock().unwrap().is_empty(), "no resolver is built");
+    let channel = rig.app.world().resource::<DecisionChannel>();
+    assert!(
+        Arc::ptr_eq(channel.resolver.as_ref().unwrap(), &original),
+        "the resolver is untouched"
+    );
+    rig.app
+        .world_mut()
+        .run_system_once(crate::presentation::settings_view::sync_key_row)
+        .unwrap();
+    assert_eq!(
+        key_row_text(&rig.app).as_deref(),
+        Some("Invalid \u{2014} an OpenRouter key; enter a NanoGPT key")
+    );
+}
+
+#[test]
+fn a_shape_failing_openrouter_prefix_still_reports_the_shape_failure_first() {
+    let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
+    commit_key_at(&mut rig.app, "sk-or-short");
+    assert_eq!(
+        rig.app.world().resource::<CredentialsState>().row,
+        KeyRow::Invalid,
+        "trim, then shape, then the OpenRouter check"
+    );
+}
+
+#[test]
+fn a_stored_openrouter_key_on_view_open_builds_nothing_keeps_the_file_and_logs_once() {
+    captures::install();
+    let pack = temp_pack();
+    let config_dir = tempfile::tempdir().unwrap();
+    let path = credentials::credentials_path_in(config_dir.path());
+    let stored = format!("sk-or-v1-{}", "s".repeat(60));
+    credentials::write(config_dir.path(), &stored).unwrap();
+
+    let (keys, factory) = recording_factory(Arc::new(FakeResolver::new(model_answer("warm"))));
+    let mut app = app_for_pack(pack.path().join("pack"));
+    force_single_threaded(&mut app);
+    app.insert_resource(CredentialsState {
+        config_dir: Some(config_dir.path().to_path_buf()),
+        path: Some(path.clone()),
+        row: KeyRow::NotSet,
+    });
+    app.insert_resource(factory);
+    captures::take();
+    open_settings_with_ui(&mut app);
+
+    assert_eq!(
+        app.world().resource::<CredentialsState>().row,
+        KeyRow::OpenRouterKey
+    );
+    assert!(keys.lock().unwrap().is_empty(), "no resolver is built");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), stored);
+    let records = credential_lines();
+    assert_eq!(records.len(), 1, "{records:?}");
+    assert_eq!(records[0].0, log::Level::Warn);
+    assert!(records[0].2.contains("credential file"), "{records:?}");
+    assert!(records[0].2.contains("only NanoGPT keys"), "{records:?}");
+    assert!(!records[0].2.contains("sk-or"), "{records:?}");
+    assert!(!records[0].2.contains(&stored[8..16]), "{records:?}");
+    assert_eq!(
+        key_row_text(&app).as_deref(),
+        Some("Invalid \u{2014} an OpenRouter key; enter a NanoGPT key")
+    );
+    assert!(
+        key_field_entity(&app).is_some(),
+        "the field stays editable so a NanoGPT key can be entered"
+    );
+}
+
+#[test]
+fn an_openrouter_key_in_the_variable_row_is_read_only_with_the_env_note() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    app.insert_resource(CredentialsState {
+        config_dir: None,
+        path: None,
+        row: KeyRow::FromEnvironmentOpenRouter,
+    });
+    open_settings_with_ui(&mut app);
+
+    assert!(key_field_entity(&app).is_none(), "not editable");
+    let text = key_row_text(&app).expect("the key row renders");
+    assert!(
+        text.starts_with("From environment \u{2014} Invalid, an OpenRouter key"),
+        "{text}"
+    );
+    assert!(text.contains(credentials::ENV_NOTE), "{text}");
+}
+
+#[test]
+fn a_key_check_verdict_of_openrouter_key_builds_no_resolver() {
+    let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
+    let checker = rig.checker.clone();
+    let key = format!("sk-nano-{}", "z".repeat(60));
+    commit_key_at(&mut rig.app, &key);
+    pump_until(&mut rig.app, |_| checker.calls() == 1);
+    checker.release(KeyVerdict::OpenRouterKey);
+    pump_until(&mut rig.app, |app| {
+        app.world().resource::<CredentialsState>().row == KeyRow::OpenRouterKey
+    });
+    assert!(rig.keys.lock().unwrap().is_empty());
 }

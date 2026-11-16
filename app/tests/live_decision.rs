@@ -1,12 +1,12 @@
 //! Live end-to-end runtime smoke test: the Bevy core steps the demo pack through
-//! a **real** OpenRouter Decisions call using the async task path, validating the
+//! a **real** NanoGPT Decisions call using the async task path, validating the
 //! one piece the vertical slice deliberately left unvalidated (the async wait),
 //! which only a real call can prove.
 //!
 //! Ignored by default: it makes a real network call and needs a key.
 //!
 //! ```console
-//! $ OPENROUTER_API_KEY=... cargo test -p unmei-app --test live_decision -- --ignored --nocapture
+//! $ NANOGPT_API_KEY=... cargo test -p unmei-app --test live_decision -- --ignored --nocapture
 //! ```
 
 use std::path::{Path, PathBuf};
@@ -69,13 +69,13 @@ fn tap(app: &mut App, key: KeyCode) {
 }
 
 #[test]
-#[ignore = "live OpenRouter call; see the command in this file's header"]
+#[ignore = "live NanoGPT call; see the command in this file's header"]
 fn live_decision_resolves_through_the_bevy_async_wait() {
     let capture = Captured::default();
     log::set_boxed_logger(Box::new(capture.clone())).expect("no logger set in this test binary");
     log::set_max_level(log::LevelFilter::Info);
 
-    let client = DecisionsClient::from_env().expect("set OPENROUTER_API_KEY to run this test");
+    let client = DecisionsClient::from_env().expect("set NANOGPT_API_KEY to run this test");
     let mut app = live_app(client);
 
     // Play : walk the dialogue, take the first choice, and wait out the decision.

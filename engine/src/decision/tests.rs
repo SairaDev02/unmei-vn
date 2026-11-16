@@ -404,6 +404,7 @@ fn a_choice_answer_on_a_score_config_is_wrong_type() {
 #[test]
 fn verdict_from_status_follows_the_settled_table() {
     assert_eq!(verdict_from_status(200), KeyVerdict::Accepted);
+    assert_eq!(verdict_from_status(204), KeyVerdict::Accepted, "any 2xx");
     assert_eq!(verdict_from_status(401), KeyVerdict::Rejected);
     assert_eq!(verdict_from_status(403), KeyVerdict::Rejected);
     assert_eq!(verdict_from_status(429), KeyVerdict::Unreachable);
@@ -412,5 +413,74 @@ fn verdict_from_status_follows_the_settled_table() {
         verdict_from_status(0),
         KeyVerdict::Unreachable,
         "0 is the transport sentinel"
+    );
+}
+
+// --- NanoGPT additions ---------------------------------------------------
+
+#[test]
+fn endpoints_point_at_nanogpt() {
+    assert_eq!(
+        DEFAULT_ENDPOINT,
+        "https://api.nano-gpt.com/api/v1/decisions"
+    );
+    assert_eq!(
+        KEY_ENDPOINT,
+        "https://api.nano-gpt.com/api/v1/api-keys/current"
+    );
+}
+
+#[test]
+fn request_asks_for_the_recorded_cost_and_adds_no_other_field() {
+    let request = build_decision_request("m", "greet", &config(), &state());
+    let value = serde_json::to_value(&request).expect("serializes");
+    assert_eq!(value["include_usage"], true);
+    let mut keys: Vec<&str> = value
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    keys.sort_unstable();
+    assert_eq!(keys, vec!["include_usage", "model", "questions", "state"]);
+}
+
+#[test]
+fn a_refusal_answer_is_a_categorical_refusal_error() {
+    let body = r#"{ "model": "m", "answers": { "greet": { "type": "refusal" } } }"#;
+    let err = decision_from_body(body, "greet", &config()).unwrap_err();
+    assert_eq!(err, DecisionError::Refused("greet".to_string()));
+    assert_eq!(err.to_string(), "the model refused the question `greet`");
+    let resolved = resolve_or_fallback(&config(), Err(err));
+    assert!(resolved.is_fallback());
+}
+
+#[test]
+fn cost_reads_usage_cost_and_ignores_estimated_cost() {
+    let with = r#"{ "model": "m", "answers": { "greet": { "type": "choice", "choice": "warm" } },
+        "usage": { "cost": 0.5, "estimated_cost": 9.0 } }"#;
+    let d = decision_from_body(with, "greet", &config()).unwrap();
+    assert_eq!(d.cost_usd, Some(0.5));
+    let without = r#"{ "model": "m", "answers": { "greet": { "type": "choice", "choice": "warm" } },
+        "usage": { "estimated_cost": 9.0 } }"#;
+    let d = decision_from_body(without, "greet", &config()).unwrap();
+    assert_eq!(d.cost_usd, None);
+}
+
+#[test]
+fn openrouter_key_rule_has_one_home() {
+    assert_eq!(OPENROUTER_KEY_PREFIX, "sk-or-");
+    assert!(is_openrouter_key("sk-or-v1-abc"));
+    assert!(is_openrouter_key("  sk-or-v1-abc\n"));
+    assert!(!is_openrouter_key("sk-nano-abc"));
+    assert!(!is_openrouter_key("not-sk-or-"));
+    assert!(!is_openrouter_key(""));
+}
+
+#[test]
+fn an_openrouter_key_error_is_categorical() {
+    assert_eq!(
+        DecisionError::OpenRouterKey.to_string(),
+        "an OpenRouter key is never sent"
     );
 }

@@ -1,4 +1,4 @@
-//! The player's OpenRouter credential: a user-level plain-text file holding the
+//! The player's NanoGPT credential: a user-level plain-text file holding the
 //! key and nothing else ([ADR 0010], [`docs/title-and-menu.md` § Decisions
 //! settings]).
 //!
@@ -6,7 +6,7 @@
 //! pack-adjacent settings file, `<pack-dir>.log` — this file is **not** a pack
 //! sibling: a pack directory can be zipped and shared without carrying a
 //! working key. The path is one pure helper, the read is the whole file trimmed,
-//! the write is one atomic temp-sibling-plus-rename, and `OPENROUTER_API_KEY`
+//! the write is one atomic temp-sibling-plus-rename, and `NANOGPT_API_KEY`
 //! (when non-empty) overrides the stored value rather than replacing it.
 //!
 //! Two rules shape the code here:
@@ -24,7 +24,7 @@
 //! Editing, clearing and the clipboard live here; the interactive row itself is
 //! [`crate::menu`]'s, and the ping verdicts and the `KeyCheck` seam are
 //! [`crate::core`]'s. The row states a commit can pass through — `Checking…`,
-//! `Set`, `Set — … not checked`, `Invalid — rejected by OpenRouter` — are
+//! `Set`, `Set — … not checked`, `Invalid — rejected by NanoGPT`, `Invalid — an OpenRouter key; enter a NanoGPT key` — are
 //! [`KeyRow`]'s.
 //!
 //! [ADR 0010]: ../../docs/adr/0010-credentials-live-in-a-user-level-file.md
@@ -39,6 +39,7 @@ use bevy::clipboard::Clipboard;
 use bevy::prelude::*;
 use bevy::text::TextEdit;
 use unmei_engine::decision::client::API_KEY_ENV;
+pub use unmei_engine::decision::is_openrouter_key;
 use unmei_engine::DecisionResolver;
 
 use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
@@ -50,10 +51,10 @@ pub const ENV_KEY: &str = API_KEY_ENV;
 /// The file's name is the helper's, never a caller's.
 const CREDENTIALS_FILE: &str = "credentials";
 
-/// The env note the key row shows while `OPENROUTER_API_KEY` is set
+/// The env note the key row shows while `NANOGPT_API_KEY` is set
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
 pub const ENV_NOTE: &str =
-    "OPENROUTER_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.";
+    "NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.";
 
 /// The shortest value the local shape check accepts; the ping, not this check,
 /// decides whether a key works.
@@ -66,7 +67,7 @@ pub const FINGERPRINT_SUFFIX: usize = 4;
 
 /// The placeholder the empty Not-set field shows
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
-pub const KEY_PLACEHOLDER: &str = "Paste or type an OpenRouter key";
+pub const KEY_PLACEHOLDER: &str = "Paste or type a NanoGPT key";
 
 /// How long `Copy path` reads `Copied` after an activation.
 pub const COPIED_LABEL_SECONDS: f32 = 1.5;
@@ -266,12 +267,20 @@ pub fn shape_ok(key: &str) -> bool {
     key.len() >= MIN_KEY_LENGTH && key.bytes().all(|byte| byte.is_ascii_graphic())
 }
 
-/// The only rendering of a key anywhere: its first ≤6 characters, `…`, and its
-/// last 4. The slices are disjoint, so a short value is truncated rather than
+/// The prefix a NanoGPT key (`sk-nano-<uuid>`) shows in full: the provider's
+/// fixed marker, never any of the random part.
+pub const NANOGPT_KEY_PREFIX: &str = "sk-nano-";
+
+/// The only rendering of a key anywhere: its first ≤6 characters (exactly
+/// `sk-nano-` for a NanoGPT key), `…`, and its last 4. The slices are disjoint, so a short value is truncated rather than
 /// repeated and nothing beyond those bounds is ever produced.
 pub fn fingerprint(key: &str) -> String {
     let characters: Vec<char> = key.chars().collect();
-    let prefix_len = characters.len().min(FINGERPRINT_PREFIX);
+    let prefix_len = if key.starts_with(NANOGPT_KEY_PREFIX) {
+        NANOGPT_KEY_PREFIX.len()
+    } else {
+        characters.len().min(FINGERPRINT_PREFIX)
+    };
     let suffix_len = (characters.len() - prefix_len).min(FINGERPRINT_SUFFIX);
     let prefix: String = characters[..prefix_len].iter().collect();
     let suffix: String = characters[characters.len() - suffix_len..].iter().collect();
@@ -285,7 +294,7 @@ pub fn fingerprint(key: &str) -> String {
 /// What the key row shows. This is the whole surface: a fingerprint at most,
 /// never the key. `Invalid` covers a stored value that fails the shape check and
 /// a commit that fails it; `Rejected` is the live ping verdict for a stored key
-/// OpenRouter refused (`docs/title-and-menu.md` § Decisions settings §4.1).
+/// NanoGPT refused (`docs/title-and-menu.md` § Decisions settings §4.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum KeyRow {
     /// No file, a whitespace-only one, or an unreadable one.
@@ -293,7 +302,7 @@ pub enum KeyRow {
     NotSet,
     /// A shape-valid stored value.
     Set { fingerprint: String },
-    /// A shape-valid key whose ping could not reach OpenRouter, so it is shown
+    /// A shape-valid key whose ping could not reach NanoGPT, so it is shown
     /// `not checked`; the verdict is live, not persisted.
     SetUnchecked { fingerprint: String },
     /// A shape-valid key whose ping is in flight (`Checking…`); the field is
@@ -301,11 +310,18 @@ pub enum KeyRow {
     Checking,
     /// Stored content that fails the shape check; the bytes stay on disk.
     Invalid,
-    /// A stored, shape-valid key that OpenRouter rejected (`401`/`403`); the
+    /// A stored, shape-valid key that NanoGPT rejected (`401`/`403`); the
     /// bytes stay on disk and the resolver is left alone.
     Rejected { fingerprint: String },
-    /// A non-empty `OPENROUTER_API_KEY`, which wins over the stored value.
+    /// A stored or typed key in OpenRouter's `sk-or-` format. Never sent: no
+    /// resolver is built, the bytes stay on disk, and the row carries no
+    /// fingerprint (not even part of the key is shown).
+    OpenRouterKey,
+    /// A non-empty `NANOGPT_API_KEY`, which wins over the stored value.
     FromEnvironment { fingerprint: String },
+    /// `NANOGPT_API_KEY` holds an OpenRouter-format key: it wins over the
+    /// stored value, is never sent and is read-only like any env state.
+    FromEnvironmentOpenRouter,
 }
 
 impl KeyRow {
@@ -313,7 +329,10 @@ impl KeyRow {
     /// read-only and `Clear key` is disabled (`docs/title-and-menu.md`
     /// § Decisions settings §4.1).
     pub fn is_from_environment(&self) -> bool {
-        matches!(self, KeyRow::FromEnvironment { .. })
+        matches!(
+            self,
+            KeyRow::FromEnvironment { .. } | KeyRow::FromEnvironmentOpenRouter
+        )
     }
 
     /// Whether a ping is in flight, so the field must not enter edit mode
@@ -330,7 +349,11 @@ impl KeyRow {
             | KeyRow::SetUnchecked { fingerprint }
             | KeyRow::Rejected { fingerprint }
             | KeyRow::FromEnvironment { fingerprint } => Some(fingerprint),
-            KeyRow::NotSet | KeyRow::Checking | KeyRow::Invalid => None,
+            KeyRow::NotSet
+            | KeyRow::Checking
+            | KeyRow::Invalid
+            | KeyRow::OpenRouterKey
+            | KeyRow::FromEnvironmentOpenRouter => None,
         }
     }
 
@@ -344,7 +367,13 @@ impl KeyRow {
             }
             KeyRow::Checking => "Checking\u{2026}".to_string(),
             KeyRow::Invalid => "Invalid \u{2014} does not look like a key".to_string(),
-            KeyRow::Rejected { .. } => "Invalid \u{2014} rejected by OpenRouter".to_string(),
+            KeyRow::Rejected { .. } => "Invalid \u{2014} rejected by NanoGPT".to_string(),
+            KeyRow::OpenRouterKey => {
+                "Invalid \u{2014} an OpenRouter key; enter a NanoGPT key".to_string()
+            }
+            KeyRow::FromEnvironmentOpenRouter => {
+                "From environment \u{2014} Invalid, an OpenRouter key".to_string()
+            }
             KeyRow::FromEnvironment { fingerprint } => {
                 format!("From environment \u{2014} {fingerprint}")
             }
@@ -356,7 +385,9 @@ impl KeyRow {
     /// §4.1).
     pub fn row_text(&self) -> String {
         match self {
-            KeyRow::FromEnvironment { .. } => format!("{}\n{ENV_NOTE}", self.state_line()),
+            KeyRow::FromEnvironment { .. } | KeyRow::FromEnvironmentOpenRouter => {
+                format!("{}\n{ENV_NOTE}", self.state_line())
+            }
             _ => self.state_line(),
         }
     }
@@ -414,6 +445,16 @@ pub fn read(config_dir: Option<&Path>, env_key: Option<&str>) -> CredentialRead 
     };
 
     let (row, usable_stored, warning) = match env_key {
+        // N10/N11: an OpenRouter key in the variable wins (the file is not used)
+        // but is never sent. The warning names the source and states the rule,
+        // never the key or any part of it.
+        Some(env) if is_openrouter_key(env) => (
+            KeyRow::FromEnvironmentOpenRouter,
+            None,
+            Some(format!(
+                "{ENV_KEY} holds an OpenRouter key; Unmei sends only NanoGPT keys, so decisions take the authored fallback"
+            )),
+        ),
         Some(env) => (
             KeyRow::FromEnvironment {
                 fingerprint: fingerprint(env),
@@ -422,6 +463,14 @@ pub fn read(config_dir: Option<&Path>, env_key: Option<&str>) -> CredentialRead 
             None,
         ),
         None => match file {
+            FileRead::Value(value) if shape_ok(&value) && is_openrouter_key(&value) => (
+                KeyRow::OpenRouterKey,
+                None,
+                Some(
+                    "the credential file holds an OpenRouter key; Unmei sends only NanoGPT keys, so decisions take the authored fallback; the file was left untouched"
+                        .to_string(),
+                ),
+            ),
             FileRead::Value(value) if shape_ok(&value) => {
                 let row = KeyRow::Set {
                     fingerprint: fingerprint(&value),
@@ -555,7 +604,13 @@ where
 {
     let read = read(config_dir, env_key);
     let env_key = trimmed_env_key(env_key);
-    let resolver = env_key.or(read.usable_stored()).map(build);
+    // An OpenRouter key in the variable still wins over the file: it builds no
+    // resolver, and the stored value is not used behind it.
+    let resolver = match env_key {
+        Some(env) if is_openrouter_key(env) => None,
+        Some(env) => Some(build(env)),
+        None => read.usable_stored().map(build),
+    };
     LaunchCredentials {
         state: read.state,
         warning: read.warning,
@@ -795,17 +850,14 @@ mod tests {
         assert!(!shape_ok(""), "empty rejects");
         assert!(!shape_ok("   "), "whitespace rejects");
         assert!(
-            shape_ok(&format!("sk-or-v1-{}", "a".repeat(60))),
-            "an OpenRouter-shaped key accepts"
+            shape_ok(&format!("sk-nano-{}", "a".repeat(60))),
+            "an NanoGPT-shaped key accepts"
         );
-        assert!(!shape_ok("sk-or-v1-abc def"), "an internal space rejects");
-        assert!(
-            !shape_ok("sk-or-v1-abc\ndef"),
-            "an internal newline rejects"
-        );
+        assert!(!shape_ok("sk-nano-abc def"), "an internal space rejects");
+        assert!(!shape_ok("sk-nano-abc\ndef"), "an internal newline rejects");
         assert!(!shape_ok("fifteen-char-ok"), "a 15-character value rejects");
         assert!(
-            !shape_ok("sk-or-v1-\u{00e9}\u{00e9}\u{00e9}"),
+            !shape_ok("sk-nano-\u{00e9}\u{00e9}\u{00e9}"),
             "non-ASCII rejects"
         );
         assert!(
@@ -816,11 +868,25 @@ mod tests {
 
     #[test]
     fn the_fingerprint_shows_at_most_six_then_four() {
-        let key = "sk-or-v1-0123456789abcdef";
+        let key = "ab-v1-0123456789abcdef";
         let shown = fingerprint(key);
-        assert_eq!(shown, "sk-or-\u{2026}cdef");
+        assert_eq!(shown, "ab-v1-\u{2026}cdef");
         assert!(!shown.contains("v1-0123456789ab"));
         assert_eq!(fingerprint(key).len(), 6 + "\u{2026}".len() + 4);
+    }
+
+    #[test]
+    fn a_nanogpt_key_shows_exactly_its_prefix_then_the_last_four() {
+        let key = "sk-nano-0123456789abcdef";
+        assert_eq!(fingerprint(key), "sk-nano-\u{2026}cdef");
+        let uuid = "sk-nano-7d444e84-6f4e-4d3b-9a77-0123456789ab";
+        assert_eq!(fingerprint(uuid), "sk-nano-\u{2026}89ab");
+        assert!(!fingerprint(uuid).contains("7d44"));
+        // A plain-UUID (older) key keeps the ordinary six-and-four rule.
+        assert_eq!(
+            fingerprint("7d444e84-6f4e-4d3b-9a77-0123456789ab"),
+            "7d444e\u{2026}89ab"
+        );
     }
 
     #[test]
@@ -849,7 +915,7 @@ mod tests {
 
     #[test]
     fn the_row_state_lines_follow_the_settled_table() {
-        let fingerprint = fingerprint("sk-or-v1-0123456789abcdef");
+        let fingerprint = fingerprint("sk-nano-0123456789abcdef");
         assert_eq!(KeyRow::NotSet.state_line(), "Not set");
         assert_eq!(
             KeyRow::Set {
@@ -872,13 +938,85 @@ mod tests {
         );
         assert_eq!(
             KeyRow::Rejected { fingerprint }.state_line(),
-            "Invalid \u{2014} rejected by OpenRouter"
+            "Invalid \u{2014} rejected by NanoGPT"
+        );
+        assert_eq!(
+            KeyRow::OpenRouterKey.state_line(),
+            "Invalid \u{2014} an OpenRouter key; enter a NanoGPT key"
+        );
+        assert_eq!(
+            KeyRow::FromEnvironmentOpenRouter.state_line(),
+            "From environment \u{2014} Invalid, an OpenRouter key"
+        );
+        assert_eq!(
+            KeyRow::FromEnvironmentOpenRouter.row_text(),
+            format!("From environment \u{2014} Invalid, an OpenRouter key\n{ENV_NOTE}")
+        );
+        assert!(KeyRow::FromEnvironmentOpenRouter.is_from_environment());
+        assert!(!KeyRow::OpenRouterKey.is_from_environment());
+    }
+
+    #[test]
+    fn the_settled_copy_is_exact() {
+        assert_eq!(KEY_PLACEHOLDER, "Paste or type a NanoGPT key");
+        assert_eq!(
+            ENV_NOTE,
+            "NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key."
+        );
+        assert_eq!(ENV_KEY, "NANOGPT_API_KEY");
+    }
+
+    #[test]
+    fn a_stored_openrouter_key_builds_no_resolver_and_is_left_on_disk() {
+        let root = temp_root();
+        let config = config_dir_with(root.path());
+        let stored = format!("sk-or-v1-{}", "q".repeat(60));
+        std::fs::write(credentials_path_in(&config), &stored).unwrap();
+
+        let launch = resolve_launch(Some(&config), None, |_| {
+            panic!("an OpenRouter key must not build a resolver")
+        });
+        assert_eq!(launch.state.row, KeyRow::OpenRouterKey);
+        assert!(launch.resolver.is_none());
+        let warning = launch.warning.expect("one warning");
+        assert!(warning.contains("credential file"), "{warning}");
+        assert!(warning.contains("only NanoGPT keys"), "{warning}");
+        assert!(!warning.contains("sk-or"), "{warning}");
+        assert!(!warning.contains(&stored[..12]), "{warning}");
+        assert_eq!(
+            std::fs::read_to_string(credentials_path_in(&config)).unwrap(),
+            stored,
+            "the file is never changed"
+        );
+    }
+
+    #[test]
+    fn an_openrouter_key_in_the_variable_wins_builds_nothing_and_names_the_variable() {
+        let root = temp_root();
+        let config = config_dir_with(root.path());
+        let good = format!("sk-nano-{}", "g".repeat(60));
+        std::fs::write(credentials_path_in(&config), &good).unwrap();
+        let env = format!("  sk-or-v1-{}  ", "e".repeat(60));
+
+        let launch = resolve_launch(Some(&config), Some(&env), |_| {
+            panic!("an OpenRouter key must not build a resolver, nor may the file behind it")
+        });
+        assert_eq!(launch.state.row, KeyRow::FromEnvironmentOpenRouter);
+        assert!(launch.resolver.is_none());
+        let warning = launch.warning.expect("one warning");
+        assert!(warning.contains("NANOGPT_API_KEY"), "{warning}");
+        assert!(warning.contains("only NanoGPT keys"), "{warning}");
+        assert!(!warning.contains("sk-or"), "{warning}");
+        assert!(!warning.contains("eeee"), "{warning}");
+        assert_eq!(
+            std::fs::read_to_string(credentials_path_in(&config)).unwrap(),
+            good
         );
     }
 
     #[test]
     fn the_fingerprint_helper_reads_only_set_like_rows() {
-        let fingerprint = fingerprint("sk-or-v1-0123456789abcdef");
+        let fingerprint = fingerprint("sk-nano-0123456789abcdef");
         assert_eq!(
             KeyRow::Set {
                 fingerprint: fingerprint.clone(),
@@ -923,8 +1061,8 @@ mod tests {
     #[test]
     fn a_paste_is_replaced_by_the_trimmed_insert_and_an_empty_one_inserts_nothing() {
         let mut edits = vec![TextEdit::Paste];
-        substitute_paste_edits(&mut edits, Some("  sk-or-v1-abc\n"));
-        assert_eq!(edits, vec![TextEdit::Insert("sk-or-v1-abc".into())]);
+        substitute_paste_edits(&mut edits, Some("  sk-nano-abc\n"));
+        assert_eq!(edits, vec![TextEdit::Insert("sk-nano-abc".into())]);
 
         let mut edits = vec![TextEdit::Paste];
         substitute_paste_edits(&mut edits, Some("   \n\t"));
@@ -988,7 +1126,7 @@ mod tests {
     fn a_trailing_newline_and_surrounding_whitespace_are_trimmed() {
         let root = temp_root();
         let config = config_dir_with(root.path());
-        let key = format!("sk-or-v1-{}", "a".repeat(60));
+        let key = format!("sk-nano-{}", "a".repeat(60));
         std::fs::write(credentials_path_in(&config), format!("  {key}\n\n")).unwrap();
 
         let read = read(Some(&config), None);
@@ -1003,7 +1141,7 @@ mod tests {
 
     #[test]
     fn an_internal_space_or_newline_fails_the_shape_check_and_keeps_the_bytes() {
-        for value in ["sk-or-v1-abc def", "sk-or-v1-abc\ndef"] {
+        for value in ["sk-nano-abc def", "sk-nano-abc\ndef"] {
             let root = temp_root();
             let config = config_dir_with(root.path());
             let bytes = format!("{value}\n");
@@ -1025,7 +1163,7 @@ mod tests {
     fn the_warning_never_quotes_the_value() {
         let root = temp_root();
         let config = config_dir_with(root.path());
-        let secret = "sk-or-v1-this-is-a-secret-with-a space";
+        let secret = "sk-nano-this-is-a-secret-with-a space";
         std::fs::write(credentials_path_in(&config), secret).unwrap();
 
         let read = read(Some(&config), None);
@@ -1062,11 +1200,11 @@ mod tests {
     fn an_environment_key_wins_reads_the_file_and_leaves_the_stored_bytes() {
         let root = temp_root();
         let config = config_dir_with(root.path());
-        let stored = format!("sk-or-v1-{}", "b".repeat(60));
+        let stored = format!("sk-nano-{}", "b".repeat(60));
         std::fs::write(credentials_path_in(&config), &stored).unwrap();
         let bytes = std::fs::read(credentials_path_in(&config)).unwrap();
 
-        let env = "sk-or-v1-0123456789abcdef";
+        let env = "sk-nano-0123456789abcdef";
         let read = read(Some(&config), Some(env));
         assert_eq!(
             read.state.row,
@@ -1089,7 +1227,7 @@ mod tests {
     fn an_empty_or_whitespace_variable_is_unset_and_the_stored_key_is_used() {
         let root = temp_root();
         let config = config_dir_with(root.path());
-        let stored = format!("sk-or-v1-{}", "c".repeat(60));
+        let stored = format!("sk-nano-{}", "c".repeat(60));
         std::fs::write(credentials_path_in(&config), &stored).unwrap();
 
         for env in ["", "   ", "\n"] {
@@ -1141,7 +1279,7 @@ mod tests {
         assert!(used.borrow().is_empty());
 
         // A shape-valid stored value builds one.
-        let stored = format!("sk-or-v1-{}", "d".repeat(60));
+        let stored = format!("sk-nano-{}", "d".repeat(60));
         write(&config, &stored).unwrap();
         let launch = resolve_launch(Some(&config), None, |key| {
             used.borrow_mut().push(key.to_string());
@@ -1151,7 +1289,7 @@ mod tests {
         assert_eq!(used.borrow().as_slice(), [stored.as_str()]);
 
         // A non-empty variable wins over the stored value.
-        let env = "sk-or-v1-env-wins-over-stored-0000";
+        let env = "sk-nano-env-wins-over-stored-0000";
         let launch = resolve_launch(Some(&config), Some(env), |key| {
             used.borrow_mut().push(key.to_string());
             Arc::new(FakeResolver) as Arc<dyn DecisionResolver>
@@ -1185,7 +1323,7 @@ mod tests {
     fn a_successful_write_creates_the_file_atomically_and_leaves_no_temp() {
         let root = temp_root();
         let config = root.path().join("unmei");
-        let key = format!("sk-or-v1-{}", "e".repeat(60));
+        let key = format!("sk-nano-{}", "e".repeat(60));
 
         write(&config, &key).unwrap();
 
@@ -1201,7 +1339,7 @@ mod tests {
         let path = credentials_path_in(&config);
         std::fs::write(temp_path(&path), "stale leftover").unwrap();
 
-        let key = format!("sk-or-v1-{}", "f".repeat(60));
+        let key = format!("sk-nano-{}", "f".repeat(60));
         write(&config, &key).unwrap();
 
         assert_eq!(std::fs::read_to_string(&path).unwrap(), key);
@@ -1216,7 +1354,7 @@ mod tests {
         // The target is a directory, so the rename cannot land.
         std::fs::create_dir(&path).unwrap();
 
-        let error = write(&config, &format!("sk-or-v1-{}", "g".repeat(60))).unwrap_err();
+        let error = write(&config, &format!("sk-nano-{}", "g".repeat(60))).unwrap_err();
         assert!(error.to_string().contains("credentials"), "{error}");
         assert!(
             !temp_path(&path).exists(),
@@ -1242,7 +1380,7 @@ mod tests {
 
         store(
             &state,
-            &format!("sk-or-v1-{}", "h".repeat(60)),
+            &format!("sk-nano-{}", "h".repeat(60)),
             &mut notice,
             &mut hold,
         );
@@ -1259,7 +1397,7 @@ mod tests {
     fn a_store_success_lands_the_file_and_leaves_the_row_to_the_commit_flow() {
         let root = temp_root();
         let config = root.path().join("unmei");
-        let key = format!("sk-or-v1-{}", "z".repeat(60));
+        let key = format!("sk-nano-{}", "z".repeat(60));
         let state = CredentialsState {
             config_dir: Some(config.clone()),
             path: None,
@@ -1288,7 +1426,7 @@ mod tests {
         let mut notice = Notice::default();
         let mut hold = DefensiveHold::default();
 
-        store(&state, "sk-or-v1-0123456789abcdef", &mut notice, &mut hold);
+        store(&state, "sk-nano-0123456789abcdef", &mut notice, &mut hold);
 
         assert!(notice.is_showing());
         assert_eq!(notice.text.as_deref(), Some("Could not save the key"));
@@ -1304,7 +1442,7 @@ mod tests {
         let path = credentials_path_in(&config);
         std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o500)).unwrap();
 
-        let result = write(&config, &format!("sk-or-v1-{}", "j".repeat(60)));
+        let result = write(&config, &format!("sk-nano-{}", "j".repeat(60)));
         // Restore so the temp dir can be cleaned up.
         std::fs::set_permissions(&config, std::fs::Permissions::from_mode(0o700)).unwrap();
 
@@ -1320,7 +1458,7 @@ mod tests {
 
         let root = temp_root();
         let config = root.path().join("unmei");
-        write(&config, &format!("sk-or-v1-{}", "i".repeat(60))).unwrap();
+        write(&config, &format!("sk-nano-{}", "i".repeat(60))).unwrap();
 
         let dir_mode = std::fs::metadata(&config).unwrap().permissions().mode() & 0o777;
         assert_eq!(dir_mode, 0o700, "the unmei/ directory is private");

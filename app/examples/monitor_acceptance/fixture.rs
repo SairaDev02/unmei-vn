@@ -5,7 +5,7 @@
 //! - [`write_pack`] — the healthy pack every surface walk runs on. It declares a
 //!   three-scene order (so the Timeline has cards), a background and two sprites
 //!   (so the Gallery has a grid and a still) and one `decide` point whose NPC
-//!   answers through the walk's own gated resolver — **no live OpenRouter, no
+//!   answers through the walk's own gated resolver — **no live NanoGPT, no
 //!   credentials and no network**.
 //! - [`write_broken_pack`] — 25 unresolvable `jump`s plus an escaped one, so
 //!   the startup error screen shows the capped 20-line list with its `… and 6
@@ -62,7 +62,7 @@ pub fn write_pack() -> PathBuf {
     );
     write(
         &pack.join("npcs/ace.ron"),
-        "(\n    id: \"ace\",\n    name: \"Ace\",\n    model: \"typesafe/jev-1.13\",\n    decisions: {\n        \"greet\": (\n            instructions: \"How does Ace greet the player at the gate?\",\n            state_keys: [\"affinity\", \"met\"],\n            criteria: {\n                \"warm\": \"An affectionate, open greeting for a trusted player.\",\n                \"cold\": \"A distant, guarded greeting.\",\n                \"none\": \"Neither description fits.\",\n            },\n            fallback: \"cold\",\n        ),\n    },\n)\n",
+        "(\n    id: \"ace\",\n    name: \"Ace\",\n    model: \"typesafe/jev-1.14\",\n    decisions: {\n        \"greet\": (\n            instructions: \"How does Ace greet the player at the gate?\",\n            state_keys: [\"affinity\", \"met\"],\n            criteria: {\n                \"warm\": \"An affectionate, open greeting for a trusted player.\",\n                \"cold\": \"A distant, guarded greeting.\",\n                \"none\": \"Neither description fits.\",\n            },\n            fallback: \"cold\",\n        ),\n    },\n)\n",
     );
     write(
         &pack.join("scenes/entry.unmei"),

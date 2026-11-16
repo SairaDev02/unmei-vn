@@ -3,7 +3,7 @@ name = "unmei-app"
 version.workspace = true
 edition = "2021"
 publish = false
-description = "Bevy runtime for unmei content packs: plays a pack, calls OpenRouter Decisions at decide points, and saves/loads position."
+description = "Bevy runtime for unmei content packs: plays a pack, calls NanoGPT Decisions at decide points, and saves/loads position."
 # The export fills this token with the public repository URL. It is metadata
 # only, because this crate is not published.
 repository = "https://github.com/SairaDev02/unmei-vn"

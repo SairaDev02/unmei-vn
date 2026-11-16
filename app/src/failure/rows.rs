@@ -194,7 +194,11 @@ impl FailureRow {
     /// decoder or model text can reach it.
     pub fn for_decision_reason(reason: &DecisionError) -> Self {
         match reason {
-            DecisionError::Config(_) => FailureRow::DecisionConfigAbsent,
+            // An OpenRouter key never reaches a request: like a missing key, no
+            // usable credential configures the call.
+            DecisionError::Config(_) | DecisionError::OpenRouterKey => {
+                FailureRow::DecisionConfigAbsent
+            }
             DecisionError::Http | DecisionError::Task | DecisionError::Status { .. } => {
                 FailureRow::DecisionTransport
             }
@@ -202,7 +206,9 @@ impl FailureRow {
             | DecisionError::MissingAnswer(_)
             | DecisionError::WrongType { .. }
             | DecisionError::UnknownAction
-            | DecisionError::UnusableAnswer { .. } => FailureRow::DecisionAnswer,
+            | DecisionError::UnusableAnswer { .. }
+            // A refusal is an answer the model gave, so it lands on the answer row.
+            | DecisionError::Refused(_) => FailureRow::DecisionAnswer,
         }
     }
 }

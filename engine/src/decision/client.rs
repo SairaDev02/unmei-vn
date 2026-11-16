@@ -1,4 +1,4 @@
-//! `reqwest` client for `POST /api/alpha/decisions` (feature `network`).
+//! `reqwest` client for NanoGPT's `POST /api/v1/decisions` (feature `network`).
 //!
 //! The client is a thin transport over the pure wire layer in [`super`]: build
 //! the request from the author config + filtered state, POST it, validate the
@@ -19,26 +19,28 @@ use std::time::Duration;
 use crate::content::{DecisionConfig, StateValue};
 
 use super::{
-    build_decision_request, decision_from_body, resolve_or_fallback, verdict_from_status,
-    verified_model, Decision, DecisionError, DecisionRequest, DecisionResolver, KeyCheck,
-    KeyVerdict, ResolvedDecision, DEFAULT_ENDPOINT, KEY_CHECK_TIMEOUT, KEY_ENDPOINT,
+    build_decision_request, decision_from_body, is_openrouter_key, resolve_or_fallback,
+    verdict_from_status, verified_model, Decision, DecisionError, DecisionRequest,
+    DecisionResolver, KeyCheck, KeyVerdict, ResolvedDecision, DEFAULT_ENDPOINT, KEY_CHECK_TIMEOUT,
+    KEY_ENDPOINT,
 };
 
-/// Environment variable holding the OpenRouter API key. A non-empty value is
+/// Environment variable holding the NanoGPT API key. A non-empty value is
 /// the **override** of the runtime's user-level credential file ([ADR 0010]);
 /// the `unmei` CLI keeps its env-only contract for 0.1.0.
 ///
 /// [ADR 0010]: ../../../docs/adr/0010-credentials-live-in-a-user-level-file.md
-pub const API_KEY_ENV: &str = "OPENROUTER_API_KEY";
+pub const API_KEY_ENV: &str = "NANOGPT_API_KEY";
 
-/// Optional endpoint override (the alpha prefix can move).
+/// Optional endpoint override (unsupported escape hatch to another compatible
+/// endpoint; an OpenRouter key is still never sent).
 pub const ENDPOINT_ENV: &str = "UNMEI_DECISIONS_URL";
 
-/// Bounded request timeout: a hung alpha endpoint must never hang the caller
+/// Bounded request timeout: a hung endpoint must never hang the caller
 /// (the fallback posture needs a failure, not a stall).
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// An OpenRouter Decisions HTTP client. Cloneable via the shared `reqwest::Client`.
+/// A NanoGPT Decisions HTTP client. Cloneable via the shared `reqwest::Client`.
 ///
 /// Requests run on a process-lifetime Tokio runtime (see `shared_runtime`),
 /// because `reqwest` needs a reactor and callers are not necessarily Tokio — the
@@ -82,7 +84,7 @@ impl DecisionsClient {
         }
     }
 
-    /// Build from the environment: `OPENROUTER_API_KEY` (required) and an
+    /// Build from the environment: `NANOGPT_API_KEY` (required) and an
     /// optional `UNMEI_DECISIONS_URL` override. Fails before any network call
     /// when the key is missing, naming exactly what to set.
     pub fn from_env() -> Result<Self, DecisionError> {
@@ -119,6 +121,11 @@ impl DecisionsClient {
         config: &DecisionConfig,
         state: &HashMap<String, StateValue>,
     ) -> Result<Decision, DecisionError> {
+        // Defense in depth (`docs/nanogpt.md` N10): an OpenRouter-format key is
+        // never sent, whatever the endpoint is. Refused before any network.
+        if is_openrouter_key(&self.api_key) {
+            return Err(DecisionError::OpenRouterKey);
+        }
         let request = build_decision_request(model, question_id, config, state);
         // The call runs on the shared runtime: `reqwest` needs a Tokio reactor,
         // which a caller's executor (e.g. Bevy's task pool) may not be.
@@ -170,7 +177,7 @@ impl DecisionResolver for DecisionsClient {
     }
 }
 
-/// Build one `POST /api/alpha/decisions` request builder. Kept separate from
+/// Build one `POST` decisions request builder. Kept separate from
 /// [`send_decision`] so a test can inspect the constructed request (the bearer
 /// header must be marked sensitive).
 fn decision_request(
@@ -184,7 +191,7 @@ fn decision_request(
     http.post(endpoint).bearer_auth(api_key).json(request)
 }
 
-/// One `POST /api/alpha/decisions`, validated. Runs on the shared runtime, so
+/// One decisions `POST`, validated. Runs on the shared runtime, so
 /// everything it needs is owned rather than borrowed.
 async fn send_decision(
     http: reqwest::Client,
@@ -263,7 +270,7 @@ fn shared_runtime() -> &'static tokio::runtime::Runtime {
 // Key validation
 // ---------------------------------------------------------------------------
 
-/// The real [`KeyCheck`]: `GET https://openrouter.ai/api/v1/key` with
+/// The real [`KeyCheck`]: `GET https://api.nano-gpt.com/api/v1/api-keys/current` with
 /// `Authorization: Bearer <key>` and a [`KEY_CHECK_TIMEOUT`] bound
 /// (`docs/title-and-menu.md` § Decisions settings §3). The URL is fixed — it
 /// deliberately ignores `UNMEI_DECISIONS_URL` — and the key never reaches a log
@@ -307,6 +314,10 @@ impl KeyCheck for HttpKeyCheck {
     fn check<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = KeyVerdict> + Send + 'a>> {
         let http = self.http.clone();
         let key = key.to_string();
+        // An OpenRouter-format key is never sent (N10): no network at all.
+        if is_openrouter_key(&key) {
+            return Box::pin(async { KeyVerdict::OpenRouterKey });
+        }
         // Run on the shared runtime: `reqwest` needs a reactor, and the app
         // polls this future from Bevy's compute task pool.
         Box::pin(async move {
@@ -326,7 +337,7 @@ fn key_check_request(http: &reqwest::Client, endpoint: &str, key: &str) -> reqwe
     http.get(endpoint).bearer_auth(key)
 }
 
-/// One ping: any transport error or non-`200`/`401`/`403` status — including a
+/// One ping: any transport error or non-`2xx`/`401`/`403` status — including a
 /// `3xx`, which is never followed — resolves [`KeyVerdict::Unreachable`], never
 /// a rejection. The body and any `Location` are never read.
 async fn send_key_check(http: reqwest::Client, endpoint: &str, key: String) -> KeyVerdict {
@@ -477,5 +488,66 @@ mod tests {
             // A follow would land back on this same listener and bump the count.
             assert_eq!(count.load(Ordering::SeqCst), 1, "{status_line}");
         }
+    }
+
+    /// A loopback listener that counts connections, so a test can prove nothing
+    /// was sent.
+    fn counting_listener() -> (String, Arc<AtomicUsize>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback");
+        let addr = listener.local_addr().expect("local addr");
+        let count = Arc::new(AtomicUsize::new(0));
+        let count2 = Arc::clone(&count);
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { break };
+                count2.fetch_add(1, Ordering::SeqCst);
+                read_full_request(&mut stream);
+                let _ = stream.write_all(b"HTTP/1.1 500 X\r\nContent-Length: 0\r\n\r\n");
+            }
+        });
+        (format!("http://{addr}/"), count)
+    }
+
+    /// N10: an `sk-or-` key never reaches the network, and takes the fallback.
+    #[tokio::test]
+    async fn an_openrouter_key_is_never_sent_by_the_decisions_client() {
+        let (url, count) = counting_listener();
+        let client = DecisionsClient::new(url, "sk-or-v1-dummy");
+        let err = client
+            .decide("m", "q", &decision_config(), &HashMap::new())
+            .await
+            .unwrap_err();
+        assert_eq!(err, DecisionError::OpenRouterKey);
+        let resolved = client
+            .decide_with_fallback("m", "q", &decision_config(), &HashMap::new())
+            .await;
+        assert!(resolved.is_fallback());
+        assert_eq!(resolved.action, "cold");
+        assert_eq!(count.load(Ordering::SeqCst), 0, "no request was made");
+    }
+
+    /// N10: the key check answers `OpenRouterKey` without any request.
+    #[tokio::test]
+    async fn an_openrouter_key_is_never_pinged() {
+        let checker = HttpKeyCheck::new();
+        assert_eq!(
+            checker.check("  sk-or-v1-dummy ").await,
+            KeyVerdict::OpenRouterKey
+        );
+    }
+
+    /// The key-check URL is the NanoGPT `api-keys/current` read and a
+    /// non-OpenRouter key is sent to it as a bearer header.
+    #[test]
+    fn key_check_request_targets_the_nanogpt_key_endpoint() {
+        let http = reqwest::Client::new();
+        let built = key_check_request(&http, KEY_ENDPOINT, "sk-nano-dummy")
+            .build()
+            .expect("builds");
+        assert_eq!(built.method(), reqwest::Method::GET);
+        assert_eq!(
+            built.url().as_str(),
+            "https://api.nano-gpt.com/api/v1/api-keys/current"
+        );
     }
 }

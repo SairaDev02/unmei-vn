@@ -1,9 +1,9 @@
-//! Live OpenRouter Decisions smoke test.
+//! Live NanoGPT Decisions smoke test.
 //!
 //! Ignored by default: it makes a real network call and needs a key.
 //!
 //! ```console
-//! $ OPENROUTER_API_KEY=... cargo test -p unmei-engine --features network \
+//! $ NANOGPT_API_KEY=... cargo test -p unmei-engine --features network \
 //!       --test decision_live -- --ignored
 //! ```
 //!
@@ -19,10 +19,10 @@ use unmei_engine::{
 };
 
 #[tokio::test]
-#[ignore = "live OpenRouter call; see the command in this file's header"]
+#[ignore = "live NanoGPT call; see the command in this file's header"]
 async fn live_decide_lands_on_action_label() {
-    let key = std::env::var("OPENROUTER_API_KEY")
-        .expect("set OPENROUTER_API_KEY (env only) to run the live Decisions test");
+    let key = std::env::var("NANOGPT_API_KEY")
+        .expect("set NANOGPT_API_KEY (env only) to run the live Decisions test");
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/demo-pack");
     let pack = load_pack(&root).expect("demo pack loads").pack;
 
@@ -31,6 +31,7 @@ async fn live_decide_lands_on_action_label() {
         .model
         .clone()
         .expect("demo NPC pins a decision model");
+    assert_eq!(model, "typesafe/jev-1.14", "the demo pack's decision pin");
 
     // Drive first_meeting -> reunion -> the decide point.
     let mut runner = ScriptRunner::new(pack);
