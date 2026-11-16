@@ -11,7 +11,7 @@ keywords:
 ---
 # NanoGPT — requirements
 
-**Status (2026-11-16).** Requirements reviewed on 2026-11-15 (three rounds, 12 questions), with a follow-up round on default models on 2026-11-16 (four questions); the decision pin moved to `typesafe/jev-1.14` on 2026-11-16. Awaiting acceptance. **Not built.** By decision (N21), no separate spec follows: this page is precise enough to build from, and the build PR amends each contract named in [Contracts this will amend](#10-contracts-this-will-amend). The decision record is [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md). This work takes priority over all other pending development, including the Keiko spec and the plugin family specs.
+**Status (2026-11-16).** Requirements reviewed on 2026-11-15 (three rounds, 12 questions), with a follow-up round on default models on 2026-11-16 (four questions); the decision pin moved to `typesafe/jev-1.14` on 2026-11-16. Requirements accepted 2026-11-15 (PR merged). **Built** on branch `feat/19-nanogpt` (2026-11-16). By decision (N21), no separate spec follows: this page is precise enough to build from, and the build amended each contract named in [Contracts this will amend](#10-contracts-this-will-amend). The decision record is [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md). This work takes priority over all other pending development, including the Keiko spec and the plugin family specs.
 
 **What this is.** Unmei calls an LLM service in two places. At play time the runtime resolves each decision point through OpenRouter's alpha Decisions API (`POST https://openrouter.ai/api/alpha/decisions`). Offline, the `unmei author` CLI drafts prose and generates decision configs through an OpenAI-compatible chat endpoint, which defaults to `https://openrouter.ai/api`. OpenRouter has become a liability on cost and on content screening. **NanoGPT** replaces it as the one provider for both.
 
@@ -97,7 +97,7 @@ The runtime and the CLI have no built-in model today. An NPC with no `model` pin
 
 ## 10. Contracts this will amend
 
-These are not amended yet. The build amends each in place, with a dated pointer.
+The build amended each of these in place on 2026-11-16, with a dated pointer. This list is the plan as accepted and stays as it was.
 
 - [Decisions settings](title-and-menu.md#decisions-settings): the credential file holds a NanoGPT key; `NANOGPT_API_KEY`; the key check endpoint (N14); the new state **Invalid, an OpenRouter key** (N11); copy that names OpenRouter; the shape-check test values.
 - [Provider configuration](author-cli.md#4-provider-configuration): the default `base_url`, the key variables, the `sk-or-` refusal, the `decision_model` field and the example model (N9, N12, N15, N25, N28).
@@ -133,6 +133,16 @@ The build applies these. The repository adds glossary terms with the behavior th
 - The key row's copy for the new state, the Not set placeholder, the env note and the fingerprint's shape for an `sk-nano-` key, within N11.
 - The CLI's refusal message text (N12) and the missing-pin note's text (N26).
 - Whether the decoder reads `cost` alone or falls back to `estimated_cost` when `cost` is absent (N5).
+
+### How the build resolved each item (2026-11-16)
+
+- **Key check endpoint (N14).** `GET https://api.nano-gpt.com/api/v1/api-keys/current`, 5-second timeout. Any `2xx` is valid, `401` or `403` is rejected, and anything else, including `429`, is not checked.
+- **Key row copy (N11).** The Not set placeholder is `Paste or type a NanoGPT key`. A set key reads `Set — sk-nano-…a1b2`, and a rejected key reads `Invalid — rejected by NanoGPT`. The new states are `Invalid — an OpenRouter key; enter a NanoGPT key` and, for the environment variable, `From environment — Invalid, an OpenRouter key`. A stored or typed `sk-or-` key leaves the field empty and editable; a typed one is cleared and never written, with no ping and no resolver, and the file is untouched. The env note reads `NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.` The fingerprint is the fixed `sk-nano-` prefix when the key has it, otherwise the first 6 characters or fewer, then `…`, then the last 4. A commit runs trim, shape check, then the OpenRouter check.
+- **Messages (N6, N10, N12, N26).** A refusal takes the fallback with the diagnostic ``the model refused the question `<id>` ``. An OpenRouter-format key never reaches the network, with the diagnostic `an OpenRouter key is never sent`. The CLI stops before any network call on a resolved `sk-or-` key, with a message that names the variable and asks for a NanoGPT key. The missing-pin note, on stderr, reads ``note: npc `<id>` has decision configs but no model pin, so its decision points always take the fallback``. It comes from `unmei author draft --list` and from the validation gate of `author npc` and `author draft`, once per NPC sorted by id, and never fails the command.
+- **Cost (N5).** Requests send `include_usage: true`, and the logged cost is `usage.cost`, the recorded charge. The decoder reads `cost` only and does not fall back to `estimated_cost`.
+- **CLI details (N15, N25, N28).** The default `base_url` is `https://api.nano-gpt.com/api`, with `/v1/chat/completions` appended, and there is no default authoring model. `--decision-model <MODEL>` works on `unmei author npc` with `--create` only. `decision_model` is an optional field of `unmei.author.ron`. Precedence is flag, then file, then the built-in `typesafe/jev-1.14`. `--create` alone writes the pin, replace never adds, changes or removes it, and an empty value is an error. The example authoring model is `deepseek/deepseek-v4.1-flash`, a NanoGPT chat model listed with structured-output support; the live confirmation N28 asks for is still pending.
+- **Variables (N9, N13).** The runtime override is `NANOGPT_API_KEY`. The CLI reads `UNMEI_API_KEY`, then `NANOGPT_API_KEY`. The terminal mask covers exactly those two.
+- **Pack format (N20).** A `score` config takes 2 to 10 levels, and more is a load error. The demo pack pins `typesafe/jev-1.14` (N7).
 
 ## 13. Out of scope
 

@@ -17,10 +17,10 @@ whole pack before it writes and leaves every other file untouched.
 
 - A terminal.
 - For the Cargo route only: a Rust toolchain. The archive route needs no Rust.
-- An API key for the chat endpoint. The default endpoint is OpenRouter, and
-  [`live-decisions.md` § Get an OpenRouter key](live-decisions.md#get-an-openrouter-key) shows how to
+- An API key for the chat endpoint. The default endpoint is NanoGPT, and
+  [`live-decisions.md` § Get a NanoGPT key](live-decisions.md#get-a-nanogpt-key) shows how to
   get one. Installing the CLI and checking its version need no key.
-- The ID of a chat model that the endpoint serves, such as `openai/gpt-4o-mini`.
+- The ID of a chat model that the endpoint serves, such as `deepseek/deepseek-v4.1-flash`, which NanoGPT lists as a chat model with structured-output support.
 
 Do the sections that follow in order.
 
@@ -71,19 +71,24 @@ The CLI reads the key from the environment only, never from a flag or a file, so
 committed with a pack. In the terminal where you run the CLI, set the variable:
 
 ```powershell
-$env:UNMEI_API_KEY = "sk-or-..."
+$env:UNMEI_API_KEY = "sk-nano-..."
 ```
 
 ```sh
-export UNMEI_API_KEY=sk-or-...
+export UNMEI_API_KEY=sk-nano-...
 ```
 
 The variable lasts for that terminal session: closing the terminal forgets it. Set it again in each
 new terminal before a command that calls the model.
 
-`OPENROUTER_API_KEY` works too, and `UNMEI_API_KEY` wins when both are set. The precedence, the exact
+`NANOGPT_API_KEY` works too, and `UNMEI_API_KEY` wins when both are set. The precedence, the exact
 names and what a missing key does are in
 [`docs/author-cli.md` § 4 Provider configuration](../author-cli.md#4-provider-configuration).
+
+The CLI never sends an OpenRouter key, which starts with `sk-or-`. If the key it resolves is an
+OpenRouter key, for example because `UNMEI_API_KEY` still holds one from an earlier build, the CLI
+stops before any request and names the variable. Set that variable to a NanoGPT key.
+`OPENROUTER_API_KEY` is not read.
 
 ## Give it a model
 
@@ -97,8 +102,8 @@ configs and drafts prose. Give the CLI one in either of two ways:
   ```ron
   // unmei.author.ron — optional, at the pack root
   (
-      base_url: "https://openrouter.ai/api", // optional; the CLI appends /v1/chat/completions
-      model: "openai/gpt-4o-mini",           // required unless --model is passed: there is no default model
+      base_url: "https://api.nano-gpt.com/api", // optional; the CLI appends /v1/chat/completions
+      model: "deepseek/deepseek-v4.1-flash",    // required unless --model is passed: there is no default model
   )
   ```
 

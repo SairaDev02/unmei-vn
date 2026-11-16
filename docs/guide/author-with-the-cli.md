@@ -24,7 +24,7 @@ missing and when the model's answer is rejected.
   [`install-the-cli.md` § Give it a model](install-the-cli.md#give-it-a-model). `--list` needs
   neither. The draft and generate commands call the model even with `--dry-run`. The model provider
   is the endpoint set by `--base-url` or by `base_url` in `unmei.author.ron`, and the default is
-  OpenRouter ([`docs/author-cli.md` § 4 Provider configuration](../author-cli.md#4-provider-configuration)).
+  NanoGPT ([`docs/author-cli.md` § 4 Provider configuration](../author-cli.md#4-provider-configuration)).
 - Use a pack you can restore. A command without `--dry-run` writes into the pack, and the CLI keeps no
   backup files. Copy `demo-pack` first
   ([`write-your-first-pack.md` § 1 Copy the demo pack](write-your-first-pack.md#1-copy-the-demo-pack)),
@@ -81,12 +81,12 @@ To draft a run, pick its handle from
 1. Preview the draft with `--dry-run`. The command below calls the model even with `--dry-run`. It
    sends the whole target scene, every NPC file in the pack, `pack.glossary.md` when present, the
    `state.ron` key vocabulary with its current values and your `--brief` to the model provider.
-   With the default OpenRouter endpoint, OpenRouter bills the request to your OpenRouter account.
+   With the default NanoGPT endpoint, NanoGPT bills the request to your NanoGPT account.
    Another endpoint bills by its own terms
    ([`docs/author-cli-drafting.md` § 3 Context assembly](../author-cli-drafting.md#3-context-assembly-what-the-model-sees)).
 
    ```sh
-   unmei author draft reunion --from reply.warm --brief "Ace is guarded but pleased the player came back." --pack demo-pack --model openai/gpt-4o-mini --dry-run
+   unmei author draft reunion --from reply.warm --brief "Ace is guarded but pleased the player came back." --pack demo-pack --model deepseek/deepseek-v4.1-flash --dry-run
    ```
 
    The CLI prints the drafted lines and writes nothing. If validation rejects the draft, see
@@ -117,12 +117,12 @@ To generate a config for one question of an NPC, or to replace it, follow these 
 
 1. Preview the config with `--dry-run`. The command below calls the model even with `--dry-run`. It
    sends your `--brief`, `pack.glossary.md` when present, the `state.ron` key vocabulary and, when you
-   replace a config, the existing config for that question to the model provider. With the default OpenRouter endpoint, OpenRouter bills the request to your OpenRouter account.
+   replace a config, the existing config for that question to the model provider. With the default NanoGPT endpoint, NanoGPT bills the request to your NanoGPT account.
    Another endpoint bills by its own terms
    ([`docs/author-cli.md` § 6 Prompt inputs](../author-cli.md#6-prompt-inputs-what-the-model-sees)).
 
    ```sh
-   unmei author npc ace --question greet --pack demo-pack --model openai/gpt-4o-mini --dry-run
+   unmei author npc ace --question greet --pack demo-pack --model deepseek/deepseek-v4.1-flash --dry-run
    ```
 
    The CLI prints the generated RON and writes nothing.
@@ -161,12 +161,12 @@ $ unmei author npc ace --question greet --pack demo-pack
 ✖ no authoring model set — pass --model <id> or set `model` in unmei.author.ron; the authoring model must serve OpenAI chat/completions (decision models like typesafe/jev reject that endpoint)
 ```
 
-If no key is set, export `UNMEI_API_KEY` or `OPENROUTER_API_KEY`. The CLI accepts a key only from the
+If no key is set, export `UNMEI_API_KEY` or `NANOGPT_API_KEY`. The CLI accepts a key only from the
 environment, never from a flag or a file:
 
 ```console
-$ unmei author npc ace --question greet --pack demo-pack --model openai/gpt-4o-mini
-✖ no authoring API key — export UNMEI_API_KEY (or OPENROUTER_API_KEY); keys are environment-only and never accepted from a flag or file
+$ unmei author npc ace --question greet --pack demo-pack --model deepseek/deepseek-v4.1-flash
+✖ no authoring API key — export UNMEI_API_KEY (or NANOGPT_API_KEY); keys are environment-only and never accepted from a flag or file
 ```
 
 [`install-the-cli.md`](install-the-cli.md) explains both settings, and

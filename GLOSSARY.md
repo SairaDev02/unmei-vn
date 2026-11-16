@@ -1,6 +1,6 @@
 # unmei-engine
 
-A minimal Bevy-based visual-novel runtime where NPC responses are chosen at play time by OpenRouter Decisions, plus an offline authoring CLI. This glossary covers the vocabulary shared by the runtime, the CLI, and authored packs.
+A minimal Bevy-based visual-novel runtime where NPC responses are chosen at play time by NanoGPT Decisions, plus an offline authoring CLI. This glossary covers the vocabulary shared by the runtime, the CLI, and authored packs.
 
 ## Language
 
@@ -221,7 +221,7 @@ The pack-adjacent `<pack-dir>.settings.ron` holding player preferences — the a
 _Avoid_: config file, preferences file, options file
 
 **Credential file**:
-The user-level `credentials` file holding the player's OpenRouter API key — `%APPDATA%/unmei/credentials` on Windows, `~/.config/unmei/credentials` on Linux. The one sidecar that is not a pack sibling, so a shared pack directory never carries the key; the `OPENROUTER_API_KEY` environment variable overrides it.
+The user-level `credentials` file holding the player's NanoGPT API key — `%APPDATA%/unmei/credentials` on Windows, `~/.config/unmei/credentials` on Linux. The one sidecar that is not a pack sibling, so a shared pack directory never carries the key; the `NANOGPT_API_KEY` environment variable overrides it. A key in OpenRouter's `sk-or-` format, from the file or the variable, is never sent.
 _Avoid_: config file, key file, secrets file
 
 **Text speed**:
@@ -237,7 +237,7 @@ The Settings view group holding the key row, after the audio and play groups.
 _Avoid_: key settings, API section
 
 **Key row**:
-The row in the Decisions group that owns the player's key state — Not set / Set / Set, not checked / Checking… / Invalid / Invalid, rejected by OpenRouter / From environment — and the only place a key can be entered or cleared. Its verdicts are live for the session, never persisted.
+The row in the Decisions group that owns the player's key state — Not set / Set / Set, not checked / Checking… / Invalid / Invalid, an OpenRouter key / Invalid, rejected by NanoGPT / From environment (which also reads Invalid, an OpenRouter key, when the variable holds one) — and the only place a key can be entered or cleared. Its verdicts are live for the session, never persisted.
 _Avoid_: key field, api field
 
 ### Authoring
@@ -251,10 +251,14 @@ A staged-validation failure before the candidate is loader-validated — the tem
 _Avoid_: staging error, validation error (that is the loader's content verdict)
 
 **Terminal mask**:
-The author CLI's replacement of every exact occurrence of a non-empty `UNMEI_API_KEY` or `OPENROUTER_API_KEY` value with the fixed `[redacted]` marker on stdout/stderr for the whole command — argument/help rendering, final errors, `--list`, previews, dry runs, exhaustion reports, interactive prompts and dependency logging. It is a literal match, not a secret scanner, and it does not touch generated files, provider prompts or correction payloads; a masked preview does not make a pack safe to share.
+The author CLI's replacement of every exact occurrence of a non-empty `UNMEI_API_KEY` or `NANOGPT_API_KEY` value with the fixed `[redacted]` marker on stdout/stderr for the whole command — argument/help rendering, final errors, `--list`, previews, dry runs, exhaustion reports, interactive prompts and dependency logging. It is a literal match, not a secret scanner, and it does not touch generated files, provider prompts or correction payloads; a masked preview does not make a pack safe to share.
 _Avoid_: redaction filter (implies content awareness), safe-output guarantee
 
 ### Decisions
+
+**Provider**:
+The LLM service aggregator Unmei calls: NanoGPT, for both the runtime's Decisions calls and the CLI's authoring. Unmei supports one provider. An endpoint override may point at another compatible service, but Unmei does not support or test that.
+_Avoid_: backend, vendor, aggregator (in prose), OpenRouter (the retired provider)
 
 **NPC**:
 A non-player character with a structured definition file (identity, action lists, decision configs). The player is not an NPC.
@@ -269,7 +273,7 @@ A decision config answering yes/no; the response's `noul` probability `>= 0.5` l
 _Avoid_: boolean question, yes/no question
 
 **Score question**:
-A decision config answering one of an ordered list of levels; the answer lands the script on `<prefix>.<legend index>`.
+A decision config answering one of an ordered list of two to ten levels; the answer lands the script on `<prefix>.<legend index>`.
 _Avoid_: rating, scale question, gauge
 
 **Legend**:
@@ -293,7 +297,7 @@ A description inside a decision config's `criteria` that the decision model judg
 _Avoid_: option description, answer text
 
 **Fallback**:
-The landing key used when the Decisions call fails or answers unusably — a criterion id (`choice`), `true`/`false` (`noul`), or a legend index (`score`). The engine logs and continues offline.
+The landing key used when the Decisions call fails, answers unusably or the model refuses the question — a criterion id (`choice`), `true`/`false` (`noul`), or a legend index (`score`). The engine logs and continues offline.
 _Avoid_: fallback action (a bool or index is not an action), default (ambiguous with author default action)
 
 **Decision resolver**:

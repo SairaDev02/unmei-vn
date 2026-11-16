@@ -21,7 +21,7 @@ When a page and a contract differ, trust the contract.
 
 - [`play-the-demo.md`](play-the-demo.md): choose and extract the player archive for your platform,
   launch the demo, and save and load from the menu overlay that Esc opens.
-- [`live-decisions.md`](live-decisions.md): add an OpenRouter key so a model chooses how Ace, the
+- [`live-decisions.md`](live-decisions.md): add a NanoGPT key so a model chooses how Ace, the
   demo's non-player character (NPC), greets you, with what each request sends and costs. This is
   optional: with no key, the demo plays end to end. Read `play-the-demo.md` first.
 

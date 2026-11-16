@@ -2,7 +2,7 @@
 
 This page takes you from the extracted CLI archive to a first run of `unmei`, the authoring CLI for
 Unmei content packs. `unmei` drafts scene prose and generates NPC decision configs through any
-OpenAI-compatible chat endpoint (OpenRouter by default), validates the whole pack before every write
+OpenAI-compatible chat endpoint (NanoGPT by default), validates the whole pack before every write
 and leaves every other file untouched
 ([`docs/author-cli.md` § 3 Validation gate](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#3-validation-gate-before-any-write),
 [§ 2 Generation unit and write surface](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#2-generation-unit-and-write-surface)).
@@ -38,18 +38,24 @@ You do not need Rust or Cargo.
    `--version`, `--help` and `unmei author draft <SCENE_ID> --list` work without a key.
 
    ```powershell
-   $env:UNMEI_API_KEY = "sk-or-..."
+   $env:UNMEI_API_KEY = "sk-nano-..."
    ```
 
    ```sh
-   export UNMEI_API_KEY=sk-or-...
+   export UNMEI_API_KEY=sk-nano-...
    ```
 
    The `sh` line also works on macOS with `cargo install`. The CLI never reads a key from a flag or a
    file, so a key cannot end up committed to your pack. The variable lasts for that terminal session,
    so set it again in each terminal you open.
 
-   `OPENROUTER_API_KEY` works too. When both are set, the CLI uses `UNMEI_API_KEY`
+   The key must be a NanoGPT key, which you can create at [nano-gpt.com/api](https://nano-gpt.com/api).
+   The CLI never sends an OpenRouter key, which starts with `sk-or-`. If `UNMEI_API_KEY` still holds
+   one from an earlier build, the CLI stops before any request and names the variable. Replace it
+   with a NanoGPT key.
+
+   `NANOGPT_API_KEY` works too, and `OPENROUTER_API_KEY` is not read. When both `UNMEI_API_KEY` and
+   `NANOGPT_API_KEY` are set, the CLI uses `UNMEI_API_KEY`
    ([`docs/author-cli.md` § 4 Provider configuration](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#4-provider-configuration)).
 
 ## First commands, against the bundled demo pack
@@ -77,14 +83,14 @@ The first command is offline.
    with `--dry-run`, and sends your `--brief`, `pack.glossary.md` when present, the `state.ron`
    vocabulary and, when replacing, the existing config for that question
    ([`docs/author-cli.md` § 6 Prompt inputs](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#6-prompt-inputs-what-the-model-sees)).
-   With the default OpenRouter endpoint, OpenRouter bills the request to your OpenRouter
+   With the default NanoGPT endpoint, NanoGPT bills the request to your NanoGPT
    account. Another endpoint bills by its own terms.
 
    ```sh
    unmei author npc ace --question greet --pack demo-pack --model <MODEL> --dry-run
    ```
 
-   Replace `<MODEL>` with a model ID from your provider, for example `openai/gpt-4o-mini`. There is
+   Replace `<MODEL>` with a model ID from your provider, for example `deepseek/deepseek-v4.1-flash`, a NanoGPT chat model with structured-output support. There is
    no default authoring model
    ([`docs/author-cli.md` § 4 Provider configuration](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#4-provider-configuration)).
    The command prints the generated config and then `--dry-run: nothing written`.
@@ -99,12 +105,12 @@ your pack root:
 ```ron
 // unmei.author.ron — optional, at the pack root
 (
-    base_url: "https://openrouter.ai/api", // optional; the CLI appends /v1/chat/completions
-    model: "openai/gpt-4o-mini",           // authoring chat model; there is no default
+    base_url: "https://api.nano-gpt.com/api", // optional; the CLI appends /v1/chat/completions
+    model: "deepseek/deepseek-v4.1-flash",    // authoring chat model; there is no default
 )
 ```
 
-When neither `--base-url` nor `base_url` is set, the CLI uses OpenRouter (`https://openrouter.ai/api`).
+When neither `--base-url` nor `base_url` is set, the CLI uses NanoGPT (`https://api.nano-gpt.com/api`).
 You must give a model: pass `--model` or set `model` in `unmei.author.ron`.
 
 ## Your own pack

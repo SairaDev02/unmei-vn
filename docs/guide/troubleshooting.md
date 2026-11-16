@@ -112,7 +112,7 @@ write to.
 ## Filing a useful report
 
 **Never attach anything from `%APPDATA%\unmei\`, `~/.config/unmei/` or `$XDG_CONFIG_HOME/unmei/`.**
-That directory holds the credential file with your OpenRouter API key, and a bug report is public.
+That directory holds the credential file with your NanoGPT API key, and a bug report is public.
 Attach the session log instead. The credential file and its path are
 [`docs/title-and-menu.md` § Decisions settings, 1. File and format](../title-and-menu.md#1-file-and-format).
 

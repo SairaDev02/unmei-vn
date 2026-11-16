@@ -35,11 +35,11 @@ You need Windows x64 or Linux x64. There is no macOS player archive and no insta
    **Continue** is disabled while no autosave exists, as on a first launch
    ([`docs/title-and-menu.md` § Title](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/title-and-menu.md#title)).
 
-The demo plays fully **offline** when no key is stored and `OPENROUTER_API_KEY` is unset or empty in
+The demo plays fully **offline** when no key is stored and `NANOGPT_API_KEY` is unset or empty in
 the environment the player launches from. Each decision point, where an NPC's reaction is decided,
 then takes the pack's authored fallback. Ace, the demo's NPC, reacts as the pack author wrote.
 When a key is stored or the variable is set, each decision point sends one request, which
-OpenRouter bills to your account
+NanoGPT bills to your account
 ([`docs/title-and-menu.md` § Decisions settings](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/title-and-menu.md#decisions-settings)).
 
 The demo ends at the `— end of scene —` marker. The marker is the end of the demo, not an error. To
@@ -94,9 +94,9 @@ The menu overlay works with the mouse or the keyboard. These keys work in the ov
 
 ## Live decisions (optional)
 
-To have a language model decide Ace's reactions live, you need an
-[OpenRouter](https://openrouter.ai) API key. Each decision is one request. OpenRouter bills it to
-your account at the price of the decision model that the demo pack names for Ace. To set the key,
+To have a language model decide Ace's reactions live, you need a
+[NanoGPT](https://nano-gpt.com) API key, which you can create at [nano-gpt.com/api](https://nano-gpt.com/api). Each decision is one request. NanoGPT bills it to
+your account, on input tokens only, at the price of the decision model that the demo pack names for Ace. To set the key,
 press **Esc**, choose **Settings**, go to the **Decisions** group and paste the key. The Guide's
 [Paste the key in Settings](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/live-decisions.md#paste-the-key-in-settings) lists each
 step.
@@ -108,8 +108,18 @@ without carrying the key. It is stored at:
 - Linux: `~/.config/unmei/credentials`, or `$XDG_CONFIG_HOME/unmei/credentials` when that variable
   is set.
 
-A non-empty `OPENROUTER_API_KEY` environment variable overrides the stored key
+A non-empty `NANOGPT_API_KEY` environment variable overrides the stored key
 ([`docs/title-and-menu.md` § Decisions settings](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/title-and-menu.md#decisions-settings)).
+
+Each request sends the NPC's instructions, its criteria and the game state filtered to the keys the
+NPC lists, and nothing else. NanoGPT's data handling is in its
+[privacy policy](https://nano-gpt.com/legal/privacy-policy).
+
+If you stored an OpenRouter key with an earlier build, the key row in Settings reads
+`Invalid — an OpenRouter key; enter a NanoGPT key`, and decisions take the fallback. The player never
+sends an OpenRouter key. Paste a NanoGPT key in the row. The old key stays in the credential file
+until the new key replaces it
+([`live-decisions.md` § If you stored an OpenRouter key](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/guide/live-decisions.md#if-you-stored-an-openrouter-key)).
 
 ## Saves and upgrading
 

@@ -37,7 +37,7 @@ Options:
   -i, --interactive    Guided session for one run (see §5)
   --pack <DIR>         Pack root (default: cwd, must contain pack.ron)
   --model <MODEL>      Authoring chat model (required unless set in config)
-  --base-url <URL>     OpenAI-compatible endpoint (default: https://openrouter.ai/api)
+  --base-url <URL>     OpenAI-compatible endpoint (default: https://api.nano-gpt.com/api)
   --dry-run            Print the drafted run; write nothing
   -h, --help
 ```
@@ -97,6 +97,8 @@ Every candidate run must pass a **two-layer** gate. The CLI reuses the loader's 
 
 **Validation staging amendment (2026-10-13):** Layer 2 uses the same staging transplant as decision-config generation (`cli/src/staging.rs`). The decided [pack RON bridge](content-format.md#pack-ron-bridge--decided-seam-2026-10-13) requires that transplant to serialize temporary state through the engine, preserving string/key text with RON quoting and escaping instead of hand-rendering; it has landed. It changes only staging bytes, never the authored `state.ron` or §2's write surface; diagnostics and retry policy below stay unchanged. The quote/backslash CLI-writer → engine-loader regression is shared across both staging consumers, not two copies of the same test.
 
+**Missing-pin note (2026-11-16).** The gate here, as in [`author-cli.md`](author-cli.md) §3, and `--list` write one stderr note per NPC that has decision configs but no model pin, once per NPC sorted by id, never failing the command: ``note: npc `<id>` has decision configs but no model pin, so its decision points always take the fallback`` ([`nanogpt.md`](nanogpt.md) N26).
+
 **Diagnostics** are the loader's existing `LoadError` — pack-relative file, 1-based line, message — fed back as corrections. There is **no column** and no change to the loader; the drafting layer adds no new diagnostic type. (The drafting research pointed at Yarn Spinner's file+line+column `Diagnostic`; file+line is what the shipped engine carries, and a column is a possible later refinement, not part of this contract.)
 
 **Retry:** validation failure runs [`author-cli.md`](author-cli.md) §5's loop — up to **3 attempts**, feeding the errors back as corrections. Provider errors (an unreachable endpoint, or an unsupported `response_format`) surface immediately rather than being retried as content problems (see §7).
@@ -124,7 +126,7 @@ This is the RON comment-preservation lesson ([`author-cli.md`](author-cli.md) §
 
 ## 7. Provider and model output
 
-**Provider: [`author-cli.md`](author-cli.md) §4, unchanged.** Drafting reads the same `unmei.author.ron`, the same `--model`/`--base-url` flags, and the same `UNMEI_API_KEY` → `OPENROUTER_API_KEY` precedence; there is **no separate drafting-model setting**, and still no built-in default model. One authoring model serves both `author npc` and `author draft`, chosen per invocation by `--model`. (The runtime's pinned per-NPC decision model stays deliberately separate — §4.)
+**Provider: [`author-cli.md`](author-cli.md) §4.** Drafting reads the same `unmei.author.ron`, the same `--model`/`--base-url` flags, and the same `UNMEI_API_KEY` → `NANOGPT_API_KEY` precedence and the same refusal of an `sk-or-` key *(amended 2026-11-16: NanoGPT replaced OpenRouter, [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md); the variable was `OPENROUTER_API_KEY`)*; there is **no separate drafting-model setting**, and still no built-in default model. One authoring model serves both `author npc` and `author draft`, chosen per invocation by `--model`. (The runtime's pinned per-NPC decision model stays deliberately separate — §4.)
 
 **Output shape.** The CLI asks for JSON-schema structured output: one object of say-line items, rendered to `.unmei` text by the CLI —
 
