@@ -122,8 +122,17 @@ The default stays as planned: a human stranger run on the candidate, after the e
   - the maintainer's Windows walk also covers the first-time operations, using only the archive README and the public Guide: the player launches, finishes the offline demo, saves and loads, and finds the API-key Settings; the author completes the documented sample operation without Cargo. The first-time documentation acceptance row above already allows the Windows walk to supply this evidence;
   - item ten's sealed agent dry run, recorded in the private evidence set. That run used rehearsal archives, not the candidate's bytes, and the stranger appendix says so.
 - **Where it is recorded.** The stranger appendix records that the fallback was used and cites both pieces of evidence. The release notes name the human first-time run as an open item. The record's `residuals` list is unchanged: the deferral lives in the appendix, the attempt log and the release notes.
-- **When the open item closes.** It has no fixed version. It closes when a human stranger run passes on a later candidate, or when a later decision accepts the maintainer's planned agent test harness as first-time evidence. Until then, each release's notes keep naming it, and each release uses the default or this fallback the same way.
+- **When the open item closes.** It has no fixed version. It closes when a human stranger run passes on a later candidate, or when a later decision accepts the maintainer's planned agent test harness as first-time evidence. Until then, each release's notes keep naming it, and each release uses the default or this fallback the same way. The [deferral to 1.0.0](#stranger-run-deferred-to-100-decided-2026-11-16) amends this bullet and the "Who decides" bullet.
 - **What the fallback does not change.** A blocked required step found by the maintainer's walk still means an issue, a fix and a new candidate. Every other blocking row stands.
+
+## Stranger run deferred to 1.0.0 (decided 2026-11-16)
+
+The first-time item now has a fixed version: 1.0.0, the first stable release.
+
+- **0.x releases.** Every 0.x release uses the fallback above. It is a standing choice, so the maintainer does not choose it, or recruit a participant, at each release. The release log records that the standing fallback applies and cites this section. The stranger appendix records the fallback and its evidence as before.
+- **Release notes during 0.x.** They name the human first-time run as an open item, deferred to 1.0.0.
+- **1.0.0.** The fallback is not available. The 1.0.0 candidate needs first-time evidence before any publication: a passing human stranger run on that candidate, or the agent test harness if a maintainer decision has accepted it as first-time evidence by then ([`keiko.md`](keiko.md) K31). Without one of them, 1.0.0 is not published.
+- **An earlier human run.** A human stranger run that passes on a 0.x candidate is still welcome and is recorded in that release's stranger appendix. It does not remove the 1.0.0 requirement.
 
 ## Compatibility during 0.x (decided 2026-11-10)
 

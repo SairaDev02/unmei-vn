@@ -161,13 +161,13 @@ A residual stays a residual: the record never turns one into a pass.
 
 ## 5. The first-time stranger run
 
-Do [§ 11 Stranger run](#11-stranger-run) before any publication. The participant needs the candidate archives and the public Guide. A blocked required step sends you back to § 1 with a new candidate.
+For 1.0.0, do [§ 11 Stranger run](#11-stranger-run) before any publication, unless you have accepted the agent test harness as first-time evidence. The fallback below is not available for 1.0.0; without one of the two, do not publish. The participant needs the candidate archives and the public Guide. A blocked required step sends you back to § 1 with a new candidate.
 
-If you cannot recruit a participant, the contract's [first-time acceptance fallback](release-certification.md#first-time-acceptance-fallback-decided-2026-11-08) lets you use your Windows walk instead. It also lists the evidence the fallback needs. Only you can choose it. To use it:
+For a 0.x release, skip the stranger run. The contract [defers it to 1.0.0](release-certification.md#stranger-run-deferred-to-100-decided-2026-11-16), and every 0.x release uses the [first-time acceptance fallback](release-certification.md#first-time-acceptance-fallback-decided-2026-11-08) instead: your Windows walk stands in for it. The fallback section lists the evidence it needs. To use it:
 
-1. Write the choice and its reason in the release log.
+1. In the release log, write that the standing 0.x fallback applies, and link the deferral.
 2. Record the fallback in the `stranger` appendix.
-3. Name the human first-time run as an open item in the release notes.
+3. Name the human first-time run as an open item, deferred to 1.0.0, in the release notes.
 
 ## 6. Publish the engine
 
@@ -453,7 +453,7 @@ Include:
 - Platforms: Windows x64, and Linux x64 with glibc 2.39 or newer.
 - The narrowed Linux claim: the rendered walk was not verified on Linux.
 - The residuals, listed as residuals.
-- If you used the stranger-run fallback, the human first-time run, named as an open item.
+- If you used the stranger-run fallback, the human first-time run, named as an open item deferred to 1.0.0.
 - The compatibility promise, in the words [`README.md`](../README.md) uses.
 - `SHA256SUMS` and the two crate versions.
 - Your sign-off.
