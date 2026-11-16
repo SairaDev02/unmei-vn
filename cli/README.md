@@ -8,7 +8,7 @@ The CLI writes plain `.ron` and `.unmei` files that you can read and edit by
 hand.
 
 A content pack is the directory that holds everything one game needs. The
-Guide's [pack format overview](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/format-overview.md) maps its
+Guide's [pack format overview](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/format-overview.md) maps its
 parts.
 
 ## Install
@@ -24,7 +24,7 @@ run `unmei --version`.
 
 This route needs a Rust toolchain and works on any platform Cargo supports,
 including macOS, which has no archive. The Guide's
-[install page](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/install-the-cli.md) covers the CLI archives for
+[install page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/install-the-cli.md) covers the CLI archives for
 Windows x64 and Linux x64, which need no Rust toolchain.
 
 ## API key
@@ -50,7 +50,7 @@ or play.
 
 ## Documentation
 
-The Guide's [home page](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/README.md) routes authors to the pages
+The Guide's [home page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md) routes authors to the pages
 for installing the CLI, writing a first pack and authoring with the CLI.
 
 ## License

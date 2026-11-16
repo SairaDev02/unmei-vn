@@ -75,7 +75,7 @@ keywords:
 ## 8. Process and release
 
 - **N21 — Requirements, then build.** No separate spec. The build PR amends the contracts in §10 and lands the glossary changes in §11.
-- **N22 — No dedicated release.** The migration merges to `main` and ships with a later release. That release's notes tell players to get a NanoGPT key and authors to update `UNMEI_API_KEY`.
+- **N22 — No dedicated release.** The migration merges to `main` and ships with a later release. That release's notes tell players to get a NanoGPT key and authors to update `UNMEI_API_KEY`. *(Amended 2026-11-16: the maintainer chose a dedicated release, 0.2.0, with this migration as its only change. It is 0.2.0, not 0.1.1, because new variants on the public `unmei-engine` enums `DecisionError` and `KeyVerdict` break compatibility. Its notes still carry the key instructions above.)*
 - **N23 — Priority.** This work goes before the Keiko spec and the plugin family specs.
 
 ### Done when (for the build)

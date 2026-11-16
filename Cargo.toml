@@ -5,12 +5,12 @@ members = ["engine", "cli", "app"]
 # The release version, inherited by every member, so a release bump touches this
 # file only and no member manifest.
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 
 [workspace.dependencies]
 # Stated once: members inherit the path and the caret release requirement and add
 # only their own feature selection.
-unmei-engine = { path = "engine", version = "0.1.0" }
+unmei-engine = { path = "engine", version = "0.2.0" }
 
 [profile.dev]
 debug = "line-tables-only"

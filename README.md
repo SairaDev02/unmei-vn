@@ -11,7 +11,7 @@ against that NPC's authored criteria. An authored [fallback](GLOSSARY.md#decisio
 optional: [live decisions](docs/guide/live-decisions.md) covers the NanoGPT API key, where it goes
 and what a request costs.
 
-**0.1.0 is a beta.** Formats can change in any 0.x release
+**0.2.0 is a beta.** Formats can change in any 0.x release
 ([`docs/release-certification.md` § Compatibility during 0.x](docs/release-certification.md#compatibility-during-0x-decided-2026-11-10)). An older version refuses a save that a newer version
 wrote ([`docs/runtime-hardening.md` § Save slots](docs/runtime-hardening.md#save-slots)). The pack loader
 refuses a pack that declares a field it does not know
