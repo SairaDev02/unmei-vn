@@ -78,10 +78,12 @@ pub trait DecisionResolver: Send + Sync + 'static {
 /// § Decisions settings §3). A network outage is never called a bad key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeyVerdict {
-    /// `200` — OpenRouter accepts the key.
+    /// Any `2xx` — NanoGPT accepts the key.
     Accepted,
-    /// `401`/`403` — OpenRouter rejects the key.
+    /// `401`/`403` — NanoGPT rejects the key.
     Rejected,
+    /// The key is in OpenRouter's format; it was never sent anywhere.
+    OpenRouterKey,
     /// Any other status, a transport error, or a timeout.
     Unreachable,
 }

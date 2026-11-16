@@ -5,6 +5,7 @@
 //! exit wiring (author-cli contract §5, drafting contract §10).
 
 use std::collections::HashSet;
+use std::io::Write;
 use std::path::Path;
 
 use unmei_engine::content::Npc;
@@ -66,6 +67,16 @@ pub struct NpcCommand<'a, C: AuthorChat> {
     pub dry_run: bool,
     pub client: &'a C,
     pub model: &'a str,
+    /// The model pin a `--create` writes into the new NPC file (`docs/nanogpt.md`
+    /// N25); `None` when not creating. Replace never reads it.
+    pub decision_pin: Option<&'a str>,
+}
+
+impl<C: AuthorChat> NpcCommand<'_, C> {
+    /// The pin a created NPC gets: only `--create` writes one.
+    fn create_pin(&self) -> Option<&str> {
+        self.decision_pin.filter(|_| self.create)
+    }
 }
 
 /// Everything `unmei author draft` needs once its flags are parsed, the pack is
@@ -83,6 +94,35 @@ pub struct DraftCommand<'a, C: AuthorChat> {
     pub dry_run: bool,
     pub client: &'a C,
     pub model: &'a str,
+}
+
+/// The note for each NPC that has decision configs but no model pin, sorted by
+/// NPC id (`docs/nanogpt.md` N26). An NPC with no pin is valid and decided
+/// offline, so this is a note, never an error.
+fn missing_pin_notes(pack: &Pack) -> Vec<String> {
+    let mut ids: Vec<&str> = pack
+        .npcs
+        .values()
+        .filter(|npc| npc.model.is_none() && !npc.decisions.is_empty())
+        .map(|npc| npc.id.as_str())
+        .collect();
+    ids.sort_unstable();
+    ids.into_iter()
+        .map(|id| {
+            format!(
+                "note: npc `{id}` has decision configs but no model pin, so its decision points always take the fallback"
+            )
+        })
+        .collect()
+}
+
+/// Write [`missing_pin_notes`] to the terminal's error stream, which main
+/// builds on the masked stderr like every other diagnostic.
+pub fn write_missing_pin_notes(pack: &Pack, err: &mut dyn Write) -> std::io::Result<()> {
+    for note in missing_pin_notes(pack) {
+        writeln!(err, "{note}")?;
+    }
+    Ok(())
 }
 
 /// `unmei author npc` (author-cli contract §3/§5/§6).
@@ -125,6 +165,7 @@ async fn npc_one_shot<C: AuthorChat>(
         brief: command.brief,
         client: command.client,
         model: command.model,
+        decision_pin: command.create_pin(),
     };
     let mut session = GenerationSession::new();
     let payload = match gen::generate_with_session(&input, &mut session).await {
@@ -145,6 +186,8 @@ async fn npc_one_shot<C: AuthorChat>(
         }
     };
 
+    // The candidate passed the gate: note the unpinned NPCs, once per command.
+    write_missing_pin_notes(command.pack, terminal.err)?;
     finish_npc(command, payload, terminal)
 }
 
@@ -170,6 +213,7 @@ async fn npc_interactive<C: AuthorChat>(
     };
 
     let mut session = GenerationSession::new();
+    let mut noted = false;
 
     loop {
         let input = GenerateInput {
@@ -180,10 +224,15 @@ async fn npc_interactive<C: AuthorChat>(
             brief: brief.as_deref(),
             client: command.client,
             model: command.model,
+            decision_pin: command.create_pin(),
         };
 
         match gen::generate_with_session(&input, &mut session).await {
             Ok(outcome) => {
+                if !noted {
+                    write_missing_pin_notes(command.pack, terminal.err)?;
+                    noted = true;
+                }
                 let rendered = ron::ser::to_string_pretty(
                     &outcome.payload.config,
                     ron::ser::PrettyConfig::default(),
@@ -195,6 +244,7 @@ async fn npc_interactive<C: AuthorChat>(
                     command.question
                 )?;
                 writeln!(terminal.out, "{rendered}")?;
+                write_pin_line(command, terminal)?;
                 writeln!(terminal.out, "--- end preview ---")?;
                 writeln!(
                     terminal.out,
@@ -244,6 +294,18 @@ async fn npc_interactive<C: AuthorChat>(
     }
 }
 
+/// On `--create`, show the pin the new NPC file will carry, so a dry run and a
+/// preview display everything that would be written.
+fn write_pin_line<C: AuthorChat>(
+    command: &NpcCommand<'_, C>,
+    terminal: &mut Terminal<'_>,
+) -> Result<(), RunnerError> {
+    if let Some(pin) = command.create_pin() {
+        writeln!(terminal.out, "model pin for the new NPC: {pin:?}")?;
+    }
+    Ok(())
+}
+
 /// Render the accepted config and either print the dry run or write it.
 fn finish_npc<C: AuthorChat>(
     command: &NpcCommand<'_, C>,
@@ -255,6 +317,7 @@ fn finish_npc<C: AuthorChat>(
 
     if command.dry_run {
         writeln!(terminal.out, "{rendered}")?;
+        write_pin_line(command, terminal)?;
         writeln!(terminal.out, "--dry-run: nothing written")?;
         return Ok(RunnerOutcome::Completed);
     }
@@ -274,7 +337,7 @@ fn finish_npc<C: AuthorChat>(
         Npc {
             id: command.npc_id.to_string(),
             name,
-            model: None,
+            model: command.create_pin().map(str::to_string),
             decisions: [].into(),
         }
     } else {
@@ -358,6 +421,8 @@ async fn draft_one_shot<C: AuthorChat>(
         Err(gen::DraftError::Provider(e)) => return Err(RunnerError::DraftProvider(e)),
     };
 
+    // The draft passed the gate: note the unpinned NPCs, once per command.
+    write_missing_pin_notes(command.pack, terminal.err)?;
     write!(
         terminal.out,
         "{}",
@@ -422,9 +487,14 @@ async fn draft_interactive<C: AuthorChat>(
     )?;
 
     let mut session = gen::DraftSession::new();
+    let mut noted = false;
     loop {
         match gen::draft_with_session(&input(command, brief.as_deref()), &mut session).await {
             Ok(outcome) => {
+                if !noted {
+                    write_missing_pin_notes(command.pack, terminal.err)?;
+                    noted = true;
+                }
                 write!(
                     terminal.out,
                     "{}",

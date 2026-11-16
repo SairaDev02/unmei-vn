@@ -98,13 +98,16 @@ impl Staging {
         target: &NpcTarget,
         question: &str,
         candidate: &DecisionConfig,
+        create_pin: Option<&str>,
     ) -> Result<(), String> {
         let npc_path = target.path_in(self.root());
         if !checked.pack().npcs.contains_key(target.id()) {
+            // The create head carries the same pin the final file will, so
+            // validation sees the NPC the author will actually get.
             let npc = Npc {
                 id: target.id().to_string(),
                 name: target.id().to_string(),
-                model: None,
+                model: create_pin.map(str::to_string),
                 decisions: HashMap::new(),
             };
             let head = ron::ser::to_string(&npc).map_err(|e| e.to_string())?;

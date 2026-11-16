@@ -11,7 +11,7 @@ keywords:
 # unmei content format
 
 **Status:** settled · **Scope:** the vertical slice.
-**Amended:** conditionals added to §3 and fixed state-key kinds in §6 — see [ADR 0004](adr/0004-conditionals-in-the-dialogue-dsl.md); `noul`/`score` decision configs added to §1/§4 — see [ADR 0005](adr/0005-noul-and-score-question-types.md); optional manifest `tagline` and `title_backdrop` added to §2/§6 in the title-screen polish pass; the gallery's accepted-limitation line added to §2 from the gallery-entries resolution; the optional ordered manifest `scenes` list added to §2/§6, 2026-10-08; the `.unmei` encoding rule added to §2, 2026-11-06, because no rule covered editing a scene file's text; the encoding rule widened to every pack text file, with a leading byte order mark allowed and ignored, in §2, 2026-11-06, because a byte order mark turned the first comment line into a say-line; the NPC-id stem rule added to §2, and the GLOSSARY term "Decision point" adopted in §3/§4, 2026-11-06; `pack.glossary.md` added to the pack text files under the encoding and byte order mark rule in §2, 2026-11-06, because it still rejected, or passed on, a leading byte order mark.
+**Amended:** conditionals added to §3 and fixed state-key kinds in §6 — see [ADR 0004](adr/0004-conditionals-in-the-dialogue-dsl.md); `noul`/`score` decision configs added to §1/§4 — see [ADR 0005](adr/0005-noul-and-score-question-types.md); optional manifest `tagline` and `title_backdrop` added to §2/§6 in the title-screen polish pass; the gallery's accepted-limitation line added to §2 from the gallery-entries resolution; the optional ordered manifest `scenes` list added to §2/§6, 2026-10-08; the `.unmei` encoding rule added to §2, 2026-11-06, because no rule covered editing a scene file's text; the encoding rule widened to every pack text file, with a leading byte order mark allowed and ignored, in §2, 2026-11-06, because a byte order mark turned the first comment line into a say-line; the NPC-id stem rule added to §2, and the GLOSSARY term "Decision point" adopted in §3/§4, 2026-11-06; `pack.glossary.md` added to the pack text files under the encoding and byte order mark rule in §2, 2026-11-06, because it still rejected, or passed on, a leading byte order mark; §4 amended 2026-11-16 for the NanoGPT migration ([ADR 0015](adr/0015-nanogpt-is-the-one-provider.md)): a `score` config takes at most ten levels, a model refusal takes the fallback, the example pin is `typesafe/jev-1.14` and the runtime has no default model.
 
 Three decisions define the slice's content: **RON** for all structured data, a **line-oriented dialogue DSL** (`.unmei` files) for scenes, and a **per-NPC pack layout**. This document is the working spec; the example files under `examples/demo-pack/` are load-bearing — they double as parse fixtures for the parser and the CLI.
 
@@ -141,7 +141,7 @@ Judgment lives in data (what the author CLI edits); flow lives in script. An NPC
 (
     id: "ace",
     name: "Ace",
-    model: "typesafe/jev-1.13",   // optional; packs pin one model by repetition for now
+    model: "typesafe/jev-1.14",   // optional; packs pin one model by repetition for now
     decisions: {
         "greet": (
             instructions: "How does Ace greet the player, given their relationship and the scene?",
@@ -184,7 +184,7 @@ Two further questions in the same map, showing the typed shapes:
 ```
 
 Schema (`Npc`, `DecisionConfig`):
-- `id`, `name`: strings; `model`: optional string (pinned model id — the mitigation for the alpha API's model risk; the response `model` is logged at decision time). Authored as a **plain RON string** (`model: "id"` or omitted) — never RON's `Some("id")` wrapping.
+- `id`, `name`: strings; `model`: optional string (pinned model id — the mitigation for the alpha API's model risk; the response `model` is logged at decision time). **The runtime has no default model** *(2026-11-16)*: an NPC with no pin never calls the model and takes the fallback. `unmei author npc --create` writes a pin, but once written it is the author's data ([`author-cli.md`](author-cli.md) §1). Authored as a **plain RON string** (`model: "id"` or omitted) — never RON's `Some("id")` wrapping.
 - `decisions`: map of question id → config. Each has:
   - `type`: `"choice"` (the default when the key is absent), `"noul"`, or `"score"` — the Decisions question type. The CLI omits the key for `choice`, so existing configs and regenerated choice files are unchanged.
   - `instructions`: string. (The Decisions wire format also accepts JSON structures here; the slice's CLI emits and validates strings only.)
@@ -192,8 +192,8 @@ Schema (`Npc`, `DecisionConfig`):
   - `criteria`, whose shape follows `type` (one key, mirroring the wire):
     - `choice`: map of **action ids** → description string. Include `"none"` whenever nothing may fit.
     - `noul`: **optional** map; when present, exactly the keys `"true"` and `"false"` — either key alone is a load-time error. Omitted means the model judges from `instructions` alone.
-    - `score`: **ordered** array of level descriptions, lowest first, at least two levels. The wire's `legend` echoes it.
-  - `fallback`: **required**, typed to the type's landing space — a criterion id (`choice`), `true`/`false` (`noul`), or a legend index (`score`). Used on API failure, timeout, missing or unusable answer, or unexpected type; the engine logs and continues offline.
+    - `score`: **ordered** array of level descriptions, lowest first, **two to ten levels** *(amended 2026-11-16: NanoGPT's limit; more than ten is a load error)*. The wire's `legend` echoes it.
+  - `fallback`: **required**, typed to the type's landing space — a criterion id (`choice`), `true`/`false` (`noul`), or a legend index (`score`). Used on API failure, timeout, missing or unusable answer, unexpected type, or a model refusal *(2026-11-16)*; the engine logs and continues offline.
 
 **The decision point:** `decide ace.greet -> reply` in a scene script:
 1. Engine gathers the NPC's config, filters `state` to `state_keys`, and calls the Decisions API with the type's wire shape.
@@ -201,7 +201,7 @@ Schema (`Npc`, `DecisionConfig`):
    - `choice`: the chosen action id X — including a model `"none"` answer, which is a successful answer, not a failure.
    - `noul`: `true` when the response's `noul` probability is `>= 0.5`, else `false`.
    - `score`: the `0`-based legend index with the highest value in the response's `probabilities` (a tie resolves to the lowest index; a probability key outside the legend can never land). An answer with no usable in-legend probability is unusable and takes the fallback. The scalar `score` and echoed `legend` are logged, not used for landing (scores are not calibrated magnitudes).
-3. On failure/fallback — API failure, timeout, missing or unusable answer, unexpected `type`, or a landing key outside the config — jumps to `label <prefix>.<fallback>`.
+3. On failure/fallback — API failure, timeout, missing or unusable answer, unexpected `type`, a refusal (`{ "type": "refusal" }`, amended 2026-11-16), or a landing key outside the config — jumps to `label <prefix>.<fallback>`.
 4. Required labels, all **load-time parse errors** when missing:
    - `choice`: `<prefix>.<action id>` for every criterion id **and** the fallback;
    - `noul`: `<prefix>.true` and `<prefix>.false` (the fallback is one of the two);

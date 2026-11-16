@@ -55,8 +55,8 @@ pub(super) fn discard_key_field(
     leave_key_field(menu, entity, &mut field, input_focus, true);
 }
 
-/// Commit one `Enter`: the local shape check first, then the atomic write, then
-/// the ping. On a shape failure nothing is written and the typed text is kept so
+/// Commit one `Enter`: the local shape check first, then the OpenRouter-key
+/// refusal, then the atomic write, then the ping. On a shape failure nothing is written and the typed text is kept so
 /// it can be corrected; on a write failure the row is left as it was and the
 /// text is also kept. A successful write shows `Checking…` and spawns the ping,
 /// whose verdict [`crate::core::poll_key_check`] lands
@@ -81,6 +81,14 @@ pub(super) fn commit_key(
     if !credentials::shape_ok(&key) {
         credentials.row = KeyRow::Invalid;
         leave_key_field(menu, entity, &mut field, input_focus, false);
+        return;
+    }
+
+    // N10/N11: an OpenRouter key is refused before any write, ping or resolver
+    // change; the field is cleared and the row names the problem.
+    if credentials::is_openrouter_key(&key) {
+        credentials.row = KeyRow::OpenRouterKey;
+        leave_key_field(menu, entity, &mut field, input_focus, true);
         return;
     }
 

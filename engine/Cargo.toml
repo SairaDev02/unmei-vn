@@ -22,7 +22,7 @@ features = ["network"]
 
 [features]
 default = []
-# Enables the OpenRouter Decisions HTTP client (`decision::client`).
+# Enables the NanoGPT Decisions HTTP client (`decision::client`).
 # Off by default so loader-only consumers (and the parser/pack tests) stay light.
 network = ["dep:reqwest", "dep:log", "dep:tokio"]
 

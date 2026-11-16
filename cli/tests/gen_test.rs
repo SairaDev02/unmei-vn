@@ -179,6 +179,7 @@ async fn valid_response_is_accepted() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -205,6 +206,7 @@ async fn invalid_json_retries_with_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -249,6 +251,7 @@ async fn three_failures_reports_attempts_exhausted() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let err = unmei::gen::generate_once(&input).await.unwrap_err();
     match err {
@@ -288,6 +291,7 @@ async fn provider_error_surfaces_immediately() {
         brief: None,
         client: &DownChat,
         model: "author/m1",
+        decision_pin: None,
     };
     let err = unmei::gen::generate_once(&input).await.unwrap_err();
     assert!(matches!(err, GenerationError::Provider(_)), "{err:?}");
@@ -322,6 +326,7 @@ async fn npc_provider_error_after_rejection_never_reaches_the_later_success() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
 
     let err = unmei::gen::generate_once(&input).await.unwrap_err();
@@ -350,6 +355,7 @@ async fn schema_fixups_strip_npid_and_trim() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     match attempt {
@@ -423,6 +429,7 @@ async fn noul_type_generates_typed_config() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     match attempt {
@@ -455,6 +462,7 @@ async fn score_type_generates_typed_config() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     match attempt {
@@ -485,6 +493,7 @@ async fn wrong_typed_shape_is_a_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -516,6 +525,7 @@ async fn typed_loader_rejection_is_a_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -598,6 +608,7 @@ fn greet_input<'a>(
         brief: None,
         client: chat,
         model: "author/m1",
+        decision_pin: None,
     }
 }
 
@@ -833,6 +844,7 @@ async fn non_snake_case_criterion_id_is_a_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -868,6 +880,7 @@ async fn empty_criterion_id_is_a_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -897,6 +910,7 @@ async fn non_snake_case_fallback_is_a_correction() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
@@ -1735,6 +1749,7 @@ async fn generate_once_refuses_an_unsafe_npc_target_before_provider() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
 
     let err = unmei::gen::generate_once(&input).await.unwrap_err();
@@ -1765,6 +1780,7 @@ async fn generate_once_refuses_an_unsafe_copied_pack_key_before_provider() {
         brief: None,
         client: &chat,
         model: "author/m1",
+        decision_pin: None,
     };
 
     let err = unmei::gen::generate_once(&input).await.unwrap_err();

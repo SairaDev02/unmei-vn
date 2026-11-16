@@ -11,7 +11,7 @@ Bevy player and the authoring CLI are built on this crate.
   and NPC decision configs. Asset files are not checked for existence.
 - Runs a scene: say-lines, player choices, transitions and decision points.
 - Reads and writes save slots, and a read log of what the player has read.
-- Resolves decision points through the OpenRouter Decisions API in the `network`
+- Resolves decision points through the NanoGPT Decisions API in the `network`
   feature, which is off by default. docs.rs builds this crate with the feature
   on.
 

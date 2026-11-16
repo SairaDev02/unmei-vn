@@ -305,6 +305,9 @@ impl TryFrom<RawDecisionConfig> for DecisionConfig {
                             .into(),
                     );
                 }
+                if levels.len() > 10 {
+                    return Err("a `score` config's `criteria` takes at most ten levels".into());
+                }
                 let RawFallback::Index(index) = fallback else {
                     return Err("a `score` config's `fallback` must be a legend index".into());
                 };
@@ -390,5 +393,26 @@ mod tests {
         )"#;
         let err = ron::from_str::<DecisionConfig>(ron).unwrap_err();
         assert!(err.to_string().contains("at least two levels"), "{err}");
+    }
+
+    /// A `score` legend takes at most ten levels (NanoGPT's limit): eleven is a
+    /// load-time error, ten loads.
+    #[test]
+    fn score_criteria_takes_at_most_ten_levels() {
+        let levels = |n: usize| {
+            (1..=n)
+                .map(|i| format!("\"Level {i}.\""))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        let ron = |n: usize| {
+            format!(
+                "(type: \"score\", instructions: \"q\", state_keys: [], criteria: [{}], fallback: 0)",
+                levels(n)
+            )
+        };
+        assert!(ron::from_str::<DecisionConfig>(&ron(10)).is_ok());
+        let err = ron::from_str::<DecisionConfig>(&ron(11)).unwrap_err();
+        assert!(err.to_string().contains("at most ten levels"), "{err}");
     }
 }

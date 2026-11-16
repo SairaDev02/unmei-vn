@@ -5,7 +5,7 @@
 (
     id: "ace",
     name: "Ace",
-    model: "typesafe/jev-1.13",
+    model: "typesafe/jev-1.14",
     decisions: {
         "greet": (
             instructions: "How does Ace greet, given trust?",

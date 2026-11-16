@@ -23,6 +23,9 @@ pub struct GenerateInput<'a, C: AuthorChat> {
     pub brief: Option<&'a str>,
     pub client: &'a C,
     pub model: &'a str,
+    /// The pin a `--create` writes into the new NPC; staged validation carries
+    /// it so the loader sees the NPC the author will get. Unused on replace.
+    pub decision_pin: Option<&'a str>,
 }
 
 /// The NPC identity the model returns on `--create` (contract §2).
@@ -341,7 +344,13 @@ fn extract_config<C: AuthorChat>(
     // The real gate (§3): the same rules the runtime loader enforces. The
     // checked staging owner transplants the pack, installs this candidate and
     // reloads through the real loader — one validation source.
-    match crate::staging::validate_npc_decision(checked, target, input.question, &config) {
+    match crate::staging::validate_npc_decision(
+        checked,
+        target,
+        input.question,
+        &config,
+        input.decision_pin,
+    ) {
         Ok(()) => {}
         Err(crate::staging::NpcValidationFailure::Content(pack_errors)) => {
             // Loader content errors are filtered to what the model can fix

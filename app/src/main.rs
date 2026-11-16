@@ -8,8 +8,8 @@
 //! A auto · F11 fullscreen · Esc menu. F5/F9 are developer save/load shortcuts
 //! to manual slot 1, gated by an explicit `--dev` run: they are silent no-ops
 //! unless dev mode is on (the normal debug/test build, or `--dev` in release).
-//! Decisions come from OpenRouter when a key is
-//! available — `OPENROUTER_API_KEY`, or the user-level credential file it
+//! Decisions come from NanoGPT when a key is
+//! available — `NANOGPT_API_KEY`, or the user-level credential file it
 //! overrides — and without one every decision point falls back to the pack's
 //! author default, so the demo plays fully offline.
 //!
@@ -78,7 +78,7 @@ fn main() -> AppExit {
 
     // The offline posture is normal, not a fault: no key just means every
     // decision point takes its authored fallback (failure row 10 is logged per
-    // decision, through the one funnel). A non-empty `OPENROUTER_API_KEY`
+    // decision, through the one funnel). A non-empty `NANOGPT_API_KEY`
     // overrides the user-level credential file (ADR 0010); a shape-invalid
     // stored value logs once and builds nothing.
     let config_dir = credentials::default_config_dir();

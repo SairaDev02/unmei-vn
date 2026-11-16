@@ -30,7 +30,7 @@ The root [`Cargo.toml`](../Cargo.toml) lists three workspace members: `engine`, 
 - **No binary.** The manifest declares no `[[bin]]`, so the crate ships no executable ([`engine/Cargo.toml`](../engine/Cargo.toml)).
 - **Boundary: stays free of Bevy and of rendering, windowing and audio.** The CLI is a terminal program, and the player and the CLI must run the same pack rules. So Bevy, rendering, windowing and audio code cannot leak into the crate that carries those rules ([`engine/src/lib.rs`](../engine/src/lib.rs)).
 - **Enforcement.** CI checks the boundary before `fmt`, Clippy and the tests. The `check` job in [`.github/workflows/check.yml`](../.github/workflows/check.yml) runs [`scripts/check-invariants.py`](../scripts/check-invariants.py). The script rejects any Bevy package in the engine's resolved dependency graph, in every feature and target selection. To run it locally, follow [`CONTRIBUTING.md` § Local repository invariant checks](../CONTRIBUTING.md#local-repository-invariant-checks).
-- **Feature `network`.** It is off by default. It adds the OpenRouter Decisions client ([`engine/Cargo.toml`](../engine/Cargo.toml)). The CLI and the player both enable it ([`cli/Cargo.toml`](../cli/Cargo.toml), [`app/Cargo.toml`](../app/Cargo.toml)).
+- **Feature `network`.** It is off by default. It adds the NanoGPT Decisions client ([`engine/Cargo.toml`](../engine/Cargo.toml)). The CLI and the player both enable it ([`cli/Cargo.toml`](../cli/Cargo.toml), [`app/Cargo.toml`](../app/Cargo.toml)).
 
 ### `cli/` — package `unmei`, binary `unmei`
 
@@ -140,6 +140,7 @@ In the Presented in column, each name is a file path in a code span, not a link.
 | [ADR 0012 — Menu decisions and live-session recipes have separate owners](adr/0012-menu-and-live-session-transition-ownership.md) | navigation stays in the menu; entry and replacement recipes in a session module | — |
 | [ADR 0013 — One realization owner per presentation surface](adr/0013-presentation-surface-partition.md) | a thin assembly coordinator over one owner per surface | — |
 | [ADR 0014 — CLI diagnostics are categorical; terminal content masks known credentials](adr/0014-cli-diagnostics-and-terminal-credential-safety.md) | fixed diagnostic categories; configured keys masked in output | — |
+| [ADR 0015 — NanoGPT is the one provider](adr/0015-nanogpt-is-the-one-provider.md) | NanoGPT replaces OpenRouter for the runtime and the CLI; an OpenRouter-format key is never sent | `docs/guide/live-decisions.md`, `packaging/player-README.md`, `packaging/author-README.md` |
 | [GLOSSARY § Content & packs](../GLOSSARY.md#content--packs) | content pack, manifest, default pack, entry scene, declared scene order | `docs/guide/format-overview.md`, `packaging/author-README.md` |
 | [`GLOSSARY.md` § Scripts](../GLOSSARY.md#scripts) | scene, say-line, run, label, player choice, conditional, state map | `docs/guide/write-your-first-pack.md`, `packaging/author-README.md` |
 | [`GLOSSARY.md` § Saving](../GLOSSARY.md#saving) | sidecar, save slot, autosave, legacy save, unreadable slot | `docs/guide/play-the-demo.md`, `packaging/player-README.md` |

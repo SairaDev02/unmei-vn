@@ -50,7 +50,7 @@ pub(crate) fn parsed_dev_mode() -> bool {
 ///
 /// This is the acceptance walk's stand-in for the network: the `decide` point
 /// really parks, the drawer really opens over a live decision wait, and the
-/// release really lands the answer — all without a key, a socket or OpenRouter.
+/// release really lands the answer — all without a key, a socket or NanoGPT.
 #[derive(Clone)]
 pub(crate) struct GatedResolver {
     pub(crate) receiver: Arc<Mutex<Option<tokio::sync::oneshot::Receiver<ResolvedDecision>>>>,

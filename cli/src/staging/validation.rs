@@ -48,9 +48,10 @@ pub(crate) fn validate_npc_decision(
     target: &NpcTarget,
     question: &str,
     candidate: &DecisionConfig,
+    create_pin: Option<&str>,
 ) -> Result<(), NpcValidationFailure> {
     let staging = Staging::fresh().map_err(|e| NpcValidationFailure::Preparation(e.to_string()))?;
-    npc_decision_core(&staging, checked, target, question, candidate)
+    npc_decision_core(&staging, checked, target, question, candidate, create_pin)
 }
 
 /// Validate one fully edited Scene against the whole pack (author-cli
@@ -75,12 +76,13 @@ fn npc_decision_core(
     target: &NpcTarget,
     question: &str,
     candidate: &DecisionConfig,
+    create_pin: Option<&str>,
 ) -> Result<(), NpcValidationFailure> {
     staging
         .transplant(checked)
         .map_err(NpcValidationFailure::Preparation)?;
     staging
-        .place_npc_candidate(checked, target, question, candidate)
+        .place_npc_candidate(checked, target, question, candidate, create_pin)
         .map_err(NpcValidationFailure::Preparation)?;
     staging.reload().map_err(NpcValidationFailure::Content)
 }
@@ -203,7 +205,33 @@ mod tests {
         candidate: &DecisionConfig,
     ) -> Result<(), NpcValidationFailure> {
         let staging = Staging::under(parent).expect("staging dir under the test parent");
-        npc_decision_core(&staging, checked, target, question, candidate)
+        npc_decision_core(&staging, checked, target, question, candidate, None)
+    }
+
+    /// N25: the staged create head carries the pin the final file will, so the
+    /// loader validates the NPC the author will actually get; without a pin the
+    /// head has none, and an existing NPC's file is never given one.
+    #[test]
+    fn the_staged_create_head_carries_the_pin() {
+        let (_source, pack) = fixture();
+        let checked = CheckedPack::new(&pack).unwrap();
+        let nova = NpcTarget::new("nova").unwrap();
+        for (pin, expected) in [(Some("pin/x"), Some("pin/x")), (None, None)] {
+            let parent = tempfile::tempdir().unwrap();
+            let staging = Staging::under(parent.path()).unwrap();
+            npc_decision_core(
+                &staging,
+                &checked,
+                &nova,
+                "greet",
+                &choice_config(&["met_ace"], "cold"),
+                pin,
+            )
+            .expect("a created NPC candidate passes");
+            let staged = std::fs::read_to_string(nova.path_in(staging.root())).unwrap();
+            let npc: Npc = ron::from_str(&staged).unwrap();
+            assert_eq!(npc.model.as_deref(), expected, "{staged}");
+        }
     }
 
     /// The loader's content diagnostics from a validator result, panicking on
@@ -244,6 +272,7 @@ mod tests {
             &npc,
             "greet",
             &choice_config(&["met_ace"], "cold"),
+            None,
         )
         .expect("a valid NPC candidate passes");
         let errors = content_errors(validate_npc_decision(
@@ -251,6 +280,7 @@ mod tests {
             &npc,
             "greet",
             &choice_config(&["met_ace"], "nope"),
+            None,
         ));
         let error = &errors[0];
         assert!(error.starts_with("npcs/ace.ron:"), "NPC file: {error}");
@@ -268,6 +298,7 @@ mod tests {
             &nova,
             "greet",
             &choice_config(&["met_ace"], "cold"),
+            None,
         )
         .expect("a created NPC candidate passes");
 
@@ -347,6 +378,7 @@ mod tests {
             &target,
             "greet",
             &choice_config(&["met_ace"], "cold"),
+            None,
         ));
         assert!(
             errors
@@ -436,7 +468,7 @@ mod tests {
         let staged_npc_path = target.path_in(staging.root()).display().to_string();
         let candidate = choice_config(&[staged_npc_path.as_str()], "cold");
         let errors = content_errors(npc_decision_core(
-            &staging, &checked, &target, "greet", &candidate,
+            &staging, &checked, &target, "greet", &candidate, None,
         ));
         assert!(
             errors.iter().any(|e| e.contains("state_keys entry")),

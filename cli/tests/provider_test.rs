@@ -7,7 +7,7 @@ use std::sync::Mutex;
 
 use unmei::provider::{
     resolve_provider, AuthorChat, ConfigInput, Message, OpenAiChat, ProviderError,
-    StructuredOutput, TransportFailure, DEFAULT_BASE_URL,
+    StructuredOutput, TransportFailure, API_KEY_ENVS, DEFAULT_BASE_URL, DEFAULT_DECISION_MODEL,
 };
 
 /// Env vars are process-global: one lock serializes every test that touches a key.
@@ -30,7 +30,15 @@ fn input<'a>(dir: &'a Path, model: Option<&'a str>, base_url: Option<&'a str>) -
         pack_root: dir,
         model,
         base_url,
+        decision_model: None,
+        create: false,
     }
+}
+
+/// Clear every key variable a resolution test might inherit from the machine.
+fn clear_keys() {
+    clear_env("UNMEI_API_KEY");
+    clear_env("NANOGPT_API_KEY");
 }
 
 /// RED: pack file config is honored with no flags.
@@ -66,7 +74,7 @@ fn flags_beat_pack_file() {
     assert_eq!(cfg.model, "flag/m2");
 }
 
-/// RED: defaults — base_url `https://openrouter.ai/api`; no default model.
+/// RED: defaults — base_url `https://api.nano-gpt.com/api` (N15); no default model.
 #[test]
 fn default_base_url_and_no_default_model() {
     let _env = ENV_LOCK.lock().unwrap();
@@ -79,39 +87,207 @@ fn default_base_url_and_no_default_model() {
     set_env("UNMEI_API_KEY", "test-key-999");
     let cfg = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap();
     assert_eq!(cfg.base_url, DEFAULT_BASE_URL);
+    assert_eq!(DEFAULT_BASE_URL, "https://api.nano-gpt.com/api");
     assert_eq!(cfg.model, "author/m1");
 }
 
-/// RED: missing key → clear error before any network call.
+/// N9: the recognized variables, in precedence order. `OPENROUTER_API_KEY` is gone.
+#[test]
+fn key_variables_are_unmei_then_nanogpt() {
+    assert_eq!(API_KEY_ENVS, ["UNMEI_API_KEY", "NANOGPT_API_KEY"]);
+}
+
+/// RED: missing key → clear error before any network call, naming both variables.
 #[test]
 fn missing_key_is_a_clear_error() {
     let _env = ENV_LOCK.lock().unwrap();
-    clear_env("UNMEI_API_KEY");
-    clear_env("OPENROUTER_API_KEY");
+    clear_keys();
     let dir = tmp_dir();
     let err = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap_err();
-    assert!(err.contains("UNMEI_API_KEY"), "message: {err}");
+    assert!(
+        err.starts_with("no authoring API key — export UNMEI_API_KEY (or NANOGPT_API_KEY); "),
+        "message: {err}"
+    );
+    assert!(!err.contains("OPENROUTER"), "message: {err}");
 }
 
-/// RED: `UNMEI_API_KEY` falls back to `OPENROUTER_API_KEY`.
+/// RED: `UNMEI_API_KEY` falls back to `NANOGPT_API_KEY`.
 #[test]
-fn openrouter_key_fallback() {
+fn nanogpt_key_fallback() {
     let _env = ENV_LOCK.lock().unwrap();
-    clear_env("UNMEI_API_KEY");
-    set_env("OPENROUTER_API_KEY", "or-key-1");
+    clear_keys();
+    set_env("NANOGPT_API_KEY", "nano-key-1");
     let dir = tmp_dir();
     let cfg = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap();
-    assert_eq!(cfg.api_key, "or-key-1");
+    assert_eq!(cfg.api_key, "nano-key-1");
+    set_env("UNMEI_API_KEY", "unmei-key-1");
+    let cfg = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap();
+    assert_eq!(cfg.api_key, "unmei-key-1");
+    clear_keys();
+}
+
+/// RED (N9): `OPENROUTER_API_KEY` is no longer read.
+#[test]
+fn openrouter_variable_is_not_read() {
+    let _env = ENV_LOCK.lock().unwrap();
+    clear_keys();
+    set_env("OPENROUTER_API_KEY", "or-key-1");
+    let dir = tmp_dir();
+    let err = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap_err();
+    clear_env("OPENROUTER_API_KEY");
+    assert!(err.starts_with("no authoring API key"), "message: {err}");
+}
+
+/// RED (N12): a resolved `sk-or-` key is refused, naming the variable it came
+/// from; the precedence never falls through; the message never carries the key.
+#[test]
+fn openrouter_format_key_is_refused_naming_its_variable() {
+    let _env = ENV_LOCK.lock().unwrap();
+    let dir = tmp_dir();
+
+    clear_keys();
+    set_env("UNMEI_API_KEY", "  sk-or-v1-secretvalue");
+    set_env("NANOGPT_API_KEY", "nano-good");
+    let err = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap_err();
+    assert_eq!(
+        err,
+        "UNMEI_API_KEY holds an OpenRouter key, which Unmei never sends; set it to a NanoGPT key"
+    );
+    assert!(!err.contains("secretvalue"), "the key leaked: {err}");
+
+    clear_keys();
+    set_env("NANOGPT_API_KEY", "sk-or-v1-secretvalue");
+    let err = resolve_provider(input(dir.path(), Some("author/m1"), None)).unwrap_err();
+    assert_eq!(
+        err,
+        "NANOGPT_API_KEY holds an OpenRouter key, which Unmei never sends; set it to a NanoGPT key"
+    );
+
+    // Whatever the base_url points at.
+    let err = resolve_provider(input(
+        dir.path(),
+        Some("author/m1"),
+        Some("http://localhost:1"),
+    ))
+    .unwrap_err();
+    assert!(
+        err.starts_with("NANOGPT_API_KEY holds an OpenRouter key"),
+        "{err}"
+    );
+    clear_keys();
+}
+
+/// N17: a pack file naming another `base_url` keeps working, silently.
+#[test]
+fn another_base_url_in_the_pack_file_resolves_unchanged() {
+    let _env = ENV_LOCK.lock().unwrap();
+    clear_keys();
+    set_env("UNMEI_API_KEY", "test-key-999");
+    let dir = tmp_dir();
+    std::fs::write(
+        dir.path().join("unmei.author.ron"),
+        r#"( base_url: "https://other.example/api", model: "author/m1" )"#,
+    )
+    .unwrap();
+    let cfg = resolve_provider(input(dir.path(), None, None)).unwrap();
+    assert_eq!(cfg.base_url, "https://other.example/api");
+}
+
+fn pin_input<'a>(dir: &'a Path, flag: Option<&'a str>, create: bool) -> ConfigInput<'a> {
+    ConfigInput {
+        decision_model: flag,
+        create,
+        ..input(dir, Some("author/m1"), None)
+    }
+}
+
+/// N25: precedence flag > file > built-in, on create only.
+#[test]
+fn decision_pin_precedence_flag_file_builtin() {
+    let _env = ENV_LOCK.lock().unwrap();
+    clear_keys();
+    set_env("UNMEI_API_KEY", "test-key-999");
+    let dir = tmp_dir();
+
+    assert_eq!(DEFAULT_DECISION_MODEL, "typesafe/jev-1.14");
+    let cfg = resolve_provider(pin_input(dir.path(), None, true)).unwrap();
+    assert_eq!(cfg.decision_pin.as_deref(), Some("typesafe/jev-1.14"));
+
+    std::fs::write(
+        dir.path().join("unmei.author.ron"),
+        r#"( decision_model: "file/pin" )"#,
+    )
+    .unwrap();
+    let cfg = resolve_provider(pin_input(dir.path(), None, true)).unwrap();
+    assert_eq!(cfg.decision_pin.as_deref(), Some("file/pin"));
+
+    let cfg = resolve_provider(pin_input(dir.path(), Some("flag/pin"), true)).unwrap();
+    assert_eq!(cfg.decision_pin.as_deref(), Some("flag/pin"));
+}
+
+/// N25: replace never gets a pin, and ignores `decision_model` (even an empty one).
+#[test]
+fn decision_pin_is_none_without_create_and_the_file_value_is_ignored() {
+    let _env = ENV_LOCK.lock().unwrap();
+    clear_keys();
+    set_env("UNMEI_API_KEY", "test-key-999");
+    let dir = tmp_dir();
+    std::fs::write(
+        dir.path().join("unmei.author.ron"),
+        r#"( decision_model: "  " )"#,
+    )
+    .unwrap();
+    let cfg = resolve_provider(pin_input(dir.path(), None, false)).unwrap();
+    assert_eq!(cfg.decision_pin, None);
+}
+
+/// N25: an empty or whitespace-only flag or file value is an error.
+#[test]
+fn empty_decision_pin_is_an_error() {
+    let _env = ENV_LOCK.lock().unwrap();
+    clear_keys();
+    set_env("UNMEI_API_KEY", "test-key-999");
+    let dir = tmp_dir();
+    for flag in ["", "   "] {
+        let err = resolve_provider(pin_input(dir.path(), Some(flag), true)).unwrap_err();
+        assert!(err.contains("--decision-model"), "{err}");
+    }
+    std::fs::write(
+        dir.path().join("unmei.author.ron"),
+        r#"( decision_model: "" )"#,
+    )
+    .unwrap();
+    let err = resolve_provider(pin_input(dir.path(), None, true)).unwrap_err();
+    assert!(err.contains("decision_model"), "{err}");
+    // A flag overrides a bad file value.
+    resolve_provider(pin_input(dir.path(), Some("flag/pin"), true)).unwrap();
+}
+
+/// N25: `decision_model` parses like `model` — plain string, unit, `None`; `Some(..)` rejected.
+#[test]
+fn author_file_decision_model_uses_the_optional_string_adapter() {
+    let file: unmei::provider::AuthorFile =
+        ron::from_str(r#"( decision_model: "typesafe/jev-1.14" )"#).unwrap();
+    assert_eq!(file.decision_model.as_deref(), Some("typesafe/jev-1.14"));
+    let file: unmei::provider::AuthorFile = ron::from_str("( decision_model: None )").unwrap();
+    assert_eq!(file.decision_model, None);
+    assert!(
+        ron::from_str::<unmei::provider::AuthorFile>(r#"( decision_model: Some("x") )"#).is_err()
+    );
 }
 
 /// RED: AuthorFile round-trips the contract §4 example.
 #[test]
 fn author_file_parses_contract_example() {
-    let file: unmei::provider::AuthorFile =
-        ron::from_str(r#"( base_url: "https://openrouter.ai/api", model: "openai/gpt-4o-mini" )"#)
-            .unwrap();
-    assert_eq!(file.base_url.as_deref(), Some("https://openrouter.ai/api"));
-    assert_eq!(file.model.as_deref(), Some("openai/gpt-4o-mini"));
+    let file: unmei::provider::AuthorFile = ron::from_str(
+        r#"( base_url: "https://api.nano-gpt.com/api", model: "deepseek/deepseek-v4.1-flash" )"#,
+    )
+    .unwrap();
+    assert_eq!(
+        file.base_url.as_deref(),
+        Some("https://api.nano-gpt.com/api")
+    );
+    assert_eq!(file.model.as_deref(), Some("deepseek/deepseek-v4.1-flash"));
 }
 
 /// RED: comments and omission both parse.
@@ -430,6 +606,7 @@ fn credential_bearing_debug_is_opaque() {
         base_url: "http://127.0.0.1:9".into(),
         model: "author/m1".into(),
         api_key: "dummy-key-abc123".into(),
+        decision_pin: None,
     };
     let chat = OpenAiChat::new("http://127.0.0.1:9", "dummy-key-abc123");
     for rendered in [format!("{cfg:?}"), format!("{chat:?}")] {
@@ -518,8 +695,8 @@ async fn other_http_errors_stay_status() {
     let _ = server.join();
 }
 
-/// RED (contract §7): a non-OpenRouter OpenAI-compatible endpoint that
-/// rejects the OpenRouter `provider` preferences field also takes the fallback.
+/// RED (contract §7): an OpenAI-compatible endpoint that rejects the
+/// `provider` preferences field also takes the fallback.
 #[tokio::test]
 async fn provider_parameter_rejection_is_structured_unsupported() {
     let (base, server) = serve_once(

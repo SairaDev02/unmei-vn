@@ -36,18 +36,22 @@ Options:
   -i, --interactive    Guided session for one config (see §5)
   --pack <DIR>         Pack root (default: cwd, must contain pack.ron)
   --model <MODEL>      Authoring chat model (required unless set in config, §4)
-  --base-url <URL>     OpenAI-compatible endpoint (default: https://openrouter.ai/api)
+  --decision-model <MODEL>
+                       Decision model pin written into the new NPC file; only with
+                       --create (default: the config's decision_model, else
+                       typesafe/jev-1.14)
+  --base-url <URL>     OpenAI-compatible endpoint (default: https://api.nano-gpt.com/api)
   --dry-run            Print the generated RON; write nothing
   -h, --help
 ```
 
 - `--question` + no `--create`: read the existing `npcs/<id>.ron`, **add or replace only that question's config**. Everything else in the file — identity, other decisions, comments — passes through untouched (RON comments are a stated reason RON was chosen; regeneration must never erase them).
-- `--create`: writes a **new** `npcs/<id>.ron` — identity header plus the one config. Every later config is added by re-running without `--create`. Error if the file already exists.
+- `--create`: writes a **new** `npcs/<id>.ron` — identity header plus the one config. Every later config is added by re-running without `--create`. Error if the file already exists. *(Amended 2026-11-16: it also writes the NPC's `model` pin, chosen by `--decision-model`, then `decision_model` in `unmei.author.ron`, then the built-in `typesafe/jev-1.14`; [`nanogpt.md`](nanogpt.md) N25. `--decision-model` is valid only with `--create`, and an empty value is an error. Replacing a config in an existing NPC never adds, changes or removes its pin.)*
 - Pack discovery: cwd must be a pack root (`pack.ron` present), or `--pack <DIR>` names it.
 
 ## 2. Generation unit and write surface
 
-One invocation generates **exactly one decision config** — the `type` (emitted only for `noul`/`score`) / `instructions` / `state_keys` / `criteria` / `fallback` block for one question id — plus, on `--create`, the NPC identity fields (`id`, `name`, optional `model`). The `--type` flag selects the question type; on replace, the target config's existing `type` is inherited unless the flag overrides it, and `--create` defaults to `choice`.
+One invocation generates **exactly one decision config** — the `type` (emitted only for `noul`/`score`) / `instructions` / `state_keys` / `criteria` / `fallback` block for one question id — plus, on `--create`, the NPC identity fields (`id`, `name`, `model` — the decision pin, see §1; amended 2026-11-16, the CLI had never written it). The `--type` flag selects the question type; on replace, the target config's existing `type` is inherited unless the flag overrides it, and `--create` defaults to `choice`.
 
 The CLI **never** writes or drafts:
 
@@ -61,12 +65,14 @@ Output format is RON, converted from the model's JSON by serde before any valida
 
 Every candidate generation must pass **full pack cross-validation** — the same rules the runtime loader enforces at load time, run at generation time so the author fixes a bad config in seconds instead of at game load. The CLI reuses the loader's validation logic; this list is the contract, not a second implementation. Rule 2 is the exception — it applies the loader's own id grammar to candidate fields the loader does not police, where a different spelling either passes the label grammar or fails opaquely as a later label-closure error:
 
-1. **Schema**: the model's JSON parses into `DecisionConfig` for the selected `type` (plain-string `instructions` and criteria descriptions). `criteria` must take the type's shape: a map (choice), an optional both-or-neither `true`/`false` map (noul), or an ordered array of ≥2 levels (score).
+1. **Schema**: the model's JSON parses into `DecisionConfig` for the selected `type` (plain-string `instructions` and criteria descriptions). `criteria` must take the type's shape: a map (choice), an optional both-or-neither `true`/`false` map (noul), or an ordered array of 2 to 10 levels (score; *amended 2026-11-16: more than ten is a load error*, [content format §4](content-format.md#4-decision-configs-and-decision-points)).
 2. **Identifier grammar (CLI drafting pre-check)**: every `choice` criterion id and the `choice` fallback must be snake_case — `[a-z0-9_]+`, non-empty, no surrounding whitespace — the grammar the loader applies to the pack's other ids (NPC and question ids, state keys, command ids). The pack format is looser for criteria (it only advises against spaces in action ids), so this refuses a candidate the loader itself accepts, and names the offending id; it adds no loader rule.
 3. **Fallback integrity**: `fallback` is present in the type's landing space — a criterion id (choice), `true`/`false` (noul), or a legend index (score).
 4. **State keys**: every `state_keys` entry is declared in `state.ron` (declared-before-use). Unchanged by type.
 5. **Label closure**: for every `decide <npc>.<question> -> <prefix>` line in the pack's scenes that targets this NPC + question, every label the type can land on exists in the target scene — choice: `<prefix>.<action>` for each criterion id and the fallback; noul: `<prefix>.true` and `<prefix>.false`; score: `<prefix>.0` … `<prefix>.<n-1>`. (If no scene references the config yet, this check is vacuously satisfied.)
 6. **`none` advisory**: warn (not error) when a `choice` config's `criteria` lacks a `"none"` action. Not applicable to `noul`/`score`.
+
+**Missing-pin note (2026-11-16).** After a candidate passes, the gate of `author npc` and `author draft` (and `author draft --list`) writes one note to stderr per NPC that has decision configs but no `model` pin, sorted by NPC id: ``note: npc `<id>` has decision configs but no model pin, so its decision points always take the fallback``. The note never fails the command, because an NPC with no pin is valid and decided offline ([`nanogpt.md`](nanogpt.md) N26).
 
 **Validation staging amendment (2026-10-13):** the decided [pack RON bridge](content-format.md#pack-ron-bridge--decided-seam-2026-10-13) specifies one engine-owned serializer for the temporary validation pack's `state.ron`, replacing hand-rendered literals in the staging transplant. Staging emits a quoted-key RON map and preserves state values, including quotes and backslashes in strings; it need not preserve source formatting or comments. Delivered, and moved behind the staging owner in `cli/src/staging.rs`, **not permission to write the author's `state.ron`**: §2's protected write surface is unchanged. The shared provider optional-string adapter also preserves existing config compatibility, including rejection of `Some("…")`; provider precedence, credentials and retry behavior do not change.
 
@@ -74,28 +80,31 @@ Every candidate generation must pass **full pack cross-validation** — the same
 
 ## 4. Provider configuration
 
-The CLI talks to any OpenAI-compatible **chat** endpoint. That authoring model is distinct from the runtime's pinned decision model (the per-NPC `model` field in content); the two are deliberately separate — one is what writes configs, the other is what plays them.
+The CLI talks to an OpenAI-compatible **chat** endpoint, NanoGPT's by default *(amended 2026-11-16: it was OpenRouter's; [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md))*; another endpoint is an unsupported override ([`nanogpt.md`](nanogpt.md) N3). That authoring model is distinct from the runtime's pinned decision model (the per-NPC `model` field in content); the two are deliberately separate — one is what writes configs, the other is what plays them.
 
 Precedence, highest first:
 
-1. Flags: `--model`, `--base-url`
+1. Flags: `--model`, `--base-url`, and `--decision-model` (`--create` only)
 2. Pack config file: `unmei.author.ron` at the pack root (optional)
-3. Built-in defaults: `base_url: "https://openrouter.ai/api"`; **no default model**
+3. Built-in defaults: `base_url: "https://api.nano-gpt.com/api"`; **no default authoring model**; the decision pin `typesafe/jev-1.14`, written only on `--create`
 
 ```ron
 // unmei.author.ron — optional, at the pack root
 (
-    base_url: "https://openrouter.ai/api", // any OpenAI-compatible base URL; /v1/chat/completions is appended
-    model: "openai/gpt-4o-mini",         // authoring chat model; no built-in default
+    base_url: "https://api.nano-gpt.com/api", // any OpenAI-compatible base URL; /v1/chat/completions is appended
+    model: "deepseek/deepseek-v4.1-flash",    // authoring chat model; no built-in default
+    decision_model: "typesafe/jev-1.14",      // optional; the pin --create writes, else the built-in default
 )
 ```
 
 `unmei.author.ron` is UTF-8, and a single leading byte order mark is allowed and ignored
 ([content format §2](content-format.md#2-pack-layout)).
 
-**API key: environment only.** Read from `UNMEI_API_KEY`, falling back to `OPENROUTER_API_KEY`. Never accepted from a flag or config file — a key must never live in a file that might get committed. Missing key or missing model ⇒ immediate, clear error naming exactly what to set; no network call is made.
+**API key: environment only.** Read from `UNMEI_API_KEY`, falling back to `NANOGPT_API_KEY` *(amended 2026-11-16: the fallback was `OPENROUTER_API_KEY`, which no variable now reads)*. Never accepted from a flag or config file — a key must never live in a file that might get committed. Missing key or missing model ⇒ immediate, clear error naming exactly what to set; no network call is made. **An OpenRouter key is refused (2026-11-16).** A resolved key that starts with `sk-or-` stops the CLI before any network call, whatever `base_url` names, with a message that names the variable and asks for a NanoGPT key ([`nanogpt.md`](nanogpt.md) N10 and N12).
 
-**Categorical provider diagnostics (2026-10-18).** [ADR 0014](adr/0014-cli-diagnostics-and-terminal-credential-safety.md) now applies to the provider: a retained `ProviderError` carries a fixed category only — transport kind, HTTP status, decode shape or the structured-support reason — never the provider body, a URL or the transport/decoder text that produced it, and the credential-bearing `ProviderConfig`/`AuthorFile`/`OpenAiChat` `Debug` is opaque. The `Authorization` header stays sensitive, wire verbosity is explicitly off, and redirects are not followed, so the bearer key cannot travel to a destination the author did not name. Structured-support classification still inspects the response transiently; only the category survives into the retained value and the degradation report. **Terminal masking (2026-10-18):** both non-empty recognized environment values — including the one provider precedence does not select — are snapshotted before argument parsing, and every exact literal occurrence on stdout/stderr is replaced with the fixed marker `[redacted]`: Clap's argument/help rendering, the final `✖ {err}` line, `--list`, generated previews and dry runs, exhaustion/best-output reports, interactive prompts and the `env_logger` sink. Masking deliberately does not depend on the runner's `Terminal`, and a literal split across formatting or write chunks is masked whole (all writers on one stream share that stream's buffer; stdout and stderr buffer independently). This is not a general secret scanner: unknown values, fragments, encodings, paraphrases, OS input echo, a dependency writing straight to stderr rather than through `env_logger` and a recognized value that is itself a substring of the marker are outside the guarantee. Clap's help/argument output keeps its ordinary rendering when no recognized value is configured and is re-rendered through the mask in plain form when one is; a malformed `RUST_LOG` is reported through the masked logger sink rather than `env_filter`'s own stderr warning. Generated files, provider prompts and correction payloads are neither rewritten nor certified secret-free — a masked preview does not make a pack safe to share. The 120-second timeout, retry classification, precedence and env-only sourcing are unchanged.
+**Example authoring model (2026-11-16).** Examples use `deepseek/deepseek-v4.1-flash`, a NanoGPT chat model listed with structured-output support; a live confirmation that NanoGPT serves it with a strict `json_schema` `response_format` is pending ([`nanogpt.md`](nanogpt.md) N28).
+
+**Categorical provider diagnostics (2026-10-18).** [ADR 0014](adr/0014-cli-diagnostics-and-terminal-credential-safety.md) now applies to the provider: a retained `ProviderError` carries a fixed category only — transport kind, HTTP status, decode shape or the structured-support reason — never the provider body, a URL or the transport/decoder text that produced it, and the credential-bearing `ProviderConfig`/`AuthorFile`/`OpenAiChat` `Debug` is opaque. The `Authorization` header stays sensitive, wire verbosity is explicitly off, and redirects are not followed, so the bearer key cannot travel to a destination the author did not name. Structured-support classification still inspects the response transiently; only the category survives into the retained value and the degradation report. **Terminal masking (2026-10-18; amended 2026-11-16: the recognized variables are exactly `UNMEI_API_KEY` and `NANOGPT_API_KEY`):** both non-empty recognized environment values — including the one provider precedence does not select — are snapshotted before argument parsing, and every exact literal occurrence on stdout/stderr is replaced with the fixed marker `[redacted]`: Clap's argument/help rendering, the final `✖ {err}` line, `--list`, generated previews and dry runs, exhaustion/best-output reports, interactive prompts and the `env_logger` sink. Masking deliberately does not depend on the runner's `Terminal`, and a literal split across formatting or write chunks is masked whole (all writers on one stream share that stream's buffer; stdout and stderr buffer independently). This is not a general secret scanner: unknown values, fragments, encodings, paraphrases, OS input echo, a dependency writing straight to stderr rather than through `env_logger` and a recognized value that is itself a substring of the marker are outside the guarantee. Clap's help/argument output keeps its ordinary rendering when no recognized value is configured and is re-rendered through the mask in plain form when one is; a malformed `RUST_LOG` is reported through the masked logger sink rather than `env_filter`'s own stderr warning. Generated files, provider prompts and correction payloads are neither rewritten nor certified secret-free — a masked preview does not make a pack safe to share. The 120-second timeout, retry classification, precedence and env-only sourcing are unchanged.
 
 ## 5. Failure, retry, and editing UX
 
@@ -125,7 +134,7 @@ The **prompt-engineering wording** (system prompt, schema instruction phrasing, 
 
 ```console
 $ cd my-pack
-$ export UNMEI_API_KEY=sk-...          # or OPENROUTER_API_KEY
+$ export UNMEI_API_KEY=sk-nano-...     # or NANOGPT_API_KEY
 $ unmei author npc mira --create --question farewell \
     --brief "Mira is the town archivist; her farewell should differ when the \
     player has helped her find the lost ledger."
@@ -143,6 +152,7 @@ Resulting file (exactly what §2 allows — nothing else touched):
 (
     id: "mira",
     name: "Mira",
+    model: "typesafe/jev-1.14",
     decisions: {
         "farewell": (
             instructions: "How does Mira say goodbye to the player, given whether they helped her find the lost ledger?",

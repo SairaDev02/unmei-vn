@@ -32,7 +32,7 @@ class Runner:
 
     def sandbox_env(self, home, config, display):
         env = dict(os.environ)
-        for name in ("WAYLAND_DISPLAY", "WAYLAND_SOCKET", "OPENROUTER_API_KEY"):
+        for name in ("WAYLAND_DISPLAY", "WAYLAND_SOCKET", "NANOGPT_API_KEY"):
             env.pop(name, None)
         env["HOME"] = str(home)
         env["XDG_CONFIG_HOME"] = str(config)

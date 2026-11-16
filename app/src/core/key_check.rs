@@ -83,12 +83,20 @@ pub(crate) fn poll_key_check(
         KeyVerdict::Unreachable => {
             // The player is told where to look, never that the key is bad.
             log::warn!(
-                "unmei: could not reach OpenRouter to check the stored key; it was kept unchecked"
+                "unmei: could not reach NanoGPT to check the stored key; it was kept unchecked"
             );
             credentials.row = KeyRow::SetUnchecked { fingerprint };
         }
+        KeyVerdict::OpenRouterKey => {
+            // Defense in depth: the commit flow refuses an `sk-or-` key before
+            // it is written, so this verdict is not expected here. Never
+            // built into a resolver, never named in the log.
+            log::warn!("unmei: the key is an OpenRouter key; Unmei sends only NanoGPT keys");
+            credentials.row = KeyRow::OpenRouterKey;
+            return;
+        }
         KeyVerdict::Rejected => {
-            log::warn!("unmei: OpenRouter rejected the stored key; it stays on disk");
+            log::warn!("unmei: NanoGPT rejected the stored key; it stays on disk");
             credentials.row = KeyRow::Rejected { fingerprint };
             return;
         }

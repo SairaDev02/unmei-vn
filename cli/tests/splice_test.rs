@@ -296,7 +296,7 @@ fn replace_preserves_identity_fields() {
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
     assert_eq!(after.id, "ace");
     assert_eq!(after.name, "Ace");
-    assert_eq!(after.model.as_deref(), Some("typesafe/jev-1.13"));
+    assert_eq!(after.model.as_deref(), Some("typesafe/jev-1.14"));
 }
 
 /// The prefactor: a `choice` config serializes with no `type` key — the

@@ -1,12 +1,12 @@
 //! Live end-to-end runtime smoke test: the Bevy core steps the demo pack through
-//! a **real** OpenRouter Decisions call using the async task path, validating the
+//! a **real** NanoGPT Decisions call using the async task path, validating the
 //! one piece the vertical slice deliberately left unvalidated (the async wait),
 //! which only a real call can prove.
 //!
 //! Ignored by default: it makes a real network call and needs a key.
 //!
 //! ```console
-//! $ OPENROUTER_API_KEY=... cargo test -p unmei-app --test live_decision -- --ignored --nocapture
+//! $ NANOGPT_API_KEY=... cargo test -p unmei-app --test live_decision -- --ignored --nocapture
 //! ```
 
 use std::path::{Path, PathBuf};
@@ -15,6 +15,7 @@ use std::time::{Duration, Instant};
 
 use bevy::input::ButtonInput;
 use bevy::prelude::*;
+use unmei_app::menu::{MenuFocus, MenuState};
 use unmei_app::{PendingDecision, Runtime, RuntimeConfig, RuntimeCorePlugin};
 use unmei_engine::{DecisionsClient, Wait};
 
@@ -53,7 +54,16 @@ fn live_app(client: DecisionsClient) -> App {
         .init_resource::<ButtonInput<MouseButton>>()
         .insert_resource(RuntimeConfig::new(demo_pack_root(), Some(Arc::new(client))))
         .add_plugins(RuntimeCorePlugin);
-    app.update(); // Startup: load the pack
+    app.update(); // Startup: load the pack, then show the gated title
+
+    // Play starts only through the title's New Game, as it does for a player.
+    // The demo pack has no autosave here, so New Game starts at once.
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleNewGame;
+    tap(&mut app, KeyCode::Enter);
+    assert!(
+        !app.world().resource::<MenuState>().open,
+        "New Game must close the title and start play"
+    );
     app
 }
 
@@ -69,13 +79,13 @@ fn tap(app: &mut App, key: KeyCode) {
 }
 
 #[test]
-#[ignore = "live OpenRouter call; see the command in this file's header"]
+#[ignore = "live NanoGPT call; see the command in this file's header"]
 fn live_decision_resolves_through_the_bevy_async_wait() {
     let capture = Captured::default();
     log::set_boxed_logger(Box::new(capture.clone())).expect("no logger set in this test binary");
     log::set_max_level(log::LevelFilter::Info);
 
-    let client = DecisionsClient::from_env().expect("set OPENROUTER_API_KEY to run this test");
+    let client = DecisionsClient::from_env().expect("set NANOGPT_API_KEY to run this test");
     let mut app = live_app(client);
 
     // Play : walk the dialogue, take the first choice, and wait out the decision.

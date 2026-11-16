@@ -131,7 +131,7 @@ struct ChatRequestBody<'a> {
     provider: Option<ProviderPreferences>,
 }
 
-/// OpenAI/OpenRouter `response_format` for a `json_schema` request.
+/// OpenAI `response_format` for a `json_schema` request.
 #[derive(serde::Serialize)]
 struct ResponseFormat {
     #[serde(rename = "type")]
@@ -146,9 +146,9 @@ struct JsonSchemaBody {
     schema: serde_json::Value,
 }
 
-/// OpenRouter `provider` preferences: `require_parameters: true` routes the
-/// request only to endpoints that can honour `response_format`, instead of
-/// silently degrading (research 0003 §1, drafting contract §7).
+/// The request's `provider` routing preferences, which NanoGPT accepts:
+/// `require_parameters: true` routes the request only to endpoints that can
+/// honour `response_format`, instead of silently degrading (research 0003 §1, drafting contract §7).
 #[derive(serde::Serialize)]
 struct ProviderPreferences {
     require_parameters: bool,
@@ -238,8 +238,8 @@ fn structured_unsupported(status: u16, body: &str) -> Option<StructuredUnsupport
     if body.contains("no endpoints found") && body.contains("support") {
         return Some(StructuredUnsupported::NoSupportingEndpoint);
     }
-    // A non-OpenRouter OpenAI-compatible endpoint may reject the OpenRouter
-    // `provider` preferences field as an unknown request argument; that is
+    // An endpoint other than NanoGPT (an unsupported `base_url` override) may
+    // reject the `provider` preferences field as an unknown request argument; that is
     // still "no structured support" for our purposes, so it takes the same
     // fallback. Requiring the rejection to name the offending *argument*
     // keeps a general config complaint (e.g. "invalid provider preference")

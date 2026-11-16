@@ -1,7 +1,7 @@
 //! Exact-literal masking of the recognized environment credential values
 //! across the command's terminal streams ([ADR 0014]).
 //!
-//! Both non-empty values of `UNMEI_API_KEY` and `OPENROUTER_API_KEY` — including
+//! Both non-empty values of `UNMEI_API_KEY` and `NANOGPT_API_KEY` — including
 //! the one provider precedence does not select — are snapshotted once, before
 //! argument parsing, and every exact occurrence in the bytes written through a
 //! [`MaskingWriter`] is replaced with [`MARKER`]. The writer holds back a

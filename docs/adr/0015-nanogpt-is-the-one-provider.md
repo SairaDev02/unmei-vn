@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 title: NanoGPT is the one provider
 summary: NanoGPT replaces OpenRouter for the runtime's Decisions calls and the CLI's authoring; an OpenRouter-format key is never sent.
 keywords:

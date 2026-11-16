@@ -124,7 +124,7 @@ Change `letter_found` back to `letters_found` before step 6.
 The player takes the pack folder as its one argument. With no argument it runs the `demo-pack` beside the player executable, so the path is what selects your pack
 ([`docs/runtime-hardening.md` § Dev mode](../runtime-hardening.md#dev-mode), under Launch grammar).
 
-This step can send data to OpenRouter and cost money. If you stored a key in the player's Settings, or if `OPENROUTER_API_KEY` is set to a non-empty value in the terminal you launch from, the demo's decision point calls the model on your account
+This step can send data to NanoGPT and cost money. If you stored a key in the player's Settings, or if `NANOGPT_API_KEY` is set to a non-empty value in the terminal you launch from, the demo's decision point calls the model on your account
 ([`live-decisions.md` § Paste the key in Settings](live-decisions.md#paste-the-key-in-settings);
 [`live-decisions.md` § The environment override](live-decisions.md#the-environment-override)).
 The decision point is the `decide` line in the `reunion` scene

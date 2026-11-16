@@ -5,10 +5,10 @@ decided at play time. This page explains the idea and points a player, an author
 to where to start.
 
 A scene's [decision point](GLOSSARY.md#decisions) (a `decide` line) asks the
-[OpenRouter](https://openrouter.ai) Decisions API to judge the [state map](GLOSSARY.md#scripts)
+[NanoGPT](https://nano-gpt.com) Decisions API to judge the [state map](GLOSSARY.md#scripts)
 against that NPC's authored criteria. An authored [fallback](GLOSSARY.md#decisions) keeps the
 [content pack](GLOSSARY.md#content--packs) playable offline. A model deciding at play time is
-optional: [live decisions](docs/guide/live-decisions.md) covers the OpenRouter API key, where it goes
+optional: [live decisions](docs/guide/live-decisions.md) covers the NanoGPT API key, where it goes
 and what a request costs.
 
 **0.1.0 is a beta.** Formats can change in any 0.x release
@@ -136,7 +136,7 @@ Read these in order:
 
 - **Development:** most of the code, tests and documentation were generated with AI coding agents
   under the maintainer's direction, and the maintainer reviewed all of it before it was merged.
-- **Play time:** with your own OpenRouter key, a model picks one of the actions the author wrote for
+- **Play time:** with your own NanoGPT key, a model picks one of the actions the author wrote for
   a decision point, and it writes no text
   ([`docs/guide/live-decisions.md` § What a live decision sends](docs/guide/live-decisions.md#what-a-live-decision-sends)).
   With no key, play uses the authored fallback.

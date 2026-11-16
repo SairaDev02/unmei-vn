@@ -34,7 +34,7 @@ The Settings view these sections extend — its shape, its pause doctrine and it
 
 Settled 2026-10-01. Design record: [ADR 0010](adr/0010-credentials-live-in-a-user-level-file.md). **Built.**
 
-This section covers the **Decisions group** in the Settings view and the **credential file** behind it: where the player's OpenRouter key is stored, how it is entered, validated, overridden and cleared, and what the player is told. The Settings view itself ([Menu overlay](runtime-hardening.md#menu-overlay) §5–6), the audio and play groups ([Audio settings](runtime-hardening.md#audio-settings), [Player comfort](runtime-hardening.md#player-comfort)) and the failure posture ([Runtime failure posture](runtime-hardening.md#runtime-failure-posture)) are inherited. The title screen's layout and the Continue/New Game semantics are the title sections'. The `unmei` CLI keeps its env-only key contract for 0.1.0 ([ADR 0010](adr/0010-credentials-live-in-a-user-level-file.md)).
+This section covers the **Decisions group** in the Settings view and the **credential file** behind it: where the player's NanoGPT key is stored, how it is entered, validated, overridden and cleared, and what the player is told. The Settings view itself ([Menu overlay](runtime-hardening.md#menu-overlay) §5–6), the audio and play groups ([Audio settings](runtime-hardening.md#audio-settings), [Player comfort](runtime-hardening.md#player-comfort)) and the failure posture ([Runtime failure posture](runtime-hardening.md#runtime-failure-posture)) are inherited. The title screen's layout and the Continue/New Game semantics are the title sections'. The `unmei` CLI keeps its env-only key contract for 0.1.0 ([ADR 0010](adr/0010-credentials-live-in-a-user-level-file.md)).
 
 ### 1. File and format
 
@@ -48,17 +48,17 @@ This section covers the **Decisions group** in the Settings view and the **crede
 
 ### 2. Precedence and application
 
-- `OPENROUTER_API_KEY`, when it is **non-empty after trimming**, wins over the stored key. An empty or whitespace-only variable counts as unset.
+- `NANOGPT_API_KEY`, when it is **non-empty after trimming**, wins over the stored key. An empty or whitespace-only variable counts as unset. *(Amended 2026-11-16: the variable was `OPENROUTER_API_KEY`; [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md).)*
 - The stored file is still read at launch when the variable is set (cheap, and it keeps the read moments uniform) but is never used to build a resolver, and the row is read-only. A stored key stays on disk untouched.
-- **Launch resolution order**: a non-empty variable → a resolver built from it; else a stored value that passes §3's shape check → a resolver built from it; else `None` — the offline posture, every decision point taking its authored fallback. A stored value that fails the shape check logs once and builds no resolver, so a known-bad key cannot produce a 401 per decision.
+- **Launch resolution order**: a non-empty variable → a resolver built from it; else a stored value that passes §3's shape check and is not an OpenRouter key → a resolver built from it; else `None` — the offline posture, every decision point taking its authored fallback. A stored value that fails the shape check logs once and builds no resolver, so a known-bad key cannot produce a 401 per decision. *(Amended 2026-11-16: a non-empty variable or a stored value that starts with `sk-or-` builds no resolver either; the row shows **Invalid, an OpenRouter key** and the file is left as it is, [`nanogpt.md`](nanogpt.md) N10 and N11.)*
 - **A key entered in the app applies in the same session — no relaunch.** The resolver is rebuilt when the row's verdict reaches **Set** (Accepted, or Unreachable → `not checked`); it is **not** rebuilt on Invalid. This is the one use of ADR 0009's resolver seam outside the play path.
 - **Clear** returns the resolver to `None` and the row to Not set.
 
 ### 3. Validation
 
-- **Shape check — local, free, no network.** After trimming, a key must be non-empty, printable ASCII, contain no internal whitespace or control characters, and be at least 16 characters. It rejects obvious non-secrets (prose, a pasted path carrying a newline) with a precise message without a round-trip; any OpenRouter key of any current or future shape passes it, because **the ping is the only authority on whether a key works**.
-- **Ping.** On commit, **after the file is written**, `GET https://openrouter.ai/api/v1/key` with `Authorization: Bearer <key>` and a **5-second** timeout. The URL is a module constant beside the decisions endpoint and is deliberately **independent of `UNMEI_DECISIONS_URL`**: that override exists because the alpha decisions prefix can move, while `/api/v1/key` is the stable `/api/v1` surface on the same origin ([OpenRouter limits](https://openrouter.ai/docs/api_reference/limits)). There is **no standing ping** at launch or on view-open.
-- **Three outcomes.** `200` → **Accepted**; `401`/`403` → **Rejected**; anything else — transport error, timeout, any other status — → **Unreachable**. A network outage is never called a bad key.
+- **Shape check — local, free, no network.** After trimming, a key must be non-empty, printable ASCII, contain no internal whitespace or control characters, and be at least 16 characters. It rejects obvious non-secrets (prose, a pasted path carrying a newline) with a precise message without a round-trip; any key of any current or future shape passes it, because **the ping is the only authority on whether a key works**. *(Amended 2026-11-16: an OpenRouter key, one that starts with `sk-or-`, is the one shape refused, before the ping and never sent; see §4.1 and the amendment note below.)*
+- **Ping.** On commit, **after the file is written**, `GET https://api.nano-gpt.com/api/v1/api-keys/current` with `Authorization: Bearer <key>` and a **5-second** timeout. The URL is a module constant beside the decisions endpoint and is deliberately **independent of `UNMEI_DECISIONS_URL`**: that override points the decisions call at another endpoint, and the key check must keep asking the provider whether the key works. The call reads and spends no balance. *(Amended 2026-11-16: the check was `GET https://openrouter.ai/api/v1/key`; [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md), [`nanogpt.md`](nanogpt.md) N14.)* There is **no standing ping** at launch or on view-open.
+- **Three outcomes.** any `2xx` → **Accepted**; `401`/`403` → **Rejected**; anything else — transport error, timeout, `429`, any other status — → **Unreachable**. A network outage or a rate limit is never called a bad key. *(Amended 2026-11-16: `200` was the only Accepted status.)*
 - **A rejected key stays on disk.** The row shows Invalid for the session and the resolver is **not** rebuilt: play keeps whatever resolver it had (the offline posture if there was none), so nothing spams a 401 per decision. The verdict is live, not persisted — a relaunch reads the (shape-valid) file and shows Set, and play degrades log-only, exactly as the play-time rule says.
 - **Testability is a seam, not a mock network.** Next to the resolver: `KeyCheck`, one async method returning `Accepted`/`Rejected`/`Unreachable`; a pure `verdict_from_status(status) -> KeyVerdict` (engine-internal — `KeyVerdict` is the exported type, the mapping is not); a real `reqwest` implementation behind the existing `network` feature; and `Option<Arc<dyn KeyCheck>>` in the app (`None` in offline tests). This mirrors [ADR 0009](adr/0009-decision-resolver-seam.md) and is what makes `Checking…` → Set/Invalid and the resolver rebuild drivable in-process.
 - **Never logged.** No log line, Notice, error screen or fingerprint rendered anywhere contains the key. The only rendering is the fingerprint of §4.1.
@@ -74,17 +74,19 @@ This section covers the **Decisions group** in the Settings view and the **crede
 
 | State | State line | Field |
 | --- | --- | --- |
-| Not set | `Not set` | empty, editable, placeholder `Paste or type an OpenRouter key` |
-| Set | `Set — sk-or-…a1b2` | empty, editable |
+| Not set | `Not set` | empty, editable, placeholder `Paste or type a NanoGPT key` |
+| Set | `Set — sk-nano-…a1b2` | empty, editable |
 | Checking… | `Checking…` | input disabled while the ping runs |
-| Set, ping unreachable | `Set — sk-or-…a1b2 · not checked (see the log)` | empty, editable |
+| Set, ping unreachable | `Set — sk-nano-…a1b2 · not checked (see the log)` | empty, editable |
 | Invalid (shape failure) | `Invalid — does not look like a key` | the typed text is kept, so the player can correct it |
-| Invalid (rejected) | `Invalid — rejected by OpenRouter` | empty, editable |
-| From environment | `From environment — sk-or-…a1b2` + the env note | not editable; `Clear key` disabled |
+| Invalid (rejected) | `Invalid — rejected by NanoGPT` | empty, editable |
+| Invalid (OpenRouter key) | `Invalid — an OpenRouter key; enter a NanoGPT key` | empty, editable; a stored `sk-or-` key stays on disk and a typed one is cleared, never written, never pinged |
+| From environment | `From environment — sk-nano-…a1b2` + the env note | not editable; `Clear key` disabled |
+| From environment (OpenRouter key) | `From environment — Invalid, an OpenRouter key` + the env note | not editable; `Clear key` disabled |
 | Not set, unreadable file | `Not set` (the reason is in the log) | empty, editable |
 
-- The **fingerprint** is the first ≤6 characters of the key, then `…`, then its last 4 — never more of the key than that.
-- The **env note** reads `OPENROUTER_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.`
+- The **fingerprint** is the fixed `sk-nano-` prefix when the key has it, otherwise the first ≤6 characters of the key, then `…`, then its last 4 — never more of the key than that. *(Amended 2026-11-16: the fingerprint was always the first ≤6 characters.)*
+- The **env note** reads `NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.`
 - The **path line** reads `Stored in <path>` and is followed by a `Copy path` control, which writes that path to the clipboard through the existing `bevy_clipboard` resource (`bevy/system_clipboard` is enabled, so it is the real OS clipboard). Activation changes the control's label to `Copied` for 1.5 s; there is no new surface and no Notice — `Copied` is a label, not a message.
 - While the env key is present the stored key is never used and never rewritten; the row is read-only and `Clear key` is disabled.
 
@@ -93,9 +95,9 @@ This section covers the **Decisions group** in the Settings view and the **crede
 - **The field never holds the stored key.** It starts empty whenever it is rendered; committing **replaces** the stored key; the raw key is never rendered after commit. This sidesteps the widget's missing masking (`EditableText` is headless — no masking, no placeholder) and leaves "replace" as the only operation.
 - **Focus model.** The row is a walk stop. `↑`/`↓` move the walk only while the row is **not** being edited, so the focused widget's own arrow handling cannot trap the walk. `Enter` or a click enters editing; while editing, `Enter` commits and returns to the walk, `Esc` leaves the field and discards, and clicking elsewhere also discards. **Monitor exception** *(amended 2026-10-11)*: opening Monitor suspends rather than discards the draft/caret/selection; its Esc/clicks/paste cannot commit, discard or type behind it. Close restores a still-editable field after activation release, otherwise clears the invalidated draft and uses safe current focus, without credential reads/writes/checks ([Interaction](runtime-hardening.md#interaction)). `Esc`'s existing "one key, four moments" gains exactly one step, and only while the field is being edited: the first `Esc` leaves the field, the next backs out of Settings.
 - **Paste.** A pasted value is trimmed of surrounding ASCII whitespace before it enters the field, and the field's filter rejects newlines, so a paste carrying a trailing newline is not dropped whole by the widget's all-or-nothing filter.
-- **A commit runs in this order**: shape check → on failure the row shows `Invalid — does not look like a key`, nothing is written, and no ping runs → otherwise write the file atomically → show `Checking…` → ping → resolve the verdict:
+- **A commit runs in this order** *(amended 2026-11-16: trim and the OpenRouter check join)*: trim → shape check → on failure the row shows `Invalid — does not look like a key`, nothing is written, and no ping runs → OpenRouter check: a value that starts with `sk-or-` shows `Invalid — an OpenRouter key; enter a NanoGPT key`, clears the field, writes nothing and runs no ping → otherwise write the file atomically → show `Checking…` → ping → resolve the verdict:
   - **Accepted** → `Set`, resolver rebuilt;
-  - **Rejected** → `Invalid — rejected by OpenRouter`, file kept, resolver untouched;
+  - **Rejected** → `Invalid — rejected by NanoGPT`, file kept, resolver untouched;
   - **Unreachable** → `Set — … · not checked`, resolver rebuilt.
 - **Clear** uses the existing one-confirm pattern — title `Clear key?`, detail “The stored key is deleted from <path>. You can paste it again at any time.”, buttons `Yes` / `Cancel` — then deletes the file, returns the row to Not set and the resolver to `None`.
 - **A failed write** is not a row state: the key was not stored, so the row is left as it was, no ping runs, and the failure goes through the existing funnel — `error!` with the path and the IO error, and the Notice `Could not save the key`.
@@ -116,14 +118,14 @@ This section covers the **Decisions group** in the Settings view and the **crede
 - A write that fails (read-only directory, IO error) leaves no partial credential file, removes the temp best-effort, leaves the row as it was, runs no ping, logs `error!` and notices `Could not save the key`.
 - Read forms: a trailing newline and surrounding whitespace are trimmed; a whitespace-only file is Not set; a value with an internal newline or space fails the shape check and shows Invalid.
 - An unreadable file (permissions or IO) → Not set, `warn!`, bytes byte-identical afterwards.
-- Shape check table: `""` and whitespace → reject; `sk-or-v1-` + 60 chars → accept; a value with a space or a newline → reject; a 15-character value → reject; a non-ASCII value → reject; a 400-character printable value → accept (the ping decides).
-- `verdict_from_status`: `200` → Accepted; `401`/`403` → Rejected; `429`/`500`/`0` (transport) → Unreachable.
+- Shape check table: `""` and whitespace → reject; `sk-nano-` + 36 chars → accept; an `sk-or-v1-` + 60 chars value passes the shape check but then takes the OpenRouter check (refused, never written or pinged); a value with a space or a newline → reject; a 15-character value → reject; a non-ASCII value → reject; a 400-character printable value → accept (the ping decides).
+- `verdict_from_status`: any `2xx` → Accepted; `401`/`403` → Rejected; `429`/`500`/`0` (transport) → Unreachable.
 - The write happens **before** the ping: a ping that never answers still leaves the key on disk.
-- A rejected ping keeps the file, shows `Invalid — rejected by OpenRouter`, and leaves the resolver exactly as it was (a fake resolver proves no swap).
+- A rejected ping keeps the file, shows `Invalid — rejected by NanoGPT`, and leaves the resolver exactly as it was (a fake resolver proves no swap).
 - An accepted ping, and an unreachable ping, each rebuild the resolver from the new key; a relaunch with the stored key builds one at startup.
 - A shape failure writes nothing and never pings (a fake `KeyCheck` proves zero calls).
 - Clear confirms once, deletes the file, returns the row to Not set and the resolver to `None`; cancelling changes nothing; Clear is disabled while the env variable is present.
-- Precedence: a non-empty `OPENROUTER_API_KEY` wins, the row is read-only with the fingerprint, the stored bytes are untouched, and no resolver is built from the file; an empty or whitespace-only variable is treated as unset and the stored key is used.
+- Precedence: a non-empty `NANOGPT_API_KEY` wins, the row is read-only with the fingerprint, the stored bytes are untouched, and no resolver is built from the file; an empty or whitespace-only variable is treated as unset and the stored key is used.
 - Launch resolution order, asserted with a fake `DecisionResolver` and a temp directory: env → stored (shape-valid) → `None`, with a shape-invalid stored value logging once and building `None`.
 - In-session apply: commit a key, get `Set`, then run a decision — the fake resolver is the one built from that key, with no relaunch.
 - Hand-edit pickup: write a different value into the file behind the app, then open the Settings view — the row updates and the resolver is rebuilt.
@@ -139,6 +141,7 @@ This section covers the **Decisions group** in the Settings view and the **crede
 Amendments to this section are dated and made **in place**, with a note here saying what changed; later sections are appended to this document and never rewrite this one. The vocabulary this section introduces — **Credential file**, **Decisions group**, **Key row** — is in [`GLOSSARY.md`](../GLOSSARY.md#settings).
 
 - **2026-10-14**: the settled banner above now reads **Built** — the group and the credential file shipped. No rule changed.
+- **2026-11-16**: NanoGPT replaces OpenRouter as the provider ([ADR 0015](adr/0015-nanogpt-is-the-one-provider.md), [`nanogpt.md`](nanogpt.md)). §1 to §6 are amended in place: the credential file holds a NanoGPT key, the override variable is `NANOGPT_API_KEY`, the key check is `GET /api/v1/api-keys/current` and accepts any `2xx`, the key row's copy names NanoGPT, and two states are new: **Invalid, an OpenRouter key** and **From environment (OpenRouter key)**. An `sk-or-` key is never sent: a stored or environment one builds no resolver, and a typed one is refused before it is written. A stored OpenRouter key is not migrated and its file is left as it is.
 
 ### Out of scope for this section
 

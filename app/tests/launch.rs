@@ -29,7 +29,7 @@ fn run_in(dir: &Path, args: &[&OsStr]) -> Output {
     let mut command = Command::new(binary());
     command
         .current_dir(dir)
-        .env_remove("OPENROUTER_API_KEY")
+        .env_remove("NANOGPT_API_KEY")
         .env("HOME", dir)
         .env("USERPROFILE", dir)
         .env("APPDATA", dir)

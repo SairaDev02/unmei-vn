@@ -82,10 +82,10 @@ On Linux:
 
 Both print `unmei-play` and the release version, `unmei-play 0.1.0` for the 0.1.0 release.
 
-The demo needs no API key. It plays fully offline when no key is stored and `OPENROUTER_API_KEY` is
+The demo needs no API key. It plays fully offline when no key is stored and `NANOGPT_API_KEY` is
 unset or empty in the environment you launch from: every decision point then takes the fallback the
 pack author wrote. With a stored key, or with the variable set, each decision point sends one request
-that OpenRouter bills to your account
+that NanoGPT bills to your account
 ([`docs/title-and-menu.md` § Decisions settings](../title-and-menu.md#decisions-settings);
 [`live-decisions.md` § What a live decision sends](live-decisions.md#what-a-live-decision-sends);
 [`live-decisions.md` § The environment override](live-decisions.md#the-environment-override)).

@@ -250,6 +250,14 @@ mod tests {
                 DecisionError::Config("no key".into()),
                 FailureRow::DecisionConfigAbsent,
             ),
+            (
+                DecisionError::Refused("q".into()),
+                FailureRow::DecisionAnswer,
+            ),
+            (
+                DecisionError::OpenRouterKey,
+                FailureRow::DecisionConfigAbsent,
+            ),
         ];
         for (error, expected) in cases {
             assert_eq!(

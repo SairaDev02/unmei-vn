@@ -1,10 +1,11 @@
 //! Authoring chat provider: config resolution + the HTTP translation seam.
 //!
 //! Precedence (author-cli contract §4), highest first: flags > `unmei.author.ron`
-//! at the pack root > built-in defaults (base_url `https://openrouter.ai/api`, **no
-//! default model**). The API key is **environment-only** — `UNMEI_API_KEY`, then
-//! `OPENROUTER_API_KEY`; never a flag or a file, so it can't be committed.
-//! A missing key or model errors before any network call.
+//! at the pack root > built-in defaults (base_url `https://api.nano-gpt.com/api`,
+//! **no default authoring model**). The API key is **environment-only** —
+//! `UNMEI_API_KEY`, then `NANOGPT_API_KEY`; never a flag or a file, so it can't
+//! be committed. A missing key or model errors before any network call, and so
+//! does a key in OpenRouter's `sk-or-` format, which Unmei never sends.
 //!
 //! Diagnostics are categorical ([ADR 0014]): a retained error never carries a
 //! provider body, URL or the transport/decoder text that produced it, and the
@@ -15,6 +16,7 @@
 use std::path::Path;
 
 use serde::Deserialize;
+use unmei_engine::decision::is_openrouter_key;
 use unmei_engine::read_pack_text;
 
 mod chat;
@@ -22,13 +24,18 @@ mod chat;
 /// The recognized API-key environment variables, in precedence order: the first
 /// non-empty value wins. The CLI masks both values on its terminal streams
 /// ([ADR 0014]).
-pub const API_KEY_ENVS: [&str; 2] = ["UNMEI_API_KEY", "OPENROUTER_API_KEY"];
+pub const API_KEY_ENVS: [&str; 2] = ["UNMEI_API_KEY", "NANOGPT_API_KEY"];
 
 pub use chat::OpenAiChat;
 
+/// The decision model pin `--create` writes when neither `--decision-model` nor
+/// `decision_model` in `unmei.author.ron` names one (`docs/nanogpt.md` N25). It
+/// applies only at creation and only in the CLI.
+pub const DEFAULT_DECISION_MODEL: &str = "typesafe/jev-1.14";
+
 /// Built-in endpoint default; any OpenAI-compatible chat endpoint works. The
 /// chat path lives under the same `/api` prefix the Decisions endpoint uses.
-pub const DEFAULT_BASE_URL: &str = "https://openrouter.ai/api";
+pub const DEFAULT_BASE_URL: &str = "https://api.nano-gpt.com/api";
 
 /// Resolved provider configuration (after precedence).
 #[derive(Clone, PartialEq)]
@@ -37,6 +44,9 @@ pub struct ProviderConfig {
     pub model: String,
     /// Resolved from the environment, never a flag or config file.
     pub api_key: String,
+    /// The model pin a `--create` writes into the new NPC file; `None` when not
+    /// creating, because a replace never adds, changes or removes a pin.
+    pub decision_pin: Option<String>,
 }
 
 // Opaque: the resolved key is credential material that must not reach a
@@ -52,12 +62,14 @@ impl std::fmt::Debug for ProviderConfig {
 /// The file is hand-authored RON — a different shape from the env-only key:
 ///
 /// ```ron
-/// ( base_url: "https://openrouter.ai/api", model: "openai/gpt-4o-mini" )
+/// ( base_url: "https://api.nano-gpt.com/api", model: "deepseek/deepseek-v4.1-flash" )
 /// ```
 #[derive(Default, PartialEq)]
 pub struct AuthorFile {
     pub base_url: Option<String>,
     pub model: Option<String>,
+    /// The pin `--create` writes into a new NPC file; ignored on replace.
+    pub decision_model: Option<String>,
 }
 
 // Opaque like the resolved config: an authored base URL may carry userinfo.
@@ -90,11 +102,17 @@ impl<'de> Deserialize<'de> for AuthorFile {
                 deserialize_with = "unmei_engine::pack_ron::provider_optional_string::deserialize"
             )]
             model: Option<String>,
+            #[serde(
+                default,
+                deserialize_with = "unmei_engine::pack_ron::provider_optional_string::deserialize"
+            )]
+            decision_model: Option<String>,
         }
         let raw = Raw::deserialize(d)?;
         Ok(AuthorFile {
             base_url: raw.base_url,
             model: raw.model,
+            decision_model: raw.decision_model,
         })
     }
 }
@@ -109,6 +127,11 @@ pub struct ConfigInput<'a> {
     pub model: Option<&'a str>,
     /// `--base-url` flag, when given.
     pub base_url: Option<&'a str>,
+    /// `--decision-model` flag, when given (valid only with `create`).
+    pub decision_model: Option<&'a str>,
+    /// Whether the command is `author npc --create`: only then is a decision
+    /// pin resolved.
+    pub create: bool,
 }
 
 /// Resolve provider config with the contract's precedence: flags > pack file >
@@ -140,20 +163,58 @@ pub fn resolve_provider(input: ConfigInput<'_>) -> Result<ProviderConfig, String
                 .to_string()
         })?;
 
-    let api_key = API_KEY_ENVS
+    let decision_pin = if input.create {
+        Some(resolve_decision_pin(
+            input.decision_model,
+            file.decision_model,
+        )?)
+    } else {
+        None
+    };
+
+    let (key_var, api_key) = API_KEY_ENVS
         .into_iter()
-        .find_map(|name| std::env::var(name).ok().filter(|key| !key.is_empty()))
+        .find_map(|name| {
+            std::env::var(name)
+                .ok()
+                .filter(|key| !key.is_empty())
+                .map(|key| (name, key))
+        })
         .ok_or_else(|| {
-            "no authoring API key — export UNMEI_API_KEY (or OPENROUTER_API_KEY); \
-             keys are environment-only and never accepted from a flag or file"
+            "no authoring API key — export UNMEI_API_KEY (or NANOGPT_API_KEY); keys are environment-only and never accepted from a flag or file"
                 .to_string()
         })?;
+    // N12: whatever `base_url` points at, an OpenRouter credential is never
+    // sent. The selected variable is the one refused — no fall-through to the
+    // next — and the message names the variable, never the key.
+    if is_openrouter_key(&api_key) {
+        return Err(format!(
+            "{key_var} holds an OpenRouter key, which Unmei never sends; set it to a NanoGPT key"
+        ));
+    }
 
     Ok(ProviderConfig {
         base_url,
         model,
         api_key,
+        decision_pin,
     })
+}
+
+/// N25: the pin a `--create` writes — flag, then file, then the built-in. An
+/// empty or whitespace-only value from the winning source is an error.
+fn resolve_decision_pin(flag: Option<&str>, file: Option<String>) -> Result<String, String> {
+    let (pin, source) = match (flag, file) {
+        (Some(flag), _) => (flag.to_string(), "--decision-model"),
+        (None, Some(file)) => (file, "`decision_model` in unmei.author.ron"),
+        (None, None) => return Ok(DEFAULT_DECISION_MODEL.to_string()),
+    };
+    if pin.trim().is_empty() {
+        return Err(format!(
+            "{source} is empty — name a decision model id, or omit it for the default"
+        ));
+    }
+    Ok(pin)
 }
 
 // ---------------------------------------------------------------------------
@@ -269,7 +330,7 @@ pub enum StructuredUnsupported {
     ResponseFormat,
     /// No endpoint serving this model accepts the requested parameters.
     NoSupportingEndpoint,
-    /// The OpenRouter `provider` preferences field was an unknown request
+    /// The `provider` preferences field was an unknown request
     /// argument, so the endpoint cannot route structured requests.
     ProviderArgument,
     /// The chat seam itself has no structured-output implementation (fakes).
