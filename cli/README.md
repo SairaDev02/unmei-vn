@@ -42,7 +42,7 @@ Name the authoring model with `--model`, for example
 `--model deepseek/deepseek-v4.1-flash`, or with `model` in the pack's
 `unmei.author.ron`. There is no default authoring model. `unmei author npc
 --create` also writes a decision model pin into the new NPC file: pass
-`--decision-model <MODEL>`, set `decision_model` in `unmei.author.ron`, or take
+`--decision-model <MODEL>`, set `decision_model` in `unmei.author.ron` or take
 the default, `typesafe/jev-1.14`.
 
 The `.ron` and `.unmei` files that `unmei` writes need no network to read, edit

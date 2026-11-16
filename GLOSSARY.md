@@ -257,7 +257,7 @@ _Avoid_: redaction filter (implies content awareness), safe-output guarantee
 ### Decisions
 
 **Provider**:
-The LLM service aggregator Unmei calls: NanoGPT, for both the runtime's Decisions calls and the CLI's authoring. Unmei supports one provider. An endpoint override may point at another compatible service, but Unmei does not support or test that.
+The LLM service Unmei calls: NanoGPT, for both the runtime's Decisions calls and the CLI's authoring. Unmei supports one provider. An endpoint override may point at another compatible service, but Unmei does not support or test that.
 _Avoid_: backend, vendor, aggregator (in prose), OpenRouter (the retired provider)
 
 **NPC**:

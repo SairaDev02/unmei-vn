@@ -416,8 +416,6 @@ fn verdict_from_status_follows_the_settled_table() {
     );
 }
 
-// --- NanoGPT additions ---------------------------------------------------
-
 #[test]
 fn endpoints_point_at_nanogpt() {
     assert_eq!(
@@ -468,7 +466,7 @@ fn cost_reads_usage_cost_and_ignores_estimated_cost() {
 }
 
 #[test]
-fn openrouter_key_rule_has_one_home() {
+fn is_openrouter_key_matches_only_the_trimmed_prefix() {
     assert_eq!(OPENROUTER_KEY_PREFIX, "sk-or-");
     assert!(is_openrouter_key("sk-or-v1-abc"));
     assert!(is_openrouter_key("  sk-or-v1-abc\n"));
