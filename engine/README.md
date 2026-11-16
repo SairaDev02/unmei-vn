@@ -20,7 +20,7 @@ Bevy player and the authoring CLI are built on this crate.
 - [The crate documentation on docs.rs](https://docs.rs/unmei-engine): the API
   reference, including the `network` feature and the 0.x stability notes.
 - [The repository](https://github.com/SairaDev02/unmei-vn).
-- [The Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/README.md).
+- [The Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md).
 
 ## License
 

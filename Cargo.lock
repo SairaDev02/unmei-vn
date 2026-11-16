@@ -6175,7 +6175,7 @@ checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
 
 [[package]]
 name = "unmei"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "assert_cmd",
  "clap",
@@ -6194,7 +6194,7 @@ dependencies = [
 
 [[package]]
 name = "unmei-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "bevy",
  "bevy_kira_audio",
@@ -6211,7 +6211,7 @@ dependencies = [
 
 [[package]]
 name = "unmei-engine"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "log",
  "reqwest",

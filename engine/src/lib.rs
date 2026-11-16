@@ -25,10 +25,10 @@
 //!
 //! # Documentation
 //!
-//! - [The pack format overview](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/format-overview.md): the pack
+//! - [The pack format overview](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/format-overview.md): the pack
 //!   layout, the `.unmei` DSL and the decision configs, each linked to the
 //!   content format section that owns it.
-//! - [The Guide](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/README.md): the task-oriented pages for
+//! - [The Guide](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md): the task-oriented pages for
 //!   players, authors and contributors.
 
 pub mod content;

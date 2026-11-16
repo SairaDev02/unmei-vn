@@ -2,8 +2,8 @@
 
 This file is for an AI coding agent helping an author edit this pack. It points at the files that
 matter and the two ways to check a change. It does not replace the format documentation: the Guide
-carries [Write your first pack](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/write-your-first-pack.md) and the content format
-overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.1.0/docs/guide/README.md) links.
+carries [Write your first pack](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/write-your-first-pack.md) and the content format
+overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md) links.
 
 ## Pack layout
 
