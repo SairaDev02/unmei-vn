@@ -310,7 +310,7 @@ fn step_once(
                 .map(|runtime| runtime.pack_root.clone());
             if let Some(pack_root) = pack_root {
                 let path = write_target_path_root(&pack_root, *target);
-                let _ = std::fs::remove_dir_all(path.with_extension("ron.tmp"));
+                let _ = std::fs::remove_dir_all(blocked_write_temp(path, *target));
             }
         }
         _ => {}
@@ -487,7 +487,7 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
         match fault {
             Fault::WriteBlocked { target } => {
                 let path = write_target_path(sandbox, *target);
-                let temp = path.with_extension("ron.tmp");
+                let temp = blocked_write_temp(path, *target);
                 std::fs::create_dir_all(&temp)
                     .map_err(|error| fail(format!("write-blocked: {error}")))?;
             }

@@ -207,6 +207,18 @@ pub(super) fn write_target_path(sandbox: &Sandbox, target: WriteTarget) -> PathB
     write_target_path_root(sandbox.pack_root(), target)
 }
 
+/// The temp sibling the target's own writer creates first: where a
+/// `write-blocked` obstruction goes, and the path `unblock` removes. Sidecars
+/// are written through `sidecar::write_atomic` (`<path>.ron.tmp`); the
+/// credential file's writer uses `<path>.tmp` (`credentials::write`), so the two
+/// cannot share one rule.
+pub(super) fn blocked_write_temp(path: PathBuf, target: WriteTarget) -> PathBuf {
+    match target {
+        WriteTarget::Credential => path.with_extension("tmp"),
+        _ => path.with_extension("ron.tmp"),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
