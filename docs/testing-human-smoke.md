@@ -1,16 +1,38 @@
 ---
-title: Human player smoke checklist and evidence boundary
-summary: The item-seven human smoke checklist — safe preflight, fixture recipes, per-case expectations, and the blank future record with its custody rules.
+title: Human player smoke checklist (retired)
+summary: "The retired human smoke checklist: where its automatable cases live as Keiko cases, and the rendered, audio and physical-input checks that stay unverified."
 keywords:
   - verification
   - evidence-record
   - player-input
 ---
-# Human player smoke checklist and evidence boundary
+# Human player smoke checklist (retired)
 
-*(Amended 2026-11-17: once Keiko is built, every case here that needs no real GPU, audio device or physical input moves to a Keiko case, and this checklist is retired. The rest become accepted unverified residuals ([Keiko replaces the human walks](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)). Until then the checklist is unchanged.)*
+**Status: retired 2026-11-17.** Keiko replaced this checklist as the end-to-end layer ([Keiko replaces the human walks](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)). Every case here that needs no real GPU, audio device or physical input becomes a Keiko case over a fixture pack, and the rest are accepted unverified residuals. The retirement takes effect with that contract section, on the first release candidate after Keiko's slice 1 merges and its gate passes. This page obliges no walk, records no result and adds no release step. The checklist below is kept as the source the fixture packs and cases are written from.
 
-**Status: human-confirmed planning contract, Q1–Q11. Not executed.** Part of item seven's testing decisions. This is a checklist and blank record, **not an execution receipt**. No case below has been run by this planning work.
+## Where the cases are now
+
+The migration is in progress. A fixture pack is a small pack under `app/tests/keiko/<name>/` with its own `tests/` folder of Keiko cases, and the recipes below became those packs ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)).
+
+| Recipe | Fixture pack | What is there on 2026-11-17 |
+|---|---|---|
+| D, clean copied demo | `app/tests/keiko/d/` | the pack and its starting fixtures |
+| L, reading and Timeline lane | `app/tests/keiko/l/` | the pack and the read-log fixture |
+| G, failed gallery art | none yet | nothing |
+| B, broken pack | none yet | nothing |
+| S/K, sidecar and credential faults | none yet | nothing |
+
+The cases that need a pack which does not exist yet stay unverified as Keiko evidence: G2 from recipe G, B1 from recipe B, and S2, S3 and K1–K4 from recipe S/K. The cases whose pack is in place join the gate as each case lands. [Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when) lists the whole set.
+
+## What stays unverified
+
+The rendered, audio and physical-input checks are accepted unverified residuals. No walk runs them, and a release record lists them as residuals, never as passed ([Keiko replaces the human walks](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)).
+
+| Kind | Checks that become residuals |
+|---|---|
+| Rendered | Every surface as drawn on a real GPU: the title backdrop, play staging, the menu overlay, Settings, Gallery stills and their placeholder frames, the Timeline and the Monitor, in the pack's own art. The full rendered/input walk of the Monitor that [testing policy](testing.md) calls the manual residual, covering M2 and M3 on a real compositor. G1's image check of contain-fit, sprite transparency and readable captions, and G2's judgement that failed art reads as a placeholder. The fullscreen geometry that F11 switches, and the embedded font as rendered. |
+| Audio | C1's heard changes: the master, music and SFX volumes, mute, and that music and sound effects play. A take observes staging only, so `expect music` never proves a sound was heard. |
+| Physical input | Real keyboard and pointer events through the window backend and the compositor: window focus, keys the operating system holds, pointer hit testing with a real cursor, the Monitor's input ownership over a real window, and the same on Linux. A take writes input messages into the world and never exercises the platform's input stack. |
 
 ## Scope and inherited acceptance (Q1–Q3)
 

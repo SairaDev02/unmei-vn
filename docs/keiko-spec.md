@@ -11,7 +11,7 @@ keywords:
 ---
 # Keiko — build-ready spec
 
-**Status (2026-11-17).** Specified, **not built**. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
+**Status (2026-11-17).** Slice 1 is **built**, on the integration branch `spec/28-keiko`. Slice 2 is **not built**: a case may carry `frame` and `click`, and both fail with `keiko.render.unavailable` ([`app/src/keiko/steps.rs`](../app/src/keiko/steps.rs)). This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
 **Slices.** The build ships in two slices. Each slice is complete and mergeable on its own.
 

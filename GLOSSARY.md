@@ -329,3 +329,37 @@ _Avoid_: wiki, on-ramp, tutorial site
 **Format version**:
 The version written inside a stored file (a save slot or the read log) that decides whether a build can read it. It changes only when that file's format changes, independently of the release version.
 _Avoid_: save version (when meaning the release), release version
+
+### Testing
+
+**Keiko**:
+Unmei's end-to-end testing framework: it plays a content pack the way a player does, with no window, and checks what that player perceives.
+_Avoid_: test harness, test runner
+
+**Case**:
+One `tests/<id>.keiko` file in a content pack: a version line, any declared decision landings, settings, fixtures and faults, then the steps a take applies.
+_Avoid_: test case file, script, scenario
+
+**Step**:
+One line of a case: a player intent, a raw input, a clock move, a fault control or an assertion.
+_Avoid_: command (a DSL term), action (a decision term)
+
+**Take**:
+One execution of one case, from its first line to its last, on a throwaway copy of the pack.
+_Avoid_: run (a block of say-lines), test run, playthrough (avoided under **Live session**)
+
+**Observation**:
+What the player perceives after a step, and the stored data an assertion may read: the surface, the say-line, the choices, the Notice, the staging, the state map, the save slots and the session log.
+_Avoid_: snapshot, view, state dump
+
+**Stepping**:
+Applying one step to a case at a time, each command replaying the case from its first line and appending the one step that passed.
+_Avoid_: session, interactive mode, REPL
+
+**Exploration**:
+Keiko walking every choice option and every landing key of a pack, depth first, within a step budget, and reporting the parks and scenes it never reached.
+_Avoid_: fuzzing, random walk, crawl
+
+**Finding**:
+A problem exploration reports: a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles. It is saved as a case that reproduces it.
+_Avoid_: failure, bug, error (each means something narrower)

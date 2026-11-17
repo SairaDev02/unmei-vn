@@ -97,6 +97,8 @@ feature evidence, headless schedules and bounded process survival cannot replace
 those proofs. No additional gate, workflow, packaging work or change to release
 authority is authorized by the checklist decision.
 
+*(Amended 2026-11-17: [Keiko replaces the human walks](#keiko-replaces-the-human-walks-decided-2026-11-17) supersedes the Windows real-GPU/rendered/input proof above, and the checklist is retired.)*
+
 ## Item eleven plan amendment (planned, 2026-11-07)
 
 The item-eleven plan settled how this contract is implemented, and its handoff
@@ -136,10 +138,11 @@ The first-time item now has a fixed version: 1.0.0, the first stable release.
 
 ## Keiko replaces the human walks (decided 2026-11-17)
 
-Once Keiko is built, its takes replace every human walk in this contract. The decision is recorded now and takes effect later.
+Keiko's takes replace every human walk in this contract. Slice 1 is built, and the replacement takes effect as the first bullet states.
 
 - **When it takes effect.** On the first release candidate after Keiko's slice 1 is merged and its gate passes ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)). Until then every rule above applies unchanged, including the 0.x first-time fallback.
-- **The executor.** Keiko runs against the candidate's own extracted player archive on each OS: the archived `unmei-play` with `--take` over the demo pack and over each fixture pack from the candidate's tagged source, and with `--explore` over the demo pack at the gate's budget ([Keiko spec §14.1](keiko-spec.md#141-release-evidence-added-2026-11-17)). A source build or the `check` workflow's results do not count. The record names the archive hashes, the commands, the pack set and each take's result. Live mode is never required.
+- **The executor.** Keiko runs against the candidate's own extracted player archive on each OS: the archived `unmei-play` with `--take` over the demo pack and over each fixture pack from the candidate's tagged source, and with `--explore` over the demo pack at the gate's budget ([Keiko spec §14.1](keiko-spec.md#141-release-evidence-added-2026-11-17)). A source build or the `check` workflow's results do not count. The record names the archive hashes, the commands, the pack set and each take's result. Its JSON output is kept with the release assets, so a result survives CI-log expiry. Live mode is never required.
+- **Who runs the Windows archive boots (decided 2026-11-17).** The maintainer's walk is retired with the rest of the human walks, so the two Windows archive boots stay a release-runbook step: the maintainer who runs the release starts the extracted candidate player once as a normal release and once with `--dev`, and records the window, the version output and the session-log head beside the Keiko documents ([release runbook § 3.2](release-runbook.md#32-the-windows-walk)). Keiko's takes supply the functional evidence on both operating systems, and the Linux boots stay automated in the candidate's `boot` slot. A Windows boot that does not start the archive is a blocked required step, as a failed take is.
 - **What it replaces.**
   - The Windows full rendered/input walk and the archive functional acceptance on Windows. Keiko's takes supply the functional outcomes those rows list.
   - The [human smoke checklist](testing-human-smoke.md), which is retired as a release or feature obligation.
@@ -147,7 +150,7 @@ Once Keiko is built, its takes replace every human walk in this contract. The de
 - **Residuals.** Rendering on a real GPU, heard audio and physical input are no longer walked on either OS. The record's `residuals` list carries each one as accepted and unverified, never passed, as the Linux rendered residual in [Release set and blocking evidence](#release-set-and-blocking-evidence-q4-q6q7-q10) already is. Certification claims no real-GPU, audio or physical-input assurance.
 - **First-time acceptance.** Two pieces of evidence on the same candidate bytes close it: Keiko's takes on the extracted archives, and an agent dry run that uses only the archive README and the public Guide, as item ten's sealed dry run did. The stranger appendix records both. This amends the [first-time fallback](#first-time-acceptance-fallback-decided-2026-11-08) and the [deferral to 1.0.0](#stranger-run-deferred-to-100-decided-2026-11-16): the human stranger run is no longer required for 1.0.0, and the release notes stop naming it as an open item once this takes effect. A human stranger run is still welcome and is recorded the same way.
 - **A failed take** on the candidate counts as a blocked required step: an issue, a fix and a new candidate.
-- **What it does not change.** The archive boots on both OSes, the Linux functional executor (Q16), the crate rows and every other blocking row stand. The [release runbook](release-runbook.md) gains the Keiko steps with the build.
+- **What it does not change.** The archive boots on both OSes, the Linux functional executor (Q16), the crate rows and every other blocking row stand. The [release runbook](release-runbook.md) holds the Keiko steps ([§ 3.1](release-runbook.md#31-run-keiko-over-the-extracted-archives)).
 - **It overrides [Keiko K31](keiko.md#8-relation-to-other-work)**, which kept Keiko's results outside this contract.
 
 ## Compatibility during 0.x (decided 2026-11-10)

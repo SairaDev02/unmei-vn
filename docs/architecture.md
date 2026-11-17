@@ -26,7 +26,8 @@ The root [`Cargo.toml`](../Cargo.toml) lists three workspace members: `engine`, 
   - the headless script runner ([`engine/src/runner/mod.rs`](../engine/src/runner/mod.rs));
   - save and load ([`engine/src/save/mod.rs`](../engine/src/save/mod.rs));
   - the read log;
-  - the Decisions wire layer (`engine/src/decision/`).
+  - the Decisions wire layer (`engine/src/decision/`);
+  - the Keiko case parser and its static checks ([`engine/src/keiko/`](../engine/src/keiko/)), which stay free of Bevy so the player's Keiko modes and a later pack check run the same case rules ([Keiko spec §2, §11](keiko-spec.md#11-check-and-packaging)).
 - **No binary.** The manifest declares no `[[bin]]`, so the crate ships no executable ([`engine/Cargo.toml`](../engine/Cargo.toml)).
 - **Boundary: stays free of Bevy and of rendering, windowing and audio.** The CLI is a terminal program, and the player and the CLI must run the same pack rules. So Bevy, rendering, windowing and audio code cannot leak into the crate that carries those rules ([`engine/src/lib.rs`](../engine/src/lib.rs)).
 - **Enforcement.** CI checks the boundary before `fmt`, Clippy and the tests. The `check` job in [`.github/workflows/check.yml`](../.github/workflows/check.yml) runs [`scripts/check-invariants.py`](../scripts/check-invariants.py). The script rejects any Bevy package in the engine's resolved dependency graph, in every feature and target selection. To run it locally, follow [`CONTRIBUTING.md` § Local repository invariant checks](../CONTRIBUTING.md#local-repository-invariant-checks).
@@ -42,7 +43,8 @@ The root [`Cargo.toml`](../Cargo.toml) lists three workspace members: `engine`, 
 - **Role.** The Bevy player. It owns windowing, rendering, audio, input, presentation and the Decisions calls it starts at a decision point ([`app/src/composition.rs`](../app/src/composition.rs), [`app/src/presentation.rs`](../app/src/presentation.rs)). The package is `unmei-app` and the binary is `unmei-play` ([`app/Cargo.toml`](../app/Cargo.toml)).
 - **Boundary: unpublished.** `app/Cargo.toml` sets `publish = false`, so Cargo refuses to publish the player to crates.io. The engine and the CLI carry no such flag.
 - **Library.** The crate also exposes a library, `unmei_app`. The shipping-schedule test ([`app/tests/shipping_schedule.rs`](../app/tests/shipping_schedule.rs)) uses it to build the production schedule without a window.
-- **Keiko (specified, not built).** *(Amended 2026-11-17.)* `unmei-play` will host the Keiko modes `--take`, `--step`, `--observe` and `--explore` through a third, windowless composition. The Bevy-free case parser and its static checks will live in the engine, so no Bevy enters the CLI ([Keiko spec §1, §4.1, §11](keiko-spec.md)).
+- **Keiko.** `unmei-play` hosts the Keiko modes `--take`, `--step`, `--observe` and `--explore` ([Keiko spec §1](keiko-spec.md#1-commands-k3-k27)). A mode never creates a window: each runs on the third composition, `keiko_app`, which builds one take at a time from a sandbox copy of the pack ([§ 4.1](keiko-spec.md#41-the-keiko-composition), [`app/src/composition.rs`](../app/src/composition.rs)). The mode code is in [`app/src/keiko/`](../app/src/keiko/).
+- **One asset root.** `RuntimeConfig` ([`app/src/lib.rs`](../app/src/lib.rs)) holds the pack root, the origin that explains it, the resolver, the dev-mode value and `asset_root`. `asset_root` defaults to `<pack_root>/assets`, and the asset server, `Runtime` and the sound-effect probe read it instead of deriving the folder again. A take points it at the original pack's `assets/` while the sandbox copy supplies the pack's text files, so a take reads assets in place and never copies them ([Keiko spec §4.2](keiko-spec.md#42-the-sandbox-k17)).
 
 ## Data flow
 
@@ -126,7 +128,8 @@ In the Presented in column, each name is a file path in a code span, not a link.
 | [`testing.md`](testing.md) | the test-selection policy: what each crate tests, replacing an external dependency, the validation gates and the shipped-path evidence | — |
 | [`testing-behavioral-protection.md`](testing-behavioral-protection.md) | the required behavioral protections and the evidence for each | — |
 | [`testing-coverage-evidence.md`](testing-coverage-evidence.md) | what a coverage claim must measure, report and retain | — |
-| [`testing-human-smoke.md`](testing-human-smoke.md) | the human smoke checklist and its evidence boundary | — |
+| [`testing-human-smoke.md`](testing-human-smoke.md) | the retired human smoke checklist, where its cases went and the residuals it leaves | — |
+| [`keiko-spec.md`](keiko-spec.md) | the Keiko modes, the case format and steps, takes, observations, decisions, fixtures and faults, stepping, exploration, output and the release run | `docs/guide/test-your-pack.md` |
 | [ADR 0001 — RON for the pack's structured content](adr/0001-ron-for-structured-content.md) | RON is the pack format; LLM-facing JSON is converted at the CLI boundary | — |
 | [ADR 0002 — Line-oriented dialogue DSL without conditionals](adr/0002-line-oriented-dsl-without-conditionals.md) | no indent stack; conditionals excluded there and added by ADR 0004 | — |
 | [ADR 0003 — Decision points: judgment in data, flow in script](adr/0003-decision-points-judgment-in-data-flow-in-script.md) | the config in the NPC file, one `decide` line in the scene | — |
@@ -152,3 +155,4 @@ In the Presented in column, each name is a file path in a code span, not a link.
 | [`GLOSSARY.md` § Authoring](../GLOSSARY.md#authoring) | draft, preparation failure, terminal mask | `packaging/author-README.md` |
 | [`GLOSSARY.md` § Decisions](../GLOSSARY.md#decisions) | NPC, question type, legend, action, decision point, landing key, criterion, fallback, resolver, model pin | `docs/guide/live-decisions.md`, `packaging/author-README.md` |
 | [`GLOSSARY.md` § Distribution](../GLOSSARY.md#distribution) | release version, player archive, CLI archive, Guide, format version | `README.md`, `docs/guide/play-the-demo.md`, `packaging/player-README.md` |
+| [`GLOSSARY.md` § Testing](../GLOSSARY.md#testing) | Keiko, case, step, take, observation, stepping, exploration, finding | `docs/guide/test-your-pack.md` |

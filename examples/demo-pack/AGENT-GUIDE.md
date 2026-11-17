@@ -17,6 +17,7 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
 | `assets/sprites/<npc>/<pose>.png` | A sprite pose, referenced as `sprite <npc> <pose>` | Replace the file; keep the name |
 | `assets/audio/<id>.ogg` | Music and sound, referenced as `play <id>` and `stop <id>` | Replace the file; keep the name |
 | `pack.glossary.md` | Optional pack-local terms, which the CLI sends to the model | Yes |
+| `tests/<id>.keiko` | One Keiko case of steps and assertions, run offline by `unmei-play --take` | Yes |
 | `AGENT-GUIDE.md` | This file: notes for an agent, never loaded as content | No |
 
 ## Never touch
@@ -38,6 +39,31 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
 - **Play the pack.** `unmei-play <pack-dir>` lists every load error on screen and in
   `<pack-dir>.log`, so a broken file is reported with its own `file:line`. A pack that loads plays,
   and without a key every `decide` point takes the author's fallback.
+
+## Test the pack with Keiko
+
+A case is one file `tests/<id>.keiko` in the pack folder: a `keiko 1` line, then any headers
+(`decide`, `setting`, `fixture`, `fault`, `dev`, `start`, `state`), then one step per line. A step is a
+player intent, a raw input, a clock move or an `expect` assertion. The player ignores `tests/` during
+play.
+
+- **Run every case:** `unmei-play <pack-dir> --take` prints one result per case. Name an id after
+  `--take` to run one. Exit `0` means every case passed, `1` means a take failed or a case was
+  invalid, and `2` means the command line was wrong.
+- **Build a case one step at a time:** `--observe <id>` replays a case and prints what the player
+  sees, and `--step <id> "<step line>"` replays it, applies the step and appends the step only when
+  it passed.
+- **Explore every path:** `unmei-play <pack-dir> --explore --budget 10000` takes every choice option
+  and every decision landing, then saves each finding as a runnable case under `tests/findings/`. Each
+  saved finding fails until the pack is fixed, so keep it as a regression case.
+- **Read it from a script:** add `--format json` for one JSON document per run.
+- **Offline unless asked:** a take needs no key. A `decide` header sets the landing a case asserts
+  on, and every other decision takes the author's fallback. `--take --live` sends the unset ones to
+  NanoGPT and needs `NANOGPT_API_KEY`.
+
+The worked case in this pack is `tests/opening.keiko`, and the Guide page is
+[Test your pack with Keiko](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/test-your-pack.md).
+The rules are in [the Keiko spec](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/keiko-spec.md).
 
 ## Rules of thumb
 
