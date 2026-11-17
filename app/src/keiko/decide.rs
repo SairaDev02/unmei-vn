@@ -123,8 +123,8 @@ impl DecisionResolver for KeikoResolver {
                         // Pending until then, so the app's own frame loop is
                         // what advances time — no thread waits and no wall
                         // clock is involved.
-                        let target = self.clock_ms.load(Ordering::Relaxed)
-                            + duration.as_nanos() as u64;
+                        let target =
+                            self.clock_ms.load(Ordering::Relaxed) + duration.as_nanos() as u64;
                         let clock = self.clock_ms.clone();
                         let landing = config.fallback.landing_key();
                         return std::future::poll_fn(move |context| {

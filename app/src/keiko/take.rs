@@ -476,8 +476,7 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
     if !settings_headers.is_empty() {
         let mut settings = crate::settings::load(sandbox.pack_root()).settings;
         for (key, value) in settings_headers {
-            apply_setting(&mut settings, key, value)
-                .map_err(|message| fail(message))?;
+            apply_setting(&mut settings, key, value).map_err(|message| fail(message))?;
         }
         crate::settings::save(sandbox.pack_root(), &settings)
             .map_err(|error| fail(format!("setting: {error}")))?;
@@ -528,7 +527,11 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
 
 /// Write one `setting` header into the in-memory settings, in the file's RON
 /// form, so the player's own validation and normalisation apply at load.
-fn apply_setting(settings: &mut crate::settings::Settings, key: &str, value: &str) -> Result<(), String> {
+fn apply_setting(
+    settings: &mut crate::settings::Settings,
+    key: &str,
+    value: &str,
+) -> Result<(), String> {
     let invalid = || format!("`{value}` is not a value for `{key}`");
     match key {
         "audio.master" => settings.audio.master = value.parse().map_err(|_| invalid())?,

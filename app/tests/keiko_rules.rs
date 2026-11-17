@@ -40,7 +40,10 @@ fn pack(dir: &Path, cases: &[(&str, &str)]) -> PathBuf {
     std::fs::create_dir_all(&tests).unwrap();
     for entry in std::fs::read_dir(&tests).unwrap().flatten() {
         let path = entry.path();
-        if path.extension().is_some_and(|extension| extension == "keiko") {
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "keiko")
+        {
             std::fs::remove_file(path).unwrap();
         }
     }
@@ -72,12 +75,7 @@ fn take(pack: &Path, ids: &[&str]) -> Output {
 
 fn assert_pass(pack: &Path, id: &str) {
     let output = take(pack, &[id]);
-    assert_eq!(
-        output.status.code(),
-        Some(0),
-        "{id}: {}",
-        stdout(&output)
-    );
+    assert_eq!(output.status.code(), Some(0), "{id}: {}", stdout(&output));
 }
 
 #[allow(dead_code)]
@@ -358,18 +356,12 @@ fn step_appends_only_what_passed_and_observe_never_writes() {
 
     // A failing step leaves the file byte-identical.
     let before = std::fs::read(&case).unwrap();
-    let output = run(
-        &pack,
-        &["--step", "stepped", "expect speaker \"Nobody\""],
-    );
+    let output = run(&pack, &["--step", "stepped", "expect speaker \"Nobody\""]);
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(std::fs::read(&case).unwrap(), before, "no write on failure");
 
     // A passing step is appended.
-    let output = run(
-        &pack,
-        &["--step", "stepped", "expect speaker \"Narrator\""],
-    );
+    let output = run(&pack, &["--step", "stepped", "expect speaker \"Narrator\""]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     assert!(std::fs::read_to_string(&case)
         .unwrap()
@@ -446,19 +438,32 @@ fn live_without_the_environment_key_is_a_usage_error() {
 fn exploration_reaches_every_branch_and_saves_no_finding() {
     let dir = temp_dir();
     let pack = pack(&dir, &[]);
-    let output = run(&pack, &["--explore", "--budget", "10000", "--format", "json"]);
+    let output = run(
+        &pack,
+        &["--explore", "--budget", "10000", "--format", "json"],
+    );
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
     assert_eq!(json["findings"].as_array().unwrap().len(), 0);
     assert_eq!(json["coverage"]["unreached"].as_array().unwrap().len(), 0);
-    assert!(!pack.join("tests/findings").exists(), "no finding was saved");
+    assert!(
+        !pack.join("tests/findings").exists(),
+        "no finding was saved"
+    );
 
     // The same budget gives the same findings and coverage; a smaller budget
     // reports that it was spent.
-    let again = run(&pack, &["--explore", "--budget", "10000", "--format", "json"]);
+    let again = run(
+        &pack,
+        &["--explore", "--budget", "10000", "--format", "json"],
+    );
     assert_eq!(stdout(&output), stdout(&again));
     let small = run(&pack, &["--explore", "--budget", "1"]);
-    assert!(stdout(&small).contains("budget spent"), "{}", stdout(&small));
+    assert!(
+        stdout(&small).contains("budget spent"),
+        "{}",
+        stdout(&small)
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -469,7 +474,11 @@ fn a_saved_finding_is_a_case_that_fails_and_then_passes() {
     std::fs::create_dir_all(pack.join("scenes")).unwrap();
     std::fs::create_dir_all(pack.join("npcs")).unwrap();
     std::fs::create_dir_all(pack.join("tests")).unwrap();
-    std::fs::write(pack.join("pack.ron"), "(name: \"broken\", entry: \"start\")").unwrap();
+    std::fs::write(
+        pack.join("pack.ron"),
+        "(name: \"broken\", entry: \"start\")",
+    )
+    .unwrap();
     std::fs::write(pack.join("state.ron"), "(met: false,)").unwrap();
     // A staged sprite with no asset, then a scene that loops forever.
     // A staged sprite with no asset file (row 4), a walk to a scene that loops,
@@ -496,18 +505,35 @@ jump quiet
     let saved = findings[0]["case"].as_str().unwrap().to_string();
     assert!(saved.starts_with("tests/findings/"), "{saved}");
     let text = std::fs::read_to_string(pack.join(&saved)).unwrap();
-    assert!(text.starts_with("keiko 1
-"), "{text}");
+    assert!(
+        text.starts_with(
+            "keiko 1
+"
+        ),
+        "{text}"
+    );
 
     // Rerunning writes nothing new.
-    let before = std::fs::read_dir(pack.join("tests/findings")).unwrap().count();
+    let before = std::fs::read_dir(pack.join("tests/findings"))
+        .unwrap()
+        .count();
     let _ = run(&pack, &["--explore", "--budget", "500", "--format", "json"]);
-    let after = std::fs::read_dir(pack.join("tests/findings")).unwrap().count();
+    let after = std::fs::read_dir(pack.join("tests/findings"))
+        .unwrap()
+        .count();
     assert_eq!(before, after, "a rerun adds no file");
 
     // The saved case is an invalid pack's case: it is listed by `--take` and
     // fails while the problem exists.
-    let output = run(&pack, &["--take", saved.trim_start_matches("tests/").trim_end_matches(".keiko")]);
+    let output = run(
+        &pack,
+        &[
+            "--take",
+            saved
+                .trim_start_matches("tests/")
+                .trim_end_matches(".keiko"),
+        ],
+    );
     assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -68,9 +68,15 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
             take(pack_root, &pack, ids, keep, format, None, live)
         }
         KeikoMode::Step { id, step } => append_step(pack_root, &pack, id, step, keep, format),
-        KeikoMode::Observe { id } => {
-            take(pack_root, &pack, std::slice::from_ref(id), keep, format, None, None)
-        }
+        KeikoMode::Observe { id } => take(
+            pack_root,
+            &pack,
+            std::slice::from_ref(id),
+            keep,
+            format,
+            None,
+            None,
+        ),
         KeikoMode::Explore { budget, from } => {
             explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
         }
@@ -293,10 +299,13 @@ fn append_step(
     let path = pack_root.join(&case_file);
     let existing = std::fs::read_to_string(&path).ok();
 
-    let mut candidate = existing
-        .clone()
-        .unwrap_or_else(|| format!("keiko {}
-", unmei_engine::keiko::CASE_VERSION));
+    let mut candidate = existing.clone().unwrap_or_else(|| {
+        format!(
+            "keiko {}
+",
+            unmei_engine::keiko::CASE_VERSION
+        )
+    });
     if !candidate.ends_with(NEWLINE) {
         candidate.push(NEWLINE);
     }

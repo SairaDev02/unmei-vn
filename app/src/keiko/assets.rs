@@ -10,9 +10,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use bevy::asset::io::file::FileAssetReader;
-use bevy::asset::io::{
-    AssetReader, AssetReaderError, PathStream, Reader, VecReader,
-};
+use bevy::asset::io::{AssetReader, AssetReaderError, PathStream, Reader, VecReader};
 
 /// The asset faults a take declared, as pack-relative paths.
 #[derive(Debug, Default, Clone)]
@@ -61,10 +59,7 @@ impl KeikoAssetReader {
 }
 
 impl AssetReader for KeikoAssetReader {
-    async fn read<'a>(
-        &'a self,
-        path: &'a Path,
-    ) -> Result<Box<dyn Reader + 'a>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<dyn Reader + 'a>, AssetReaderError> {
         let key = normalize(&path.to_string_lossy());
         if self.faults.missing.contains(&key) {
             return Err(AssetReaderError::NotFound(path.to_path_buf()));

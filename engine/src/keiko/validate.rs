@@ -165,9 +165,10 @@ impl Declared {
                     fault: Fault::DecisionHold { point },
                 } => declared.decision_holds.push(point.clone()),
                 Header::Fault {
-                    fault: Fault::KeyCheck {
-                        verdict: super::model::KeyCheckFault::Hold,
-                    },
+                    fault:
+                        Fault::KeyCheck {
+                            verdict: super::model::KeyCheckFault::Hold,
+                        },
                 } => declared.key_check_hold = true,
                 Header::Fault {
                     fault: Fault::WriteBlocked { target },
