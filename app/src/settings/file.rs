@@ -104,20 +104,43 @@ impl PlaySettings {
     }
 }
 
-/// The pack's sibling settings path: `<pack-dir>.settings.ron`, named after the
-/// pack exactly like the slot and log files.
-/// Every settings key a Keiko `setting` header may name: the file's own keys,
-/// so the case format and the settings schema cannot drift.
+/// The kind of value a settings key takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingKind {
+    Number,
+    Toggle,
+}
+
+/// Every settings key a Keiko `setting` header may name, and its kind. This is
+/// the one table: [`setting_keys`] reports it to the case validator and
+/// `keiko::take::apply_setting` applies through it, with a test that every key
+/// here applies.
+pub const SETTING_SCHEMA: &[(&str, SettingKind)] = &[
+    ("audio.master", SettingKind::Number),
+    ("audio.music", SettingKind::Number),
+    ("audio.sfx", SettingKind::Number),
+    ("audio.muted", SettingKind::Toggle),
+    ("play.text_speed", SettingKind::Number),
+    ("play.auto", SettingKind::Toggle),
+    ("play.fullscreen", SettingKind::Toggle),
+];
+
+/// Every settings key a Keiko `setting` header may name.
 pub fn setting_keys() -> Vec<&'static str> {
-    vec![
-        "audio.master",
-        "audio.music",
-        "audio.sfx",
-        "audio.muted",
-        "play.text_speed",
-        "play.auto",
-        "play.fullscreen",
-    ]
+    SETTING_SCHEMA.iter().map(|(key, _)| *key).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_schema_names_every_key_once() {
+        let keys = setting_keys();
+        assert_eq!(keys.len(), SETTING_SCHEMA.len());
+        let unique: std::collections::HashSet<_> = keys.iter().collect();
+        assert_eq!(unique.len(), keys.len(), "a key is listed twice");
+    }
 }
 
 pub fn settings_path_for(pack_root: &Path) -> PathBuf {

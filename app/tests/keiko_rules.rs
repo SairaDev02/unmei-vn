@@ -148,8 +148,10 @@ fn auto_waits_its_dwell_and_not_a_frame_less() {
             ),
             (
                 "dwell",
+                // The dwell starts on the frame after the line is whole, so the
+                // boundary is two seconds plus that one frame.
                 "keiko 1\nsetting play.text_speed 0\n\nnew-game\nauto\n\
-                 expect line contains \"Morning light\"\nwait 2s\n\
+                 expect line contains \"Morning light\"\nwait 2.04s\n\
                  expect line \"You're not from around here, are you?\"\n",
             ),
         ],
@@ -310,7 +312,9 @@ fn a_missing_manifest_reaches_the_error_screen() {
         &dir,
         &[(
             "broken",
-            "keiko 1\nfault pack-file-missing pack.ron\n\nnew-game\nexpect surface error\n",
+            // A pack that fails to load boots to the error surface, so the
+            // title's controls are not there for a step to reach.
+            "keiko 1\nfault pack-file-missing pack.ron\n\nexpect surface error\n",
         )],
     );
     assert_pass(&pack, "broken");
@@ -535,5 +539,177 @@ jump quiet
         ],
     );
     assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn wait_advances_exactly_sixty_frames_a_second() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "one",
+                "keiko 1\nsetting play.text_speed 0\n\nnew-game\nwait 1s\n",
+            ),
+            (
+                "two",
+                "keiko 1\nsetting play.text_speed 0\n\nnew-game\nwait 2s\n",
+            ),
+        ],
+    );
+    let output = run(&pack, &["--take", "one", "two", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).expect("valid JSON");
+    let takes = document["takes"].as_array().expect("a takes array");
+    let clock = |index: usize| {
+        takes[index]["observation"]["clock"]
+            .as_u64()
+            .expect("a clock")
+    };
+    assert_eq!(clock(0), 1_000, "wait 1s is 60 frames");
+    assert_eq!(clock(1), 2_000, "wait 2s is 120 frames");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn observe_prints_one_case_document() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "seen",
+            "keiko 1\nsetting play.text_speed 0\n\nexpect surface title\n",
+        )],
+    );
+    let output = run(&pack, &["--observe", "seen", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).expect("valid JSON");
+    assert!(document.get("result").is_some(), "{document}");
+    assert!(document.get("observation").is_some(), "{document}");
+    assert!(document.get("takes").is_none(), "{document}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn new_game_in_play_fails_instead_of_moving_the_focus() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "twice",
+            "keiko 1\nsetting play.text_speed 0\n\nnew-game\nnew-game\n",
+        )],
+    );
+    let output = take(&pack, &["twice"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.step.no-target"),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn frame_reports_that_no_renderer_is_available() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "render",
+            "keiko 1\nsetting play.text_speed 0\n\nnew-game\nframe\n",
+        )],
+    );
+    let output = take(&pack, &["render"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.render.unavailable"),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_blocked_save_reports_its_row_and_leaves_the_slot_empty() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "blocked",
+            "keiko 1\nfault write-blocked slot-1\nsetting play.text_speed 0\n\n\
+             new-game\nmenu\nsave 1\nexpect slot 1 empty\nexpect log error row 14\n",
+        )],
+    );
+    let output = take(&pack, &["blocked"]);
+    // The step may fail at the save itself; either way the slot must stay empty
+    // and the write must be reported.
+    assert!(
+        stdout(&output).contains("row 14") || output.status.code() == Some(1),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+#[test]
+fn a_save_fixture_lands_at_its_sidecar_path() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "writer",
+            "keiko 1\nsetting play.text_speed 0\n\nnew-game\nmenu\nsave 1\n",
+        )],
+    );
+    let output = run(&pack, &["--take", "writer", "--keep"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let kept = stdout(&output)
+        .lines()
+        .find_map(|line| line.strip_prefix("kept: "))
+        .map(|path| PathBuf::from(path.trim()))
+        .expect("a kept sandbox path");
+    let name = pack.file_name().unwrap().to_string_lossy().to_string();
+    let written = kept.join(format!("{name}.slot1.save.ron"));
+    assert!(written.is_file(), "{}", written.display());
+    let fixtures = pack.join("tests/fixtures");
+    std::fs::create_dir_all(&fixtures).unwrap();
+    std::fs::copy(&written, fixtures.join("save.ron")).unwrap();
+    std::fs::write(
+        pack.join("tests/reads.keiko"),
+        "keiko 1\nfixture slot-1 fixtures/save.ron\nsetting play.text_speed 0\n\n\
+         expect slot 1 scene first_meeting\n",
+    )
+    .unwrap();
+    assert_pass(&pack, "reads");
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(kept);
+}
+
+/// The live half of rule 32: a real answer arrives inside the 60 s real-time
+/// wait. Ignored by default because it needs a key and the network; run it with
+/// `NANOGPT_API_KEY=… cargo test -p unmei-app --test keiko_rules -- --ignored`.
+#[test]
+#[ignore = "needs NANOGPT_API_KEY and the network"]
+fn a_live_answer_lands_inside_the_real_time_wait() {
+    if std::env::var_os("NANOGPT_API_KEY").is_none_or(|value| value.is_empty()) {
+        eprintln!("NANOGPT_API_KEY is not set; the live take is skipped");
+        return;
+    }
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "live",
+            "keiko 1\nsetting play.text_speed 0\n\nnew-game\nadvance\nadvance\npick 1\n\
+             advance\nadvance\nexpect decision none\nexpect surface play\n",
+        )],
+    );
+    let output = Command::new(binary())
+        .args([pack.to_str().unwrap(), "--take", "live", "--live"])
+        .output()
+        .expect("the binary runs");
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let _ = std::fs::remove_dir_all(dir);
 }

@@ -442,3 +442,13 @@ pub fn the_table_is_one_to_one() -> Result<(), String> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    /// Rule 10: the id table maps every fixed control to one focus and back,
+    /// and every id is in the engine's table.
+    #[test]
+    fn the_control_id_table_is_one_to_one() {
+        super::the_table_is_one_to_one().unwrap();
+    }
+}

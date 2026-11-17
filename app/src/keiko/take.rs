@@ -119,6 +119,21 @@ pub fn run(request: TakeRequest) -> TakeResult {
         })
         .collect();
     let asset_faults = Arc::new(super::assets::AssetFaults::of(faults.iter()));
+    // The launch credential read is the read-only seam `main` uses, pointed at
+    // the take's own config dir: an `env-key` fixture wins, then a `credential`
+    // fixture, and an absent file is the offline posture (spec §7.1).
+    let launch = crate::credentials::resolve_launch(
+        Some(&sandbox.credential_dir()),
+        sandbox.env_key().as_deref(),
+        |key| {
+            let endpoint = request
+                .live
+                .as_ref()
+                .map(|live| live.endpoint.clone())
+                .unwrap_or_else(|| unmei_engine::DEFAULT_ENDPOINT.to_string());
+            super::decide::live_client(&endpoint, key)
+        },
+    );
     let config = RuntimeConfig::new(
         sandbox.pack_root().to_path_buf(),
         Some(resolver.clone() as Arc<dyn unmei_engine::DecisionResolver>),
@@ -133,6 +148,7 @@ pub fn run(request: TakeRequest) -> TakeResult {
         log_cursor: 0,
         all_log: Vec::new(),
         clock,
+        timed: Arc::new(AtomicU64::new(0)),
         live: live_marked.clone(),
         resolver,
         key_check_release,
@@ -150,6 +166,12 @@ pub fn run(request: TakeRequest) -> TakeResult {
             crate::DecisionFactory { builder: None },
             asset_faults,
         );
+        // The launch read is preloaded, so the sandbox's credential fixture and
+        // the `env-key` fixture are what the app sees (spec §7.1).
+        app.insert_resource(crate::credentials::StartupCredentials {
+            state: launch.state,
+            warning: launch.warning,
+        });
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
             for step in &request.case.steps {
@@ -197,6 +219,7 @@ struct TakeState {
     log_cursor: usize,
     all_log: Vec<LogLine>,
     clock: Arc<AtomicU64>,
+    timed: Arc<AtomicU64>,
     live: Arc<std::sync::atomic::AtomicBool>,
     resolver: Arc<KeikoResolver>,
     key_check_release: Arc<std::sync::atomic::AtomicBool>,
@@ -208,10 +231,9 @@ fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoReso
         .headers
         .iter()
         .filter_map(|line| match &line.header {
-            unmei_engine::keiko::Header::Decide { point, action } => Some((
-                super::question_of(point),
-                super::landing_action(point, action, request.pack),
-            )),
+            unmei_engine::keiko::Header::Decide { point, action } => {
+                Some((super::question_of(point), super::landing_action(action)))
+            }
             _ => None,
         });
     let faults: Vec<Fault> = request
@@ -236,7 +258,7 @@ fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoReso
 /// `start` header by reaching the scene top through the Timeline's own restart
 /// seam (spec §12).
 fn boot(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(), Finding> {
-    frame(app, &state.clock, Duration::ZERO);
+    frame(app, &state.timed, &state.clock, Duration::ZERO);
     settle(app, state, request)?;
     if request.case.start_scene().is_some() {
         start_at_scene(app, state, request)?;
@@ -268,7 +290,7 @@ fn start_at_scene(
 
     // Enter play through the title's own New Game, so the live session the menu
     // keeps is real.
-    let mut frame_run = |app: &mut App| frame(app, &state.clock, Duration::ZERO);
+    let mut frame_run = |app: &mut App| frame(app, &state.timed, &state.clock, Duration::ZERO);
     super::steps::apply(app, &Step::NewGame, &mut frame_run, &state.resolver)
         .map_err(|finding| fail(finding.message))?;
     settle(app, state, request)?;
@@ -320,7 +342,7 @@ fn step_once(
         _ => {}
     }
     let resolver = state.resolver.clone();
-    let mut frame_run = |app: &mut App| frame(app, &state.clock, Duration::ZERO);
+    let mut frame_run = |app: &mut App| frame(app, &state.timed, &state.clock, Duration::ZERO);
     let applied = apply(app, step, &mut frame_run, &resolver).map_err(|finding| {
         let mut finding = finding;
         finding.file = request.case_file.clone();
@@ -330,9 +352,8 @@ fn step_once(
     match applied {
         Applied::Input => settle_with_step(app, state, request, line)?,
         Applied::Wait(duration) => {
-            let frames = duration.as_nanos().div_ceil(FRAME.as_nanos());
-            for _ in 0..frames {
-                frame(app, &state.clock, FRAME);
+            for _ in 0..frames_for(duration) {
+                frame(app, &state.timed, &state.clock, FRAME);
             }
             settle_with_step(app, state, request, line)?;
         }
@@ -392,11 +413,28 @@ fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result
     });
 
     let mut previous: Option<Observation> = None;
-    for _ in 0..600 {
-        frame(app, &state.clock, Duration::ZERO);
+    let mut quiet = 0u32;
+    // A live answer arrives on the network's schedule, so its pending frames
+    // wait in real time and do not spend the quiet-frame budget (spec §6).
+    let live_deadline = std::time::Instant::now() + LIVE_ANSWER_LIMIT;
+    while quiet < 600 {
+        frame(app, &state.timed, &state.clock, Duration::ZERO);
         observe_step(app, state);
         let observation = &state.observation;
         let decision_pending = observation.decision.is_some() && !held_decision;
+        if decision_pending && request.live.is_some() {
+            if std::time::Instant::now() >= live_deadline {
+                return Err(Finding::new(
+                    request.case_file.clone(),
+                    String::new(),
+                    rules::UNSETTLED,
+                    "the live decision did not answer within 60 s",
+                ));
+            }
+            std::thread::sleep(Duration::from_millis(2));
+            previous = None;
+            continue;
+        }
         let assets_settled = app
             .world()
             .get_resource::<crate::presentation::assets::AssetWatch>()
@@ -404,6 +442,7 @@ fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result
         let stable = previous
             .as_ref()
             .is_some_and(|previous| previous.same_world(observation));
+        quiet += 1;
         if !decision_pending && assets_settled && stable {
             state.records.push(observation.clone());
             return Ok(());
@@ -418,13 +457,37 @@ fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result
     ))
 }
 
+/// How long a live answer may take before the take gives up (spec §6).
+const LIVE_ANSWER_LIMIT: Duration = Duration::from_secs(60);
+
 /// One frame of the take's clock. Only this function moves time.
-fn frame(app: &mut App, clock: &AtomicU64, delta: Duration) {
+fn frame(app: &mut App, timed: &AtomicU64, clock: &AtomicU64, delta: Duration) {
+    let delta = if delta.is_zero() {
+        Duration::ZERO
+    } else {
+        // 1/60 s is not a whole number of nanoseconds, so the frame's length
+        // alternates by one nanosecond: frame n ends at exactly `n * 1e9 / 60`
+        // ns, which keeps both the take's clock and Bevy's own `Time` exact.
+        // Summing a truncated 16,666,666 ns delta would leave `wait 2s` a
+        // nanosecond short of the auto dwell (spec §3.4, §4.3).
+        let frames = timed.fetch_add(1, Ordering::Relaxed) + 1;
+        let total = frames * NANOS_PER_FRAME / 60;
+        let previous = (frames - 1) * NANOS_PER_FRAME / 60;
+        clock.store(total, Ordering::Relaxed);
+        Duration::from_nanos(total - previous)
+    };
     app.insert_resource(TimeUpdateStrategy::ManualDuration(delta));
-    // Nanoseconds, not truncated milliseconds: 1/60 s is 16.67 ms, and a
-    // millisecond clock would under-count a `decision-slow` target.
-    clock.fetch_add(delta.as_nanos() as u64, Ordering::Relaxed);
     app.update();
+}
+
+/// One frame of the take's clock in nanoseconds, as `n * 1e9 / 60`.
+const NANOS_PER_FRAME: u64 = 1_000_000_000;
+
+/// How many timed frames `duration` lasts: `ceil(nanos * 60 / 1e9)`, in exact
+/// integer arithmetic so `wait 1s` is 60 frames rather than 61 (spec §3.4).
+pub fn frames_for(duration: Duration) -> u64 {
+    let nanos = duration.as_nanos() * 60;
+    nanos.div_ceil(u128::from(NANOS_PER_FRAME)) as u64
 }
 
 /// Release every key the case left held, so the next take starts clean.
@@ -532,6 +595,22 @@ fn apply_setting(
     key: &str,
     value: &str,
 ) -> Result<(), String> {
+    let Some((_, kind)) = crate::settings::SETTING_SCHEMA
+        .iter()
+        .find(|(name, _)| *name == key)
+    else {
+        return Err(format!("unknown settings key `{key}`"));
+    };
+    // The kind is checked by the table, so a toggle cannot take a number.
+    match kind {
+        crate::settings::SettingKind::Number if value.parse::<f32>().is_err() => {
+            return Err(format!("`{value}` is not a value for `{key}`"));
+        }
+        crate::settings::SettingKind::Toggle if value.parse::<bool>().is_err() => {
+            return Err(format!("`{value}` is not a value for `{key}`"));
+        }
+        _ => {}
+    }
     let invalid = || format!("`{value}` is not a value for `{key}`");
     match key {
         "audio.master" => settings.audio.master = value.parse().map_err(|_| invalid())?,
@@ -568,12 +647,9 @@ fn write_target_path_root(pack_root: &std::path::Path, target: WriteTarget) -> P
         WriteTarget::Slot(slot) => unmei_engine::save_path_for(&pack, slot),
         WriteTarget::ReadLog => unmei_engine::read_log_path_for(&pack),
         WriteTarget::Settings => crate::settings::settings_path_for(pack_root),
-        WriteTarget::Credential => pack_root
-            .parent()
-            .unwrap_or(pack_root)
-            .join("config")
-            .join("unmei")
-            .join("credentials"),
+        WriteTarget::Credential => crate::credentials::credentials_path_in(
+            &pack_root.join("..").join("config").join("unmei"),
+        ),
     }
 }
 
@@ -639,4 +715,35 @@ pub fn expects(case: &Case) -> Vec<&Expect> {
             _ => None,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Every key the schema publishes applies, so the validator's table and
+    /// the applier cannot drift.
+    #[test]
+    fn every_schema_key_applies() {
+        for (key, kind) in crate::settings::SETTING_SCHEMA {
+            let value = match kind {
+                crate::settings::SettingKind::Number => "0.5",
+                crate::settings::SettingKind::Toggle => "true",
+            };
+            let mut settings = crate::settings::Settings::default();
+            assert!(
+                apply_setting(&mut settings, key, value).is_ok(),
+                "{key} did not apply"
+            );
+        }
+    }
+
+    #[test]
+    fn wait_frames_are_exact() {
+        assert_eq!(frames_for(Duration::from_secs(1)), 60);
+        assert_eq!(frames_for(Duration::from_secs(2)), 120);
+        assert_eq!(frames_for(Duration::from_millis(250)), 15);
+        assert_eq!(frames_for(Duration::from_millis(980)), 59);
+        assert_eq!(frames_for(Duration::from_nanos(1)), 1);
+    }
 }

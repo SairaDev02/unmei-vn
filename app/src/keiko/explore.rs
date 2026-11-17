@@ -190,7 +190,14 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
     while let Some((branch, result)) = queue.pop_front() {
         coverage.observe(&result);
         for finding in branch_findings(&result) {
-            save_finding(pack_root, &branch, &finding, &mut findings, &mut saved);
+            save_finding(
+                pack_root,
+                &branch,
+                &finding,
+                None,
+                &mut findings,
+                &mut saved,
+            );
         }
         if result.outcome.is_err() {
             continue;
@@ -239,7 +246,14 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
                 ),
             );
             let repeat = branch.with_step(Step::Advance(1));
-            save_finding(pack_root, &repeat, &finding, &mut findings, &mut saved);
+            save_finding(
+                pack_root,
+                &repeat,
+                &finding,
+                Some(&observation),
+                &mut findings,
+                &mut saved,
+            );
             continue;
         }
         for child in children {
@@ -357,28 +371,59 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
 /// asset, a missing decide point, a missing decision label.
 const PACK_ROWS: &[u32] = &[2, 3, 4, 5, 6, 11, 12];
 
-/// The closing assertion a saved finding carries.
-fn closing_assertion(finding: &Finding) -> Vec<String> {
+/// The closing assertion a saved finding carries, so the case fails while the
+/// finding remains (spec §9.4).
+fn closing_assertion(finding: &Finding, park: Option<&Observation>) -> Vec<String> {
     if finding.rule == rules::NOTICE {
         return vec!["expect notice none".to_string()];
     }
-    if finding.rule == rules::DEFENSIVE {
+    if finding.rule == rules::DEFENSIVE
+        || finding.rule == rules::PANIC
+        || finding.rule == rules::UNSETTLED
+    {
         return vec!["expect surface play".to_string()];
     }
-    if let Some(row) = finding.rule.strip_prefix("keiko.log.row-") {
-        let level = match row {
-            "3" | "4" | "5" | "6" => "warn",
-            _ => "error",
+    if finding.rule == rules::STUCK {
+        // The park repeats, so the line the case is parked on cannot change:
+        // asserting that the stuck line's own text is gone fails until the
+        // move reaches somewhere else.
+        return match park.and_then(|park| park.text.as_deref()) {
+            Some(text) if !text.is_empty() => {
+                vec![format!("expect line not contains \"{}\"", escape(text))]
+            }
+            _ => vec!["expect surface play".to_string()],
         };
+    }
+    if let Some(row) = finding.rule.strip_prefix("keiko.log.row-") {
+        // The level comes from the row table, never from a copy of it here.
+        let level = row
+            .parse::<u32>()
+            .ok()
+            .and_then(crate::failure::FailureRow::of_number)
+            .and_then(crate::failure::FailureRow::level)
+            .map(|level| {
+                if level == log::Level::Warn {
+                    "warn"
+                } else {
+                    "error"
+                }
+            })
+            .unwrap_or("error");
         return vec![format!("expect no-log {level} row {row}")];
     }
     Vec::new()
+}
+
+/// A double-quoted step argument's text.
+fn escape(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 fn save_finding(
     pack_root: &Path,
     branch: &Branch,
     finding: &Finding,
+    park: Option<&Observation>,
     findings: &mut Vec<Value>,
     saved: &mut HashSet<String>,
 ) {
@@ -392,7 +437,7 @@ fn save_finding(
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&path, branch.case_text(&closing_assertion(finding)));
+        let _ = std::fs::write(&path, branch.case_text(&closing_assertion(finding, park)));
     }
     let mut json = super::output::finding_json(finding);
     if let Some(object) = json.as_object_mut() {

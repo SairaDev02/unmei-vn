@@ -138,6 +138,12 @@ impl FailureRow {
             .unwrap_or(0)
     }
 
+    /// The row at a 1-based log number, as `number` reports it.
+    pub fn of_number(number: u32) -> Option<Self> {
+        let index = usize::try_from(number).ok()?.checked_sub(1)?;
+        Self::ALL.get(index).copied()
+    }
+
     pub fn level(self) -> Option<log::Level> {
         match self.posture()? {
             Posture::QuitWithMessage | Posture::ContinueWithMessage | Posture::Defensive => {

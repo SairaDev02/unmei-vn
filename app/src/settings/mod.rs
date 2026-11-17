@@ -45,7 +45,7 @@ pub use controls::{
 };
 pub use file::{
     load, save, setting_keys, settings_path_for, AudioSettings, LoadedSettings, PlaySettings,
-    Settings, SettingsError, StartupSettings,
+    SettingKind, Settings, SettingsError, StartupSettings, SETTING_SCHEMA,
 };
 pub use state::{flush, SettingsState};
 pub use window::{window_config, window_mode};

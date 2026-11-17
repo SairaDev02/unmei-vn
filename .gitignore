@@ -49,5 +49,3 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Local agent scratch notes
-.claude/

@@ -51,13 +51,13 @@ pub fn apply(
     };
     match step {
         Step::NewGame => {
-            focus_title_row(app, MenuFocus::TitleNewGame);
-            tap(app, run, KeyCode::Enter);
+            activate_control(app, run, "title.new-game")
+                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
             Ok(Applied::Input)
         }
         Step::Continue => {
-            focus_title_row(app, MenuFocus::TitleContinue);
-            tap(app, run, KeyCode::Enter);
+            activate_control(app, run, "title.continue")
+                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
             Ok(Applied::Input)
         }
         Step::Advance(count) => {
@@ -238,16 +238,6 @@ fn digit(index: u8) -> KeyCode {
     }
 }
 
-fn focus_title_row(app: &mut App, focus: MenuFocus) {
-    let title_up = app
-        .world()
-        .get_resource::<MenuState>()
-        .is_some_and(|menu| menu.view == MenuView::Title && menu.confirm.is_none() && menu.open);
-    if title_up {
-        app.world_mut().resource_mut::<MenuState>().focus = focus;
-    }
-}
-
 /// Walk focus to a control with the arrow keys, then press Enter, exactly as a
 /// player would. Fails when the control is not on the current surface or is
 /// disabled.
@@ -338,15 +328,23 @@ fn save_or_load(
     if !menu.open || menu.view != MenuView::Slots {
         tap(app, run, KeyCode::Escape);
     }
-    activate_control(
-        app,
-        run,
-        if save {
-            "overlay.save-tab"
-        } else {
-            "overlay.load-tab"
-        },
-    )?;
+    let tab = if save {
+        "overlay.save-tab"
+    } else {
+        "overlay.load-tab"
+    };
+    // The top bar is outside the card grid's arrow walk: Tab is the only way
+    // from the slots to the tabs, so the step presses it until the tab is in
+    // reach. No step writes menu state (spec §3, K9).
+    for _ in 0..4 {
+        if app.world().resource::<MenuState>().focus
+            == focus_for_id(tab).unwrap_or(MenuFocus::SaveTab)
+        {
+            break;
+        }
+        tap(app, run, KeyCode::Tab);
+    }
+    activate_control(app, run, tab)?;
     let slot = match target {
         LoadTarget::Slot(n) => format!("overlay.slot.{n}"),
         LoadTarget::Autosave => "overlay.slot.autosave".to_string(),

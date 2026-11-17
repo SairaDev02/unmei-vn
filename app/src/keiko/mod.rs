@@ -68,18 +68,40 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
             take(pack_root, &pack, ids, keep, format, None, live)
         }
         KeikoMode::Step { id, step } => append_step(pack_root, &pack, id, step, keep, format),
-        KeikoMode::Observe { id } => take(
-            pack_root,
-            &pack,
-            std::slice::from_ref(id),
-            keep,
-            format,
-            None,
-            None,
-        ),
+        // `--observe` reports one case with the same document as `--step`
+        // (spec §10.1), not under "takes".
+        KeikoMode::Observe { id } => observe_one(pack_root, &pack, id, keep, format),
         KeikoMode::Explore { budget, from } => {
             explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
         }
+    }
+}
+
+/// The `--observe` run: one case, reported as one document.
+fn observe_one(pack_root: &Path, pack: &Pack, id: &str, keep: bool, format: Format) -> u8 {
+    let path = pack_root.join("tests").join(format!("{id}.keiko"));
+    if !path.is_file() {
+        eprintln!("unmei-play: no case `{id}` at {}", path.display());
+        return output::FAIL;
+    }
+    let mut run = run_one(pack_root, pack, id, &path, keep, None, None, 1);
+    run.case = id.to_string();
+    if output::is_json(format) {
+        println!(
+            "{}",
+            json!({
+                "result": if run.result.is_ok() { "pass" } else { "fail" },
+                "failure": run.result.as_ref().err().map(output::finding_json),
+                "observation": run.observation.to_json(),
+            })
+        );
+    } else {
+        output::print_case(&run);
+    }
+    if run.result.is_ok() {
+        output::PASS
+    } else {
+        output::FAIL
     }
 }
 
@@ -111,7 +133,9 @@ fn take(
     }
 
     let mut runs = Vec::new();
-    for (id, path) in files {
+    for (index, (id, path)) in files.into_iter().enumerate() {
+        // Takes are numbered within the run, so each gets its own
+        // `take-<n>` folder under one sandbox root (spec §4.2).
         let mut run = run_one(
             pack_root,
             pack,
@@ -120,6 +144,7 @@ fn take(
             keep,
             extra.as_ref(),
             live.clone(),
+            index + 1,
         );
         run.case = id;
         if output::is_json(format) {
@@ -149,12 +174,13 @@ fn run_one(
     keep: bool,
     extra: Option<&StepLine>,
     live: Option<take::Live>,
+    take_index: usize,
 ) -> output::CaseRun {
     let case_file = format!("tests/{id}.keiko");
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(error) => {
-            return invalid(id, path, format!("cannot read the case: {error}"));
+            return invalid(id, format!("cannot read the case: {error}"));
         }
     };
     let mut case = match parse_case(&case_file, &text) {
@@ -188,7 +214,7 @@ fn run_one(
         case_file: case_file.clone(),
         original_pack: pack_root,
         pack,
-        take_index: 1,
+        take_index,
         keep,
         live,
     });
@@ -201,7 +227,7 @@ fn run_one(
     }
 }
 
-fn invalid(id: &str, _path: &Path, message: String) -> output::CaseRun {
+fn invalid(id: &str, message: String) -> output::CaseRun {
     output::CaseRun {
         case: id.to_string(),
         result: Err(Finding::new(
@@ -370,6 +396,13 @@ fn append_step(
     if run.result.is_err() {
         return output::FAIL;
     }
+    // A pack with no `tests/` folder yet still accepts its first case (spec §8).
+    if let Some(parent) = path.parent() {
+        if let Err(error) = std::fs::create_dir_all(parent) {
+            eprintln!("unmei-play: cannot create {}: {error}", parent.display());
+            return output::FAIL;
+        }
+    }
     if let Err(error) = std::fs::write(&path, candidate) {
         eprintln!("unmei-play: cannot write {case_file}: {error}");
         return output::FAIL;
@@ -438,7 +471,7 @@ fn live_client(live: bool) -> Result<Option<take::Live>, String> {
 }
 
 /// The landing action a `decide` header names, in the question's own terms.
-pub fn landing_action(_point: &str, action: &str, _pack: &Pack) -> String {
+pub fn landing_action(action: &str) -> String {
     action.to_string()
 }
 

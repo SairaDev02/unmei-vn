@@ -5,6 +5,7 @@
 //! The engine owns the checks it can answer Bevy-free; the app hands it the two
 //! tables it owns — the settings keys and the key names — as data.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use super::controls::is_control_id;
@@ -28,12 +29,30 @@ pub struct Facts<'a> {
 /// the first, so one run reports the whole list.
 pub fn validate(case: &Case, file: &str, facts: &Facts) -> Vec<Finding> {
     let mut findings = Vec::new();
+    let mut shared: HashMap<String, (String, usize)> = HashMap::new();
     for line in &case.headers {
         let at = |rule: &str, message: String| Finding::at_line(file, line.line, rule, message);
         match &line.header {
             Header::Decide { point, action } => {
                 if let Some(message) = decide_reference(point, action, facts) {
                     findings.push(at(rules::CASE_REFERENCE, message));
+                }
+                // The resolver is handed the bare question id, so two NPCs
+                // that share one cannot be told apart; declaring both would
+                // silently keep the last landing.
+                if let Some((npc, question)) = point.split_once('.') {
+                    if let Some((first_npc, first_line)) = shared.get(question) {
+                        if *first_npc != npc {
+                            findings.push(at(
+                                rules::CASE_REFERENCE,
+                                format!(
+                                    "question `{question}` is declared for {npc} here and for {first_npc} on line {first_line}; a case cannot tell them apart"
+                                ),
+                            ));
+                        }
+                    } else {
+                        shared.insert(question.to_string(), (npc.to_string(), line.line));
+                    }
                 }
             }
             Header::Setting { key, .. } => {

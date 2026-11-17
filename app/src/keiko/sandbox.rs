@@ -104,9 +104,26 @@ impl Sandbox {
             FixtureKind::LegacySave => unmei_engine::legacy_save_path_for(&pack),
             FixtureKind::ReadLog => unmei_engine::read_log_path_for(&pack),
             FixtureKind::Settings => crate::settings::settings_path_for(&self.pack_root),
-            FixtureKind::Credential => self.config_dir.join("unmei").join("credentials"),
+            FixtureKind::Credential => {
+                crate::credentials::credentials_path_in(&self.credential_dir())
+            }
             FixtureKind::EnvKey => self.take_dir.join("env-key"),
         }
+    }
+
+    /// The config directory the credential reader is pointed at: the take's
+    /// own `unmei/` folder, so `credentials_path_in` lands on the fixture and
+    /// never on the developer's real `%APPDATA%`/`~/.config` (spec §7.1).
+    pub fn credential_dir(&self) -> PathBuf {
+        self.config_dir.join("unmei")
+    }
+
+    /// The `env-key` fixture's text, when the case wrote one.
+    pub fn env_key(&self) -> Option<String> {
+        std::fs::read_to_string(self.fixture_path(unmei_engine::keiko::FixtureKind::EnvKey))
+            .ok()
+            .map(|text| text.trim().to_string())
+            .filter(|text| !text.is_empty())
     }
 
     /// A pack handle carrying only the sandbox root, for the sidecar path

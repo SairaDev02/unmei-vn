@@ -91,10 +91,7 @@ impl KeikoResolver {
 }
 
 fn question_of(point: &str) -> String {
-    point
-        .split_once('.')
-        .map(|(_, question)| question.to_string())
-        .unwrap_or_else(|| point.to_string())
+    super::question_of(point)
 }
 
 impl DecisionResolver for KeikoResolver {

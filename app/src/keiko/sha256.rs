@@ -1,8 +1,8 @@
 //! SHA-256, for a saved finding's content-hash name (spec §9.4).
 //!
-//! The standard FIPS 180-4 algorithm, kept here because the workspace has no
-//! hashing dependency and a saved finding's name must be reproducible on every
-//! machine.
+//! The standard FIPS 180-4 algorithm, kept here because CONTRIBUTING.md's
+//! no-new-dependency rule rules out adding a hashing crate for one file name,
+//! and a saved finding's name must be reproducible on every machine.
 
 const K: [u32; 64] = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
