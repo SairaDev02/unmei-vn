@@ -74,9 +74,11 @@ keywords:
 - **K30 — Specified first.** Keiko's spec and build come before the plugin family's and the UI plugin's specs. The plugin builds then reuse its replay for the preview and have end-to-end cases from their start.
 - **K31 — Not release evidence.** Keiko's results are not [release-certification](release-certification.md) evidence. Whether Keiko results can close the first-time acceptance item that the stranger run holds open is a separate maintainer decision, taken once Keiko exists.
 
+  *(Amended 2026-11-17: overridden. Once Keiko is built, its takes on the candidate's extracted archives are release evidence and replace every human walk, the stranger run included. Real-GPU rendering, heard audio and physical input become accepted unverified residuals ([Keiko replaces the human walks](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)).)*
+
 ### Done when (for the build)
 
-- Every [smoke checklist](testing-human-smoke.md) case that needs no real GPU, audio device or physical input is a Keiko case over a fixture pack. The human checklist keeps only the rendered, audio and physical-input checks.
+- Every [smoke checklist](testing-human-smoke.md) case that needs no real GPU, audio device or physical input is a Keiko case over a fixture pack. The human checklist keeps only the rendered, audio and physical-input checks. *(Amended 2026-11-17: the human checklist is retired instead, and those checks become accepted unverified residuals (K31).)*
 - The `check` workflow runs the demo pack's and the fixture packs' cases, plus a bounded exploration of the demo pack, on every push.
 - The demo pack's `AGENT-GUIDE.md` and the Guide describe Keiko (K28).
 
@@ -121,4 +123,4 @@ These are not amended yet. The spec amends each in place, with a dated pointer.
 
 ## 11. Out of scope
 
-Pixel-compared screenshots; performance measurement; proof that audio is heard, rendering on a real GPU, or physical input (the human walk keeps these); live remote control of a running player over the Bevy Remote Protocol or MCP; an agent skill shipped for one vendor; Keiko results as release evidence (K31).
+Pixel-compared screenshots; performance measurement; proof that audio is heard, rendering on a real GPU, or physical input (the human walk keeps these; *amended 2026-11-17: no walk keeps them, they are accepted unverified residuals, K31*); live remote control of a running player over the Bevy Remote Protocol or MCP; an agent skill shipped for one vendor; Keiko results as release evidence (K31; *amended 2026-11-17: now in scope*).

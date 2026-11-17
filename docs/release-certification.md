@@ -131,8 +131,24 @@ The first-time item now has a fixed version: 1.0.0, the first stable release.
 
 - **0.x releases.** Every 0.x release uses the fallback above. It is a standing choice, so the maintainer does not choose it, or recruit a participant, at each release. The release log records that the standing fallback applies and cites this section. The stranger appendix records the fallback and its evidence as before.
 - **Release notes during 0.x.** They name the human first-time run as an open item, deferred to 1.0.0.
-- **1.0.0.** The fallback is not available. The 1.0.0 candidate needs first-time evidence before any publication: a passing human stranger run on that candidate, or the agent test harness if a maintainer decision has accepted it as first-time evidence by then ([`keiko.md`](keiko.md) K31). Without one of them, 1.0.0 is not published.
+- **1.0.0.** The fallback is not available. The 1.0.0 candidate needs first-time evidence before any publication: a passing human stranger run on that candidate, or the agent test harness if a maintainer decision has accepted it as first-time evidence by then ([`keiko.md`](keiko.md) K31). Without one of them, 1.0.0 is not published. *(Amended 2026-11-17: that decision is taken. Once Keiko is built, its evidence closes the first-time item for 1.0.0 ([Keiko replaces the human walks](#keiko-replaces-the-human-walks-decided-2026-11-17)).)*
 - **An earlier human run.** A human stranger run that passes on a 0.x candidate is still welcome and is recorded in that release's stranger appendix. It does not remove the 1.0.0 requirement.
+
+## Keiko replaces the human walks (decided 2026-11-17)
+
+Once Keiko is built, its takes replace every human walk in this contract. The decision is recorded now and takes effect later.
+
+- **When it takes effect.** On the first release candidate after Keiko's slice 1 is merged and its gate passes ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)). Until then every rule above applies unchanged, including the 0.x first-time fallback.
+- **The executor.** Keiko runs against the candidate's own extracted player archive on each OS: the archived `unmei-play` with `--take` over the demo pack and over each fixture pack from the candidate's tagged source, and with `--explore` over the demo pack at the gate's budget ([Keiko spec §14.1](keiko-spec.md#141-release-evidence-added-2026-11-17)). A source build or the `check` workflow's results do not count. The record names the archive hashes, the commands, the pack set and each take's result. Live mode is never required.
+- **What it replaces.**
+  - The Windows full rendered/input walk and the archive functional acceptance on Windows. Keiko's takes supply the functional outcomes those rows list.
+  - The [human smoke checklist](testing-human-smoke.md), which is retired as a release or feature obligation.
+  - The human stranger run, for every release, 1.0.0 included (below).
+- **Residuals.** Rendering on a real GPU, heard audio and physical input are no longer walked on either OS. The record's `residuals` list carries each one as accepted and unverified, never passed, as the Linux rendered residual in [Release set and blocking evidence](#release-set-and-blocking-evidence-q4-q6q7-q10) already is. Certification claims no real-GPU, audio or physical-input assurance.
+- **First-time acceptance.** Two pieces of evidence on the same candidate bytes close it: Keiko's takes on the extracted archives, and an agent dry run that uses only the archive README and the public Guide, as item ten's sealed dry run did. The stranger appendix records both. This amends the [first-time fallback](#first-time-acceptance-fallback-decided-2026-11-08) and the [deferral to 1.0.0](#stranger-run-deferred-to-100-decided-2026-11-16): the human stranger run is no longer required for 1.0.0, and the release notes stop naming it as an open item once this takes effect. A human stranger run is still welcome and is recorded the same way.
+- **A failed take** on the candidate counts as a blocked required step: an issue, a fix and a new candidate.
+- **What it does not change.** The archive boots on both OSes, the Linux functional executor (Q16), the crate rows and every other blocking row stand. The [release runbook](release-runbook.md) gains the Keiko steps with the build.
+- **It overrides [Keiko K31](keiko.md#8-relation-to-other-work)**, which kept Keiko's results outside this contract.
 
 ## Compatibility during 0.x (decided 2026-11-10)
 
