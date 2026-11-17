@@ -129,7 +129,7 @@ pub fn shipping_app(
     session_log: SessionLogResult,
     install_startup: impl FnOnce(&mut App),
 ) -> App {
-    let asset_root = config.pack_root.join("assets");
+    let asset_root = config.asset_root.clone();
     let mut app = App::new();
     app.insert_resource(config);
     match session_log {
@@ -156,7 +156,7 @@ pub fn shipping_app(
 /// This app is update-only, without a runtime schedule runner; the caller sets
 /// strict ScheduleBuildSettings, executes frames and owns assertions.
 pub fn schedule_app(config: RuntimeConfig) -> App {
-    let asset_root = config.pack_root.join("assets");
+    let asset_root = config.asset_root.clone();
     let mut app = App::new();
     app.insert_resource(config);
     Selection::upstream()
