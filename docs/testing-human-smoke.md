@@ -8,6 +8,8 @@ keywords:
 ---
 # Human player smoke checklist and evidence boundary
 
+*(Amended 2026-11-17: once Keiko is built, every case here that needs no real GPU, audio device or physical input moves to a Keiko case, and this checklist keeps only the rest ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)). Until then the checklist is unchanged.)*
+
 **Status: human-confirmed planning contract, Q1–Q11. Not executed.** Part of item seven's testing decisions. This is a checklist and blank record, **not an execution receipt**. No case below has been run by this planning work.
 
 ## Scope and inherited acceptance (Q1–Q3)

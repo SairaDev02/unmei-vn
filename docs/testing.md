@@ -51,6 +51,7 @@ Prioritize player-visible behavior, gameplay progression, persistence, asynchron
 - Reserve exact dimensions, spacing, colors, typography, and hierarchy assertions for documented presentation requirements.
 - Prefer representative UI state transitions over exhaustive permutations without distinct failure risks.
 - Keep tests isolated from process-global logging and other shared state.
+- *(Amended 2026-11-17: Keiko, once built, is the player-level end-to-end layer above these tests. Its gate and the cases it takes over from the human checklist are in [Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when). Until it is built, nothing here changes.)*
 
 ## External Dependencies
 

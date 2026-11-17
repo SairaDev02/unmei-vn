@@ -99,6 +99,8 @@ keywords:
 ## 8. Versioning
 
 - **R25 — One interface.** The plugin interface is the set of node kinds, token groups, surfaces, slot and control names, copy keys and their required placeholders.
+
+  *(Amended 2026-11-17: the control names are the Keiko control ids, which [Keiko spec §3.2](keiko-spec.md#32-control-ids-k10) owns, so a case and a plugin name a control the same way.)*
 - **R26 — Additive changes keep the version.** A new optional slot, token, copy key or node kind does not change the format version.
 - **R27 — A format version, matched exactly.** `ui/plugin.ron` carries a [format version](../GLOSSARY.md#distribution) integer, as save slots and the read log do. A player reads only its own version. Any other version takes R14's failure path, and the check names the expected version. Removing or renaming anything in the interface, or adding a required slot to a surface, bumps the version. The reference plugin is always at the player's version.
 

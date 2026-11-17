@@ -95,6 +95,8 @@ These are additions to the UI plugin's interface, not a new kind.
 - **C3 — Errors and warnings, as text or JSON.** An error fails the check with a non-zero exit. A warning passes and is reported; partial and stale translations, flow lint and authoring-profile lint on hand-written lines are warnings. Output is readable text by default. `--format json` gives each finding's file, the path inside it, a rule id and the message.
 - **C4 — What the preview renders.** UI R23's fixture states for every surface, plus `--at <scene>:<line>`, the real frame at that say-line, choice or decide, and `--scene <id>`, every park in a scene.
 - **C5 — Reaching a line offline.** The preview replays from the top of the scene with the declared initial state. Each choice takes its first option and each decision lands on its fallback, with no API call and no key needed. `--state <file>` and `--pick` override these.
+
+  *(Amended 2026-11-17: C4's `--at` and `--scene` and C5's replay are Keiko's one replay, and the `--state` and `--pick` formats are defined there ([Keiko spec §12](keiko-spec.md#12-the-shared-replay-k29)).)*
 - **C6 — Motion as keyframe strips.** A park with motion renders its start, middle and end as separate PNGs.
 - **C7 — No GPU needed.** The preview runs on the software rasterizer CI already boots on, so an agent in a container can use it. Its frames may differ slightly from GPU frames; the native Monitor walk stays the rendered gate.
 
@@ -132,7 +134,7 @@ These are not amended yet. Each spec amends its contracts in place, with a dated
 - [Type system](title-and-menu.md#type-system): the embedded fallback faces (L9).
 - The audio contract in [slice-save-audio.md](slice-save-audio.md) and the title's "the title is silent" rule ([Title](title-and-menu.md#title)): `sfx_select` is re-described as the reference plugin's default (U2), and interface sounds may play on the title (U3).
 - [Drafting contract](author-cli-drafting.md): context assembly gains the profile (A2), and the gate gains a lint layer (A4). Translation drafting (L10) needs its own contract.
-- [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine owns every kind's format and static rules, the lint rules included, because both the CLI and the player run them; the regex dependency joins the engine. The player gains `--check` and `--preview` (C1).
+- [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine owns every kind's format and static rules, the lint rules included, because both the CLI and the player run them; the regex dependency joins the engine. The player gains `--check` and `--preview` (C1). *(Amended 2026-11-17: `--check` also reports the findings of every `.keiko` case under `tests/`, through the engine's Keiko validation ([Keiko spec §11](keiko-spec.md#11-check-and-packaging)).)*
 - `packaging/about.toml` and the third-party licence list: the fallback faces' licence (L9).
 - `GLOSSARY.md`: it gains **plugin kind**, **stage plugin**, **reference stage**, **language pack** and **authoring profile**.
 
