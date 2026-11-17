@@ -9,7 +9,7 @@ fn demo_epilogue_plays_the_else_arm_for_the_shipped_state() {
     // bare-bool block and the script ends.
     let mut runner = demo_pack_at_epilogue();
 
-    let outcome = runner.run();
+    let outcome = runner.run().unwrap();
     assert_eq!(
         outcome.staged,
         vec![
@@ -22,7 +22,11 @@ fn demo_epilogue_plays_the_else_arm_for_the_shipped_state() {
     assert_eq!(text, "She is already walking away.");
 
     runner.advance_say().unwrap();
-    assert_eq!(runner.run().wait, None, "the epilogue ends after `stop`");
+    assert_eq!(
+        runner.run().unwrap().wait,
+        None,
+        "the epilogue ends after `stop`"
+    );
 }
 
 #[test]
@@ -34,7 +38,7 @@ fn demo_epilogue_high_arm_plays_the_nested_letters_arm() {
     assert_eq!(text, "She lingers by the gate, in no hurry to leave.");
 
     runner.advance_say().unwrap();
-    let nested = runner.run();
+    let nested = runner.run().unwrap();
     assert_eq!(
         say_text(nested.wait.as_ref().unwrap()).1,
         "Keep it. It suits you."
@@ -42,7 +46,11 @@ fn demo_epilogue_high_arm_plays_the_nested_letters_arm() {
     assert_eq!(say_after(&mut runner), "You will see her again.");
 
     runner.advance_say().unwrap();
-    assert_eq!(runner.run().wait, None, "the epilogue ends after `stop`");
+    assert_eq!(
+        runner.run().unwrap().wait,
+        None,
+        "the epilogue ends after `stop`"
+    );
 }
 
 #[test]
@@ -75,13 +83,13 @@ fn demo_epilogue_nested_letters_else_arm_plays() {
         .restore_position("epilogue".to_string(), 0, state, None)
         .unwrap();
 
-    let outcome = runner.run();
+    let outcome = runner.run().unwrap();
     assert_eq!(
         say_text(outcome.wait.as_ref().unwrap()).1,
         "She lingers by the gate, in no hurry to leave."
     );
     runner.advance_say().unwrap();
-    let nested = runner.run();
+    let nested = runner.run().unwrap();
     assert_eq!(
         say_text(nested.wait.as_ref().unwrap()).1,
         "Next time, bring me something."

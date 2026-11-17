@@ -133,7 +133,7 @@ fn app_with_decisions_at(pack_root: PathBuf, decisions: Option<Arc<dyn DecisionR
 /// core would, so the app systems can be exercised from a known park.
 fn drive_runner_to_decision(runtime: &mut Runtime) {
     loop {
-        let outcome = runtime.runner.run();
+        let outcome = runtime.runner.run().unwrap();
         runtime.staging.apply_all(&outcome.staged);
         match outcome.wait {
             Some(Wait::Say { .. }) => runtime.runner.advance_say().unwrap(),
@@ -215,7 +215,7 @@ fn staged_asset_paths(action: &str) -> Vec<PathBuf> {
     }
 
     loop {
-        let outcome = runtime.runner.run();
+        let outcome = runtime.runner.run().unwrap();
         runtime.staging.apply_all(&outcome.staged);
         for command in &outcome.staged {
             let relative = match command {
@@ -2010,7 +2010,7 @@ fn missing_background_sprite_and_music_each_warn_once_and_play_continues() {
 
     // Play continues: the runner still reaches its next wait.
     let mut runtime = app.world_mut().resource_mut::<Runtime>();
-    let outcome = runtime.runner.run();
+    let outcome = runtime.runner.run().unwrap();
     runtime.staging.apply_all(&outcome.staged);
     assert!(
         outcome.wait.is_some(),
@@ -2047,7 +2047,7 @@ fn a_missing_choice_sound_reports_row_6_once() {
     {
         let mut runtime = app.world_mut().resource_mut::<Runtime>();
         loop {
-            let outcome = runtime.runner.run();
+            let outcome = runtime.runner.run().unwrap();
             runtime.staging.apply_all(&outcome.staged);
             match outcome.wait {
                 Some(Wait::Say { .. }) => runtime.runner.advance_say().expect("advance"),
@@ -7634,7 +7634,7 @@ fn new_game_with_a_live_session_confirms_once_and_resets() {
     // The fresh-boot park is the entry scene's first say.
     let boot_wait = {
         let pack = app.world().resource::<Runtime>().runner.pack().clone();
-        ScriptRunner::new(pack).run().wait
+        ScriptRunner::new(pack).run().unwrap().wait
     };
     reenter_title(&mut app);
 
@@ -9323,7 +9323,7 @@ fn the_title_reads_slot_metadata_once_per_entry() {
     let mut save = {
         let loaded = load_pack(&pack_root).expect("pack loads");
         let mut runner = ScriptRunner::new(loaded.pack);
-        runner.run();
+        runner.run().unwrap();
         SaveFile::capture(&runner, &StagingState::default())
     };
     save.saved_at = Some(1_760_000_000);
@@ -19041,7 +19041,7 @@ fn window_focus_regain_does_not_replay() {
 /// Drive the runner to the demo pack's first player choice.
 fn drive_runner_to_choice(runtime: &mut Runtime) {
     loop {
-        let outcome = runtime.runner.run();
+        let outcome = runtime.runner.run().unwrap();
         runtime.staging.apply_all(&outcome.staged);
         match outcome.wait {
             Some(Wait::Choice { .. }) => return,
@@ -20817,4 +20817,62 @@ fn a_key_check_verdict_of_openrouter_key_builds_no_resolver() {
         app.world().resource::<CredentialsState>().row == KeyRow::OpenRouterKey
     });
     assert!(rig.keys.lock().unwrap().is_empty());
+}
+
+/// A scene whose loop parks only while `met_ace` holds: with the declared
+/// `false` it spins, a cycle pack load cannot see (it passes through an `if`).
+const SPINNING_LOOP: &str = "label top\nif met_ace\nA: met.\nendif\njump top\n";
+
+#[test]
+fn a_wait_free_cycle_after_a_say_lands_on_row_13_with_the_hold() {
+    captures::install();
+    let pack = temp_custom_pack(&[("a", &format!("A: entry.\n{SPINNING_LOOP}"))], None, "a");
+    let mut app = app_with_decisions_at(pack.path().join("pack"), None);
+    force_single_threaded(&mut app);
+    assert!(parked_on_say(&app), "the entry say-line parks first");
+    captures::take();
+
+    press_and_update(&mut app, KeyCode::Space);
+
+    let records = failure_lines();
+    assert_eq!(records.len(), 1, "{records:?}");
+    assert_eq!(records[0].0, log::Level::Error);
+    assert!(
+        records[0].2.starts_with("the story can't continue")
+            && records[0].2.contains("`jump top` in scene `a`"),
+        "row 13's string with the runner's detail: {:?}",
+        records[0].2
+    );
+    assert!(app.world().resource::<DefensiveHold>().is_held());
+    assert_eq!(
+        app.world().resource::<Notice>().text.as_deref(),
+        Some("the story can't continue — Esc for the menu")
+    );
+}
+
+#[test]
+fn new_game_on_an_entry_scene_that_never_parks_lands_on_row_13_with_the_hold() {
+    captures::install();
+    let pack = temp_custom_pack(&[("a", SPINNING_LOOP)], None, "a");
+    let mut app = boot_app(pack.path().join("pack"), None);
+    force_single_threaded(&mut app);
+    captures::take();
+
+    enter_play(&mut app);
+
+    let records = failure_lines();
+    assert!(
+        records
+            .iter()
+            .any(|(_, _, line)| line.contains("closes a cycle that reaches no say-line")),
+        "{records:?}"
+    );
+    assert!(
+        app.world().resource::<DefensiveHold>().is_held(),
+        "New Game's reset must not release the hold it reports"
+    );
+    assert_eq!(
+        app.world().resource::<Notice>().text.as_deref(),
+        Some("the story can't continue — Esc for the menu")
+    );
 }

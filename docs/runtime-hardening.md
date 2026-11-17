@@ -562,7 +562,7 @@ Two rules follow from the set. **Nothing fails without a log line** (§6). And *
 
 ### 2. The inventory
 
-Every failure class a player can hit, with its surface, recovery path and verdict; the **Surface** column is where the Notice (§3) appears. Every row is reachable in a shipped build except the three marked **defensive**, which the loader's own validation makes unreachable and which are specified anyway — the cost of being wrong is a frozen screen. Row 1 is reachable only with a malformed pack (that is what it means), and row 22 is not a failure at all.
+Every failure class a player can hit, with its surface, recovery path and verdict; the **Surface** column is where the Notice (§3) appears. Every row is reachable in a shipped build except the three marked **defensive**, which the loader's own validation makes unreachable (row 13's wait-free cycle aside, which the loader cannot see) and which are specified anyway — the cost of being wrong is a frozen screen. Row 1 is reachable only with a malformed pack (that is what it means), and row 22 is not a failure at all.
 
 | # | Failure class | Posture | Surface | Recovery path | Verdict |
 | --- | --- | --- | --- | --- | --- |
@@ -578,7 +578,7 @@ Every failure class a player can hit, with its surface, recovery path and verdic
 | 10 | Decision config absent: no API key, or an NPC with no pinned model | Continue-with-fallback | log `warn!` — offline is a supported mode, not a fault | every decision point falls back by design | Continue |
 | 11 | A `decide` point with no matching NPC/question — **defensive** | Defensive | `error!` + Notice | Esc → menu; the hold is visible, not silent | Continue |
 | 12 | A decision answer whose label does not exist — **defensive** | Defensive | `error!` + Notice | as row 11 | Continue |
-| 13 | `advance_say` / `choose` / `resolve_decision` returns a `RunnerError` (not parked, bad index) — **defensive** | Defensive | `error!` + Notice | as row 11 | Continue |
+| 13 | `advance_say` / `choose` / `resolve_decision` returns a `RunnerError` (not parked, bad index), or `run` returns one because the script entered a jump cycle that never parks on this state ([`content-format.md` § 5](content-format.md#5-transitions)) *(amended 2026-11-17)* — **defensive** | Defensive | `error!` + Notice | as row 11 | Continue |
 | 14 | Manual save write fails (encode error, IO error, read-only pack directory) | Continue-with-message | Notice; the slot file and the card are left as they were | retry from the overlay; fix permissions or space | Continue |
 | 15 | Autosave write fails (scene crossing, choice resolve, model-answered decision) | Continue-with-message | Notice — [Save slots](#save-slots) §4 carries this | the next crossing or resolve retries; manual save still works | Continue |
 | 16 | Slot unreadable at open: decode failure, newer version, IO error, `scene_id` absent from the pack, or a failed semantic check ([Save slots](#save-slots) §3) | Continue-with-message | the card's reason ([save slots](#save-slots), [menu overlay](#menu-overlay)) and load disabled | overwrite it, or fix the file | Continue |

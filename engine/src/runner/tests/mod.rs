@@ -7,6 +7,7 @@ use crate::parser::Parser;
 use std::path::{Path, PathBuf};
 
 mod conditions;
+mod cycles;
 mod epilogue;
 mod parks;
 
@@ -41,7 +42,7 @@ fn test_pack(scenes: &[(&str, &str)], state: HashMap<String, StateValue>) -> Pac
 /// Drive through say/choice waits until the runner parks on a decision.
 fn drive_to_decision(runner: &mut ScriptRunner) {
     loop {
-        let outcome = runner.run();
+        let outcome = runner.run().unwrap();
         match outcome.wait {
             Some(Wait::Say { .. }) => runner.advance_say().unwrap(),
             Some(Wait::Choice { .. }) => runner.choose(0).unwrap(),
@@ -61,7 +62,7 @@ fn say_text(wait: &Wait) -> (&str, &str) {
 fn say_after(runner: &mut ScriptRunner) -> String {
     // Advance past the current say-wait and return the next line's text.
     runner.advance_say().unwrap();
-    let outcome = runner.run();
+    let outcome = runner.run().unwrap();
     say_text(outcome.wait.as_ref().unwrap()).1.to_string()
 }
 
@@ -84,7 +85,7 @@ fn play_demo_to_epilogue(entry_choice: usize) -> (ScriptRunner, String, String) 
     let mut runner = ScriptRunner::new(demo_pack());
     let mut picked = false;
     loop {
-        let outcome = runner.run();
+        let outcome = runner.run().unwrap();
         match outcome.wait {
             Some(Wait::Say { speaker, text }) => {
                 if runner.scene_id() == "epilogue" {

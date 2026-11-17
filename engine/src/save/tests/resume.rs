@@ -102,7 +102,7 @@ fn restore_replays_a_say_wait() {
 
     assert_eq!(fresh.wait(), Some(&parked));
     // A subsequent run returns the same park rather than moving on.
-    assert_eq!(fresh.run().wait, Some(parked));
+    assert_eq!(fresh.run().unwrap().wait, Some(parked));
 }
 
 #[test]
@@ -173,7 +173,7 @@ fn restore_refires_a_decision_wait() {
     // The caller re-fires the decision: landing on the action label works
     // from the reloaded state exactly as it would have live.
     fresh.resolve_decision("warm").expect("lands on reply.warm");
-    let landed = fresh.run();
+    let landed = fresh.run().unwrap();
     let Wait::Say { speaker, text } = landed.wait.expect("parks on a say") else {
         panic!("expected a say after the decision");
     };
@@ -207,7 +207,7 @@ fn restore_carries_state_forward() {
 #[test]
 fn restore_resumes_inside_a_taken_conditional_arm() {
     let mut runner = ScriptRunner::new(conditional_pack());
-    let parked = runner.run().wait.expect("parks on the arm's say");
+    let parked = runner.run().unwrap().wait.expect("parks on the arm's say");
     let save = SaveFile::capture(&runner, &StagingState::default());
 
     let mut fresh = ScriptRunner::new(conditional_pack());
@@ -217,7 +217,7 @@ fn restore_resumes_inside_a_taken_conditional_arm() {
     // Resuming after the arm's say skips the `else` marker and reaches the
     // say after the block without re-evaluating the condition.
     fresh.advance_say().unwrap();
-    match fresh.run().wait {
+    match fresh.run().unwrap().wait {
         Some(Wait::Say { text, .. }) => assert_eq!(text, "After."),
         other => panic!("expected the say after the block, got {other:?}"),
     }

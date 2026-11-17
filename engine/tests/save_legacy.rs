@@ -28,7 +28,7 @@ fn temp_pack() -> (tempfile::TempDir, Pack) {
 /// A valid save parked on the demo pack's first say-line.
 fn parked_save(pack: &Pack) -> SaveFile {
     let mut runner = ScriptRunner::new(pack.clone());
-    runner.run();
+    runner.run().unwrap();
     SaveFile::capture(&runner, &StagingState::default())
 }
 

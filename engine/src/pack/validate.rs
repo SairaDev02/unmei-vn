@@ -33,6 +33,7 @@ pub(super) fn validate(
     }
 
     validate_declared_order(manifest, scenes, errors, warnings);
+    validate_wait_free_cycles(scenes, errors);
 
     for (scene_id, scene) in scenes {
         let file = format!("scenes/{scene_id}.unmei");
@@ -282,6 +283,84 @@ fn validate_declared_order(
             message: format!("{noun} `{scene_id}` is not listed in `scenes`{tail}"),
         });
     }
+}
+
+/// Reject every `jump` cycle that has no say-line, `choice`, `decide` or `if`
+/// on it: once entered, the runner would never park. A cycle through an `if`
+/// may leave on some state, so pack load leaves it to the runner, which
+/// catches the state that spins ([`crate::runner::RunnerError::WaitFreeCycle`]).
+/// Each cycle is reported once, at its first `jump` in (scene id, line)
+/// order, and the cycles are reported in that order too.
+fn validate_wait_free_cycles(scenes: &HashMap<String, Scene>, errors: &mut Vec<LoadError>) {
+    // Every position has at most one successor, so each walk either ends or
+    // runs into a cycle; `done` marks positions whose walk is settled.
+    let mut ids: Vec<&str> = scenes.keys().map(String::as_str).collect();
+    ids.sort_unstable();
+    let mut done: BTreeSet<Pos<'_>> = BTreeSet::new();
+    let mut cycles: Vec<Pos<'_>> = Vec::new();
+    for scene_id in ids {
+        for start in 0..scenes[scene_id].lines.len() {
+            let mut path: Vec<Pos<'_>> = Vec::new();
+            let mut on_path: BTreeSet<Pos<'_>> = BTreeSet::new();
+            let mut pos = Some((scene_id, start));
+            while let Some(p) = pos {
+                if done.contains(&p) {
+                    break;
+                }
+                if on_path.contains(&p) {
+                    // The cycle is the tail of `path` from `p`; report it at
+                    // its first `jump` (a cycle always holds one: only a
+                    // `jump` moves backward or across files).
+                    let from = path.iter().position(|q| *q == p).unwrap_or(0);
+                    let first_jump = path[from..]
+                        .iter()
+                        .filter(|(s, i)| matches!(scenes[*s].lines[*i], Line::Jump(_)))
+                        .min()
+                        .copied();
+                    cycles.extend(first_jump);
+                    break;
+                }
+                path.push(p);
+                on_path.insert(p);
+                pos = step(scenes, p);
+            }
+            done.extend(path);
+        }
+    }
+
+    cycles.sort();
+    for (scene_id, idx) in cycles {
+        let scene = &scenes[scene_id];
+        let Line::Jump(target) = &scene.lines[idx] else {
+            continue;
+        };
+        errors.push(LoadError::new(
+            format!("scenes/{scene_id}.unmei"),
+            Some(scene.source_line(idx)),
+            format!(
+                "`jump {target}` closes a cycle that reaches no say-line, choice or decide — play would freeze here"
+            ),
+        ));
+    }
+}
+
+/// A script position: scene id and line index.
+type Pos<'a> = (&'a str, usize);
+
+/// The one position a command moves to without parking or branching; `None`
+/// for a park, an `if`, the end of a scene or an unresolved target.
+fn step<'a>(scenes: &'a HashMap<String, Scene>, (scene_id, idx): Pos<'a>) -> Option<Pos<'a>> {
+    let scene = &scenes[scene_id];
+    let to = match &scene.lines[idx] {
+        Line::Say { .. } | Line::Choice(_) | Line::Decide { .. } | Line::If { .. } => return None,
+        Line::Else { end_index } => (scene_id, end_index + 1),
+        Line::Jump(target) => match scene.labels.get(target) {
+            Some(&label) => (scene_id, label),
+            None => (scenes.get_key_value(target)?.0.as_str(), 0),
+        },
+        _ => (scene_id, idx + 1),
+    };
+    (to.1 < scenes[to.0].lines.len()).then_some(to)
 }
 
 #[allow(
