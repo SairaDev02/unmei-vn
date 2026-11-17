@@ -26,6 +26,7 @@ app/assets/fonts/FiraMono-LICENSE -text -diff
 # wrote regardless of core.autocrlf.
 docs/INDEX.md text eol=lf
 docs/adr/INDEX.md text eol=lf
+docs/agents/INDEX.md text eol=lf
 docs/guide/INDEX.md text eol=lf
 
 # The notices template is rendered into release archives, so a checkout must hand
