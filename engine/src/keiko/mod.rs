@@ -11,6 +11,7 @@ mod controls;
 mod finding;
 mod model;
 mod parse;
+mod parse_step;
 mod text;
 mod validate;
 
@@ -24,6 +25,7 @@ pub use model::{
     Header, HeaderLine, KeyCheckFault, LoadTarget, LogLevel, Pick, SkipMode, SlotExpect, Step,
     StepLine, WriteTarget,
 };
-pub use parse::{parse_case, parse_duration, CASE_VERSION, SURFACES};
+pub use parse::{parse_case, parse_duration, CASE_VERSION};
+pub use parse_step::SURFACES;
 pub use text::{exact, normalize};
 pub use validate::{parse_state_value, slot_of, validate, Facts};
