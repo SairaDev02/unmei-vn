@@ -14,17 +14,20 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use unmei_engine::keiko::{Case, Expect, Fault, FixtureKind, KeyCheckFault, Step, WriteTarget};
+use unmei_engine::keiko::{Case, Expect, Fault, FixtureKind, KeyCheckFault, Step};
 use unmei_engine::Pack;
 
 use super::assert::evaluate;
 use super::decide::KeikoResolver;
 use super::finding::{rules, Finding};
-use super::observe::{log_lines_from, observe, LogLine, Observation};
+use super::observe::{observe, LogLine, Observation};
 use super::sandbox::Sandbox;
 use super::steps::{apply, Applied, FRAME};
 use crate::failure::{SessionLog, SessionLogResult};
 use crate::{Runtime, RuntimeConfig};
+
+mod support;
+use support::*;
 
 /// A live run's client, built from the environment key only.
 #[derive(Clone)]
@@ -213,7 +216,7 @@ pub fn run(request: TakeRequest) -> TakeResult {
     }
 }
 
-struct TakeState {
+pub(super) struct TakeState {
     observation: Observation,
     records: Vec<Observation>,
     log_cursor: usize,
@@ -223,35 +226,6 @@ struct TakeState {
     live: Arc<std::sync::atomic::AtomicBool>,
     resolver: Arc<KeikoResolver>,
     key_check_release: Arc<std::sync::atomic::AtomicBool>,
-}
-
-fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoResolver> {
-    let decisions = request
-        .case
-        .headers
-        .iter()
-        .filter_map(|line| match &line.header {
-            unmei_engine::keiko::Header::Decide { point, action } => {
-                Some((super::question_of(point), super::landing_action(action)))
-            }
-            _ => None,
-        });
-    let faults: Vec<Fault> = request
-        .case
-        .headers
-        .iter()
-        .filter_map(|line| match &line.header {
-            unmei_engine::keiko::Header::Fault { fault } => Some(fault.clone()),
-            _ => None,
-        })
-        .collect();
-    let resolver = KeikoResolver::new(decisions, faults).with_clock(clock);
-    match &request.live {
-        Some(live) => {
-            Arc::new(resolver.with_live(super::decide::live_client(&live.endpoint, &live.key)))
-        }
-        None => Arc::new(resolver),
-    }
 }
 
 /// Boot the app and settle on the first surface (spec §4.3), then honour a
@@ -370,30 +344,13 @@ fn step_once(
     Ok(())
 }
 
-fn settle_with_step(
+/// The settle rule: zero-duration frames until the world is quiet, or 600
+/// frames, whichever comes first (spec §4.3).
+pub(super) fn settle(
     app: &mut App,
     state: &mut TakeState,
     request: &TakeRequest,
-    line: usize,
 ) -> Result<(), Finding> {
-    let mut settled = settle(app, state, request);
-    if let Err(finding) = &mut settled {
-        finding.path = format!("line {line}");
-    }
-    settled
-}
-
-/// Build the observation and accumulate the take's log lines.
-fn observe_step(app: &mut App, state: &mut TakeState) {
-    let (lines, cursor) = log_lines_from(state.log_cursor);
-    state.log_cursor = cursor;
-    state.all_log.extend(lines.iter().cloned());
-    state.observation = observe(app, lines, state.live.load(Ordering::Relaxed));
-}
-
-/// The settle rule: zero-duration frames until the world is quiet, or 600
-/// frames, whichever comes first (spec §4.3).
-fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(), Finding> {
     let held_decision = request.case.headers.iter().any(|line| {
         matches!(
             line.header,
@@ -483,28 +440,6 @@ fn frame(app: &mut App, timed: &AtomicU64, clock: &AtomicU64, delta: Duration) {
 /// One frame of the take's clock in nanoseconds, as `n * 1e9 / 60`.
 const NANOS_PER_FRAME: u64 = 1_000_000_000;
 
-/// How many timed frames `duration` lasts: `ceil(nanos * 60 / 1e9)`, in exact
-/// integer arithmetic so `wait 1s` is 60 frames rather than 61 (spec §3.4).
-pub fn frames_for(duration: Duration) -> u64 {
-    let nanos = duration.as_nanos() * 60;
-    nanos.div_ceil(u128::from(NANOS_PER_FRAME)) as u64
-}
-
-/// Release every key the case left held, so the next take starts clean.
-fn release_held(app: &mut App) {
-    let held: Vec<KeyCode> = app
-        .world()
-        .resource::<ButtonInput<KeyCode>>()
-        .get_pressed()
-        .copied()
-        .collect();
-    for key in held {
-        app.world_mut()
-            .resource_mut::<ButtonInput<KeyCode>>()
-            .release(key);
-    }
-}
-
 /// Apply the case's fixtures and faults to the sandbox before boot (spec §7).
 fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), Finding> {
     let tests_dir = original_pack.join("tests");
@@ -588,124 +523,6 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
     Ok(())
 }
 
-/// Write one `setting` header into the in-memory settings, in the file's RON
-/// form, so the player's own validation and normalisation apply at load.
-fn apply_setting(
-    settings: &mut crate::settings::Settings,
-    key: &str,
-    value: &str,
-) -> Result<(), String> {
-    let Some((_, kind)) = crate::settings::SETTING_SCHEMA
-        .iter()
-        .find(|(name, _)| *name == key)
-    else {
-        return Err(format!("unknown settings key `{key}`"));
-    };
-    // The kind is checked by the table, so a toggle cannot take a number.
-    match kind {
-        crate::settings::SettingKind::Number if value.parse::<f32>().is_err() => {
-            return Err(format!("`{value}` is not a value for `{key}`"));
-        }
-        crate::settings::SettingKind::Toggle if value.parse::<bool>().is_err() => {
-            return Err(format!("`{value}` is not a value for `{key}`"));
-        }
-        _ => {}
-    }
-    let invalid = || format!("`{value}` is not a value for `{key}`");
-    match key {
-        "audio.master" => settings.audio.master = value.parse().map_err(|_| invalid())?,
-        "audio.music" => settings.audio.music = value.parse().map_err(|_| invalid())?,
-        "audio.sfx" => settings.audio.sfx = value.parse().map_err(|_| invalid())?,
-        "audio.muted" => settings.audio.muted = value.parse().map_err(|_| invalid())?,
-        "play.text_speed" => settings.play.text_speed = value.parse().map_err(|_| invalid())?,
-        "play.auto" => settings.play.auto = value.parse().map_err(|_| invalid())?,
-        "play.fullscreen" => settings.play.fullscreen = value.parse().map_err(|_| invalid())?,
-        other => return Err(format!("unknown settings key `{other}`")),
-    }
-    Ok(())
-}
-
-fn write_target_path(sandbox: &Sandbox, target: WriteTarget) -> PathBuf {
-    write_target_path_root(sandbox.pack_root(), target)
-}
-
-fn write_target_path_root(pack_root: &std::path::Path, target: WriteTarget) -> PathBuf {
-    let pack = unmei_engine::Pack {
-        manifest: unmei_engine::Manifest {
-            name: String::new(),
-            entry: String::new(),
-            tagline: None,
-            title_backdrop: None,
-            scenes: Vec::new(),
-        },
-        state: Default::default(),
-        scenes: Default::default(),
-        npcs: Default::default(),
-        root: pack_root.to_path_buf(),
-    };
-    match target {
-        WriteTarget::Slot(slot) => unmei_engine::save_path_for(&pack, slot),
-        WriteTarget::ReadLog => unmei_engine::read_log_path_for(&pack),
-        WriteTarget::Settings => crate::settings::settings_path_for(pack_root),
-        WriteTarget::Credential => crate::credentials::credentials_path_in(
-            &pack_root.join("..").join("config").join("unmei"),
-        ),
-    }
-}
-
-/// A key check that follows the case's declared fault, or answers `Unreachable`
-/// when none is declared (spec §4.1, §7.2).
-struct KeikoKeyCheck {
-    verdict: KeyCheckFault,
-    released: Arc<std::sync::atomic::AtomicBool>,
-}
-
-impl KeikoKeyCheck {
-    fn new(
-        headers: &[unmei_engine::keiko::HeaderLine],
-        released: Arc<std::sync::atomic::AtomicBool>,
-    ) -> Self {
-        let verdict = headers
-            .iter()
-            .find_map(|line| match &line.header {
-                unmei_engine::keiko::Header::Fault {
-                    fault: Fault::KeyCheck { verdict },
-                } => Some(*verdict),
-                _ => None,
-            })
-            .unwrap_or(KeyCheckFault::Unreachable);
-        Self { verdict, released }
-    }
-}
-
-impl unmei_engine::KeyCheck for KeikoKeyCheck {
-    fn check<'a>(
-        &'a self,
-        _key: &'a str,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = unmei_engine::KeyVerdict> + Send + 'a>>
-    {
-        let immediate = match self.verdict {
-            KeyCheckFault::Accepted => Some(unmei_engine::KeyVerdict::Accepted),
-            KeyCheckFault::Rejected => Some(unmei_engine::KeyVerdict::Rejected),
-            KeyCheckFault::Unreachable => Some(unmei_engine::KeyVerdict::Unreachable),
-            // A held verdict answers only when `release-key-check` runs.
-            KeyCheckFault::Hold => None,
-        };
-        if let Some(verdict) = immediate {
-            return Box::pin(async move { verdict });
-        }
-        let released = self.released.clone();
-        Box::pin(std::future::poll_fn(move |context| {
-            if released.load(Ordering::Relaxed) {
-                std::task::Poll::Ready(unmei_engine::KeyVerdict::Unreachable)
-            } else {
-                context.waker().wake_by_ref();
-                std::task::Poll::Pending
-            }
-        }))
-    }
-}
-
 /// One step's expectation, exposed for the take's tests.
 pub fn expects(case: &Case) -> Vec<&Expect> {
     case.steps
@@ -715,35 +532,4 @@ pub fn expects(case: &Case) -> Vec<&Expect> {
             _ => None,
         })
         .collect()
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Every key the schema publishes applies, so the validator's table and
-    /// the applier cannot drift.
-    #[test]
-    fn every_schema_key_applies() {
-        for (key, kind) in crate::settings::SETTING_SCHEMA {
-            let value = match kind {
-                crate::settings::SettingKind::Number => "0.5",
-                crate::settings::SettingKind::Toggle => "true",
-            };
-            let mut settings = crate::settings::Settings::default();
-            assert!(
-                apply_setting(&mut settings, key, value).is_ok(),
-                "{key} did not apply"
-            );
-        }
-    }
-
-    #[test]
-    fn wait_frames_are_exact() {
-        assert_eq!(frames_for(Duration::from_secs(1)), 60);
-        assert_eq!(frames_for(Duration::from_secs(2)), 120);
-        assert_eq!(frames_for(Duration::from_millis(250)), 15);
-        assert_eq!(frames_for(Duration::from_millis(980)), 59);
-        assert_eq!(frames_for(Duration::from_nanos(1)), 1);
-    }
 }
