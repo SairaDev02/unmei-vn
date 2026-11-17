@@ -326,6 +326,8 @@ The summary lists, per scene, the say-lines and choices reached out of the total
 
 Each finding is saved as `tests/findings/<rule>-<hash>.keiko`, where `<hash>` is the first 8 hex digits of the SHA-256 of its step list. A file that already exists is left alone, so a rerun adds nothing new. The case holds a comment with the finding's message, the branch's headers and steps, and a closing assertion that the finding does not occur (for example `expect notice none` or `expect no-log warn row 7`). The case therefore fails while the problem exists and passes once it is fixed, and the author keeps it as a regression test.
 
+A finding with no closing assertion the case grammar can express is reported but not saved, because a case without one would pass while the problem exists (rule 29). This happens, for example, with a stuck park that has no say-line after it. *(Amended 2026-11-17.)*
+
 ## 10. Output and exit codes (K27)
 
 ### 10.1 Text and JSON
@@ -334,7 +336,7 @@ Text is the default. With `--format json`, every mode prints one JSON document t
 
 - `--take`: `{ "takes": [{ "case", "result": "pass" | "fail", "live", "failure": <finding> | null, "observation" }] }`.
 - `--step` and `--observe`: `{ "result", "failure", "observation" }`.
-- `--explore`: `{ "findings": [<finding> + "case": path], "coverage", "budget": { "limit", "used" } }`.
+- `--explore`: `{ "findings": [<finding> + "case": path], "coverage", "budget": { "limit", "used" } }`. An unsaved finding (§9.4) carries `"saved": false` in place of `case`, and the text form marks it `unsaved`. *(Amended 2026-11-17.)*
 
 A finding has the shape of the check's findings ([plugin family C3](plugin-family.md#5-pack-wide-check-and-preview)): `{ "file", "path", "rule", "message" }`. For a case, `file` is the case path and `path` is `line <n>`.
 
