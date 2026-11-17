@@ -42,6 +42,8 @@ my-pack/
 
 Scene id = scene filename stem. An NPC id = NPC filename stem: `npcs/ace.ron` holds `id: "ace"`, and a file whose `id` does not match its stem fails to load. Pack text files are UTF-8: `pack.ron`, `state.ron`, `scenes/*.unmei`, `npcs/*.ron` and `pack.glossary.md`. A file the loader reads that is not valid UTF-8 fails to load. A single leading U+FEFF byte order mark is allowed and ignored, so the file reads exactly as it would without one. Any other U+FEFF is part of the text, and a write by the author CLI drops the mark. A pack is a directory in exactly this shape; the runtime/CLI validate it on load.
 
+*(Amended 2026-11-17: a pack may also hold an optional `tests/` folder of Keiko cases, `tests/<id>.keiko`. The player and the CLI never load it; only Keiko reads it ([Keiko spec §2](keiko-spec.md#2-the-case-file-k6k8)).)*
+
 `AGENT-GUIDE.md` is optional documentation, like this page is for an author: no loader reads it, so it adds no content and changes no validation. The demo pack ships one for an AI coding agent working on a pack.
 
 **The gallery shows declared references only** *(added 2026-10-05)*: the in-app gallery lists exactly the images the pack's own files reference — each distinct `bg <id>`, each distinct `sprite <npc_id> <pose>`, and the manifest's `title_backdrop` (merged into the background entry of the same id) — and never scans `assets/`. An image present in `assets/` that no pack file references is invisible to the gallery.

@@ -42,6 +42,7 @@ The root [`Cargo.toml`](../Cargo.toml) lists three workspace members: `engine`, 
 - **Role.** The Bevy player. It owns windowing, rendering, audio, input, presentation and the Decisions calls it starts at a decision point ([`app/src/composition.rs`](../app/src/composition.rs), [`app/src/presentation.rs`](../app/src/presentation.rs)). The package is `unmei-app` and the binary is `unmei-play` ([`app/Cargo.toml`](../app/Cargo.toml)).
 - **Boundary: unpublished.** `app/Cargo.toml` sets `publish = false`, so Cargo refuses to publish the player to crates.io. The engine and the CLI carry no such flag.
 - **Library.** The crate also exposes a library, `unmei_app`. The shipping-schedule test ([`app/tests/shipping_schedule.rs`](../app/tests/shipping_schedule.rs)) uses it to build the production schedule without a window.
+- **Keiko (specified, not built).** *(Amended 2026-11-17.)* `unmei-play` will host the Keiko modes `--take`, `--step`, `--observe` and `--explore` through a third, windowless composition. The Bevy-free case parser and its static checks will live in the engine, so no Bevy enters the CLI ([Keiko spec §1, §4.1, §11](keiko-spec.md)).
 
 ## Data flow
 

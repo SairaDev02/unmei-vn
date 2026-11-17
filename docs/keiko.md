@@ -11,7 +11,7 @@ keywords:
 ---
 # Keiko — requirements
 
-**Status (2026-11-15).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions), awaiting acceptance. **Not specified, not built.** The build-ready spec is the next phase. Nothing here changes a contract yet: [Contracts this will amend](#9-contracts-this-will-amend) names each one the spec will change.
+**Status (2026-11-17).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions) and accepted 2026-11-15. **Specified 2026-11-17 in the [build-ready spec](keiko-spec.md), not built.** The spec amended each contract in [Contracts this will amend](#9-contracts-this-will-amend) with a dated pointer ([spec §16](keiko-spec.md#16-amendments)).
 
 **What this is.** Unmei's tests today stop short of the player. The headless app tests assert ECS-level state transitions. The Monitor examples drive a real window with a real GPU. The [human smoke checklist](testing-human-smoke.md) is the only end-to-end pass over menus, saves, skip, the Timeline and failures, and a person runs it by hand. An author has nothing beyond playing their own pack. **Keiko** (稽古, rehearsal) plays a pack the way a player does and checks what that player would perceive. A coding agent can drive it from a shell without a person present. Authors test their own packs with it. Maintainers test Unmei with it through the demo pack and fixture packs.
 
@@ -107,6 +107,8 @@ These are not amended yet. The spec amends each in place, with a dated pointer.
 | **Finding** | A problem exploration reports, saved as a case that reproduces it. | failure, bug, error (each means something narrower) |
 
 ## 10. Left to the spec
+
+*(Answered 2026-11-17: each item below is settled in the [build-ready spec](keiko-spec.md), where its decision is recorded.)*
 
 - The step syntax, the full fixed fault list and the JSON shape of an observation.
 - The command and flag names under `unmei-play`.
