@@ -7,7 +7,7 @@ use super::*;
 fn parks_on_say_then_choice_with_staging() {
     let mut runner = ScriptRunner::new(demo_pack());
 
-    let first = runner.run();
+    let first = runner.run().unwrap();
     let (speaker, text) = say_text(first.wait.as_ref().unwrap());
     assert_eq!(speaker, "Narrator");
     assert!(text.starts_with("Morning light."));
@@ -20,7 +20,7 @@ fn parks_on_say_then_choice_with_staging() {
     );
 
     runner.advance_say().unwrap();
-    let second = runner.run();
+    let second = runner.run().unwrap();
     let (speaker, _) = say_text(second.wait.as_ref().unwrap());
     assert_eq!(speaker, "Ace");
     assert_eq!(
@@ -32,7 +32,7 @@ fn parks_on_say_then_choice_with_staging() {
     );
 
     runner.advance_say().unwrap();
-    let third = runner.run();
+    let third = runner.run().unwrap();
     match third.wait.unwrap() {
         Wait::Choice { options } => {
             assert_eq!(options.len(), 2);
@@ -46,23 +46,23 @@ fn parks_on_say_then_choice_with_staging() {
 fn choose_branches_and_crosses_into_a_scene_file() {
     let mut runner = ScriptRunner::new(demo_pack());
     // Narrator -> Ace -> choice
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    let choice = runner.run();
+    let choice = runner.run().unwrap();
     assert!(matches!(choice.wait, Some(Wait::Choice { .. })));
 
     // Option 1 = "Stay silent" -> label silence.
     runner.choose(1).unwrap();
-    let after = runner.run();
+    let after = runner.run().unwrap();
     let (speaker, text) = say_text(after.wait.as_ref().unwrap());
     assert_eq!(speaker, "Ace");
     assert!(text.contains("don't talk"));
 
     // jump converge -> stop -> jump reunion -> scene file from top.
     runner.advance_say().unwrap();
-    let reunion = runner.run();
+    let reunion = runner.run().unwrap();
     assert_eq!(runner.scene_id(), "reunion");
     assert!(reunion
         .staged
@@ -85,7 +85,7 @@ fn set_mutates_state_and_interpolates() {
     assert_eq!(pack.scenes["scene"].labels.len(), 0);
 
     let mut runner = ScriptRunner::new(pack);
-    let outcome = runner.run();
+    let outcome = runner.run().unwrap();
     let (_, text) = say_text(outcome.wait.as_ref().unwrap());
     assert_eq!(text, "Feeling calm today.");
     assert_eq!(runner.state()["mood"], StateValue::Str("calm".to_string()));
@@ -110,7 +110,7 @@ fn decision_parks_and_resolves_to_action_label() {
     }
 
     runner.resolve_decision("warm").unwrap();
-    let landed = runner.run();
+    let landed = runner.run().unwrap();
     assert_eq!(
         landed.staged,
         vec![StageCommand::Sprite {
@@ -136,7 +136,7 @@ fn fallback_action_lands_on_fallback_label() {
     drive_to_decision(&mut runner);
     runner.resolve_decision(&resolved.action).unwrap();
 
-    let landed = runner.run();
+    let landed = runner.run().unwrap();
     let (speaker, text) = say_text(landed.wait.as_ref().unwrap());
     assert_eq!(speaker, "Ace");
     assert!(text.contains("It's you."));
@@ -173,13 +173,16 @@ fn noul_decision_lands_on_the_boolean_label() {
     );
 
     let mut runner = ScriptRunner::new(pack);
-    assert!(matches!(runner.run().wait, Some(Wait::Decision { .. })));
+    assert!(matches!(
+        runner.run().unwrap().wait,
+        Some(Wait::Decision { .. })
+    ));
 
     let body = r#"{ "model": "m", "answers": { "is_hostile": { "type": "noul", "noul": 0.9 } } }"#;
     let decision = decision_from_body(body, "is_hostile", &config).unwrap();
     runner.resolve_decision(&decision.action).unwrap();
 
-    let landed = runner.run();
+    let landed = runner.run().unwrap();
     assert_eq!(say_text(landed.wait.as_ref().unwrap()).1, "True.");
 }
 
@@ -215,13 +218,16 @@ fn score_decision_lands_on_the_probability_index() {
     );
 
     let mut runner = ScriptRunner::new(pack);
-    assert!(matches!(runner.run().wait, Some(Wait::Decision { .. })));
+    assert!(matches!(
+        runner.run().unwrap().wait,
+        Some(Wait::Decision { .. })
+    ));
 
     let body = r#"{ "model": "m", "answers": { "trust": { "type": "score", "score": 1.2, "probabilities": { "0": 0.1, "1": 0.2, "2": 0.7 } } } }"#;
     let decision = decision_from_body(body, "trust", &config).unwrap();
     runner.resolve_decision(&decision.action).unwrap();
 
-    let landed = runner.run();
+    let landed = runner.run().unwrap();
     assert_eq!(say_text(landed.wait.as_ref().unwrap()).1, "All.");
 }
 
@@ -238,11 +244,11 @@ fn unknown_action_label_is_an_error_and_keeps_the_wait() {
 #[test]
 fn choice_index_out_of_range_is_an_error() {
     let mut runner = ScriptRunner::new(demo_pack());
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     assert_eq!(
         runner.choose(9).unwrap_err(),
         RunnerError::BadChoice { index: 9, len: 2 }

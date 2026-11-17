@@ -36,7 +36,7 @@ async fn live_decide_lands_on_action_label() {
     // Drive first_meeting -> reunion -> the decide point.
     let mut runner = ScriptRunner::new(pack);
     loop {
-        match runner.run().wait {
+        match runner.run().unwrap().wait {
             Some(Wait::Say { .. }) => runner.advance_say().expect("say wait"),
             Some(Wait::Choice { .. }) => runner.choose(0).expect("choice wait"),
             Some(Wait::Decision { .. }) => break,
@@ -66,7 +66,7 @@ async fn live_decide_lands_on_action_label() {
     runner
         .resolve_decision(&resolved.action)
         .expect("resolved action has a label");
-    let landed = runner.run();
+    let landed = runner.run().unwrap();
     let Some(Wait::Say { speaker, text }) = landed.wait else {
         panic!("decision did not land on a say-line");
     };

@@ -26,7 +26,7 @@ fn temp_pack() -> (tempfile::TempDir, Pack) {
 /// A valid save parked on the demo pack's first say-line.
 fn parked_save() -> SaveFile {
     let mut runner = ScriptRunner::new(demo_pack());
-    runner.run();
+    runner.run().unwrap();
     SaveFile::capture(&runner, &StagingState::default())
 }
 
@@ -61,20 +61,24 @@ fn status(pack: &Pack, slot: Slot) -> SlotStatus {
 }
 
 fn drive_to_say(runner: &mut ScriptRunner) -> Wait {
-    runner.run().wait.expect("runner parks on a say")
+    runner.run().unwrap().wait.expect("runner parks on a say")
 }
 
 fn drive_to_choice(runner: &mut ScriptRunner) -> Wait {
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run().wait.expect("runner parks on a choice")
+    runner
+        .run()
+        .unwrap()
+        .wait
+        .expect("runner parks on a choice")
 }
 
 fn drive_to_decision(runner: &mut ScriptRunner) -> Wait {
     loop {
-        let outcome = runner.run();
+        let outcome = runner.run().unwrap();
         match outcome.wait {
             Some(Wait::Say { .. }) => runner.advance_say().unwrap(),
             Some(Wait::Choice { .. }) => runner.choose(0).unwrap(),
@@ -140,13 +144,13 @@ fn runner_in_reunion() -> ScriptRunner {
     let mut runner = ScriptRunner::new(demo_pack());
     // Advance through the "ask about the letter" branch so state differs and
     // the script has crossed into the reunion scene.
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.choose(0).unwrap();
-    runner.run();
+    runner.run().unwrap();
     runner.advance_say().unwrap();
     drive_to_say(&mut runner);
     runner

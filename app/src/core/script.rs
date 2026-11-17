@@ -47,7 +47,15 @@ pub(crate) fn drive_script(
     }
 
     if runtime.runner.wait().is_none() {
-        let outcome = runtime.runner.run();
+        let outcome = match runtime.runner.run() {
+            Ok(outcome) => outcome,
+            // Row 13 — defensive: a wait-free cycle the loader cannot see.
+            // `report_runner_call` engages the hold.
+            Err(error) => {
+                failure::report_runner_call(error, &mut notice, &mut hold);
+                return;
+            }
+        };
         runtime.staging.apply_all(&outcome.staged);
         // A `jump` that landed in a different scene file is an autosave write
         // point; the app has applied the staged commands, so the snapshot it
@@ -110,7 +118,14 @@ pub(crate) fn drive_script(
             if !hold.0 {
                 // Offline fallback lands in the same frame so the UI never
                 // flashes an end-of-scene state between resolve and the park.
-                let outcome = runtime.runner.run();
+                let outcome = match runtime.runner.run() {
+                    Ok(outcome) => outcome,
+                    // Row 13 — defensive: the landing runs into a wait-free cycle.
+                    Err(error) => {
+                        failure::report_runner_call(error, &mut notice, &mut hold);
+                        return;
+                    }
+                };
                 runtime.staging.apply_all(&outcome.staged);
                 // A fallback resolve writes no autosave of its own, but a
                 // scene crossing it lands on still does.

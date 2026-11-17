@@ -1810,3 +1810,70 @@ fn a_byte_order_mark_inside_the_text_is_kept() {
         "the leading mark stays out of the numbering"
     );
 }
+
+// --- Wait-free jump cycles ---------------------------------------------------
+
+/// Load the synthetic pack with `scenes` (pack-relative path, source) in place
+/// of `scene_a`.
+fn load_with_scenes(
+    scenes: &[(&'static str, &str)],
+) -> Result<unmei_engine::LoadedPack, Vec<unmei_engine::LoadError>> {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut files: Vec<(&str, String)> = valid_pack_files()
+        .into_iter()
+        .filter(|(rel, _)| !rel.starts_with("scenes/"))
+        .collect();
+    files.extend(scenes.iter().map(|(rel, src)| (*rel, src.to_string())));
+    let root = write_pack(tmp.path(), &files);
+    load_pack(&root)
+}
+
+fn cycle_errors(errs: &[unmei_engine::LoadError]) -> Vec<(String, Option<usize>)> {
+    errs.iter()
+        .filter(|e| e.message.contains("reaches no say-line, choice or decide"))
+        .map(|e| (e.file.clone(), e.line))
+        .collect()
+}
+
+#[test]
+fn a_label_jump_cycle_with_no_wait_is_an_error_at_the_jump() {
+    let errs =
+        load_with_scenes(&[("scenes/scene_a.unmei", "label quiet\njump quiet\n")]).unwrap_err();
+    assert_eq!(
+        cycle_errors(&errs),
+        vec![("scenes/scene_a.unmei".to_string(), Some(2))],
+        "{errs:?}"
+    );
+    assert!(errs[0].message.contains("`jump quiet`"), "{errs:?}");
+}
+
+#[test]
+fn a_cycle_across_scene_files_is_one_error() {
+    let errs = load_with_scenes(&[
+        ("scenes/scene_a.unmei", "bg hall\njump scene_b\n"),
+        ("scenes/scene_b.unmei", "set met_ace = true\njump scene_a\n"),
+    ])
+    .unwrap_err();
+    assert_eq!(
+        cycle_errors(&errs),
+        vec![("scenes/scene_a.unmei".to_string(), Some(2))],
+        "{errs:?}"
+    );
+}
+
+#[test]
+fn a_loop_with_a_say_line_loads() {
+    load_with_scenes(&[(
+        "scenes/scene_a.unmei",
+        "label top\nNarrator: Again.\njump top\n",
+    )])
+    .unwrap();
+}
+
+#[test]
+fn a_loop_that_exits_through_an_if_loads() {
+    // The runner owns a cycle with an `if` on it; pack load leaves it alone.
+    let src =
+        "label top\nif met_ace\njump out\nendif\nset met_ace = true\njump top\nlabel out\nNarrator: Out.\n";
+    load_with_scenes(&[("scenes/scene_a.unmei", src)]).unwrap();
+}

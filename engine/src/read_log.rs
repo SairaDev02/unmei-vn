@@ -221,7 +221,7 @@ mod tests {
     fn a_say_park_records_the_authored_source_line() {
         let pack = demo_pack();
         let mut runner = ScriptRunner::new(pack.clone());
-        let outcome = runner.run();
+        let outcome = runner.run().unwrap();
         assert!(matches!(
             outcome.wait,
             Some(crate::runner::Wait::Say { .. })

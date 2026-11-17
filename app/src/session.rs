@@ -231,7 +231,7 @@ impl SessionTransitions<'_> {
     /// It writes no slot, reads no slot and changes no settings; the Read log's
     /// knowledge, preferences, credentials and Save slot bytes are retained.
     pub(crate) fn new_game(&mut self) {
-        core::park_at_entry(self.runtime);
+        let parked = core::park_at_entry(self.runtime);
         session_lines::entered_scene(self.runtime.runner.scene_id());
 
         self.pending.0 = None;
@@ -256,6 +256,12 @@ impl SessionTransitions<'_> {
         request_replay(self.audio, self.visuals, self.ui);
 
         self.read_log.request_flush();
+
+        // Row 13 — defensive: the entry scene never parks. Reported last, so
+        // the reset above cannot release the hold or clear the Notice.
+        if let Err(error) = parked {
+            failure::report_runner_call(error, self.notice, self.hold);
+        }
     }
 
     /// Enter play from the title over the live session — the Esc resume one
