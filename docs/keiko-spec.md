@@ -300,7 +300,7 @@ Because takes are deterministic (§4.3, §6), each command lands exactly where t
 ### 9.1 The walk
 
 - **Start.** A fresh take of the pack at `new-game`, or the end of case `--from ID`, inheriting its headers. Exploration adds `setting play.text_speed 0` (instant text) unless the case sets the text speed.
-- **Moves.** At a say park, `advance`. At a choice, each option in index order. At a decision point, each landing key in the question's declared order, then `fallback`, each as a `decide` header on that branch. Depth first.
+- **Moves.** At a say park, `advance`. At a choice, each option in index order. At a decision point, each landing key in ascending byte order, then `fallback`, each as a `decide` header on that branch. Depth first. *(Amended 2026-11-17: sorted, not declared, order. The engine holds a question's criteria in an unordered map, so declared order does not survive loading, and a sort keeps exploration deterministic.)*
 - **Visited.** A park whose (scene, line, state map) was already reached is not expanded again (K23).
 - **Replay.** Each branch is a fresh take replaying its own step list from the start, so findings reproduce from a plain case.
 - **Budget.** `--budget N` caps the steps applied, replays included, across the whole walk. The default is 10,000. When the budget is spent, exploration stops and reports `budget spent` in the coverage summary. The same pack and budget always give the same result.
