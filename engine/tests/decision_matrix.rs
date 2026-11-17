@@ -228,7 +228,7 @@ impl Case {
             .expect("the fixture pins a decision model");
         let mut runner = ScriptRunner::new(pack);
         assert!(
-            matches!(runner.run().wait, Some(Wait::Decision { .. })),
+            matches!(runner.run().unwrap().wait, Some(Wait::Decision { .. })),
             "the fixture's entry scene must park on its decision"
         );
         Case {
@@ -261,7 +261,7 @@ impl Case {
         self.runner
             .resolve_decision(&resolved.action)
             .expect("the resolved action must be an authored landing label");
-        self.runner.run()
+        self.runner.run().unwrap()
     }
 
     /// The fixture's independent landing marker: the key whose label ran.

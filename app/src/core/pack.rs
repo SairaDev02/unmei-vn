@@ -1,6 +1,7 @@
 //! Pack load and the boot park: the one place `Runtime` is created.
 
 use bevy::prelude::*;
+use unmei_engine::runner::RunnerError;
 use unmei_engine::save::StagingState;
 use unmei_engine::{load_pack, ScriptRunner};
 
@@ -71,7 +72,11 @@ pub(crate) fn setup_pack(
     // leading commands, so the staging behind the title is the opening frame.
     // It deliberately does **not** arm an autosave or dispatch a Decision —
     // those are `drive_script`'s jobs and stay gated behind the title.
-    park_at_entry(&mut runtime);
+    if let Err(error) = park_at_entry(&mut runtime) {
+        // Row 13 — defensive: the entry scene's first run never parks. The
+        // title still shows; the hold keeps play from stepping the runner.
+        failure::report_runner_call(error, &mut notice, &mut hold);
+    }
 
     // Read the log exactly once, after the pack is known good. A rejected pack
     // returned above and never reads or writes the file.
@@ -92,11 +97,14 @@ pub(crate) fn setup_pack(
 /// Rebuild the runner at the pack's entry scene with its declared initial
 /// state, run it once to its first wait, and apply the leading staging. Shared
 /// by the boot load and New Game's reset, so the two cannot drift; it arms no
-/// autosave and dispatches no Decision.
-pub(crate) fn park_at_entry(runtime: &mut Runtime) {
+/// autosave and dispatches no Decision. A run that never parks
+/// ([`RunnerError::WaitFreeCycle`]) applies no staging and is returned for the
+/// caller to report as row 13.
+pub(crate) fn park_at_entry(runtime: &mut Runtime) -> Result<(), RunnerError> {
     let pack = runtime.runner.pack().clone();
     runtime.runner = ScriptRunner::new(pack);
     runtime.staging = StagingState::default();
-    let outcome = runtime.runner.run();
+    let outcome = runtime.runner.run()?;
     runtime.staging.apply_all(&outcome.staged);
+    Ok(())
 }

@@ -207,7 +207,7 @@ A failure that changes what the player sees or hears but never what they lose â€
 _Avoid_: soft failure, handled error
 
 **Defensive failure**:
-A failure branch the pack loader's validation makes unreachable, specified anyway because its alternative is a frozen screen: an error log, a Notice that says so, and the menu as the only affordance.
+A failure branch the pack loader's validation makes unreachable, specified anyway because its alternative is a frozen screen: an error log, a Notice that says so, and the menu as the only affordance. The one exception is a jump cycle that never parks only on some state, which the loader cannot see and the runner stops on.
 _Avoid_: impossible error, unreachable branch
 
 **Error screen**:

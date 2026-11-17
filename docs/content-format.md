@@ -224,6 +224,11 @@ Precedence: the local label always wins — if a label and a scene file share a 
 
 No `call`/`return`, no arguments, no label parameters. The demo: `first_meeting` ends `jump reunion` → `reunion.unmei` plays → its `end_reunion` jumps to the `epilogue` scene.
 
+**Every loop must stop for the player** *(added 2026-11-17)*. A loop of jumps that never reaches a say-line, a `choice` or a `decide` would freeze play, so it is caught in two places:
+
+- **At pack load**, a jump cycle with no say-line, `choice`, `decide` or `if` on it is an error, reported once at the cycle's first `jump` in scene-id and line order. The cycle may cross scene files, and the check covers every scene, reachable or not. `label quiet` followed by `jump quiet` is the smallest case.
+- **At runtime**, a cycle with an `if` on it may leave on some state, so it loads. If the runner reaches the same position with the same state twice without parking, the loop would repeat forever: the runner stops with a `RunnerError` and the player gets the defensive hold ([`runtime-hardening.md` § Runtime failure posture](runtime-hardening.md#runtime-failure-posture), row 13). A loop that changes the state its `if` reads and then leaves is not stopped.
+
 ## 6. Manifest and state
 
 ```ron

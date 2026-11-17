@@ -26,6 +26,8 @@
 //!   missing label is a parse error, not a runtime surprise.
 //! - `jump` targets resolve to a local label or a scene file (local wins).
 //! - Choice option targets resolve the same way.
+//! - No jump cycle without a say-line, `choice`, `decide` or `if` on it: it
+//!   would never park. A cycle through an `if` is left to the runner.
 //! - NPC file ids must match their filename stem (`npcs/ace.ron` holds `id: "ace"`).
 //! - `entry` in the manifest must be an existing scene.
 //! - When the manifest's optional `scenes` list is non-empty it is the declared

@@ -78,6 +78,12 @@ pub enum RunnerError {
     },
     #[error("saved position names scene `{scene}`, which the loaded pack does not contain")]
     UnknownScene { scene: String },
+    /// A `jump` in `scene` to `target` re-entered a position with the same
+    /// state it had before, with no say-line, `choice` or `decide` in between:
+    /// the script would loop forever. Pack load rejects a cycle with no `if`
+    /// on it, so this is the cycle that is wait-free only on some state.
+    #[error("`jump {target}` in scene `{scene}` closes a cycle that reaches no say-line, choice or decide")]
+    WaitFreeCycle { scene: String, target: String },
 }
 
 /// The runtime script program: a [`Pack`] plus the current scene, program
@@ -149,23 +155,33 @@ impl ScriptRunner {
     /// Apply commands until the script parks on a wait or ends. Non-parking
     /// commands (`set`, `label`, `jump`, staging) are applied in order and their
     /// staging effects returned. Already parked ⇒ returns the same wait.
-    pub fn run(&mut self) -> RunOutcome {
+    ///
+    /// A run that would never park fails with [`RunnerError::WaitFreeCycle`]
+    /// and discards its staging; the runner is left unparked at the repeated
+    /// position, so only a restore moves it on.
+    pub fn run(&mut self) -> Result<RunOutcome, RunnerError> {
         let mut staged = Vec::new();
         let mut entered_scene = None;
         if self.wait.is_some() {
-            return RunOutcome {
+            return Ok(RunOutcome {
                 staged,
                 wait: self.wait.clone(),
                 entered_scene,
-            };
+            });
         }
+        // Every backward move is a `jump` (`if`/`else` only skip forward), and
+        // state changes only by literal `set`, so the run is deterministic:
+        // landing on the same position with the same state twice in one call
+        // means it repeats forever. Each landing's states are kept to see that.
+        let mut landings: HashMap<(String, usize), Vec<HashMap<String, StateValue>>> =
+            HashMap::new();
         loop {
             let Some(line) = self.current_line() else {
-                return RunOutcome {
+                return Ok(RunOutcome {
                     staged,
                     wait: None,
                     entered_scene,
-                };
+                });
             };
             self.pc += 1;
             match line {
@@ -175,20 +191,20 @@ impl ScriptRunner {
                         text: interpolate(&text, &self.state),
                     };
                     self.wait = Some(wait.clone());
-                    return RunOutcome {
+                    return Ok(RunOutcome {
                         staged,
                         wait: Some(wait),
                         entered_scene,
-                    };
+                    });
                 }
                 Line::Choice(options) => {
                     let wait = Wait::Choice { options };
                     self.wait = Some(wait.clone());
-                    return RunOutcome {
+                    return Ok(RunOutcome {
                         staged,
                         wait: Some(wait),
                         entered_scene,
-                    };
+                    });
                 }
                 Line::Decide {
                     npc_id,
@@ -201,11 +217,11 @@ impl ScriptRunner {
                         prefix,
                     };
                     self.wait = Some(wait.clone());
-                    return RunOutcome {
+                    return Ok(RunOutcome {
                         staged,
                         wait: Some(wait),
                         entered_scene,
-                    };
+                    });
                 }
                 Line::Set { name, value } => {
                     self.state.insert(name, value.into());
@@ -230,9 +246,20 @@ impl ScriptRunner {
                 }
                 Line::Label(_) => {}
                 Line::Jump(target) => {
+                    let from = self.scene_id.clone();
                     if let Some(scene) = self.jump_to(&target) {
                         entered_scene = Some(scene);
                     }
+                    let seen = landings
+                        .entry((self.scene_id.clone(), self.pc))
+                        .or_default();
+                    if seen.contains(&self.state) {
+                        return Err(RunnerError::WaitFreeCycle {
+                            scene: from,
+                            target,
+                        });
+                    }
+                    seen.push(self.state.clone());
                 }
                 Line::Bg(id) => staged.push(StageCommand::Bg(id)),
                 Line::Sprite { npc_id, pose } => staged.push(StageCommand::Sprite { npc_id, pose }),
