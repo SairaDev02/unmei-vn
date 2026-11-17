@@ -1,0 +1,13 @@
+keiko 1
+fixture read-log fixtures/read-s1-s2.ron
+setting play.text_speed 0
+new-game
+expect line "S1 opening"
+expect read smoke_entry:4
+expect unread smoke_entry:5
+skip
+expect skip seen
+wait 1s
+expect surface play
+expect line "S3 third"
+expect skip off

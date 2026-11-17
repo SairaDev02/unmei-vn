@@ -176,9 +176,24 @@ pub fn keiko_app(
     clipboard: crate::credentials::ClipboardPort,
     key_check: crate::KeyCheckChannel,
     decision_factory: crate::DecisionFactory,
+    asset_faults: std::sync::Arc<crate::keiko::assets::AssetFaults>,
 ) -> App {
     let asset_root = config.asset_root.clone();
     let mut app = App::new();
+    // The Keiko asset reader replaces the default source, so the two asset
+    // faults act where the player reads its files and nowhere else.
+    let mut sources = bevy::asset::io::AssetSourceBuilders::default();
+    let reader_root = asset_root.clone();
+    sources.insert(
+        bevy::asset::io::AssetSourceId::Default,
+        bevy::asset::io::AssetSourceBuilder::new(move || {
+            Box::new(crate::keiko::assets::KeikoAssetReader::new(
+                reader_root.clone(),
+                asset_faults.clone(),
+            ))
+        }),
+    );
+    app.insert_resource(sources);
     app.insert_resource(config);
     match session_log {
         SessionLogResult::Opened(log) => {

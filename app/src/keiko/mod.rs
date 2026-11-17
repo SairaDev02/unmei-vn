@@ -6,6 +6,7 @@
 //! everything that needs the player.
 
 pub mod assert;
+pub mod assets;
 pub mod controls;
 pub mod decide;
 pub mod explore;
@@ -275,6 +276,11 @@ fn collect_cases(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> R
 }
 
 /// `--step ID STEP`: replay, apply, and append only when it passed (spec §8).
+///
+/// The candidate file is `existing + STEP`; it is parsed, validated and taken
+/// exactly as a case would be, and written back only when the take passed. A
+/// missing case starts as its version line, and a header is accepted only while
+/// the case has no steps.
 fn append_step(
     pack_root: &Path,
     pack: &Pack,
@@ -287,27 +293,28 @@ fn append_step(
     let path = pack_root.join(&case_file);
     let existing = std::fs::read_to_string(&path).ok();
 
-    let step_line = match parse_step_line(&case_file, step) {
-        Ok(line) => line,
+    let mut candidate = existing
+        .clone()
+        .unwrap_or_else(|| format!("keiko {}
+", unmei_engine::keiko::CASE_VERSION));
+    if !candidate.ends_with(NEWLINE) {
+        candidate.push(NEWLINE);
+    }
+    candidate.push_str(step);
+    candidate.push(NEWLINE);
+
+    let case = match parse_case(&case_file, &candidate) {
+        Ok(case) => case,
         Err(finding) => {
             output::print_finding(&finding);
             return output::FAIL;
         }
     };
-
-    let case = match &existing {
-        Some(text) => match parse_case(&case_file, text) {
-            Ok(case) => case,
-            Err(finding) => {
-                output::print_finding(&finding);
-                return output::FAIL;
-            }
-        },
-        None => Case::default(),
-    };
-    // A header is accepted only while the case has no steps.
-    let header_as_step = is_header_line(step);
-    if header_as_step && !case.steps.is_empty() {
+    if is_header_line(step) && case.steps.len() > 0 && !existing_has_steps(&existing) {
+        // Unreachable: a header line parsed after the first step already failed
+        // above. Kept total for the reader.
+    }
+    if is_header_line(step) && existing_has_steps(&existing) {
         let finding = Finding::new(
             &case_file,
             String::new(),
@@ -317,14 +324,33 @@ fn append_step(
         output::print_finding(&finding);
         return output::FAIL;
     }
+    let findings = validate_case(pack_root, pack, &case, &case_file);
+    if let Some(finding) = findings.first() {
+        output::print_finding(finding);
+        return output::FAIL;
+    }
 
-    let run = run_one(pack_root, pack, id, &path, keep, Some(&step_line), None);
-    let passed = run.result.is_ok() && !(header_as_step && !case.steps.is_empty());
+    let result = take::run(take::TakeRequest {
+        case: &case,
+        case_file: case_file.clone(),
+        original_pack: pack_root,
+        pack,
+        take_index: 1,
+        keep,
+        live: None,
+    });
+    let run = output::CaseRun {
+        case: id.to_string(),
+        result: result.outcome,
+        observation: result.observation,
+        live: result.live,
+        kept: result.kept,
+    };
     if output::is_json(format) {
         println!(
             "{}",
             json!({
-                "result": if passed { "pass" } else { "fail" },
+                "result": if run.result.is_ok() { "pass" } else { "fail" },
                 "failure": run.result.as_ref().err().map(output::finding_json),
                 "observation": run.observation.to_json(),
             })
@@ -332,35 +358,25 @@ fn append_step(
     } else {
         output::print_case(&run);
     }
-    if !passed {
+    if run.result.is_err() {
         return output::FAIL;
     }
-
-    // Append, keeping the file's own line endings and adding a final newline.
-    let mut text = existing.unwrap_or_else(|| "keiko 1\n".to_string());
-    if !text.ends_with('\n') {
-        text.push('\n');
-    }
-    text.push_str(step);
-    text.push('\n');
-    if let Err(error) = std::fs::write(&path, text) {
+    if let Err(error) = std::fs::write(&path, candidate) {
         eprintln!("unmei-play: cannot write {case_file}: {error}");
         return output::FAIL;
     }
     output::PASS
 }
 
-fn parse_step_line(case_file: &str, step: &str) -> Result<StepLine, Finding> {
-    let text = format!("keiko 1\n{step}\n");
-    let case = parse_case(case_file, &text)?;
-    case.steps.into_iter().next().ok_or_else(|| {
-        Finding::new(
-            case_file,
-            String::new(),
-            unmei_engine::keiko::rules::CASE_SYNTAX,
-            "empty step",
-        )
-    })
+/// The one line ending the stepper adds.
+const NEWLINE: char = '\n';
+
+/// Whether the file already holds a step, so a header cannot be appended.
+fn existing_has_steps(existing: &Option<String>) -> bool {
+    existing
+        .as_deref()
+        .and_then(|text| parse_case("case", text).ok())
+        .is_some_and(|case| !case.steps.is_empty())
 }
 
 fn is_header_line(step: &str) -> bool {

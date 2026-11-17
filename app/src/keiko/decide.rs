@@ -8,8 +8,7 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
 
 use unmei_engine::decision::{DecisionError, ResolvedDecision};
 use unmei_engine::{DecisionConfig, DecisionResolver, DecisionsClient, StateValue};
@@ -32,8 +31,6 @@ pub struct KeikoResolver {
     clock_ms: Arc<AtomicU64>,
     /// `decision-hold` releases: one flag per held point.
     released: Arc<Mutex<HashMap<String, bool>>>,
-    /// A release signal, so a held answer wakes without polling every frame.
-    signal: Arc<(Mutex<()>, Condvar)>,
     /// Live mode marks the take's result nondeterministic.
     pub live_marked: Arc<AtomicBool>,
 }
@@ -60,7 +57,6 @@ impl KeikoResolver {
             live: None,
             clock_ms: Arc::new(AtomicU64::new(0)),
             released: Arc::new(Mutex::new(HashMap::new())),
-            signal: Arc::new((Mutex::new(()), Condvar::new())),
             live_marked: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -83,8 +79,6 @@ impl KeikoResolver {
         if let Ok(mut released) = self.released.lock() {
             released.insert(question_of(point), true);
         }
-        let (_, cvar) = &*self.signal;
-        cvar.notify_all();
     }
 
     fn landing_for(&self, config: &DecisionConfig, action: &str) -> String {
@@ -124,40 +118,50 @@ impl DecisionResolver for KeikoResolver {
                 match fault {
                     Fault::DecisionError { kind, .. } => return fallback(config, error_for(*kind)),
                     Fault::DecisionSlow { duration, .. } => {
-                        let target =
-                            self.clock_ms.load(Ordering::Relaxed) + duration.as_millis() as u64;
-                        // The take moves its virtual clock only on `wait`; this
-                        // loop never sleeps on its own.
-                        let mut spins = 0u64;
-                        while self.clock_ms.load(Ordering::Relaxed) < target {
-                            spins += 1;
-                            if spins > 20_000_000 {
-                                break;
+                        // The answer arrives once the take's *virtual* clock
+                        // has moved by the fault's duration. The future returns
+                        // Pending until then, so the app's own frame loop is
+                        // what advances time — no thread waits and no wall
+                        // clock is involved.
+                        let target = self.clock_ms.load(Ordering::Relaxed)
+                            + duration.as_nanos() as u64;
+                        let clock = self.clock_ms.clone();
+                        let landing = config.fallback.landing_key();
+                        return std::future::poll_fn(move |context| {
+                            if clock.load(Ordering::Relaxed) >= target {
+                                std::task::Poll::Ready(Self::model_answer(&landing))
+                            } else {
+                                context.waker().wake_by_ref();
+                                std::task::Poll::Pending
                             }
-                            std::thread::yield_now();
-                        }
-                        return Self::model_answer(&config.fallback.landing_key());
+                        })
+                        .await;
                     }
                     Fault::DecisionHold { .. } => {
-                        while !self
-                            .released
-                            .lock()
-                            .map(|released| released.get(question_id).copied().unwrap_or(false))
-                            .unwrap_or(false)
-                        {
-                            let (lock, cvar) = &*self.signal;
-                            let guard = lock.lock().unwrap_or_else(|poison| poison.into_inner());
-                            let _ = cvar.wait_timeout(guard, Duration::from_millis(2));
-                        }
-                        return Self::model_answer(
-                            &self.landing_for(
-                                config,
-                                self.landings
-                                    .get(question_id)
-                                    .map(String::as_str)
-                                    .unwrap_or("fallback"),
-                            ),
+                        // The answer is held until a `release-decision` step, so
+                        // the overlay's `held` state is observable across waits.
+                        let released = self.released.clone();
+                        let question = question_id.to_string();
+                        let landing = self.landing_for(
+                            config,
+                            self.landings
+                                .get(question_id)
+                                .map(String::as_str)
+                                .unwrap_or("fallback"),
                         );
+                        return std::future::poll_fn(move |context| {
+                            let done = released
+                                .lock()
+                                .map(|released| released.get(&question).copied().unwrap_or(false))
+                                .unwrap_or(false);
+                            if done {
+                                std::task::Poll::Ready(Self::model_answer(&landing))
+                            } else {
+                                context.waker().wake_by_ref();
+                                std::task::Poll::Pending
+                            }
+                        })
+                        .await;
                     }
                     _ => {}
                 }

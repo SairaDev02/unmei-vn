@@ -24,7 +24,7 @@ use super::observe::{log_lines_from, observe, LogLine, Observation};
 use super::sandbox::Sandbox;
 use super::steps::{apply, Applied, FRAME};
 use crate::failure::{SessionLog, SessionLogResult};
-use crate::RuntimeConfig;
+use crate::{Runtime, RuntimeConfig};
 
 /// A live run's client, built from the environment key only.
 #[derive(Clone)]
@@ -102,12 +102,26 @@ pub fn run(request: TakeRequest) -> TakeResult {
     let clock = Arc::new(AtomicU64::new(0));
     let resolver = build_resolver(&request, clock.clone());
     let live_marked = resolver.live_marked.clone();
+    let key_check_release = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let key_check = crate::KeyCheckChannel {
-        checker: Some(Arc::new(KeikoKeyCheck::new(&request.case.headers))),
+        checker: Some(Arc::new(KeikoKeyCheck::new(
+            &request.case.headers,
+            key_check_release.clone(),
+        ))),
     };
+    let faults: Vec<Fault> = request
+        .case
+        .headers
+        .iter()
+        .filter_map(|line| match &line.header {
+            unmei_engine::keiko::Header::Fault { fault } => Some(fault.clone()),
+            _ => None,
+        })
+        .collect();
+    let asset_faults = Arc::new(super::assets::AssetFaults::of(faults.iter()));
     let config = RuntimeConfig::new(
         sandbox.pack_root().to_path_buf(),
-        Some(resolver as Arc<dyn unmei_engine::DecisionResolver>),
+        Some(resolver.clone() as Arc<dyn unmei_engine::DecisionResolver>),
     )
     .with_dev_mode(request.case.dev())
     .with_asset_root(sandbox.asset_root().to_path_buf());
@@ -120,6 +134,8 @@ pub fn run(request: TakeRequest) -> TakeResult {
         all_log: Vec::new(),
         clock,
         live: live_marked.clone(),
+        resolver,
+        key_check_release,
     };
 
     // The app owns the open session-log file and the audio device. Both must be
@@ -132,6 +148,7 @@ pub fn run(request: TakeRequest) -> TakeResult {
             crate::credentials::ClipboardPort::Memory(None),
             key_check,
             crate::DecisionFactory { builder: None },
+            asset_faults,
         );
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
@@ -181,6 +198,8 @@ struct TakeState {
     all_log: Vec<LogLine>,
     clock: Arc<AtomicU64>,
     live: Arc<std::sync::atomic::AtomicBool>,
+    resolver: Arc<KeikoResolver>,
+    key_check_release: Arc<std::sync::atomic::AtomicBool>,
 }
 
 fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoResolver> {
@@ -250,7 +269,7 @@ fn start_at_scene(
     // Enter play through the title's own New Game, so the live session the menu
     // keeps is real.
     let mut frame_run = |app: &mut App| frame(app, &state.clock, Duration::ZERO);
-    super::steps::apply(app, &Step::NewGame, &mut frame_run)
+    super::steps::apply(app, &Step::NewGame, &mut frame_run, &state.resolver)
         .map_err(|finding| fail(finding.message))?;
     settle(app, state, request)?;
 
@@ -284,8 +303,25 @@ fn step_once(
     step: &Step,
     line: usize,
 ) -> Result<(), Finding> {
+    // The two fault-step releases act on the take's own fault state before the
+    // step is applied like any other.
+    match step {
+        Step::ReleaseKeyCheck => state.key_check_release.store(true, Ordering::Relaxed),
+        Step::Unblock(target) => {
+            let pack_root = app
+                .world()
+                .get_resource::<Runtime>()
+                .map(|runtime| runtime.pack_root.clone());
+            if let Some(pack_root) = pack_root {
+                let path = write_target_path_root(&pack_root, *target);
+                let _ = std::fs::remove_dir_all(path.with_extension("ron.tmp"));
+            }
+        }
+        _ => {}
+    }
+    let resolver = state.resolver.clone();
     let mut frame_run = |app: &mut App| frame(app, &state.clock, Duration::ZERO);
-    let applied = apply(app, step, &mut frame_run).map_err(|finding| {
+    let applied = apply(app, step, &mut frame_run, &resolver).map_err(|finding| {
         let mut finding = finding;
         finding.file = request.case_file.clone();
         finding.path = format!("line {line}");
@@ -385,7 +421,9 @@ fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result
 /// One frame of the take's clock. Only this function moves time.
 fn frame(app: &mut App, clock: &AtomicU64, delta: Duration) {
     app.insert_resource(TimeUpdateStrategy::ManualDuration(delta));
-    clock.fetch_add(delta.as_millis() as u64, Ordering::Relaxed);
+    // Nanoseconds, not truncated milliseconds: 1/60 s is 16.67 ms, and a
+    // millisecond clock would under-count a `decision-slow` target.
+    clock.fetch_add(delta.as_nanos() as u64, Ordering::Relaxed);
     app.update();
 }
 
@@ -421,6 +459,28 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
             std::fs::copy(&source, &destination)
                 .map_err(|error| fail(format!("fixture `{path}`: {error}")))?;
         }
+    }
+
+    // `setting` headers: written into the sandbox settings file before boot, on
+    // top of any `fixture settings` the case copied.
+    let settings_headers: Vec<(&str, &str)> = case
+        .headers
+        .iter()
+        .filter_map(|line| match &line.header {
+            unmei_engine::keiko::Header::Setting { key, value } => {
+                Some((key.as_str(), value.as_str()))
+            }
+            _ => None,
+        })
+        .collect();
+    if !settings_headers.is_empty() {
+        let mut settings = crate::settings::load(sandbox.pack_root()).settings;
+        for (key, value) in settings_headers {
+            apply_setting(&mut settings, key, value)
+                .map_err(|message| fail(message))?;
+        }
+        crate::settings::save(sandbox.pack_root(), &settings)
+            .map_err(|error| fail(format!("setting: {error}")))?;
     }
 
     for line in &case.headers {
@@ -466,12 +526,51 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
     Ok(())
 }
 
+/// Write one `setting` header into the in-memory settings, in the file's RON
+/// form, so the player's own validation and normalisation apply at load.
+fn apply_setting(settings: &mut crate::settings::Settings, key: &str, value: &str) -> Result<(), String> {
+    let invalid = || format!("`{value}` is not a value for `{key}`");
+    match key {
+        "audio.master" => settings.audio.master = value.parse().map_err(|_| invalid())?,
+        "audio.music" => settings.audio.music = value.parse().map_err(|_| invalid())?,
+        "audio.sfx" => settings.audio.sfx = value.parse().map_err(|_| invalid())?,
+        "audio.muted" => settings.audio.muted = value.parse().map_err(|_| invalid())?,
+        "play.text_speed" => settings.play.text_speed = value.parse().map_err(|_| invalid())?,
+        "play.auto" => settings.play.auto = value.parse().map_err(|_| invalid())?,
+        "play.fullscreen" => settings.play.fullscreen = value.parse().map_err(|_| invalid())?,
+        other => return Err(format!("unknown settings key `{other}`")),
+    }
+    Ok(())
+}
+
 fn write_target_path(sandbox: &Sandbox, target: WriteTarget) -> PathBuf {
+    write_target_path_root(sandbox.pack_root(), target)
+}
+
+fn write_target_path_root(pack_root: &std::path::Path, target: WriteTarget) -> PathBuf {
+    let pack = unmei_engine::Pack {
+        manifest: unmei_engine::Manifest {
+            name: String::new(),
+            entry: String::new(),
+            tagline: None,
+            title_backdrop: None,
+            scenes: Vec::new(),
+        },
+        state: Default::default(),
+        scenes: Default::default(),
+        npcs: Default::default(),
+        root: pack_root.to_path_buf(),
+    };
     match target {
-        WriteTarget::Slot(slot) => unmei_engine::save_path_for(&sandbox.paths_pack(), slot),
-        WriteTarget::ReadLog => unmei_engine::read_log_path_for(&sandbox.paths_pack()),
-        WriteTarget::Settings => crate::settings::settings_path_for(sandbox.pack_root()),
-        WriteTarget::Credential => sandbox.fixture_path(FixtureKind::Credential),
+        WriteTarget::Slot(slot) => unmei_engine::save_path_for(&pack, slot),
+        WriteTarget::ReadLog => unmei_engine::read_log_path_for(&pack),
+        WriteTarget::Settings => crate::settings::settings_path_for(pack_root),
+        WriteTarget::Credential => pack_root
+            .parent()
+            .unwrap_or(pack_root)
+            .join("config")
+            .join("unmei")
+            .join("credentials"),
     }
 }
 
@@ -479,10 +578,14 @@ fn write_target_path(sandbox: &Sandbox, target: WriteTarget) -> PathBuf {
 /// when none is declared (spec §4.1, §7.2).
 struct KeikoKeyCheck {
     verdict: KeyCheckFault,
+    released: Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl KeikoKeyCheck {
-    fn new(headers: &[unmei_engine::keiko::HeaderLine]) -> Self {
+    fn new(
+        headers: &[unmei_engine::keiko::HeaderLine],
+        released: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Self {
         let verdict = headers
             .iter()
             .find_map(|line| match &line.header {
@@ -492,7 +595,7 @@ impl KeikoKeyCheck {
                 _ => None,
             })
             .unwrap_or(KeyCheckFault::Unreachable);
-        Self { verdict }
+        Self { verdict, released }
     }
 }
 
@@ -502,14 +605,25 @@ impl unmei_engine::KeyCheck for KeikoKeyCheck {
         _key: &'a str,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = unmei_engine::KeyVerdict> + Send + 'a>>
     {
-        let verdict = match self.verdict {
-            KeyCheckFault::Accepted => unmei_engine::KeyVerdict::Accepted,
-            KeyCheckFault::Rejected => unmei_engine::KeyVerdict::Rejected,
-            KeyCheckFault::Unreachable => unmei_engine::KeyVerdict::Unreachable,
-            // A held verdict never answers, as a blocked network would.
-            KeyCheckFault::Hold => unmei_engine::KeyVerdict::Unreachable,
+        let immediate = match self.verdict {
+            KeyCheckFault::Accepted => Some(unmei_engine::KeyVerdict::Accepted),
+            KeyCheckFault::Rejected => Some(unmei_engine::KeyVerdict::Rejected),
+            KeyCheckFault::Unreachable => Some(unmei_engine::KeyVerdict::Unreachable),
+            // A held verdict answers only when `release-key-check` runs.
+            KeyCheckFault::Hold => None,
         };
-        Box::pin(async move { verdict })
+        if let Some(verdict) = immediate {
+            return Box::pin(async move { verdict });
+        }
+        let released = self.released.clone();
+        Box::pin(std::future::poll_fn(move |context| {
+            if released.load(Ordering::Relaxed) {
+                std::task::Poll::Ready(unmei_engine::KeyVerdict::Unreachable)
+            } else {
+                context.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+        }))
     }
 }
 

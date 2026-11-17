@@ -62,6 +62,7 @@ pub fn print_case(run: &CaseRun) {
     match &run.result {
         Ok(()) => {
             println!("PASS {} ({})", run.case, run.observation.surface());
+            print!("{}", indent(&run.observation.to_text()));
             if run.live {
                 println!("  live: nondeterministic, not regression evidence");
             }

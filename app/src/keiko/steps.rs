@@ -40,7 +40,12 @@ pub enum Applied {
 }
 
 /// Apply one step.
-pub fn apply(app: &mut App, step: &Step, run: FrameRun) -> Result<Applied, Finding> {
+pub fn apply(
+    app: &mut App,
+    step: &Step,
+    run: FrameRun,
+    resolver: &super::decide::KeikoResolver,
+) -> Result<Applied, Finding> {
     let fail = |rule: &str, message: String| {
         Finding::new("case", format!("step `{}`", verb(step)), rule, message)
     };
@@ -160,9 +165,12 @@ pub fn apply(app: &mut App, step: &Step, run: FrameRun) -> Result<Applied, Findi
             Ok(Applied::Input)
         }
         Step::ReleaseDecision(point) => {
-            let _ = point;
+            resolver.release(point);
             Ok(Applied::Input)
         }
+        // The take handles these two itself: one releases the key check's held
+        // verdict, the other removes the sandbox obstruction it knows the path
+        // of.
         Step::ReleaseKeyCheck | Step::Unblock(_) => Ok(Applied::Input),
         Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _)) => {
             Err(Finding::new(

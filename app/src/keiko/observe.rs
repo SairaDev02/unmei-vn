@@ -470,9 +470,14 @@ pub fn observe(app: &mut App, log: Vec<LogLine>, live: bool) -> Observation {
             Some(Wait::Decision {
                 npc_id, question, ..
             }) => {
-                let held = world
+                // A decision waiting behind the open overlay is *held*: its
+                // answer cannot be applied until play resumes, whether the
+                // answer is already buffered or still in flight (spec §3.5).
+                let buffered = world
                     .get_resource::<HeldDecision>()
                     .is_some_and(|held| held.0.is_some());
+                let paused = menu_snapshot.as_ref().is_some_and(|menu| menu.open);
+                let held = buffered || paused;
                 decision = Some(DecisionState {
                     point: format!("{npc_id}.{question}"),
                     status: if held {

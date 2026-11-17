@@ -1,0 +1,7 @@
+(
+    name: "unmei demo (L lane)",
+    entry: "smoke_entry",
+    tagline: "a demo pack",
+    title_backdrop: "school_gate",
+    scenes: ["smoke_entry", "smoke_target", "smoke_unvisited"],
+)
