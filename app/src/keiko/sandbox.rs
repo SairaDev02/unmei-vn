@@ -129,12 +129,21 @@ impl Sandbox {
 
     /// Remove the take folder unless the run asked to keep it, then the root
     /// when it is empty. Returns the kept folder's path.
+    ///
+    /// Removal is retried briefly: a task-pool thread can still be flushing the
+    /// take's last log line on Windows, and a folder whose file is still open
+    /// cannot be removed. A leftover is always empty when this gives up.
     pub fn finish(&self, keep: bool) -> Option<PathBuf> {
         if keep {
             return Some(self.take_dir.clone());
         }
-        let _ = fs::remove_dir_all(&self.take_dir);
-        let _ = fs::remove_dir(&self.root);
+        for _ in 0..20 {
+            let _ = fs::remove_dir_all(&self.take_dir);
+            if fs::remove_dir_all(&self.root).is_ok() || !self.root.exists() {
+                return None;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
         None
     }
 }

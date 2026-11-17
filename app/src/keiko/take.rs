@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
+use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
 use unmei_engine::keiko::{
@@ -49,6 +50,10 @@ pub struct TakeRequest<'a> {
 pub struct TakeResult {
     pub outcome: Result<(), Finding>,
     pub observation: Observation,
+    /// One observation per settled step, in order.
+    pub records: Vec<Observation>,
+    /// Every funnel line the take wrote.
+    pub log: Vec<LogLine>,
     pub kept: Option<PathBuf>,
     pub live: bool,
 }
@@ -66,6 +71,8 @@ pub fn run(request: TakeRequest) -> TakeResult {
                     format!("cannot create the take sandbox: {error}"),
                 )),
                 observation: super::observe::empty(),
+                records: Vec::new(),
+                log: Vec::new(),
                 kept: None,
                 live: false,
             }
@@ -78,6 +85,8 @@ pub fn run(request: TakeRequest) -> TakeResult {
         return TakeResult {
             outcome: Err(finding),
             observation: super::observe::empty(),
+            records: Vec::new(),
+            log: Vec::new(),
             kept,
             live: false,
         };
@@ -109,54 +118,62 @@ pub fn run(request: TakeRequest) -> TakeResult {
     .with_asset_root(sandbox.asset_root().to_path_buf());
 
     crate::failure::tap::arm();
-    let mut app = crate::composition::keiko_app(
-        config,
-        session_log,
-        crate::credentials::ClipboardPort::Memory(None),
-        key_check,
-        crate::DecisionFactory { builder: None },
-    );
-
     let mut state = TakeState {
         observation: super::observe::empty(),
+        records: Vec::new(),
         log_cursor: 0,
         all_log: Vec::new(),
         clock,
         live: live_marked.clone(),
     };
 
-    let outcome = catch_unwind(AssertUnwindSafe(|| {
-        boot(&mut app, &mut state, &request)?;
-        for step in &request.case.steps {
-            step_once(&mut app, &mut state, &request, &step.step, step.line)?;
-        }
-        // A key still held when the take ends is released.
-        release_held(&mut app);
-        Ok::<(), Finding>(())
-    }))
-    .unwrap_or_else(|payload| {
-        let message = payload
-            .downcast_ref::<String>()
-            .cloned()
-            .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
-            .unwrap_or_else(|| "a panic with no message".to_string());
-        Err(Finding::new(
-            request.case_file.clone(),
-            String::new(),
-            rules::PANIC,
-            message,
-        ))
-    });
+    // The app owns the open session-log file and the audio device. Both must be
+    // gone before the sandbox is deleted, or Windows refuses to remove a folder
+    // whose file is still open.
+    let outcome = {
+        let mut app = crate::composition::keiko_app(
+            config,
+            session_log,
+            crate::credentials::ClipboardPort::Memory(None),
+            key_check,
+            crate::DecisionFactory { builder: None },
+        );
+        let outcome = catch_unwind(AssertUnwindSafe(|| {
+            boot(&mut app, &mut state, &request)?;
+            for step in &request.case.steps {
+                step_once(&mut app, &mut state, &request, &step.step, step.line)?;
+            }
+            // A key still held when the take ends is released.
+            release_held(&mut app);
+            Ok::<(), Finding>(())
+        }))
+        .unwrap_or_else(|payload| {
+            let message = payload
+                .downcast_ref::<String>()
+                .cloned()
+                .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
+                .unwrap_or_else(|| "a panic with no message".to_string());
+            Err(Finding::new(
+                request.case_file.clone(),
+                String::new(),
+                rules::PANIC,
+                message,
+            ))
+        });
+        // The observation is rebuilt once more so a failing step reports the
+        // last frame it actually saw.
+        state.observation = observe(&mut app, Vec::new(), state.live.load(Ordering::Relaxed));
+        outcome
+    };
 
-    // The observation is rebuilt once more so a failing step reports the last
-    // frame it actually saw.
-    state.observation = observe(&mut app, Vec::new(), state.live.load(Ordering::Relaxed));
-    let kept = sandbox.finish(request.keep);
     crate::failure::set_keiko_log(None);
     let _ = crate::failure::tap::finish_take();
+    let kept = sandbox.finish(request.keep);
     TakeResult {
         outcome,
         observation: state.observation,
+        records: state.records,
+        log: state.all_log,
         kept,
         live: state.live.load(Ordering::Relaxed),
     }
@@ -164,6 +181,7 @@ pub fn run(request: TakeRequest) -> TakeResult {
 
 struct TakeState {
     observation: Observation,
+    records: Vec<Observation>,
     log_cursor: usize,
     all_log: Vec<LogLine>,
     clock: Arc<AtomicU64>,
@@ -200,10 +218,62 @@ fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoReso
     }
 }
 
-/// Boot the app and settle on the first surface (spec §4.3).
+/// Boot the app and settle on the first surface (spec §4.3), then honour a
+/// `start` header by reaching the scene top through the Timeline's own restart
+/// seam (spec §12).
 fn boot(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(), Finding> {
     frame(app, &state.clock, Duration::ZERO);
-    settle(app, state, request)
+    settle(app, state, request)?;
+    if request.case.start_scene().is_some() {
+        start_at_scene(app, state, request)?;
+        settle(app, state, request)?;
+    }
+    Ok(())
+}
+
+/// `start <scene>` with the `state` overrides: enter play, then replace the
+/// position through the one restart recipe the Timeline uses.
+fn start_at_scene(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(), Finding> {
+    let fail = |message: String| {
+        Finding::new(
+            request.case_file.clone(),
+            String::new(),
+            rules::CASE_REFERENCE,
+            message,
+        )
+    };
+    let scene = request
+        .case
+        .start_scene()
+        .expect("a start header")
+        .to_string();
+
+    // Enter play through the title's own New Game, so the live session the menu
+    // keeps is real.
+    let mut frame_run = |app: &mut App| frame(app, &state.clock, Duration::ZERO);
+    super::steps::apply(app, &Step::NewGame, &mut frame_run)
+        .map_err(|finding| fail(finding.message))?;
+    settle(app, state, request)?;
+
+    let mut start_state = request.pack.state.clone();
+    for (key, value) in request.case.state_overrides() {
+        let parsed = unmei_engine::keiko::parse_state_value(value).ok_or_else(|| {
+            fail(format!("`{value}` is not a state value for `{key}`"))
+        })?;
+        start_state.insert(key.to_string(), parsed);
+    }
+    let scene_for_start = scene.clone();
+    let outcome = app.world_mut().run_system_once(move |mut session: crate::session::SessionInput| {
+        let mut transitions = session.transitions();
+        matches!(
+            transitions.restart_scene_with_state(&scene_for_start, start_state.clone()),
+            crate::session::RestartOutcome::Restarted
+        )
+    });
+    match outcome {
+        Ok(true) => Ok(()),
+        _ => Err(fail(format!("scene `{scene}` could not be started"))),
+    }
 }
 
 /// Apply one step, settle where the spec says to, and evaluate an assertion.
@@ -299,6 +369,7 @@ fn settle(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result
             .as_ref()
             .is_some_and(|previous| previous.same_world(observation));
         if !decision_pending && assets_settled && stable {
+            state.records.push(observation.clone());
             return Ok(());
         }
         previous = Some(observation.clone());

@@ -281,6 +281,18 @@ impl SessionTransitions<'_> {
     /// target-script visit/autosave effects remain untouched.
     pub(crate) fn restart_scene(&mut self, scene_id: &str) -> RestartOutcome {
         let state = self.runtime.runner.state().clone();
+        self.restart_scene_with_state(scene_id, state)
+    }
+
+    /// [`SessionTransitions::restart_scene`] with the starting state supplied,
+    /// so a fixture-level start (Keiko's `start` header, and the preview it
+    /// enables) reaches a scene top through the same one recipe the Timeline
+    /// uses, with the case's own state overrides already applied.
+    pub(crate) fn restart_scene_with_state(
+        &mut self,
+        scene_id: &str,
+        state: std::collections::HashMap<String, unmei_engine::StateValue>,
+    ) -> RestartOutcome {
         if let Err(error) =
             self.runtime
                 .runner

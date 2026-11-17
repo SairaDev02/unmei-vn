@@ -20,6 +20,8 @@ pub struct CaseRun {
     pub result: Result<(), Finding>,
     pub observation: Observation,
     pub live: bool,
+    /// The kept sandbox folder, when `--keep` was given.
+    pub kept: Option<std::path::PathBuf>,
 }
 
 impl CaseRun {
@@ -54,6 +56,9 @@ pub fn takes_json(runs: &[CaseRun]) -> Value {
 
 /// Print one case's text result.
 pub fn print_case(run: &CaseRun) {
+    if let Some(kept) = &run.kept {
+        println!("kept: {}", kept.display());
+    }
     match &run.result {
         Ok(()) => {
             println!("PASS {} ({})", run.case, run.observation.surface());

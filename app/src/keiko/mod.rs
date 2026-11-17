@@ -12,7 +12,9 @@ pub mod explore;
 pub mod finding;
 pub mod observe;
 pub mod output;
+pub mod preview;
 pub mod sandbox;
+pub mod sha256;
 pub mod steps;
 pub mod take;
 
@@ -145,6 +147,7 @@ fn run_one(
                 result: Err(finding),
                 observation: observe::empty(),
                 live: false,
+                kept: None,
             }
         }
     };
@@ -158,6 +161,7 @@ fn run_one(
             result: Err(findings[0].clone()),
             observation: observe::empty(),
             live: false,
+            kept: None,
         };
     }
 
@@ -175,6 +179,7 @@ fn run_one(
         result: result.outcome,
         observation: result.observation,
         live: result.live,
+        kept: result.kept,
     }
 }
 
@@ -189,6 +194,7 @@ fn invalid(id: &str, _path: &Path, message: String) -> output::CaseRun {
         )),
         observation: observe::empty(),
         live: false,
+        kept: None,
     }
 }
 

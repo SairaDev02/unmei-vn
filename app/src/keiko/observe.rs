@@ -98,6 +98,9 @@ pub struct Observation {
     pub slots: Vec<SlotState>,
     pub live: bool,
     pub log: Vec<LogLine>,
+    /// The defensive hold is engaged. Internal: an exploration finding needs it,
+    /// the case format's JSON does not print it.
+    pub held: bool,
 }
 
 impl Observation {
@@ -351,6 +354,7 @@ pub fn empty() -> Observation {
         slots: Vec::new(),
         live: false,
         log: Vec::new(),
+        held: false,
     }
 }
 
@@ -551,6 +555,10 @@ pub fn observe(app: &mut App, log: Vec<LogLine>, live: bool) -> Observation {
         .map(|failure| failure.screen_lines())
         .unwrap_or_default();
 
+    let held = world
+        .get_resource::<crate::DefensiveHold>()
+        .is_some_and(|hold| hold.0);
+
     Observation {
         surface,
         monitor,
@@ -573,6 +581,7 @@ pub fn observe(app: &mut App, log: Vec<LogLine>, live: bool) -> Observation {
         slots,
         live,
         log,
+        held,
     }
 }
 
