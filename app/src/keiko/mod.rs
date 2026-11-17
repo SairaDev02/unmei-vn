@@ -12,6 +12,7 @@ pub mod decide;
 pub mod explore;
 pub mod finding;
 pub mod observe;
+mod observe_text;
 pub mod output;
 pub mod preview;
 pub mod sandbox;
