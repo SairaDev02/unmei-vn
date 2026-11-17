@@ -21,8 +21,8 @@ use crate::content::StateValue;
 ///
 /// Both accepted read forms work: RON struct syntax (`( key: value, … )`)
 /// deserializes as the same generic map as the explicit map form, so no key
-/// shape is imposed. String keys are required; values must be a string, number
-/// or bool. Decoding preserves the exact authored string text — no trimming,
+/// shape is imposed. String keys are required; values must be a string, finite
+/// number or bool. Decoding preserves the exact authored string text — no trimming,
 /// normalization or escape preprocessing.
 ///
 /// On failure the returned message preserves the historic distinction: a
@@ -59,6 +59,17 @@ fn state_from_value(value: ron::Value) -> Result<HashMap<String, StateValue>, St
         let val = scalar_from_value(v).map_err(|name| {
             format!("state value for `{key}` must be string, number, or bool; got {name}")
         })?;
+        // RON reads `NaN`, `inf` and an overflowing exponent as numbers. NaN
+        // never equals itself, so equality-based logic would break on it.
+        // Saves share `scalar_from_value` and keep their own load rules
+        // (ADR 0006), so the finite check lives here, not there.
+        if let StateValue::Num(n) = val {
+            if !n.is_finite() {
+                return Err(format!(
+                    "state value for `{key}` must be a finite number; got {n}"
+                ));
+            }
+        }
         out.insert(key, val);
     }
     Ok(out)
