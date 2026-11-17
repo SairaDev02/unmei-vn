@@ -60,9 +60,10 @@ settings and credential degradation; the session log; declared fixtures and the 
 an exploration of every choice option and landing key within a budget. It cannot prove what its
 windowless player does not do: rendering on a real GPU, that audio is heard, that physical input
 arrives, or that a live model answered, which `--take --live` marks nondeterministic. The gate is
-[`app/tests/keiko_gate.rs`](../app/tests/keiko_gate.rs), together with the fixture-pack test the
-smoke checklist migration adds; both run inside the existing workspace test step, so `check.yml`
-gains no job ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)).
+[`app/tests/keiko_gate.rs`](../app/tests/keiko_gate.rs) and the fixture-pack test
+[`app/tests/keiko_fixtures.rs`](../app/tests/keiko_fixtures.rs), which runs every case in every pack
+under `app/tests/keiko/`; both run inside the existing workspace test step, so `check.yml` gains no
+job ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)).
 
 ## External Dependencies
 

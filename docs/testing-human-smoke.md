@@ -16,13 +16,13 @@ The migration is in progress. A fixture pack is a small pack under `app/tests/ke
 
 | Recipe | Fixture pack | What is there on 2026-11-17 |
 |---|---|---|
-| D, clean copied demo | `app/tests/keiko/d/` | the pack and its starting fixtures |
-| L, reading and Timeline lane | `app/tests/keiko/l/` | the pack and the read-log fixture |
+| D, clean copied demo | `app/tests/keiko/d/` | the pack, its starting fixtures, and the title and offline-choice cases (T1, P1) |
+| L, reading and Timeline lane | `app/tests/keiko/l/` | the pack, the read-log fixture, and the reading and Timeline cases (R1–R3, L1–L2) |
 | G, failed gallery art | none yet | nothing |
 | B, broken pack | none yet | nothing |
 | S/K, sidecar and credential faults | none yet | nothing |
 
-The cases that need a pack which does not exist yet stay unverified as Keiko evidence: G2 from recipe G, B1 from recipe B, and S2, S3 and K1–K4 from recipe S/K. The cases whose pack is in place join the gate as each case lands. [Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when) lists the whole set.
+The cases that need a pack which does not exist yet stay unverified as Keiko evidence: G2 from recipe G, B1 from recipe B, and S2, S3 and K1–K4 from recipe S/K. The cases whose pack is in place run in the gate ([`app/tests/keiko_fixtures.rs`](../app/tests/keiko_fixtures.rs)). [Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when) lists the whole set.
 
 ## What stays unverified
 
