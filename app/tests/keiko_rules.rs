@@ -5,6 +5,7 @@
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
+use std::time::{Duration, Instant};
 
 fn binary() -> PathBuf {
     PathBuf::from(env!("CARGO_BIN_EXE_unmei-play"))
@@ -65,6 +66,36 @@ fn run(pack: &Path, args: &[&str]) -> Output {
 
 fn stdout(output: &Output) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+/// Run the binary and fail the test if it does not finish inside `limit`, so a
+/// walk that hangs is a test failure rather than a stuck job.
+fn run_with_timeout(pack: &Path, args: &[&str], limit: Duration) -> Output {
+    let mut full = vec![pack.to_str().unwrap().to_string()];
+    full.extend(args.iter().map(|arg| arg.to_string()));
+    let mut child = Command::new(binary())
+        .args(&full)
+        .env_remove("NANOGPT_API_KEY")
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .expect("the binary starts");
+    let started = Instant::now();
+    loop {
+        if child.try_wait().expect("the child is pollable").is_some() {
+            return child.wait_with_output().expect("the output is captured");
+        }
+        if started.elapsed() > limit {
+            let _ = child.kill();
+            let output = child.wait_with_output().expect("the output is captured");
+            panic!(
+                "the run did not finish within {limit:?}:\n{}\n{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+        }
+        std::thread::sleep(Duration::from_millis(50));
+    }
 }
 
 fn take(pack: &Path, ids: &[&str]) -> Output {
@@ -834,5 +865,399 @@ fn a_stuck_finding_without_a_later_say_line_saves_no_case() {
     // The text form says it is unsaved.
     let output = run(&pack, &["--explore", "--budget", "200"]);
     assert!(stdout(&output).contains("unsaved"), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+// ---------------------------------------------------------------------------
+// The cycle, rules 11, 12 and 17, and the K2–K4 credential cases
+// ---------------------------------------------------------------------------
+
+/// The case's observation of one control, so a test can read the label the
+/// player actually rendered.
+fn control_label(take: &serde_json::Value, id: &str) -> String {
+    take["observation"]["controls"]
+        .as_array()
+        .expect("controls")
+        .iter()
+        .find(|control| control["id"] == id)
+        .and_then(|control| control["label"].as_str())
+        .unwrap_or_else(|| panic!("no control `{id}` in {take}"))
+        .to_string()
+}
+
+fn control_enabled(take: &serde_json::Value, id: &str) -> bool {
+    take["observation"]["controls"]
+        .as_array()
+        .expect("controls")
+        .iter()
+        .find(|control| control["id"] == id)
+        .and_then(|control| control["enabled"].as_bool())
+        .unwrap_or_else(|| panic!("no control `{id}` in {take}"))
+}
+
+fn kept_path(output: &Output) -> PathBuf {
+    PathBuf::from(
+        stdout(output)
+            .lines()
+            .find_map(|line| line.strip_prefix("kept: "))
+            .map(|path| path.trim())
+            .expect("a kept sandbox path"),
+    )
+}
+
+/// A loop that parks only while `met_ace` holds: with the declared `false` it
+/// spins, a cycle pack load cannot see because it passes through an `if`.
+const SPINNING_LOOP: &str = "label top\nif met_ace\nA: met.\nendif\njump top\n";
+
+fn spinning_pack(dir: &Path) -> PathBuf {
+    let pack = dir.join("spin");
+    std::fs::create_dir_all(pack.join("scenes")).unwrap();
+    std::fs::create_dir_all(pack.join("npcs")).unwrap();
+    std::fs::create_dir_all(pack.join("tests")).unwrap();
+    std::fs::write(pack.join("pack.ron"), "(name: \"spin\", entry: \"a\")").unwrap();
+    std::fs::write(pack.join("state.ron"), "(met_ace: false,)").unwrap();
+    std::fs::write(
+        pack.join("scenes/a.unmei"),
+        format!("A: entry.\n{SPINNING_LOOP}"),
+    )
+    .unwrap();
+    pack
+}
+
+/// A take over a state-spinning cycle ends held on the defensive surface with
+/// row 13 logged; exploration reports it instead of hanging.
+#[test]
+fn a_state_spinning_cycle_ends_held_and_exploration_reports_it() {
+    let dir = temp_dir();
+    let pack = spinning_pack(&dir);
+    std::fs::write(
+        pack.join("tests/cycle.keiko"),
+        "keiko 1\nsetting play.text_speed 0\n\nnew-game\nexpect line \"entry.\"\nadvance\n\
+         expect surface play\nexpect notice contains \"the story can't continue\"\n\
+         expect log error row 13 contains \"closes a cycle that reaches no say-line\"\n",
+    )
+    .unwrap();
+    assert_pass(&pack, "cycle");
+
+    let output = run_with_timeout(
+        &pack,
+        &["--explore", "--budget", "200", "--format", "json"],
+        Duration::from_secs(60),
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        !stdout(&output).contains("keiko.case.syntax"),
+        "{}",
+        stdout(&output)
+    );
+    let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
+    let findings = json["findings"].as_array().expect("findings");
+    assert!(
+        findings
+            .iter()
+            .any(|finding| finding["rule"] == "keiko.stuck"),
+        "the cycle is reported as a finding: {}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Rule 11: while the Monitor owns input, an intent does not reach play.
+#[test]
+fn an_open_monitor_owns_input_so_new_game_does_not_start_play() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "claimed",
+            "keiko 1\ndev\nsetting play.text_speed 0\n\npress F3\nexpect monitor open\n\
+             new-game\nexpect surface title\nexpect monitor open\n\
+             press Escape\nexpect monitor closed\npress Enter\nexpect surface play\n",
+        )],
+    );
+    assert_pass(&pack, "claimed");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Rule 12: a key held at a load does not act on the loaded park until it is
+/// released and pressed again.
+#[test]
+fn a_held_key_at_a_load_does_not_act_until_it_is_released() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "held",
+            "keiko 1\nsetting play.text_speed 0\n\nnew-game\n\
+             expect line \"Morning light. A folded letter on the ground, half under a shoe.\"\n\
+             menu\nactivate overlay.slot.1\nexpect slot 1 scene first_meeting\nmenu\nadvance\n\
+             expect line \"You're not from around here, are you?\"\n\
+             hold Space\nload 1\nactivate confirm.yes\nexpect surface play\n\
+             expect line \"Morning light. A folded letter on the ground, half under a shoe.\"\n\
+             release Space\n\
+             expect line \"Morning light. A folded letter on the ground, half under a shoe.\"\n\
+             advance\nexpect line \"You're not from around here, are you?\"\n",
+        )],
+    );
+    assert_pass(&pack, "held");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+const KEY_ROW_CASE: &str = "setting play.text_speed 0\n\nactivate title.settings\n\
+    activate settings.key\ntype \"sk-nano-abcdefghijklmnop\"\npress Enter\n";
+
+/// Rule 17: every key-check verdict sets the row state the Decisions settings
+/// contract names.
+#[test]
+fn every_key_check_verdict_sets_the_key_row_state() {
+    let dir = temp_dir();
+    let accepted = format!("keiko 1\nfault key-check accepted\n{KEY_ROW_CASE}");
+    let rejected = format!("keiko 1\nfault key-check rejected\n{KEY_ROW_CASE}");
+    let unreachable = format!("keiko 1\nfault key-check unreachable\n{KEY_ROW_CASE}");
+    let checking = format!("keiko 1\nfault key-check hold\n{KEY_ROW_CASE}");
+    let released = format!("keiko 1\nfault key-check hold\n{KEY_ROW_CASE}release-key-check\n");
+    let pack = pack(
+        &dir,
+        &[
+            ("accepted", &accepted),
+            ("rejected", &rejected),
+            ("unreachable", &unreachable),
+            ("checking", &checking),
+            ("released", &released),
+        ],
+    );
+    let output = run(
+        &pack,
+        &[
+            "--take",
+            "accepted",
+            "rejected",
+            "unreachable",
+            "checking",
+            "released",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let takes = document["takes"].as_array().expect("a takes array");
+    let row = |index: usize| control_label(&takes[index], "settings.key");
+    assert!(
+        row(0).starts_with("Set — sk-nano-…mnop") && !row(0).contains("not checked"),
+        "accepted: {}",
+        row(0)
+    );
+    assert!(
+        row(1).starts_with("Invalid — rejected by NanoGPT"),
+        "rejected: {}",
+        row(1)
+    );
+    assert!(
+        row(2).starts_with("Set — sk-nano-…mnop · not checked (see the log)"),
+        "unreachable: {}",
+        row(2)
+    );
+    assert!(row(3).starts_with("Checking…"), "checking: {}", row(3));
+    assert!(
+        row(4).starts_with("Set — sk-nano-…mnop · not checked (see the log)"),
+        "released: {}",
+        row(4)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// K2: a stored key shows Set without a ping; a non-empty environment key wins
+/// and leaves the stored bytes untouched.
+#[test]
+fn a_stored_key_shows_set_and_an_environment_key_wins() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "stored",
+                "keiko 1\nfixture credential fixtures/cred.ron\nsetting play.text_speed 0\n\n\
+                 activate title.settings\n",
+            ),
+            (
+                "env",
+                "keiko 1\nfixture credential fixtures/cred.ron\n\
+                 fixture env-key fixtures/env.ron\nsetting play.text_speed 0\n\n\
+                 activate title.settings\n",
+            ),
+        ],
+    );
+    std::fs::create_dir_all(pack.join("tests/fixtures")).unwrap();
+    std::fs::write(
+        pack.join("tests/fixtures/cred.ron"),
+        "sk-nano-abcdefghijklmnop",
+    )
+    .unwrap();
+    std::fs::write(
+        pack.join("tests/fixtures/env.ron"),
+        "sk-nano-envenvenvenv1234",
+    )
+    .unwrap();
+
+    let output = run(&pack, &["--take", "stored", "env", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let takes = document["takes"].as_array().expect("a takes array");
+    assert!(
+        control_label(&takes[0], "settings.key").starts_with("Set — sk-nano-…mnop"),
+        "{}",
+        control_label(&takes[0], "settings.key")
+    );
+    assert!(
+        control_label(&takes[1], "settings.key").starts_with("From environment — sk-nano-…1234"),
+        "{}",
+        control_label(&takes[1], "settings.key")
+    );
+    assert!(
+        !control_enabled(&takes[1], "settings.clear-key"),
+        "the environment key makes Clear key inert"
+    );
+
+    // The override never rewrites the stored key.
+    let kept_output = run(&pack, &["--take", "env", "--keep"]);
+    assert_eq!(
+        kept_output.status.code(),
+        Some(0),
+        "{}",
+        stdout(&kept_output)
+    );
+    let kept = kept_path(&kept_output);
+    let stored = std::fs::read_to_string(kept.join("config/unmei/credentials")).unwrap();
+    assert_eq!(stored, "sk-nano-abcdefghijklmnop");
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(kept);
+}
+
+/// K3: a committed shape-valid key is written before its check, an
+/// unreachable check is Set and not Invalid, and Clear returns the row to Not
+/// set.
+#[test]
+fn a_committed_key_checks_offline_and_clears() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "cleared",
+            "keiko 1\nfault key-check unreachable\nsetting play.text_speed 0\n\n\
+             activate title.settings\nactivate settings.key\n\
+             type \"sk-nano-abcdefghijklmnop\"\npress Enter\n\
+             activate settings.clear-key\nactivate confirm.yes\n",
+        )],
+    );
+    let output = run(&pack, &["--take", "cleared", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let take = &document["takes"][0];
+    assert!(
+        control_label(take, "settings.key").starts_with("Not set"),
+        "{}",
+        control_label(take, "settings.key")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// K4: an unreadable credential file is Not set plus a row-24 warning, with no
+/// Notice and no auto-delete.
+#[test]
+fn an_unreadable_credential_file_is_not_set_with_its_warning() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "unreadable",
+            "keiko 1\nfault credential-unreadable\nsetting play.text_speed 0\n\n\
+             expect notice none\n\
+             expect log warn row 24 contains \"could not read the credential file\"\n\
+             activate title.settings\n",
+        )],
+    );
+    let output = run(&pack, &["--take", "unreadable", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let take = &document["takes"][0];
+    assert!(
+        control_label(take, "settings.key").starts_with("Not set"),
+        "{}",
+        control_label(take, "settings.key")
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// K4: a blocked credential write shows the Notice, keeps the stored key and
+/// the row, and leaves no partial file.
+#[test]
+fn a_blocked_credential_write_keeps_the_stored_key_and_shows_its_notice() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "refused",
+            "keiko 1\nfixture credential fixtures/stored.ron\n\
+             fault write-blocked credential\nsetting play.text_speed 0\n\n\
+             activate title.settings\nactivate settings.key\n\
+             type \"sk-nano-bbbbbbbbbbbbbwxyz\"\npress Enter\n\
+             expect notice contains \"Could not save the key\"\n",
+        )],
+    );
+    std::fs::create_dir_all(pack.join("tests/fixtures")).unwrap();
+    std::fs::write(
+        pack.join("tests/fixtures/stored.ron"),
+        "sk-nano-abcdefghijklmnop",
+    )
+    .unwrap();
+
+    let output = run(&pack, &["--take", "refused", "--keep"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let kept = kept_path(&output);
+    let stored = std::fs::read_to_string(kept.join("config/unmei/credentials")).unwrap();
+    assert_eq!(
+        stored, "sk-nano-abcdefghijklmnop",
+        "the failed write must not replace the stored key"
+    );
+    let temp = kept.join("config/unmei/credentials.tmp");
+    assert!(
+        temp.is_dir(),
+        "the write was blocked at its temp path, not past it: {}",
+        temp.display()
+    );
+
+    let json = run(&pack, &["--take", "refused", "--format", "json"]);
+    let document: serde_json::Value = serde_json::from_str(&stdout(&json)).unwrap();
+    let row = control_label(&document["takes"][0], "settings.key");
+    assert!(row.starts_with("Set — sk-nano-…mnop"), "{row}");
+    assert!(
+        !row.contains("not checked"),
+        "a blocked write starts no check: {row}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+    let _ = std::fs::remove_dir_all(kept);
+}
+
+/// K4: removing the obstruction lets the same commit land.
+#[test]
+fn an_unblocked_credential_write_lands() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "recovered",
+            "keiko 1\nfault write-blocked credential\nsetting play.text_speed 0\n\n\
+             activate title.settings\nactivate settings.key\n\
+             type \"sk-nano-bbbbbbbbbbbbbwxyz\"\npress Enter\n\
+             unblock credential\nactivate settings.key\n\
+             type \"sk-nano-bbbbbbbbbbbbbwxyz\"\npress Enter\n",
+        )],
+    );
+    let output = run(&pack, &["--take", "recovered", "--format", "json"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let row = control_label(&document["takes"][0], "settings.key");
+    assert!(row.starts_with("Set — sk-nano-…wxyz"), "{row}");
     let _ = std::fs::remove_dir_all(dir);
 }
