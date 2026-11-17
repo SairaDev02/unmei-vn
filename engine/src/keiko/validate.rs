@@ -348,12 +348,13 @@ fn expect_reference(expect: &Expect, facts: &Facts) -> Option<String> {
             let Some(script) = facts.pack.scenes.get(scene) else {
                 return Some(format!("unknown scene `{scene}`"));
             };
-            let has_line = script
-                .lines
-                .iter()
-                .enumerate()
-                .any(|(index, _)| script.source_line(index) == *line as usize);
-            (!has_line).then(|| format!("scene `{scene}` has no source line {line}"))
+            // Only a say-line enters the read log (§5), so `expect read` and
+            // `expect unread` must name one.
+            let say_line = script.lines.iter().enumerate().any(|(index, word)| {
+                script.source_line(index) == *line as usize
+                    && matches!(word, crate::Line::Say { .. })
+            });
+            (!say_line).then(|| format!("scene `{scene}` line {line} is not a say-line"))
         }
         Expect::Slot { slot, .. } => match slot {
             LoadTarget::Slot(1..=3) | LoadTarget::Autosave => None,

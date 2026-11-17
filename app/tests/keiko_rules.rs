@@ -731,7 +731,9 @@ fn a_saved_stuck_finding_parses_and_fails_until_the_pack_moves_on() {
     // so the line after it is never read.
     std::fs::write(
         pack.join("scenes/start.unmei"),
-        "Narrator: one\nlabel quiet\nNarrator: same\njump quiet\n",
+        // The loop never reaches the line after it, so the saved case can
+        // assert that say-line's read mark.
+        "Narrator: one\nlabel quiet\nNarrator: same\njump quiet\nNarrator: never\n",
     )
     .unwrap();
     let output = run(&pack, &["--explore", "--budget", "200", "--format", "json"]);

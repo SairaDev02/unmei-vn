@@ -390,23 +390,16 @@ fn closing_assertion(
         return vec!["expect surface play".to_string()];
     }
     if finding.rule == rules::STUCK {
-        // A stuck park never moves on, so the line after it is never read. The
-        // case asserts that read mark: it fails while the loop remains and
-        // passes once the pack walks past the park.
+        // A stuck park never moves on, so the next say-line after it is never
+        // read. Asserting that read mark fails while the loop remains and
+        // passes once the pack walks past the park. A park with no say-line
+        // after it has no expressible closure, so it saves no case.
         if let Some(park) = park {
-            if let (Some(scene), Some(line)) = (park.scene.as_deref(), park.line) {
-                let next = usize::try_from(line).ok().map(|line| line + 1);
-                let exists = next.is_some_and(|next| {
-                    pack.scenes
-                        .get(scene)
-                        .is_some_and(|scene| scene.line_numbers.contains(&next))
-                });
-                if let (true, Some(next)) = (exists, next) {
-                    return vec![format!("expect read {scene}:{next}")];
-                }
+            if let Some((scene, line)) = next_say_line(pack, park) {
+                return vec![format!("expect read {scene}:{line}")];
             }
         }
-        return vec!["expect surface play".to_string()];
+        return Vec::new();
     }
     if let Some(row) = finding.rule.strip_prefix("keiko.log.row-") {
         // The level comes from the row table, never from a copy of it here.
@@ -426,6 +419,26 @@ fn closing_assertion(
         return vec![format!("expect no-log {level} row {row}")];
     }
     Vec::new()
+}
+
+/// The first say-line after the park's own line in its scene, if one exists.
+fn next_say_line(pack: &unmei_engine::Pack, park: &Observation) -> Option<(String, usize)> {
+    let scene = park.scene.as_deref()?;
+    let line = usize::try_from(park.line?).ok()?;
+    let script = pack.scenes.get(scene)?;
+    let park = script
+        .lines
+        .iter()
+        .enumerate()
+        .find(|(index, _)| script.source_line(*index) == line)?
+        .0;
+    script
+        .lines
+        .iter()
+        .enumerate()
+        .skip(park + 1)
+        .find(|(_, word)| matches!(word, unmei_engine::Line::Say { .. }))
+        .map(|(index, _)| (scene.to_string(), script.source_line(index)))
 }
 
 fn save_finding(
