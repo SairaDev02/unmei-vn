@@ -33,9 +33,11 @@ impl Report {
 
     pub fn print(&self) {
         for finding in &self.findings {
+            let unsaved = finding.get("case").is_none();
             println!(
-                "{} {}: {}",
+                "{} {}{}: {}",
                 finding.get("rule").and_then(Value::as_str).unwrap_or(""),
+                if unsaved { "unsaved " } else { "" },
                 finding.get("case").and_then(Value::as_str).unwrap_or(""),
                 finding.get("message").and_then(Value::as_str).unwrap_or("")
             );
@@ -450,6 +452,18 @@ fn save_finding(
     findings: &mut Vec<Value>,
     saved: &mut HashSet<String>,
 ) {
+    let closing = closing_assertion(finding, park, pack);
+    let mut json = super::output::finding_json(finding);
+    if closing.is_empty() {
+        // Rule 29: a saved case must fail while its finding remains. Without an
+        // expressible closure the finding is reported unsaved, not written as a
+        // case that would pass.
+        if let Some(object) = json.as_object_mut() {
+            object.insert("saved".to_string(), Value::Bool(false));
+        }
+        findings.push(json);
+        return;
+    }
     let path = saved_finding_path(pack_root, branch, finding);
     let relative = path
         .strip_prefix(pack_root)
@@ -460,12 +474,8 @@ fn save_finding(
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(
-            &path,
-            branch.case_text(&closing_assertion(finding, park, pack)),
-        );
+        let _ = std::fs::write(&path, branch.case_text(&closing));
     }
-    let mut json = super::output::finding_json(finding);
     if let Some(object) = json.as_object_mut() {
         object.insert("case".to_string(), Value::String(relative));
     }

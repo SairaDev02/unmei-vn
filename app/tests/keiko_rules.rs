@@ -793,3 +793,46 @@ fn one_question_id_on_two_npcs_is_refused() {
     }
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Rule 29: a saved finding must fail under `--take`. A stuck park with no
+/// say-line after it has no expressible closure, so it must not be saved as a
+/// passing case.
+#[test]
+fn a_stuck_finding_without_a_later_say_line_saves_no_case() {
+    let dir = temp_dir();
+    let pack = dir.join("noclosure");
+    std::fs::create_dir_all(pack.join("scenes")).unwrap();
+    std::fs::create_dir_all(pack.join("npcs")).unwrap();
+    std::fs::create_dir_all(pack.join("tests")).unwrap();
+    std::fs::write(
+        pack.join("pack.ron"),
+        "(name: \"noclosure\", entry: \"start\")",
+    )
+    .unwrap();
+    std::fs::write(pack.join("state.ron"), "(met: false,)").unwrap();
+    // The only way onward is a choice that loops back to the same say line:
+    // there is no say-line after the choice park, so no closure is expressible.
+    std::fs::write(
+        pack.join("scenes/start.unmei"),
+        "Narrator: one\nlabel quiet\nNarrator: same\nchoice\n  \"again\" -> quiet\nend\n",
+    )
+    .unwrap();
+    let output = run(&pack, &["--explore", "--budget", "200", "--format", "json"]);
+    let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
+    let findings = json["findings"].as_array().unwrap();
+    let stuck = findings
+        .iter()
+        .find(|finding| finding["rule"] == "keiko.stuck")
+        .expect("a stuck finding");
+    assert!(stuck.get("case").is_none(), "{stuck}");
+    assert_eq!(stuck["saved"], serde_json::json!(false), "{stuck}");
+    let findings_dir = pack.join("tests/findings");
+    let files = std::fs::read_dir(&findings_dir)
+        .map(|entries| entries.flatten().count())
+        .unwrap_or(0);
+    assert_eq!(files, 0, "no case was written");
+    // The text form says it is unsaved.
+    let output = run(&pack, &["--explore", "--budget", "200"]);
+    assert!(stdout(&output).contains("unsaved"), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
