@@ -14,7 +14,7 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use unmei_engine::keiko::{Case, Expect, Fault, FixtureKind, KeyCheckFault, Step};
+use unmei_engine::keiko::{Case, Expect, Fault, KeyCheckFault, Step};
 use unmei_engine::Pack;
 
 use super::assert::evaluate;
@@ -61,6 +61,18 @@ pub struct TakeResult {
 
 /// Run one take.
 pub fn run(request: TakeRequest) -> TakeResult {
+    run_with(
+        request,
+        #[cfg(test)]
+        Vec::<NoExtraPlugin>::new(),
+    )
+}
+
+/// The take's one body. A test build adds extra plugins to the composed app
+/// before its first frame, which is how a lib test reaches the rules a shipping
+/// take cannot install (spec §15 rules 23 and 24). The parameter does not exist
+/// in a non-test build, so the player and `unmei-play` gain no fault hook.
+fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> TakeResult {
     let sandbox = match Sandbox::create(request.original_pack, request.take_index) {
         Ok(sandbox) => sandbox,
         Err(error) => {
@@ -175,6 +187,10 @@ pub fn run(request: TakeRequest) -> TakeResult {
             state: launch.state,
             warning: launch.warning,
         });
+        #[cfg(test)]
+        for plugin in plugins {
+            app.add_plugins(plugin);
+        }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
             for step in &request.case.steps {
@@ -440,89 +456,6 @@ fn frame(app: &mut App, timed: &AtomicU64, clock: &AtomicU64, delta: Duration) {
 /// One frame of the take's clock in nanoseconds, as `n * 1e9 / 60`.
 const NANOS_PER_FRAME: u64 = 1_000_000_000;
 
-/// Apply the case's fixtures and faults to the sandbox before boot (spec §7).
-fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), Finding> {
-    let tests_dir = original_pack.join("tests");
-    let fail =
-        |message: String| Finding::new("case", String::new(), rules::CASE_REFERENCE, message);
-
-    for line in &case.headers {
-        if let unmei_engine::keiko::Header::Fixture { kind, path } = &line.header {
-            let source = tests_dir.join(path);
-            let destination = sandbox.fixture_path(*kind);
-            if let Some(parent) = destination.parent() {
-                std::fs::create_dir_all(parent)
-                    .map_err(|error| fail(format!("fixture `{path}`: {error}")))?;
-            }
-            std::fs::copy(&source, &destination)
-                .map_err(|error| fail(format!("fixture `{path}`: {error}")))?;
-        }
-    }
-
-    // `setting` headers: written into the sandbox settings file before boot, on
-    // top of any `fixture settings` the case copied.
-    let settings_headers: Vec<(&str, &str)> = case
-        .headers
-        .iter()
-        .filter_map(|line| match &line.header {
-            unmei_engine::keiko::Header::Setting { key, value } => {
-                Some((key.as_str(), value.as_str()))
-            }
-            _ => None,
-        })
-        .collect();
-    if !settings_headers.is_empty() {
-        let mut settings = crate::settings::load(sandbox.pack_root()).settings;
-        for (key, value) in settings_headers {
-            apply_setting(&mut settings, key, value).map_err(&fail)?;
-        }
-        crate::settings::save(sandbox.pack_root(), &settings)
-            .map_err(|error| fail(format!("setting: {error}")))?;
-    }
-
-    for line in &case.headers {
-        let unmei_engine::keiko::Header::Fault { fault } = &line.header else {
-            continue;
-        };
-        match fault {
-            Fault::WriteBlocked { target } => {
-                let path = write_target_path(sandbox, *target);
-                let temp = blocked_write_temp(path, *target);
-                std::fs::create_dir_all(&temp)
-                    .map_err(|error| fail(format!("write-blocked: {error}")))?;
-            }
-            Fault::PackFileMissing { path } => {
-                let _ = std::fs::remove_file(sandbox.pack_root().join(path));
-            }
-            Fault::PackFile { path, fixture } => {
-                let source = tests_dir.join(fixture);
-                let destination = sandbox.pack_root().join(path);
-                if let Some(parent) = destination.parent() {
-                    std::fs::create_dir_all(parent)
-                        .map_err(|error| fail(format!("pack-file: {error}")))?;
-                }
-                std::fs::copy(&source, &destination)
-                    .map_err(|error| fail(format!("pack-file `{fixture}`: {error}")))?;
-            }
-            Fault::CredentialUnreadable => {
-                let path = sandbox.fixture_path(FixtureKind::Credential);
-                if let Some(parent) = path.parent() {
-                    std::fs::create_dir_all(parent).ok();
-                }
-                std::fs::create_dir_all(&path)
-                    .map_err(|error| fail(format!("credential-unreadable: {error}")))?;
-            }
-            Fault::AssetMissing { .. }
-            | Fault::AssetCorrupt { .. }
-            | Fault::DecisionError { .. }
-            | Fault::DecisionSlow { .. }
-            | Fault::DecisionHold { .. }
-            | Fault::KeyCheck { .. } => {}
-        }
-    }
-    Ok(())
-}
-
 /// One step's expectation, exposed for the take's tests.
 pub fn expects(case: &Case) -> Vec<&Expect> {
     case.steps
@@ -533,3 +466,16 @@ pub fn expects(case: &Case) -> Vec<&Expect> {
         })
         .collect()
 }
+
+/// The plugin `run`'s shipping call site stands in with: none. A test passes
+/// its own to `run_with` instead.
+#[cfg(test)]
+struct NoExtraPlugin;
+
+#[cfg(test)]
+impl Plugin for NoExtraPlugin {
+    fn build(&self, _app: &mut App) {}
+}
+
+#[cfg(test)]
+mod tests;
