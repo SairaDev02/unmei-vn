@@ -60,6 +60,7 @@ Generated discovery index. Edit a document's frontmatter, then run
 ## Child directories
 
 - [`docs/adr/`](adr/INDEX.md)
+- [`docs/agents/`](agents/INDEX.md)
 - [`docs/guide/`](guide/INDEX.md)
 
 ## Related

@@ -5,8 +5,8 @@
   "fields": ["title", "summary", "keywords", "status", "related"],
   "required": ["title", "summary", "keywords"],
   "summary_max_scalars": 160,
-  "indexed_directories": ["docs", "docs/adr", "docs/guide"],
-  "active_directories": ["docs", "docs/adr", "docs/guide"],
+  "indexed_directories": ["docs", "docs/adr", "docs/agents", "docs/guide"],
+  "active_directories": ["docs", "docs/adr", "docs/agents", "docs/guide"],
   "status_display_directories": ["docs/adr"],
   "keyword_allowlist": [
     "content-format",
@@ -55,7 +55,9 @@
       "CONTRIBUTING.md",
       "SECURITY.md",
       "GLOSSARY.md",
-      "LANGUAGE.md"
+      "LANGUAGE.md",
+      "AGENTS.md",
+      "CLAUDE.md"
     ],
     "templates": [".github/PULL_REQUEST_TEMPLATE.md"],
     "asset_notes": ["app/assets/fonts/README.md"],
