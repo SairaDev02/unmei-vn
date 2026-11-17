@@ -171,7 +171,11 @@ fn indexed(id: &str, family: &str) -> Option<usize> {
 }
 
 /// The ids on the current surface, in walk order.
-pub fn surface_ids(menu: &MenuState, gallery_entries: usize, timeline_entries: usize) -> Vec<String> {
+pub fn surface_ids(
+    menu: &MenuState,
+    gallery_entries: usize,
+    timeline_entries: usize,
+) -> Vec<String> {
     if menu.confirm.is_some() {
         return vec!["confirm.yes".to_string(), "confirm.no".to_string()];
     }
@@ -245,7 +249,10 @@ pub fn surface_ids(menu: &MenuState, gallery_entries: usize, timeline_entries: u
             if menu.gallery_still {
                 Vec::new()
             } else {
-                (0..gallery_entries).map(gallery_card_id).map(str::to_string).collect()
+                (0..gallery_entries)
+                    .map(gallery_card_id)
+                    .map(str::to_string)
+                    .collect()
             }
         }
         MenuView::Timeline => (0..timeline_entries)
@@ -423,7 +430,10 @@ pub fn the_table_is_one_to_one() -> Result<(), String> {
         }
     }
     for (focus, id) in focus_ids() {
-        if matches!(focus, MenuFocus::GalleryCard(_) | MenuFocus::TimelineCard(_)) {
+        if matches!(
+            focus,
+            MenuFocus::GalleryCard(_) | MenuFocus::TimelineCard(_)
+        ) {
             continue;
         }
         if !CONTROL_IDS.contains(&id) {

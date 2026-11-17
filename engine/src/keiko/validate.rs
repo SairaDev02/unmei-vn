@@ -9,9 +9,7 @@ use std::path::Path;
 
 use super::controls::is_control_id;
 use super::finding::{rules, Finding};
-use super::model::{
-    Case, Expect, Fault, Header, LoadTarget, Pick, Step, WriteTarget,
-};
+use super::model::{Case, Expect, Fault, Header, LoadTarget, Pick, Step, WriteTarget};
 use crate::content::StateValue;
 use crate::{Pack, Slot};
 
@@ -62,7 +60,10 @@ pub fn validate(case: &Case, file: &str, facts: &Facts) -> Vec<Finding> {
             Header::Dev => {}
             Header::Start { scene } => {
                 if !facts.pack.scenes.contains_key(scene) {
-                    findings.push(at(rules::CASE_REFERENCE, format!("unknown scene `{scene}`")));
+                    findings.push(at(
+                        rules::CASE_REFERENCE,
+                        format!("unknown scene `{scene}`"),
+                    ));
                 }
             }
             Header::State { key, value } => {
@@ -164,10 +165,10 @@ impl Declared {
                     fault: Fault::DecisionHold { point },
                 } => declared.decision_holds.push(point.clone()),
                 Header::Fault {
-                    fault: Fault::KeyCheck { verdict },
-                } if matches!(verdict, super::model::KeyCheckFault::Hold) => {
-                    declared.key_check_hold = true
-                }
+                    fault: Fault::KeyCheck {
+                        verdict: super::model::KeyCheckFault::Hold,
+                    },
+                } => declared.key_check_hold = true,
                 Header::Fault {
                     fault: Fault::WriteBlocked { target },
                 } => declared.blocks.push(*target),
@@ -281,8 +282,9 @@ fn expect_reference(expect: &Expect, facts: &Facts) -> Option<String> {
         Expect::Control { id, .. } | Expect::ControlLabel { id, .. } => {
             (!is_control_id(id)).then(|| format!("unknown control `{id}`"))
         }
-        Expect::Scene(scene) => (!facts.pack.scenes.contains_key(scene))
-            .then(|| format!("unknown scene `{scene}`")),
+        Expect::Scene(scene) => {
+            (!facts.pack.scenes.contains_key(scene)).then(|| format!("unknown scene `{scene}`"))
+        }
         Expect::Label(name) => {
             let Some(name) = name else { return None };
             let anywhere = facts

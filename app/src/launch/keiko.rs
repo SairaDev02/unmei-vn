@@ -249,7 +249,11 @@ pub fn validate_id(id: &str) -> Result<(), UsageError> {
         .next()
         .is_some_and(|first| first.is_ascii_lowercase() || first.is_ascii_digit());
     let rest_ok = chars.all(|ch| {
-        ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '_' || ch == '-' || (allow_dots && ch == '.')
+        ch.is_ascii_lowercase()
+            || ch.is_ascii_digit()
+            || ch == '_'
+            || ch == '-'
+            || (allow_dots && ch == '.')
     });
     if first_ok && rest_ok {
         Ok(())
@@ -266,10 +270,26 @@ mod tests {
 
     #[test]
     fn a_case_id_is_a_lowercase_stem_or_a_saved_finding() {
-        for id in ["a", "new-game", "case_1", "9lives", "findings/keiko.panic-ab12cd34"] {
+        for id in [
+            "a",
+            "new-game",
+            "case_1",
+            "9lives",
+            "findings/keiko.panic-ab12cd34",
+        ] {
             assert!(validate_id(id).is_ok(), "{id}");
         }
-        for id in ["", "A", "-x", "_x", "findings/", "findings/A", "a/b", "a.b", "a b"] {
+        for id in [
+            "",
+            "A",
+            "-x",
+            "_x",
+            "findings/",
+            "findings/A",
+            "a/b",
+            "a.b",
+            "a b",
+        ] {
             assert!(validate_id(id).is_err(), "{id}");
         }
     }
@@ -289,7 +309,10 @@ mod tests {
         take.push_value(OsString::from("a")).unwrap();
         assert_eq!(
             take.finish(false).unwrap(),
-            Some(KeikoMode::Take { ids: vec!["a".into()], live: false })
+            Some(KeikoMode::Take {
+                ids: vec!["a".into()],
+                live: false
+            })
         );
 
         let mut live = KeikoArgs::default();

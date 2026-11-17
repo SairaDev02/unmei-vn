@@ -20,9 +20,9 @@ mod tests;
 pub use controls::{is_control_id, slot_control, CONTROL_IDS, INDEXED_CONTROL_FAMILIES};
 pub use finding::{rules, Finding};
 pub use model::{
-    Case, Click, ControlCondition, DecisionFault, DecisionState, Expect, Fault, FixtureKind, Header,
-    HeaderLine, KeyCheckFault, LoadTarget, LogLevel, Pick, SkipMode, SlotExpect, Step, StepLine,
-    WriteTarget,
+    Case, Click, ControlCondition, DecisionFault, DecisionState, Expect, Fault, FixtureKind,
+    Header, HeaderLine, KeyCheckFault, LoadTarget, LogLevel, Pick, SkipMode, SlotExpect, Step,
+    StepLine, WriteTarget,
 };
 pub use parse::{parse_case, parse_duration, CASE_VERSION, SURFACES};
 pub use text::{exact, normalize};

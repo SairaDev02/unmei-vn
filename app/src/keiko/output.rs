@@ -90,7 +90,10 @@ pub fn print_finding(finding: &Finding) {
     } else {
         format!(" {}", finding.path)
     };
-    println!("{}:{} {}: {}", finding.file, path, finding.rule, finding.message);
+    println!(
+        "{}:{} {}: {}",
+        finding.file, path, finding.rule, finding.message
+    );
 }
 
 fn indent(text: &str) -> String {

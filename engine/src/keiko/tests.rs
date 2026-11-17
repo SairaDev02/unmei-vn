@@ -295,7 +295,10 @@ fn every_unknown_reference_is_a_reference_finding() {
         ("fixture slot-1 missing.ron", "does not exist"),
         ("fault pack-file pack.ron missing.ron", "does not exist"),
         ("fault decision-hold ace.nope", "not a decision point"),
-        ("fault decision-error ace.nope transport", "not a decision point"),
+        (
+            "fault decision-error ace.nope transport",
+            "not a decision point",
+        ),
     ];
     for (header, expected) in cases {
         let findings = validate_text(&format!("keiko 1\n{header}\nstart first\nnew-game\n"));
@@ -366,6 +369,7 @@ fn a_fault_step_needs_the_fault_it_releases() {
 
 #[test]
 fn the_control_table_is_the_validator_s_authority() {
-    let findings = validate_text("keiko 1\nactivate overlay.resume\nexpect control confirm.no focused\n");
+    let findings =
+        validate_text("keiko 1\nactivate overlay.resume\nexpect control confirm.no focused\n");
     assert_eq!(findings, Vec::new());
 }

@@ -6,9 +6,9 @@
 //! modes, decision state, error screen, state map, slots and the take's own log
 //! lines. The text and JSON forms are the same fields.
 
-use std::collections::BTreeMap;
 use bevy::prelude::*;
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use unmei_engine::runner::Wait;
 use unmei_engine::save::{list_slots, SlotStatus};
 use unmei_engine::StateValue;
@@ -16,9 +16,9 @@ use unmei_engine::StateValue;
 use crate::failure::StartupFailure;
 use crate::menu::MenuState;
 use crate::presentation::play::DialogueProse;
-use crate::Runtime;
 use crate::HeldDecision;
 use crate::PendingDecision;
+use crate::Runtime;
 
 /// One choice option on screen.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -468,9 +468,7 @@ pub fn observe(app: &mut App, log: Vec<LogLine>, live: bool) -> Observation {
                     .collect();
             }
             Some(Wait::Decision {
-                npc_id,
-                question,
-                ..
+                npc_id, question, ..
             }) => {
                 let held = world
                     .get_resource::<HeldDecision>()

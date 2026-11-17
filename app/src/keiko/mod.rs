@@ -43,7 +43,10 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
                 format!("pack: {detail}"),
             );
             if output::is_json(format) {
-                println!("{}", json!({ "findings": [output::finding_json(&finding)] }));
+                println!(
+                    "{}",
+                    json!({ "findings": [output::finding_json(&finding)] })
+                );
             } else {
                 output::print_finding(&finding);
             }
@@ -63,10 +66,10 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
             };
             take(pack_root, &pack, ids, keep, format, None, live)
         }
-        KeikoMode::Step { id, step } => {
-            append_step(pack_root, &pack, id, step, keep, format)
+        KeikoMode::Step { id, step } => append_step(pack_root, &pack, id, step, keep, format),
+        KeikoMode::Observe { id } => {
+            take(pack_root, &pack, std::slice::from_ref(id), keep, format, None, None)
         }
-        KeikoMode::Observe { id } => take(pack_root, &pack, &[id.clone()], keep, format, None, None),
         KeikoMode::Explore { budget, from } => {
             explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
         }
@@ -102,7 +105,15 @@ fn take(
 
     let mut runs = Vec::new();
     for (id, path) in files {
-        let mut run = run_one(pack_root, pack, &id, &path, keep, extra.as_ref(), live.clone());
+        let mut run = run_one(
+            pack_root,
+            pack,
+            &id,
+            &path,
+            keep,
+            extra.as_ref(),
+            live.clone(),
+        );
         run.case = id;
         if output::is_json(format) {
             runs.push(run);
@@ -225,8 +236,8 @@ fn case_files(pack_root: &Path, ids: &[String]) -> Result<Vec<(String, PathBuf)>
     let mut out = Vec::new();
     for id in ids {
         let path = tests.join(format!("{id}.keiko"));
-        let text = std::fs::read_to_string(&path)
-            .map_err(|error| format!("case `{id}`: {error}"))?;
+        let text =
+            std::fs::read_to_string(&path).map_err(|error| format!("case `{id}`: {error}"))?;
         let _ = text;
         out.push((id.clone(), path));
     }
@@ -241,11 +252,18 @@ fn collect_cases(root: &Path, dir: &Path, out: &mut Vec<(String, PathBuf)>) -> R
     for entry in entries {
         let entry = entry.map_err(|error| format!("tests/: {error}"))?;
         let path = entry.path();
-        if entry.file_type().map_err(|error| error.to_string())?.is_dir() {
+        if entry
+            .file_type()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+        {
             collect_cases(root, &path, out)?;
             continue;
         }
-        if path.extension().is_none_or(|extension| extension != "keiko") {
+        if path
+            .extension()
+            .is_none_or(|extension| extension != "keiko")
+        {
             continue;
         }
         let relative = path.strip_prefix(root).unwrap_or(&path);

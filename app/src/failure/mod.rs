@@ -44,11 +44,11 @@ pub use error_screen::{default_pack_hint, error_screen_input, StartupFailure, MA
 pub use funnel::{report, report_runner_call, DefensiveHold, Failure};
 pub use notice::{tick_notice, Notice, NOTICE_SECONDS};
 pub use rows::{FailureRow, Posture};
-pub use tap::RecordedLine;
 pub use session_log::{
     file_layer, keiko_file_layer, report_log_open_error, session_log_file_name,
     session_log_path_for, set_keiko_log, LogOpenError, SessionLog, SessionLogResult,
 };
+pub use tap::RecordedLine;
 
 use audio_setup::kira_setup_layer;
 

@@ -20911,9 +20911,9 @@ Narrator: sourced elsewhere
         1,
         "the play frame's staging sync draws the background"
     );
-    let mut sprites =
-        app.world_mut()
-            .query_filtered::<Entity, With<crate::presentation::play::NpcSprite>>();
+    let mut sprites = app
+        .world_mut()
+        .query_filtered::<Entity, With<crate::presentation::play::NpcSprite>>();
     assert_eq!(
         sprites.iter(app.world()).count(),
         1,

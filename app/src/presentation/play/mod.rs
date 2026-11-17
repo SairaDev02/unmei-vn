@@ -26,9 +26,8 @@ use crate::Runtime;
 pub(crate) use chrome::{setup_ui, sync_auto_cue, sync_notice, sync_skip_cue};
 pub(crate) use error_screen::draw_error_screen;
 pub(crate) use reveal::TextReveal;
-pub(crate) use state::{
-    request_replay, AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume, DialogueProse,
-};
+pub(crate) use state::{request_replay, AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume};
+pub(crate) use state::DialogueProse;
 pub(crate) use state::{Bgm, ChoiceButton, Sfx};
 pub(crate) use sync::{
     advance_reveal, report_silent_degradations, sync_audio, sync_audio_volume,
@@ -48,8 +47,8 @@ pub(crate) use reveal::rendered_line;
     reason = "the pre-split `play::<Marker>` paths stay valid; `DialogueProse`, `ErrorScreen` and `NoticeText` have no reader outside `play`"
 )]
 pub(crate) use state::{
-    AutoCue, BackgroundSprite, DialogueProse, DialogueText, ErrorScreen, HelpLine, NoticeText,
-    NpcSprite, SkipCue,
+    AutoCue, BackgroundSprite, DialogueText, ErrorScreen, HelpLine, NoticeText, NpcSprite,
+    SkipCue,
 };
 
 /// Initialize the play surface's separately stored realization state: the

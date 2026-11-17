@@ -71,10 +71,7 @@ pub fn parse_case(file: &str, text: &str) -> Result<Case, Finding> {
 
         saw_step = true;
         let step = parse_step(verb.as_str(), rest, file, number)?;
-        case.steps.push(StepLine {
-            line: number,
-            step,
-        });
+        case.steps.push(StepLine { line: number, step });
     }
     Ok(case)
 }
@@ -215,12 +212,7 @@ fn parse_header(
     Ok(Some(header))
 }
 
-fn parse_step(
-    verb: &str,
-    rest: &[Token],
-    file: &str,
-    line: usize,
-) -> Result<Step, Finding> {
+fn parse_step(verb: &str, rest: &[Token], file: &str, line: usize) -> Result<Step, Finding> {
     let step = match verb {
         "new-game" => {
             if !rest.is_empty() {
@@ -324,7 +316,11 @@ fn parse_step(
             let [target] = rest else {
                 return Err(syntax(file, line, "unblock <target>"));
             };
-            Step::Unblock(parse_write_target(bare_at(target, file, line)?, file, line)?)
+            Step::Unblock(parse_write_target(
+                bare_at(target, file, line)?,
+                file,
+                line,
+            )?)
         }
         "frame" => match rest {
             [] => Step::Frame(None),
@@ -575,7 +571,11 @@ fn parse_expect(rest: &[Token], file: &str, line: usize) -> Result<Expect, Findi
         }
         "log" | "no-log" => {
             let Some((level, rest)) = args.split_first() else {
-                return Err(syntax(file, line, "expect log <level> [row <n>] contains \"<text>\""));
+                return Err(syntax(
+                    file,
+                    line,
+                    "expect log <level> [row <n>] contains \"<text>\"",
+                ));
             };
             let level = match bare_at(level, file, line)? {
                 "error" => LogLevel::Error,
@@ -635,7 +635,11 @@ fn syntax(file: &str, line: usize, message: impl Into<String>) -> Finding {
 fn bare_at<'a>(token: &'a Token, file: &str, line: usize) -> Result<&'a str, Finding> {
     match token {
         Token::Bare(text) => Ok(text),
-        Token::Quoted(_) => Err(syntax(file, line, "expected a bare word, not a quoted string")),
+        Token::Quoted(_) => Err(syntax(
+            file,
+            line,
+            "expected a bare word, not a quoted string",
+        )),
     }
 }
 
@@ -655,23 +659,31 @@ fn quoted_unless_none(token: &Token, file: &str, line: usize) -> Result<String, 
 
 fn open_closed(rest: &[Token], file: &str, line: usize) -> Result<bool, Finding> {
     let [token] = rest else {
-                return Err(syntax(file, line, "expect monitor open|closed"));
-            };
+        return Err(syntax(file, line, "expect monitor open|closed"));
+    };
     match bare_at(token, file, line)? {
         "open" => Ok(true),
         "closed" => Ok(false),
-        other => Err(syntax(file, line, format!("expected open or closed, got `{other}`"))),
+        other => Err(syntax(
+            file,
+            line,
+            format!("expected open or closed, got `{other}`"),
+        )),
     }
 }
 
 fn on_off(rest: &[Token], file: &str, line: usize) -> Result<bool, Finding> {
     let [token] = rest else {
-                return Err(syntax(file, line, "expect auto on|off"));
-            };
+        return Err(syntax(file, line, "expect auto on|off"));
+    };
     match bare_at(token, file, line)? {
         "on" => Ok(true),
         "off" => Ok(false),
-        other => Err(syntax(file, line, format!("expected on or off, got `{other}`"))),
+        other => Err(syntax(
+            file,
+            line,
+            format!("expected on or off, got `{other}`"),
+        )),
     }
 }
 
@@ -695,7 +707,13 @@ fn parse_f32(text: &str, file: &str, line: usize) -> Result<f32, Finding> {
 
 /// `2s`, `0.5s`, `250ms`: a decimal number and a unit.
 pub fn parse_duration(text: &str, file: &str, line: usize) -> Result<Duration, Finding> {
-    let invalid = || syntax(file, line, format!("`{text}` is not a duration (use `2s` or `250ms`)"));
+    let invalid = || {
+        syntax(
+            file,
+            line,
+            format!("`{text}` is not a duration (use `2s` or `250ms`)"),
+        )
+    };
     let (number, unit) = if let Some(ms) = text.strip_suffix("ms") {
         (ms, 1e-3)
     } else if let Some(seconds) = text.strip_suffix('s') {
@@ -732,7 +750,7 @@ fn parse_write_target(text: &str, file: &str, line: usize) -> Result<WriteTarget
         "read-log" => Ok(WriteTarget::ReadLog),
         "settings" => Ok(WriteTarget::Settings),
         "credential" => Ok(WriteTarget::Credential),
-        other => prefixed_slot(other, file, line).map(|slot| WriteTarget::Slot(slot)),
+        other => prefixed_slot(other, file, line).map(WriteTarget::Slot),
     }
 }
 
@@ -795,7 +813,11 @@ fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fault, Finding
         }
         "decision-error" => {
             let [point, kind] = args else {
-                return Err(syntax(file, line, "fault decision-error <npc>.<question> transport|answer|refusal"));
+                return Err(syntax(
+                    file,
+                    line,
+                    "fault decision-error <npc>.<question> transport|answer|refusal",
+                ));
             };
             Fault::DecisionError {
                 point: bare_at(point, file, line)?.to_string(),
@@ -803,13 +825,23 @@ fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fault, Finding
                     "transport" => DecisionFault::Transport,
                     "answer" => DecisionFault::Answer,
                     "refusal" => DecisionFault::Refusal,
-                    other => return Err(syntax(file, line, format!("unknown decision fault `{other}`"))),
+                    other => {
+                        return Err(syntax(
+                            file,
+                            line,
+                            format!("unknown decision fault `{other}`"),
+                        ))
+                    }
                 },
             }
         }
         "decision-slow" => {
             let [point, duration] = args else {
-                return Err(syntax(file, line, "fault decision-slow <npc>.<question> <duration>"));
+                return Err(syntax(
+                    file,
+                    line,
+                    "fault decision-slow <npc>.<question> <duration>",
+                ));
             };
             Fault::DecisionSlow {
                 point: bare_at(point, file, line)?.to_string(),
@@ -821,7 +853,11 @@ fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fault, Finding
         },
         "key-check" => {
             let [verdict] = args else {
-                return Err(syntax(file, line, "fault key-check accepted|rejected|unreachable|hold"));
+                return Err(syntax(
+                    file,
+                    line,
+                    "fault key-check accepted|rejected|unreachable|hold",
+                ));
             };
             Fault::KeyCheck {
                 verdict: match bare_at(verdict, file, line)? {
@@ -829,7 +865,13 @@ fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fault, Finding
                     "rejected" => KeyCheckFault::Rejected,
                     "unreachable" => KeyCheckFault::Unreachable,
                     "hold" => KeyCheckFault::Hold,
-                    other => return Err(syntax(file, line, format!("unknown key-check verdict `{other}`"))),
+                    other => {
+                        return Err(syntax(
+                            file,
+                            line,
+                            format!("unknown key-check verdict `{other}`"),
+                        ))
+                    }
                 },
             }
         }
@@ -845,12 +887,7 @@ fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fault, Finding
     Ok(fault)
 }
 
-fn single_bare(
-    args: &[Token],
-    file: &str,
-    line: usize,
-    form: &str,
-) -> Result<String, Finding> {
+fn single_bare(args: &[Token], file: &str, line: usize, form: &str) -> Result<String, Finding> {
     let [token] = args else {
         return Err(syntax(file, line, format!("expected `{form}`")));
     };

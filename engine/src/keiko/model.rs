@@ -236,27 +236,61 @@ pub enum Expect {
     Surface(String),
     Monitor(bool),
     Speaker(Option<String>),
-    Line { text: String, contains: bool },
+    Line {
+        text: String,
+        contains: bool,
+    },
     Revealed(bool),
     Choices(Vec<String>),
-    NoticeText { text: String, contains: bool },
+    NoticeText {
+        text: String,
+        contains: bool,
+    },
     NoticeNone,
-    Control { id: String, condition: ControlCondition },
-    ControlLabel { id: String, label: String },
+    Control {
+        id: String,
+        condition: ControlCondition,
+    },
+    ControlLabel {
+        id: String,
+        label: String,
+    },
     Bg(Option<String>),
-    Sprite { npc: String, pose: String },
-    SpriteNone { npc: String },
+    Sprite {
+        npc: String,
+        pose: String,
+    },
+    SpriteNone {
+        npc: String,
+    },
     Music(Option<String>),
     Auto(bool),
     Skip(SkipMode),
     Decision(DecisionState),
     Scene(String),
     Label(Option<String>),
-    State { key: String, value: String },
-    Read { scene: String, line: u32, present: bool },
-    Slot { slot: LoadTarget, status: SlotExpect },
-    Log { level: LogLevel, row: Option<u32>, text: String },
-    NoLog { level: LogLevel, row: Option<u32> },
+    State {
+        key: String,
+        value: String,
+    },
+    Read {
+        scene: String,
+        line: u32,
+        present: bool,
+    },
+    Slot {
+        slot: LoadTarget,
+        status: SlotExpect,
+    },
+    Log {
+        level: LogLevel,
+        row: Option<u32>,
+        text: String,
+    },
+    NoLog {
+        level: LogLevel,
+        row: Option<u32>,
+    },
 }
 
 /// A control's expected condition.

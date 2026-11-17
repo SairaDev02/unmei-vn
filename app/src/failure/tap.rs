@@ -58,14 +58,20 @@ pub fn arm() {
 /// Disarm the recorder and return everything it saw.
 pub fn finish_take() -> Vec<RecordedLine> {
     ARMED.store(false, std::sync::atomic::Ordering::Relaxed);
-    let mut lines = lines().lock().map(|lines| lines.clone()).unwrap_or_default();
+    let mut lines = lines()
+        .lock()
+        .map(|lines| lines.clone())
+        .unwrap_or_default();
     lines.retain(|_| true);
     lines
 }
 
 /// The lines recorded since `cursor`, and the new cursor.
 pub fn since(cursor: usize) -> (Vec<RecordedLine>, usize) {
-    let lines = lines().lock().map(|lines| lines.clone()).unwrap_or_default();
+    let lines = lines()
+        .lock()
+        .map(|lines| lines.clone())
+        .unwrap_or_default();
     let from = cursor.min(lines.len());
     (lines[from..].to_vec(), lines.len())
 }

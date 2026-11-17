@@ -44,9 +44,8 @@ pub use controls::{
     MAX_TEXT_SPEED, SILENCE_DECIBELS, TEXT_SPEED_LADDER,
 };
 pub use file::{
-    setting_keys,
-    load, save, settings_path_for, AudioSettings, LoadedSettings, PlaySettings, Settings,
-    SettingsError, StartupSettings,
+    load, save, setting_keys, settings_path_for, AudioSettings, LoadedSettings, PlaySettings,
+    Settings, SettingsError, StartupSettings,
 };
 pub use state::{flush, SettingsState};
 pub use window::{window_config, window_mode};

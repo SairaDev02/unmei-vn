@@ -39,7 +39,10 @@ pub struct KeikoResolver {
 }
 
 impl KeikoResolver {
-    pub fn new(case_decisions: impl IntoIterator<Item = (String, String)>, faults: Vec<Fault>) -> Self {
+    pub fn new(
+        case_decisions: impl IntoIterator<Item = (String, String)>,
+        faults: Vec<Fault>,
+    ) -> Self {
         let mut fault_map = HashMap::new();
         for fault in faults {
             match &fault {
@@ -111,13 +114,8 @@ impl DecisionResolver for KeikoResolver {
         Box::pin(async move {
             if let Some(action) = self.landings.get(question_id) {
                 let mut resolved = Self::model_answer(&self.landing_for(config, action));
-                if let Some(fault) = self.faults.get(question_id) {
-                    match fault {
-                        Fault::DecisionError { kind, .. } => {
-                            resolved = fallback(config, error_for(*kind));
-                        }
-                        _ => {}
-                    }
+                if let Some(Fault::DecisionError { kind, .. }) = self.faults.get(question_id) {
+                    resolved = fallback(config, error_for(*kind));
                 }
                 return resolved;
             }
@@ -126,8 +124,8 @@ impl DecisionResolver for KeikoResolver {
                 match fault {
                     Fault::DecisionError { kind, .. } => return fallback(config, error_for(*kind)),
                     Fault::DecisionSlow { duration, .. } => {
-                        let target = self.clock_ms.load(Ordering::Relaxed)
-                            + duration.as_millis() as u64;
+                        let target =
+                            self.clock_ms.load(Ordering::Relaxed) + duration.as_millis() as u64;
                         // The take moves its virtual clock only on `wait`; this
                         // loop never sleeps on its own.
                         let mut spins = 0u64;
@@ -151,10 +149,15 @@ impl DecisionResolver for KeikoResolver {
                             let guard = lock.lock().unwrap_or_else(|poison| poison.into_inner());
                             let _ = cvar.wait_timeout(guard, Duration::from_millis(2));
                         }
-                        return Self::model_answer(&self.landing_for(
-                            config,
-                            self.landings.get(question_id).map(String::as_str).unwrap_or("fallback"),
-                        ));
+                        return Self::model_answer(
+                            &self.landing_for(
+                                config,
+                                self.landings
+                                    .get(question_id)
+                                    .map(String::as_str)
+                                    .unwrap_or("fallback"),
+                            ),
+                        );
                     }
                     _ => {}
                 }

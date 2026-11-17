@@ -36,10 +36,7 @@ impl Report {
             println!(
                 "{} {}: {}",
                 finding.get("rule").and_then(Value::as_str).unwrap_or(""),
-                finding
-                    .get("case")
-                    .and_then(Value::as_str)
-                    .unwrap_or(""),
+                finding.get("case").and_then(Value::as_str).unwrap_or(""),
                 finding.get("message").and_then(Value::as_str).unwrap_or("")
             );
         }
@@ -56,7 +53,11 @@ impl Report {
             "budget: {} of {}{}",
             self.used,
             self.limit,
-            if self.budget_spent { " (budget spent)" } else { "" }
+            if self.budget_spent {
+                " (budget spent)"
+            } else {
+                ""
+            }
         );
     }
 }
@@ -106,9 +107,7 @@ impl Branch {
         let mut headers: Vec<HeaderLine> = self
             .headers
             .iter()
-            .filter(|line| {
-                !matches!(&line.header, Header::Decide { point: p, .. } if p == point)
-            })
+            .filter(|line| !matches!(&line.header, Header::Decide { point: p, .. } if p == point))
             .cloned()
             .collect();
         headers.push(HeaderLine {
@@ -167,9 +166,9 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
     };
     // Instant text unless the case chose a speed, so a walk does not spend its
     // budget on reveal frames.
-    let has_speed = start.headers.iter().any(|line| {
-        matches!(&line.header, Header::Setting { key, .. } if key == "play.text_speed")
-    });
+    let has_speed = start.headers.iter().any(
+        |line| matches!(&line.header, Header::Setting { key, .. } if key == "play.text_speed"),
+    );
     let mut start = start;
     if !has_speed {
         start.headers.push(HeaderLine {
@@ -404,10 +403,11 @@ fn save_finding(
 
 /// `tests/findings/<rule>-<hash>.keiko`, named by the step list's content hash.
 fn saved_finding_path(pack_root: &Path, branch: &Branch, finding: &Finding) -> PathBuf {
-    pack_root
-        .join("tests")
-        .join("findings")
-        .join(format!("{}-{}.keiko", finding.rule, branch.digest()))
+    pack_root.join("tests").join("findings").join(format!(
+        "{}-{}.keiko",
+        finding.rule,
+        branch.digest()
+    ))
 }
 
 fn visited_key(observation: &Observation) -> String {
@@ -532,11 +532,7 @@ impl Coverage {
                 .iter()
                 .filter(|line| matches!(line, unmei_engine::Line::Choice { .. }))
                 .count();
-            let reached_say = self
-                .say
-                .iter()
-                .filter(|(id, _)| *id == scene.id)
-                .count();
+            let reached_say = self.say.iter().filter(|(id, _)| *id == scene.id).count();
             let reached_choices = self
                 .choices
                 .iter()
@@ -576,5 +572,8 @@ pub fn is_choice(wait: Option<&Wait>) -> bool {
 
 /// The map key a decision point uses, exposed for tests.
 pub fn decision_point(observation: &Observation) -> Option<&str> {
-    observation.decision.as_ref().map(|decision| decision.point.as_str())
+    observation
+        .decision
+        .as_ref()
+        .map(|decision| decision.point.as_str())
 }

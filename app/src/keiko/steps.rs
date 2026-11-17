@@ -120,9 +120,8 @@ pub fn apply(app: &mut App, step: &Step, run: FrameRun) -> Result<Applied, Findi
             Ok(Applied::Input)
         }
         Step::Release(key) => {
-            let code = key_code(key).ok_or_else(|| {
-                fail(rules::CASE_SYNTAX, format!("unknown key `{key}`"))
-            })?;
+            let code = key_code(key)
+                .ok_or_else(|| fail(rules::CASE_SYNTAX, format!("unknown key `{key}`")))?;
             send(app, code, ButtonState::Released, None);
             run(app);
             Ok(Applied::Input)
@@ -146,7 +145,8 @@ pub fn apply(app: &mut App, step: &Step, run: FrameRun) -> Result<Applied, Findi
         }
         Step::Wait(duration) => Ok(Applied::Wait(*duration)),
         Step::Activate(id) => {
-            activate_control(app, run, id).map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+            activate_control(app, run, id)
+                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
             Ok(Applied::Input)
         }
         Step::Save(slot) => {
@@ -164,14 +164,14 @@ pub fn apply(app: &mut App, step: &Step, run: FrameRun) -> Result<Applied, Findi
             Ok(Applied::Input)
         }
         Step::ReleaseKeyCheck | Step::Unblock(_) => Ok(Applied::Input),
-        Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _)) => Err(
-            Finding::new(
+        Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _)) => {
+            Err(Finding::new(
                 "case",
                 format!("step `{}`", verb(step)),
                 rules::RENDER_UNAVAILABLE,
                 "no software rasterizer is available in this take",
-            ),
-        ),
+            ))
+        }
         Step::Expect(expect) => Ok(Applied::Assert(expect.clone())),
     }
 }
@@ -277,7 +277,9 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), St
             }
         }
         if app.world().resource::<MenuState>().focus == before {
-            return Err(format!("focus cannot reach `{id}` from the current control"));
+            return Err(format!(
+                "focus cannot reach `{id}` from the current control"
+            ));
         }
     }
     if app.world().resource::<MenuState>().focus != target {
@@ -328,7 +330,15 @@ fn save_or_load(
     if !menu.open || menu.view != MenuView::Slots {
         tap(app, run, KeyCode::Escape);
     }
-    activate_control(app, run, if save { "overlay.save-tab" } else { "overlay.load-tab" })?;
+    activate_control(
+        app,
+        run,
+        if save {
+            "overlay.save-tab"
+        } else {
+            "overlay.load-tab"
+        },
+    )?;
     let slot = match target {
         LoadTarget::Slot(n) => format!("overlay.slot.{n}"),
         LoadTarget::Autosave => "overlay.slot.autosave".to_string(),

@@ -43,7 +43,11 @@ fn the_demo_packs_cases_pass() {
         stdout(&output),
         stderr(&output)
     );
-    assert!(stdout(&output).contains("PASS opening"), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("PASS opening"),
+        "{}",
+        stdout(&output)
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -64,7 +68,12 @@ fn keiko_usage_errors_exit_two_before_startup() {
         vec![pack, "--keep"],
     ] {
         let output = run(&args);
-        assert_eq!(output.status.code(), Some(2), "{args:?}: {}", stderr(&output));
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "{args:?}: {}",
+            stderr(&output)
+        );
     }
 }
 
@@ -149,7 +158,12 @@ fn case_pack(dir: &Path, case: &str) -> PathBuf {
 #[test]
 fn a_bad_version_fails_with_its_rule_and_nothing_else() {
     let dir = tempfile::tempdir().unwrap();
-    for case in ["", "keiko 2\nnew-game\n", "keiko x\nnew-game\n", "new-game\n"] {
+    for case in [
+        "",
+        "keiko 2\nnew-game\n",
+        "keiko x\nnew-game\n",
+        "new-game\n",
+    ] {
         let pack = case_pack(dir.path(), case);
         let output = run(&[pack.to_str().unwrap(), "--take", "bad"]);
         assert_eq!(output.status.code(), Some(1), "{case:?}");
@@ -178,16 +192,29 @@ fn a_header_after_a_step_fails_with_header_order() {
 fn an_unknown_reference_fails_before_a_take() {
     let dir = tempfile::tempdir().unwrap();
     for (case, rule) in [
-        ("keiko 1\ndecide nobody.greet cold\nnew-game\n", "keiko.case.reference"),
+        (
+            "keiko 1\ndecide nobody.greet cold\nnew-game\n",
+            "keiko.case.reference",
+        ),
         ("keiko 1\nstart nowhere\nnew-game\n", "keiko.case.reference"),
-        ("keiko 1\nsetting play.nope 1\nnew-game\n", "keiko.case.reference"),
-        ("keiko 1\nactivate title.nope\nnew-game\n", "keiko.case.reference"),
+        (
+            "keiko 1\nsetting play.nope 1\nnew-game\n",
+            "keiko.case.reference",
+        ),
+        (
+            "keiko 1\nactivate title.nope\nnew-game\n",
+            "keiko.case.reference",
+        ),
         ("keiko 1\npress KeyZ\nnew-game\n", "keiko.case.syntax"),
     ] {
         let pack = case_pack(dir.path(), case);
         let output = run(&[pack.to_str().unwrap(), "--take", "bad"]);
         assert_eq!(output.status.code(), Some(1), "{case:?}");
-        assert!(stdout(&output).contains(rule), "{case:?}: {}", stdout(&output));
+        assert!(
+            stdout(&output).contains(rule),
+            "{case:?}: {}",
+            stdout(&output)
+        );
     }
 }
 

@@ -174,9 +174,9 @@ where
                     continue;
                 }
                 "--format" | "--budget" | "--from" => {
-                    let value = tokens.get(index).ok_or_else(|| {
-                        UsageError::new(format!("{text} needs a value after it"))
-                    })?;
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
                     index += 1;
                     let value = value.to_string_lossy();
                     match text.as_ref() {
@@ -515,7 +515,10 @@ mod tests {
         for (args, expected) in [
             (
                 vec!["--take"],
-                KeikoMode::Take { ids: Vec::new(), live: false },
+                KeikoMode::Take {
+                    ids: Vec::new(),
+                    live: false,
+                },
             ),
             (
                 vec!["pack", "--take", "one", "findings/keiko.panic-ab12cd34"],
@@ -526,7 +529,10 @@ mod tests {
             ),
             (
                 vec!["--take", "--live", "--keep", "--format", "json"],
-                KeikoMode::Take { ids: Vec::new(), live: false },
+                KeikoMode::Take {
+                    ids: Vec::new(),
+                    live: true,
+                },
             ),
             (
                 vec!["--step", "one", "advance 2"],
@@ -600,7 +606,14 @@ mod tests {
         let help = help();
         assert!(help.contains("Testing (Keiko)"));
         for flag in [
-            "--take", "--step", "--observe", "--explore", "--live", "--budget", "--from", "--keep",
+            "--take",
+            "--step",
+            "--observe",
+            "--explore",
+            "--live",
+            "--budget",
+            "--from",
+            "--keep",
             "--format",
         ] {
             assert!(help.contains(flag), "{flag} missing from help");

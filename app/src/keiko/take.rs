@@ -14,9 +14,7 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use unmei_engine::keiko::{
-    Case, Expect, Fault, FixtureKind, KeyCheckFault, Step, WriteTarget,
-};
+use unmei_engine::keiko::{Case, Expect, Fault, FixtureKind, KeyCheckFault, Step, WriteTarget};
 use unmei_engine::Pack;
 
 use super::assert::evaluate;
@@ -92,10 +90,7 @@ pub fn run(request: TakeRequest) -> TakeResult {
         };
     }
 
-    let log = SessionLog::open(
-        sandbox.session_log_path(),
-        &crate::launch::version_text(),
-    );
+    let log = SessionLog::open(sandbox.session_log_path(), &crate::launch::version_text());
     let session_log = match log {
         Ok(log) => SessionLogResult::Opened(log),
         Err(error) => SessionLogResult::Unwritable(crate::failure::LogOpenError {
@@ -194,9 +189,10 @@ fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoReso
         .headers
         .iter()
         .filter_map(|line| match &line.header {
-            unmei_engine::keiko::Header::Decide { point, action } => {
-                Some((super::question_of(point), super::landing_action(point, action, request.pack)))
-            }
+            unmei_engine::keiko::Header::Decide { point, action } => Some((
+                super::question_of(point),
+                super::landing_action(point, action, request.pack),
+            )),
             _ => None,
         });
     let faults: Vec<Fault> = request
@@ -210,10 +206,9 @@ fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Arc<KeikoReso
         .collect();
     let resolver = KeikoResolver::new(decisions, faults).with_clock(clock);
     match &request.live {
-        Some(live) => Arc::new(resolver.with_live(super::decide::live_client(
-            &live.endpoint,
-            &live.key,
-        ))),
+        Some(live) => {
+            Arc::new(resolver.with_live(super::decide::live_client(&live.endpoint, &live.key)))
+        }
         None => Arc::new(resolver),
     }
 }
@@ -233,7 +228,11 @@ fn boot(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(
 
 /// `start <scene>` with the `state` overrides: enter play, then replace the
 /// position through the one restart recipe the Timeline uses.
-fn start_at_scene(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(), Finding> {
+fn start_at_scene(
+    app: &mut App,
+    state: &mut TakeState,
+    request: &TakeRequest,
+) -> Result<(), Finding> {
     let fail = |message: String| {
         Finding::new(
             request.case_file.clone(),
@@ -257,19 +256,20 @@ fn start_at_scene(app: &mut App, state: &mut TakeState, request: &TakeRequest) -
 
     let mut start_state = request.pack.state.clone();
     for (key, value) in request.case.state_overrides() {
-        let parsed = unmei_engine::keiko::parse_state_value(value).ok_or_else(|| {
-            fail(format!("`{value}` is not a state value for `{key}`"))
-        })?;
+        let parsed = unmei_engine::keiko::parse_state_value(value)
+            .ok_or_else(|| fail(format!("`{value}` is not a state value for `{key}`")))?;
         start_state.insert(key.to_string(), parsed);
     }
     let scene_for_start = scene.clone();
-    let outcome = app.world_mut().run_system_once(move |mut session: crate::session::SessionInput| {
-        let mut transitions = session.transitions();
-        matches!(
-            transitions.restart_scene_with_state(&scene_for_start, start_state.clone()),
-            crate::session::RestartOutcome::Restarted
-        )
-    });
+    let outcome =
+        app.world_mut()
+            .run_system_once(move |mut session: crate::session::SessionInput| {
+                let mut transitions = session.transitions();
+                matches!(
+                    transitions.restart_scene_with_state(&scene_for_start, start_state.clone()),
+                    crate::session::RestartOutcome::Restarted
+                )
+            });
     match outcome {
         Ok(true) => Ok(()),
         _ => Err(fail(format!("scene `{scene}` could not be started"))),
@@ -407,7 +407,8 @@ fn release_held(app: &mut App) {
 /// Apply the case's fixtures and faults to the sandbox before boot (spec §7).
 fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), Finding> {
     let tests_dir = original_pack.join("tests");
-    let fail = |message: String| Finding::new("case", String::new(), rules::CASE_REFERENCE, message);
+    let fail =
+        |message: String| Finding::new("case", String::new(), rules::CASE_REFERENCE, message);
 
     for line in &case.headers {
         if let unmei_engine::keiko::Header::Fixture { kind, path } = &line.header {
@@ -499,9 +500,8 @@ impl unmei_engine::KeyCheck for KeikoKeyCheck {
     fn check<'a>(
         &'a self,
         _key: &'a str,
-    ) -> std::pin::Pin<
-        Box<dyn std::future::Future<Output = unmei_engine::KeyVerdict> + Send + 'a>,
-    > {
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = unmei_engine::KeyVerdict> + Send + 'a>>
+    {
         let verdict = match self.verdict {
             KeyCheckFault::Accepted => unmei_engine::KeyVerdict::Accepted,
             KeyCheckFault::Rejected => unmei_engine::KeyVerdict::Rejected,

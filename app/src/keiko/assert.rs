@@ -51,9 +51,9 @@ pub fn evaluate(
             (Some(expected), Some(actual)) if exact(expected, actual) => Ok(()),
             (None, Some(actual)) => Err(fail(format!("speaker none (observed \"{actual}\")"))),
             (Some(expected), None) => Err(fail(format!("speaker \"{expected}\""))),
-            (Some(expected), Some(actual)) => {
-                Err(fail(format!("speaker \"{expected}\" (observed \"{actual}\")")))
-            }
+            (Some(expected), Some(actual)) => Err(fail(format!(
+                "speaker \"{expected}\" (observed \"{actual}\")"
+            ))),
         },
         Expect::Line { text, contains } => match &observed.text {
             None => Err(fail(format!("line \"{text}\""))),
@@ -68,10 +68,11 @@ pub fn evaluate(
             if observed.revealed == *revealed {
                 Ok(())
             } else {
-                Err(fail(format!(
-                    "{}",
-                    if *revealed { "revealed" } else { "revealing" }
-                )))
+                Err(fail(if *revealed {
+                    "revealed".to_string()
+                } else {
+                    "revealing".to_string()
+                }))
             }
         }
         Expect::Choices(expected) => {
@@ -119,7 +120,11 @@ pub fn evaluate(
                         ControlCondition::Focused => "focused",
                         ControlCondition::Absent => "absent",
                     },
-                    if control.enabled { "enabled" } else { "disabled" },
+                    if control.enabled {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    },
                     control.label
                 ))),
             }
@@ -351,7 +356,13 @@ fn describe(observed: &Observation) -> String {
     if !observed.choices.is_empty() {
         parts.push(format!(
             "choices [{}]",
-            quote_list(&observed.choices.iter().map(|c| c.text.as_str()).collect::<Vec<_>>())
+            quote_list(
+                &observed
+                    .choices
+                    .iter()
+                    .map(|c| c.text.as_str())
+                    .collect::<Vec<_>>()
+            )
         ));
     }
     if let Some(notice) = &observed.notice {
