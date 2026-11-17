@@ -49,11 +49,11 @@ Choose one route.
 ## Check that it runs
 
 To check the install, open a terminal in the extracted folder (archive route) or in any folder
-(Cargo route). The command needs no key. For release 0.1.0 it prints:
+(Cargo route). The command needs no key. It prints `unmei` and the version of the release you installed:
 
 ```console
 $ unmei --version
-unmei 0.1.0
+unmei <version>
 ```
 
 Neither shell searches the current folder for programs by default. When you run the archive's
