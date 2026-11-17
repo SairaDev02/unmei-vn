@@ -48,3 +48,6 @@ __pycache__/
 !.vscode/extensions.json
 .DS_Store
 Thumbs.db
+
+# Local agent scratch notes
+.claude/
