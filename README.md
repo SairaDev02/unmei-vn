@@ -57,6 +57,29 @@ These keys are the player control contract, fixed by
 
 ## Write
 
+### With an AI coding agent
+
+To set up authoring with an AI coding agent, copy this prompt into the agent. The prompt points the
+agent at the Guide pages and tells it which steps to leave to you. The agent gets the CLI over
+the network, copies the demo pack and writes an `AGENTS.md` note in the folder you start it in.
+
+```text
+Set up Unmei authoring in this folder. I am writing a content pack for the Unmei visual-novel engine.
+
+1. Install the unmei CLI by following https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/install-the-cli.md. If a Rust toolchain is installed, use the Cargo route. Otherwise, download the CLI archive for this platform from https://github.com/SairaDev02/unmei-vn/releases and from no other source. If Windows blocks the unsigned executable, stop and tell me. Do not work around the warning.
+2. Get demo-pack/ as that page describes. On the Cargo route, it comes from a CLI archive. Ask me for a name for my pack, copy demo-pack/ to a new folder with that name and edit only the copy.
+3. Add a note to AGENTS.md in this folder, beside the pack and not inside it. Create the file if it does not exist. The note says: before you edit the pack, read the AGENT-GUIDE.md inside the pack folder.
+4. Never read, ask for or write a NanoGPT API key. Before any step that needs a key, stop and point me to https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/live-decisions.md#get-a-nanogpt-key.
+```
+
+Then ask your agent to change the pack:
+
+```text
+In the first_meeting scene of my pack, add a third option to the choice block that hands the letter back, and add the label it points to. Then validate the whole pack and show me the result.
+```
+
+### By hand
+
 The authoring CLI, `unmei`, comes as a CLI archive in the same release as the player archive, or from Cargo (Rust's
 package manager). Cargo needs a Rust toolchain, and on macOS, which has no archive, it is the only
 route. To install the CLI with Cargo, run:
