@@ -340,7 +340,7 @@ A finding has the shape of the check's findings ([plugin family C3](plugin-famil
 
 ### 10.2 Rule ids
 
-`keiko.case.version`, `keiko.case.syntax`, `keiko.case.header-order`, `keiko.case.reference` (an unknown NPC, question, action, scene, state key, settings key, control id or fixture path), `keiko.step.no-target`, `keiko.step.disabled`, `keiko.expect`, plus the §9.2 ids.
+`keiko.case.version`, `keiko.case.syntax`, `keiko.case.header-order`, `keiko.case.reference` (an unknown NPC, question, action, scene, state key, settings key, control id or fixture path, or a question id set for two NPCs, rule 38), `keiko.step.no-target`, `keiko.step.disabled`, `keiko.expect`, plus the §9.2 ids.
 
 ### 10.3 Exit codes
 
@@ -426,6 +426,10 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 35. `frame` writes a 1280×720 PNG at the documented path on the software rasterizer.
 36. `click title.new-game` starts play through the hit test. `click` on a covered control does nothing, as for a player.
 37. With no fallback adapter, `frame` fails with `keiko.render.unavailable`.
+
+**Slice 1, added 2026-11-17** *(numbered after slice 2 so that earlier rule numbers stay stable)*
+
+38. A case that sets `decide` or a decision fault for one question id on two different NPCs fails with `keiko.case.reference` before boot. The [resolver seam](adr/0009-decision-resolver-seam.md) identifies a decision point by its question id alone, so the take could not tell the two apart.
 
 ## 16. Amendments
 
