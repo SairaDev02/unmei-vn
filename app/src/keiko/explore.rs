@@ -192,6 +192,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
         for finding in branch_findings(&result) {
             save_finding(
                 pack_root,
+                pack,
                 &branch,
                 &finding,
                 None,
@@ -248,6 +249,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
             let repeat = branch.with_step(Step::Advance(1));
             save_finding(
                 pack_root,
+                pack,
                 &repeat,
                 &finding,
                 Some(&observation),
@@ -373,7 +375,11 @@ const PACK_ROWS: &[u32] = &[2, 3, 4, 5, 6, 11, 12];
 
 /// The closing assertion a saved finding carries, so the case fails while the
 /// finding remains (spec §9.4).
-fn closing_assertion(finding: &Finding, park: Option<&Observation>) -> Vec<String> {
+fn closing_assertion(
+    finding: &Finding,
+    park: Option<&Observation>,
+    pack: &unmei_engine::Pack,
+) -> Vec<String> {
     if finding.rule == rules::NOTICE {
         return vec!["expect notice none".to_string()];
     }
@@ -384,15 +390,23 @@ fn closing_assertion(finding: &Finding, park: Option<&Observation>) -> Vec<Strin
         return vec!["expect surface play".to_string()];
     }
     if finding.rule == rules::STUCK {
-        // The park repeats, so the line the case is parked on cannot change:
-        // asserting that the stuck line's own text is gone fails until the
-        // move reaches somewhere else.
-        return match park.and_then(|park| park.text.as_deref()) {
-            Some(text) if !text.is_empty() => {
-                vec![format!("expect line not contains \"{}\"", escape(text))]
+        // A stuck park never moves on, so the line after it is never read. The
+        // case asserts that read mark: it fails while the loop remains and
+        // passes once the pack walks past the park.
+        if let Some(park) = park {
+            if let (Some(scene), Some(line)) = (park.scene.as_deref(), park.line) {
+                let next = usize::try_from(line).ok().map(|line| line + 1);
+                let exists = next.is_some_and(|next| {
+                    pack.scenes
+                        .get(scene)
+                        .is_some_and(|scene| scene.line_numbers.contains(&next))
+                });
+                if let (true, Some(next)) = (exists, next) {
+                    return vec![format!("expect read {scene}:{next}")];
+                }
             }
-            _ => vec!["expect surface play".to_string()],
-        };
+        }
+        return vec!["expect surface play".to_string()];
     }
     if let Some(row) = finding.rule.strip_prefix("keiko.log.row-") {
         // The level comes from the row table, never from a copy of it here.
@@ -414,13 +428,9 @@ fn closing_assertion(finding: &Finding, park: Option<&Observation>) -> Vec<Strin
     Vec::new()
 }
 
-/// A double-quoted step argument's text.
-fn escape(text: &str) -> String {
-    text.replace('\\', "\\\\").replace('"', "\\\"")
-}
-
 fn save_finding(
     pack_root: &Path,
+    pack: &unmei_engine::Pack,
     branch: &Branch,
     finding: &Finding,
     park: Option<&Observation>,
@@ -437,7 +447,10 @@ fn save_finding(
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
-        let _ = std::fs::write(&path, branch.case_text(&closing_assertion(finding, park)));
+        let _ = std::fs::write(
+            &path,
+            branch.case_text(&closing_assertion(finding, park, pack)),
+        );
     }
     let mut json = super::output::finding_json(finding);
     if let Some(object) = json.as_object_mut() {

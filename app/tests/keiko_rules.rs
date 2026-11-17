@@ -713,3 +713,47 @@ fn a_live_answer_lands_inside_the_real_time_wait() {
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let _ = std::fs::remove_dir_all(dir);
 }
+
+#[test]
+fn a_saved_stuck_finding_parses_and_fails_until_the_pack_moves_on() {
+    let dir = temp_dir();
+    let pack = dir.join("looping");
+    std::fs::create_dir_all(pack.join("scenes")).unwrap();
+    std::fs::create_dir_all(pack.join("npcs")).unwrap();
+    std::fs::create_dir_all(pack.join("tests")).unwrap();
+    std::fs::write(
+        pack.join("pack.ron"),
+        "(name: \"looping\", entry: \"start\")",
+    )
+    .unwrap();
+    std::fs::write(pack.join("state.ron"), "(met: false,)").unwrap();
+    // A scene that jumps back to itself: every advance leaves the park in place,
+    // so the line after it is never read.
+    std::fs::write(
+        pack.join("scenes/start.unmei"),
+        "Narrator: one\nlabel quiet\nNarrator: same\njump quiet\n",
+    )
+    .unwrap();
+    let output = run(&pack, &["--explore", "--budget", "200", "--format", "json"]);
+    let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
+    let findings = json["findings"].as_array().unwrap();
+    let stuck = findings
+        .iter()
+        .find(|finding| finding["rule"] == "keiko.stuck")
+        .expect("a stuck finding");
+    let saved = stuck["case"].as_str().unwrap().to_string();
+    let text = std::fs::read_to_string(pack.join(&saved)).unwrap();
+    assert!(text.contains("expect read"), "{text}");
+    // The saved case must parse (no syntax error) and fail on the loop.
+    let id = saved
+        .trim_start_matches("tests/")
+        .trim_end_matches(".keiko");
+    let output = run(&pack, &["--take", id]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        !stdout(&output).contains("keiko.case.syntax"),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
