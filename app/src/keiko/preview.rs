@@ -53,7 +53,7 @@ pub fn build_case(pack: &Pack, request: &PreviewRequest) -> Result<Case, Finding
         text.push_str(&format!("state {key} = {value}\n"));
     }
     if let Some((_, line)) = &request.at {
-        for step in steps_to(pack, &scene, *line, &request.picks) {
+        for step in steps_to(pack, &scene, *line, &request.picks)? {
             text.push_str(&step);
             text.push('\n');
         }
@@ -62,21 +62,28 @@ pub fn build_case(pack: &Pack, request: &PreviewRequest) -> Result<Case, Finding
 }
 
 /// The steps that reach `line` from the scene's top.
-fn steps_to(pack: &Pack, scene: &str, line: u32, picks: &[usize]) -> Vec<String> {
+fn steps_to(pack: &Pack, scene: &str, line: u32, picks: &[usize]) -> Result<Vec<String>, Finding> {
     let mut runner = ScriptRunner::new(pack.clone());
     if runner
         .restore_position(scene.to_string(), 0, pack.state.clone(), None)
         .is_err()
     {
-        return Vec::new();
+        return Ok(Vec::new());
     }
     let mut steps = Vec::new();
     let mut picks = picks.iter().copied();
     for _ in 0..10_000 {
-        let Ok(outcome) = runner.run() else {
-            // A cycle with no wait is the row-13 case; the preview stops there.
-            break;
-        };
+        // A cycle with no say-line, choice or decide stops the player with a
+        // defensive failure (row 13). The replay must report why it stopped
+        // rather than hand back a case that quietly ends short of the line.
+        let outcome = runner.run().map_err(|error| {
+            Finding::new(
+                "preview",
+                String::new(),
+                unmei_engine::keiko::rules::DEFENSIVE,
+                format!("the replay stopped before line {line}: {error}"),
+            )
+        })?;
         let Some(wait) = outcome.wait else {
             break;
         };
@@ -116,7 +123,7 @@ fn steps_to(pack: &Pack, scene: &str, line: u32, picks: &[usize]) -> Vec<String>
             }
         }
     }
-    steps
+    Ok(steps)
 }
 
 fn park_line(runner: &ScriptRunner) -> Option<u32> {
@@ -149,5 +156,49 @@ mod tests {
             Some(StateValue::Str("high".to_string()))
         );
         assert_eq!(parse_state("high"), None);
+    }
+
+    /// A scene whose loop parks only while `met_ace` holds: with the declared
+    /// `false` it spins, a cycle pack load cannot see because it passes through
+    /// an `if`.
+    const SPINNING_SCENE: &str = "A: entry.\nlabel top\nif met_ace\nA: met.\nendif\njump top\n";
+
+    fn spinning_pack() -> (tempfile::TempDir, Pack) {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let root = dir.path().join("spin");
+        std::fs::create_dir_all(root.join("scenes")).unwrap();
+        std::fs::create_dir_all(root.join("npcs")).unwrap();
+        std::fs::write(root.join("pack.ron"), "(name: \"spin\", entry: \"a\")").unwrap();
+        std::fs::write(root.join("state.ron"), "(met_ace: false,)").unwrap();
+        std::fs::write(root.join("scenes/a.unmei"), SPINNING_SCENE).unwrap();
+        let loaded = unmei_engine::load_pack(&root).expect("the pack loads");
+        (dir, loaded.pack)
+    }
+
+    /// The replay stops on the runner's wait-free cycle. It must report why in
+    /// the preview's own finding shape, not return a silently shortened case.
+    #[test]
+    fn a_replay_that_closes_a_wait_free_cycle_reports_the_runner_error() {
+        let (_dir, pack) = spinning_pack();
+        let request = PreviewRequest {
+            at: Some(("a".to_string(), 5)),
+            ..PreviewRequest::default()
+        };
+        let error = build_case(&pack, &request).expect_err("the replay cannot reach line 5");
+        assert_eq!(
+            error.rule,
+            unmei_engine::keiko::rules::DEFENSIVE,
+            "{error:?}"
+        );
+        assert!(
+            error
+                .message
+                .contains("closes a cycle that reaches no say-line"),
+            "{error:?}"
+        );
+        assert!(
+            error.message.contains("`jump top` in scene `a`"),
+            "{error:?}"
+        );
     }
 }
