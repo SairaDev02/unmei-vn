@@ -37,23 +37,7 @@ pub fn validate(case: &Case, file: &str, facts: &Facts) -> Vec<Finding> {
                 if let Some(message) = decide_reference(point, action, facts) {
                     findings.push(at(rules::CASE_REFERENCE, message));
                 }
-                // The resolver is handed the bare question id, so two NPCs
-                // that share one cannot be told apart; declaring both would
-                // silently keep the last landing.
-                if let Some((npc, question)) = point.split_once('.') {
-                    if let Some((first_npc, first_line)) = shared.get(question) {
-                        if *first_npc != npc {
-                            findings.push(at(
-                                rules::CASE_REFERENCE,
-                                format!(
-                                    "question `{question}` is declared for {npc} here and for {first_npc} on line {first_line}; a case cannot tell them apart"
-                                ),
-                            ));
-                        }
-                    } else {
-                        shared.insert(question.to_string(), (npc.to_string(), line.line));
-                    }
-                }
+                shared_question(&mut shared, point, line.line, file, &mut findings);
             }
             Header::Setting { key, .. } => {
                 if !facts.settings_keys.contains(&key.as_str()) {
@@ -74,6 +58,12 @@ pub fn validate(case: &Case, file: &str, facts: &Facts) -> Vec<Finding> {
             Header::Fault { fault } => {
                 if let Some(message) = fault_reference(fault, facts) {
                     findings.push(at(rules::CASE_REFERENCE, message));
+                }
+                // Landings and decision faults are both keyed by the question
+                // id alone, so rule 38 covers `decide` and the three decision
+                // faults alike.
+                if let Some(point) = decision_point(fault) {
+                    shared_question(&mut shared, point, line.line, file, &mut findings);
                 }
             }
             Header::Dev => {}
@@ -196,6 +186,45 @@ impl Declared {
             }
         }
         declared
+    }
+}
+
+/// The decision point a fault names, when it is a decision fault.
+fn decision_point(fault: &Fault) -> Option<&str> {
+    match fault {
+        Fault::DecisionError { point, .. }
+        | Fault::DecisionSlow { point, .. }
+        | Fault::DecisionHold { point } => Some(point),
+        _ => None,
+    }
+}
+
+/// Rule 38: one question id belongs to one NPC. The resolver is handed only the
+/// bare question, so a case that sets the same question for two NPCs would
+/// silently keep the last declaration.
+fn shared_question(
+    shared: &mut HashMap<String, (String, usize)>,
+    point: &str,
+    at: usize,
+    file: &str,
+    findings: &mut Vec<Finding>,
+) {
+    let Some((npc, question)) = point.split_once('.') else {
+        return;
+    };
+    match shared.get(question) {
+        Some((first_npc, first_line)) if first_npc != npc => findings.push(Finding::at_line(
+            file,
+            at,
+            rules::CASE_REFERENCE,
+            format!(
+                "question `{question}` is set for {npc} here and for {first_npc} on line {first_line}; a case cannot tell them apart"
+            ),
+        )),
+        Some(_) => {}
+        None => {
+            shared.insert(question.to_string(), (npc.to_string(), at));
+        }
     }
 }
 

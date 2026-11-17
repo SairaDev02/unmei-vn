@@ -757,3 +757,37 @@ fn a_saved_stuck_finding_parses_and_fails_until_the_pack_moves_on() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Rule 38: one question id belongs to one NPC, whether it is set by `decide`
+/// or by a decision fault.
+#[test]
+fn one_question_id_on_two_npcs_is_refused() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "decides",
+                "keiko 1\ndecide ace.greet fallback\ndecide bea.greet fallback\n\nnew-game\n",
+            ),
+            (
+                "faults",
+                "keiko 1\ndecide ace.greet fallback\nfault decision-hold bea.greet\n\nnew-game\n",
+            ),
+        ],
+    );
+    // A second NPC with the same question id as ace.
+    let ace = std::fs::read_to_string(pack.join("npcs/ace.ron")).unwrap();
+    // The NPC's own id must match its file stem.
+    let bea = ace.replacen("id: \"ace\"", "id: \"bea\"", 1);
+    std::fs::write(pack.join("npcs/bea.ron"), bea).unwrap();
+
+    for id in ["decides", "faults"] {
+        let output = take(&pack, &[id]);
+        assert_eq!(output.status.code(), Some(1), "{id}: {}", stdout(&output));
+        let text = stdout(&output);
+        assert!(text.contains("keiko.case.reference"), "{id}: {text}");
+        assert!(text.contains("cannot tell them apart"), "{id}: {text}");
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
