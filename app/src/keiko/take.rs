@@ -476,7 +476,7 @@ fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), F
     if !settings_headers.is_empty() {
         let mut settings = crate::settings::load(sandbox.pack_root()).settings;
         for (key, value) in settings_headers {
-            apply_setting(&mut settings, key, value).map_err(|message| fail(message))?;
+            apply_setting(&mut settings, key, value).map_err(&fail)?;
         }
         crate::settings::save(sandbox.pack_root(), &settings)
             .map_err(|error| fail(format!("setting: {error}")))?;
