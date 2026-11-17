@@ -1,0 +1,21 @@
+keiko 1
+# R1 (seen skip lane) — replaces the human walk's "advance to S2, return to the title,
+# New Game, Tab at S1" sequence. The return-to-title and New Game halves need the
+# overlay's Exit to title, which has no keyboard route and no Keiko control id, so a
+# fresh session is reached with a seeded read log instead: S1/S2 read, visited entry.
+# Excluded: rendered text, audio, physical input.
+fixture read-log fixtures/read-s1-s2.ron
+setting play.text_speed 0
+
+new-game
+expect surface play
+expect scene smoke_entry
+expect line "S1 opening"
+expect read smoke_entry:4
+expect unread smoke_entry:5
+skip
+expect skip seen
+wait 1s
+expect surface play
+expect line "S3 third"
+expect skip off

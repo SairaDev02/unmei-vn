@@ -1,0 +1,55 @@
+keiko 1
+# L2 (Timeline jump keeps the current state) — the earlier TARGET visit ran high with
+# ace=happy; loading an early low-state save and jumping back to TARGET shows the low
+# state and the current staging, at the scene's first line (not extra-advanced), with
+# seen skip off and manual slot 1 untouched. The held-Ctrl variant and the autosave
+# write cannot be told apart from the pre-existing autosave by scene id alone, and the
+# Exit-to-title/New-Game half of the human walk has no keyboard route.
+# Excluded: rendered art, audio, physical input.
+setting play.text_speed 0
+
+new-game
+expect line "S1 opening"
+menu
+activate overlay.slot.1
+expect slot 1 scene smoke_entry
+menu
+expect surface play
+advance 6
+pick "Carry changed state"
+advance
+expect scene smoke_target
+expect line "TARGET first high"
+expect sprite ace happy
+menu
+press Tab
+press Tab
+expect control overlay.load-tab focused
+press Enter
+press ArrowLeft
+expect control overlay.slot.1 focused
+press Enter
+expect surface confirm
+activate confirm.yes
+expect surface play
+expect line "S1 opening"
+expect state affinity_level = "low"
+menu
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface timeline
+expect control timeline.card.2 label "smoke_target"
+press ArrowRight
+expect control timeline.card.2 focused
+press Enter
+expect surface confirm
+activate confirm.yes
+expect surface play
+expect scene smoke_target
+expect line "TARGET first low"
+expect state affinity_level = "low"
+expect sprite ace none
+expect skip off
+expect slot 1 scene smoke_entry

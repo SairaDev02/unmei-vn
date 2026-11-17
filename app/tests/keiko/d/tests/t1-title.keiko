@@ -1,0 +1,31 @@
+keiko 1
+# T1 (clean copy, no key, no slots) — the title is the first surface, Continue is inert
+# with an empty autosave, Esc stays on the title, the title's Settings backs to the
+# title with no Resume/Exit-to-title rail control, and New Game starts without a
+# confirm. Boot and the title create no read mark and no slot.
+# Excluded: the rendered Continue reason line (the observation exposes no title reason
+# text, only the control), audio, physical input.
+expect surface title
+expect control title.continue disabled
+expect control title.new-game focused
+expect slot 1 empty
+expect slot autosave empty
+expect unread first_meeting:7
+wait 1s
+expect surface title
+expect unread first_meeting:7
+menu
+expect surface title
+activate title.settings
+expect surface settings
+expect control overlay.resume absent
+expect control settings.back enabled
+menu
+expect surface title
+new-game
+expect surface play
+expect scene first_meeting
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+expect read first_meeting:7
+expect slot 1 empty
+expect slot autosave empty
