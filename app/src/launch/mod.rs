@@ -19,8 +19,10 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+mod keiko;
 mod pack;
 
+pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
 };
@@ -50,6 +52,13 @@ pub struct Launch {
     /// Whether exact `--dev` was present — the force-on request. The effective
     /// value also folds in the build default; see [`Launch::dev_mode`].
     pub force_dev: bool,
+    /// The Keiko testing mode, when one was asked for. `None` is the ordinary
+    /// player launch.
+    pub keiko: Option<KeikoMode>,
+    /// Keep every take's sandbox instead of deleting it.
+    pub keep: bool,
+    /// The Keiko output format. Text is the default for every mode.
+    pub format: Format,
 }
 
 impl Launch {
@@ -81,7 +90,7 @@ pub struct UsageError {
 }
 
 impl UsageError {
-    fn new(message: impl Into<String>) -> Self {
+    pub(super) fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }
@@ -105,13 +114,19 @@ pub fn parse<I>(args: I) -> Result<LaunchRequest, UsageError>
 where
     I: IntoIterator<Item = OsString>,
 {
+    let tokens: Vec<OsString> = args.into_iter().collect();
     let mut dev = false;
     let mut help = false;
     let mut version = false;
     let mut positional: Option<OsString> = None;
     let mut options_ended = false;
+    let mut keiko = keiko::KeikoArgs::default();
 
-    for token in args {
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        index += 1;
+
         // Before `--`, an exact `--` ends option parsing. After it, `--` is a
         // path token like any other.
         if !options_ended && token == OsStr::new("--") {
@@ -120,27 +135,80 @@ where
         }
 
         if !options_ended {
-            if token == OsStr::new("--dev") {
-                dev = true;
+            let text = token.to_string_lossy();
+            match text.as_ref() {
+                "--dev" => {
+                    dev = true;
+                    continue;
+                }
+                "-h" | "--help" => {
+                    help = true;
+                    continue;
+                }
+                "-V" | "--version" => {
+                    version = true;
+                    continue;
+                }
+                "--take" => {
+                    keiko.take()?;
+                    continue;
+                }
+                "--step" => {
+                    keiko.step()?;
+                    continue;
+                }
+                "--observe" => {
+                    keiko.observe()?;
+                    continue;
+                }
+                "--explore" => {
+                    keiko.explore()?;
+                    continue;
+                }
+                "--live" => {
+                    keiko.live()?;
+                    continue;
+                }
+                "--keep" => {
+                    keiko.keep();
+                    continue;
+                }
+                "--format" | "--budget" | "--from" => {
+                    let value = tokens.get(index).ok_or_else(|| {
+                        UsageError::new(format!("{text} needs a value after it"))
+                    })?;
+                    index += 1;
+                    let value = value.to_string_lossy();
+                    match text.as_ref() {
+                        "--format" => keiko.set_format(&value)?,
+                        "--budget" => keiko.set_budget(&value)?,
+                        _ => keiko.set_from(&value)?,
+                    }
+                    continue;
+                }
+                // Any other leading-dash token is an unknown option, including
+                // `--dev=false`, `--pack` and `--no-dev`. A non-Unicode path is
+                // not rejected for its encoding: only the leading dash is a
+                // shape.
+                other if other.starts_with('-') => {
+                    return Err(UsageError::new(format!(
+                        "unrecognized option '{}'",
+                        token.to_string_lossy()
+                    )));
+                }
+                _ => {}
+            }
+        }
+
+        // A bare token is the open mode's operand when it is waiting for one;
+        // otherwise it is the positional `PACK_DIR`. `--take` keeps taking ids
+        // until the next option, so its ids must follow it (spec §1).
+        match keiko.bare_target() {
+            keiko::Bare::TakeId | keiko::Bare::Value => {
+                keiko.push_value(token.clone())?;
                 continue;
             }
-            if token == OsStr::new("-h") || token == OsStr::new("--help") {
-                help = true;
-                continue;
-            }
-            if token == OsStr::new("-V") || token == OsStr::new("--version") {
-                version = true;
-                continue;
-            }
-            // Any other leading-dash token is an unknown option, including
-            // `--dev=false`, `--pack` and `--no-dev`. A non-Unicode path is not
-            // rejected for its encoding: only the leading dash is a shape.
-            if token.to_string_lossy().starts_with('-') {
-                return Err(UsageError::new(format!(
-                    "unrecognized option '{}'",
-                    token.to_string_lossy()
-                )));
-            }
+            keiko::Bare::None => {}
         }
 
         if token.is_empty() {
@@ -152,7 +220,7 @@ where
                 token.to_string_lossy()
             )));
         }
-        positional = Some(token);
+        positional = Some(token.clone());
     }
 
     // The settled precedence: usage errors beat both exits (they returned
@@ -164,9 +232,13 @@ where
         return Ok(LaunchRequest::Version);
     }
 
+    let keiko_mode = keiko.clone().finish(dev)?;
     Ok(LaunchRequest::Run(Launch {
         pack_dir: positional.map(PathBuf::from),
         force_dev: dev,
+        keiko: keiko_mode,
+        keep: keiko.keeping(),
+        format: keiko.output_format(),
     }))
 }
 
@@ -196,6 +268,23 @@ Options:
   --dev           Force developer affordances on, even in a release build.
   -h, --help      Print this help and exit. Repeats are idempotent.
   -V, --version   Print the version and exit. Repeats are idempotent.
+
+Testing (Keiko):
+  --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case
+                  under `tests/` when no id is given. Ids follow `--take`.
+  --step ID STEP  Replay a case, apply one step line and append it only if it
+                  passed.
+  --observe ID    Replay a case and print what the player sees; never writes.
+  --explore       Walk every choice option and landing key within a budget and
+                  save each finding as a case under `tests/findings/`.
+  --live          With --take only: send unset decisions to NanoGPT. Needs
+                  NANOGPT_API_KEY; results are marked nondeterministic.
+  --budget N      With --explore only: the step budget (default 10000).
+  --from ID       With --explore only: start from the end of an existing case.
+  --keep          Keep each take's sandbox and print its path.
+  --format F      `text` (the default) or `json`.
+  A case sets dev mode itself, so `--dev` cannot be combined with a Keiko mode.
+  Exit codes: 0 pass, 1 failure or findings, 2 usage.
 
 A literal `--` ends option parsing: every later token is a path, so
 `unmei-play -- --dev` plays a pack named `--dev`, and `unmei-play -- -h` names a
@@ -412,6 +501,110 @@ mod tests {
         // Extra positionals after `--` are still an error.
         assert!(parse_strs(&["--", "pack-a", "pack-b"]).is_err());
         assert!(parse_strs(&["--dev", "pack-a", "pack-b"]).is_err());
+    }
+
+    fn keiko(args: &[&str]) -> crate::launch::KeikoMode {
+        match parse_strs(args) {
+            Ok(LaunchRequest::Run(launch)) => launch.keiko.expect("a Keiko mode"),
+            other => panic!("expected a run request, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn every_keiko_mode_parses_with_its_modifiers() {
+        for (args, expected) in [
+            (
+                vec!["--take"],
+                KeikoMode::Take { ids: Vec::new(), live: false },
+            ),
+            (
+                vec!["pack", "--take", "one", "findings/keiko.panic-ab12cd34"],
+                KeikoMode::Take {
+                    ids: vec!["one".into(), "findings/keiko.panic-ab12cd34".into()],
+                    live: false,
+                },
+            ),
+            (
+                vec!["--take", "--live", "--keep", "--format", "json"],
+                KeikoMode::Take { ids: Vec::new(), live: false },
+            ),
+            (
+                vec!["--step", "one", "advance 2"],
+                KeikoMode::Step {
+                    id: "one".into(),
+                    step: "advance 2".into(),
+                },
+            ),
+            (
+                vec!["--observe", "one"],
+                KeikoMode::Observe { id: "one".into() },
+            ),
+            (
+                vec!["--explore"],
+                KeikoMode::Explore {
+                    budget: DEFAULT_BUDGET,
+                    from: None,
+                },
+            ),
+            (
+                vec!["--explore", "--budget", "25", "--from", "one"],
+                KeikoMode::Explore {
+                    budget: 25,
+                    from: Some("one".into()),
+                },
+            ),
+        ] {
+            assert_eq!(keiko(&args), expected, "{args:?}");
+        }
+    }
+
+    #[test]
+    fn keiko_usage_errors_exit_before_any_startup_work() {
+        for args in [
+            // Two modes together.
+            vec!["--take", "--explore"],
+            vec!["--observe", "one", "--take"],
+            // A modifier on the wrong mode.
+            vec!["--observe", "one", "--live"],
+            vec!["--take", "--budget", "5"],
+            vec!["--take", "--from", "one"],
+            // `--dev` with any mode.
+            vec!["--dev", "--take"],
+            vec!["--take", "--dev"],
+            vec!["--dev", "--explore"],
+            // A mode that is missing an operand.
+            vec!["--step", "one"],
+            vec!["--observe"],
+            // A malformed case id.
+            vec!["--take", "Bad"],
+            vec!["--observe", "a/b"],
+            vec!["--step", "a.b", "advance"],
+            // A modifier with no mode at all.
+            vec!["--keep"],
+            vec!["--format", "json"],
+            // A malformed value.
+            vec!["--explore", "--budget", "many"],
+            vec!["--take", "--format", "yaml"],
+        ] {
+            let error = parse_strs(&args).expect_err(&format!("{args:?}"));
+            let _ = error;
+        }
+        assert_eq!(
+            parse_strs(&["--take"]).map(|request| matches!(request, LaunchRequest::Run(_))),
+            Ok(true)
+        );
+    }
+
+    #[test]
+    fn the_help_lists_the_keiko_group() {
+        let help = help();
+        assert!(help.contains("Testing (Keiko)"));
+        for flag in [
+            "--take", "--step", "--observe", "--explore", "--live", "--budget", "--from", "--keep",
+            "--format",
+        ] {
+            assert!(help.contains(flag), "{flag} missing from help");
+        }
     }
 
     #[cfg(unix)]

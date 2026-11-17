@@ -106,6 +106,20 @@ impl PlaySettings {
 
 /// The pack's sibling settings path: `<pack-dir>.settings.ron`, named after the
 /// pack exactly like the slot and log files.
+/// Every settings key a Keiko `setting` header may name: the file's own keys,
+/// so the case format and the settings schema cannot drift.
+pub fn setting_keys() -> Vec<&'static str> {
+    vec![
+        "audio.master",
+        "audio.music",
+        "audio.sfx",
+        "audio.muted",
+        "play.text_speed",
+        "play.auto",
+        "play.fullscreen",
+    ]
+}
+
 pub fn settings_path_for(pack_root: &Path) -> PathBuf {
     unmei_engine::sidecar::sibling_path(pack_root, "settings.ron")
 }

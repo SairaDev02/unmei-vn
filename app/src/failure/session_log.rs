@@ -60,6 +60,11 @@ impl SessionLog {
     pub(super) fn file(&self) -> Arc<Mutex<File>> {
         Arc::clone(&self.file)
     }
+
+    /// The shared writer, for a Keiko take's own log layer.
+    pub(crate) fn writer(&self) -> Arc<Mutex<File>> {
+        Arc::clone(&self.file)
+    }
 }
 
 /// The session log a launch brings to composition: opened, refused, or never
@@ -105,24 +110,50 @@ pub fn report_log_open_error(
     );
 }
 
+/// The file a Keiko take's log layer writes to. `LogPlugin` is process-global,
+/// so the layer installed by the first take must follow the *current* take's
+/// file; without a take it discards.
+static KEIKO_LOG: Mutex<Option<Arc<Mutex<File>>>> = Mutex::new(None);
+
+/// Point the Keiko log layer at one take's session log (or nowhere).
+pub fn set_keiko_log(file: Option<Arc<Mutex<File>>>) {
+    if let Ok(mut current) = KEIKO_LOG.lock() {
+        *current = file;
+    }
+}
+
+/// The Keiko-only session sink: one layer that follows the current take's file.
+pub fn keiko_file_layer() -> BoxedLayer {
+    Box::new(
+        tracing_subscriber::fmt::layer()
+            .with_ansi(false)
+            .with_writer(KeikoFile),
+    )
+}
+
+struct KeikoFile;
+
+impl<'a> MakeWriter<'a> for KeikoFile {
+    type Writer = LineFlushedWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        let file = KEIKO_LOG.lock().ok().and_then(|current| current.clone());
+        LineFlushedWriter(file)
+    }
+}
+
 /// A file writer that flushes after every write, so a hard kill still leaves the
 /// tail on disk.
 struct LineFlushedFile(Arc<Mutex<File>>);
 
-impl<'a> MakeWriter<'a> for LineFlushedFile {
-    type Writer = LineFlushedWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        LineFlushedWriter(Arc::clone(&self.0))
-    }
-}
-
-struct LineFlushedWriter(Arc<Mutex<File>>);
+struct LineFlushedWriter(Option<Arc<Mutex<File>>>);
 
 impl Write for LineFlushedWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let mut file = self
-            .0
+        let Some(file) = &self.0 else {
+            return Ok(buf.len());
+        };
+        let mut file = file
             .lock()
             .map_err(|_| io::Error::other("session log writer lock poisoned"))?;
         let written = file.write(buf)?;
@@ -131,10 +162,13 @@ impl Write for LineFlushedWriter {
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        self.0
-            .lock()
-            .map_err(|_| io::Error::other("session log writer lock poisoned"))?
-            .flush()
+        match &self.0 {
+            Some(file) => file
+                .lock()
+                .map_err(|_| io::Error::other("session log writer lock poisoned"))?
+                .flush(),
+            None => Ok(()),
+        }
     }
 }
 
@@ -147,6 +181,14 @@ pub fn file_layer(file: Arc<Mutex<File>>) -> BoxedLayer {
             .with_ansi(false)
             .with_writer(LineFlushedFile(file)),
     )
+}
+
+impl<'a> MakeWriter<'a> for LineFlushedFile {
+    type Writer = LineFlushedWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        LineFlushedWriter(Some(Arc::clone(&self.0)))
+    }
 }
 
 #[cfg(test)]

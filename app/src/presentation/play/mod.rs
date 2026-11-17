@@ -26,7 +26,9 @@ use crate::Runtime;
 pub(crate) use chrome::{setup_ui, sync_auto_cue, sync_notice, sync_skip_cue};
 pub(crate) use error_screen::draw_error_screen;
 pub(crate) use reveal::TextReveal;
-pub(crate) use state::{request_replay, AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume};
+pub(crate) use state::{
+    request_replay, AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume, DialogueProse,
+};
 pub(crate) use state::{Bgm, ChoiceButton, Sfx};
 pub(crate) use sync::{
     advance_reveal, report_silent_degradations, sync_audio, sync_audio_volume,

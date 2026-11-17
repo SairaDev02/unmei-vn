@@ -34,6 +34,7 @@ pub mod credentials;
 pub mod drawer;
 pub mod failure;
 mod input;
+pub mod keiko;
 pub mod launch;
 pub mod menu;
 pub mod monitor;
