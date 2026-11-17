@@ -20931,6 +20931,8 @@ fn the_asset_root_defaults_beside_the_pack_and_the_builder_moves_it() {
     let moved = config.with_asset_root(PathBuf::from("/shared/assets"));
     assert_eq!(moved.asset_root, PathBuf::from("/shared/assets"));
     assert_eq!(moved.pack_root, PathBuf::from("/packs/demo"));
+}
+
 /// A scene whose loop parks only while `met_ace` holds: with the declared
 /// `false` it spins, a cycle pack load cannot see (it passes through an `if`).
 const SPINNING_LOOP: &str = "label top\nif met_ace\nA: met.\nendif\njump top\n";

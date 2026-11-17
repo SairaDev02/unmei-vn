@@ -73,7 +73,10 @@ fn steps_to(pack: &Pack, scene: &str, line: u32, picks: &[usize]) -> Vec<String>
     let mut steps = Vec::new();
     let mut picks = picks.iter().copied();
     for _ in 0..10_000 {
-        let outcome = runner.run();
+        let Ok(outcome) = runner.run() else {
+            // A cycle with no wait is the row-13 case; the preview stops there.
+            break;
+        };
         let Some(wait) = outcome.wait else {
             break;
         };
