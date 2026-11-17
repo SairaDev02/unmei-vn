@@ -1,5 +1,11 @@
 # Unmei
 
+[![Release](https://shieldcn.dev/github/SairaDev02/unmei-vn/release.svg)](https://github.com/SairaDev02/unmei-vn/releases)
+[![CI](https://shieldcn.dev/github/SairaDev02/unmei-vn/ci.svg)](https://github.com/SairaDev02/unmei-vn/actions)
+[![License](https://shieldcn.dev/github/SairaDev02/unmei-vn/license.svg)](LICENSE)
+[![Rust 1.98](https://shieldcn.dev/badge/rust-1.98-orange.svg?logo=rust)](rust-toolchain.toml)
+[![Platforms: Windows and Linux](https://shieldcn.dev/badge/platform-Windows_%7C_Linux-blue.svg)](https://github.com/SairaDev02/unmei-vn/releases)
+
 Unmei is a Rust visual-novel engine where the response of a non-player character (NPC) can be
 decided at play time. This page explains the idea and points a player, an author and a contributor
 to where to start.
