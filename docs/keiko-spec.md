@@ -376,7 +376,11 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 - **Fixture packs.** The smoke checklist's recipes D, L, G, B and S/K become fixture packs under `app/tests/keiko/<name>/`, each with its own `tests/`.
 - **Migrated cases.** Every smoke case that needs no real GPU, audio device or physical input becomes a case over a fixture pack. That means T1–T4, P1, S1–S3, K1–K4 (with `key-check` faults in place of network blocking), G2 without its visual check, R1–R3, L1–L2, M1, the input-ownership parts of M2, and B1. A1's held and slow answers become `decision-hold` and `decision-slow` cases.
 - **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack and each fixture pack, and with `--explore --budget 10000` over the demo pack, and fails on a non-zero exit. The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
-- **Docs.** The demo pack's `AGENT-GUIDE.md` gains a Keiko section and the Guide a Keiko page (K28). [`testing.md`](testing.md) names Keiko as the player-level end-to-end layer. The smoke checklist keeps only the rendered, audio and physical-input checks. `GLOSSARY.md` gains the terms in [requirements §9](keiko.md#9-contracts-this-will-amend).
+- **Docs.** The demo pack's `AGENT-GUIDE.md` gains a Keiko section and the Guide a Keiko page (K28). [`testing.md`](testing.md) names Keiko as the player-level end-to-end layer. The smoke checklist is retired, and its rendered, audio and physical-input checks become accepted unverified residuals (*amended 2026-11-17*, [K31](keiko.md#8-relation-to-other-work)). The [release runbook](release-runbook.md) gains the release run of §14.1. `GLOSSARY.md` gains the terms in [requirements §9](keiko.md#9-contracts-this-will-amend).
+
+### 14.1 Release evidence (added 2026-11-17)
+
+Keiko's takes are release evidence under [Keiko replaces the human walks](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17). The release run uses the candidate's extracted `unmei-play` on each OS, not a source build: `--take` over the demo pack and over each fixture pack from the tagged source, and `--explore --budget 10000` over the demo pack, all with `--format json`. The release record keeps the JSON output. Any non-zero exit blocks the candidate.
 
 ## 15. Validation rules (the build's test list)
 
@@ -439,4 +443,4 @@ The requirements' list also names `check.yml`. It needs no change, because the g
 
 ## 17. Out of scope
 
-Everything in [requirements §11](keiko.md#11-out-of-scope). Also: choosing a language for a case, which the language-pack spec adds as an optional `language <tag>` header without a version bump (*decided 2026-11-17*); a `decide` form for the preview; running takes in parallel; and Keiko results as release evidence (K31).
+Everything in [requirements §11](keiko.md#11-out-of-scope). Also: choosing a language for a case, which the language-pack spec adds as an optional `language <tag>` header without a version bump (*decided 2026-11-17*); a `decide` form for the preview, and running takes in parallel. *(Amended 2026-11-17: Keiko results as release evidence moved into scope, §14.1.)*
