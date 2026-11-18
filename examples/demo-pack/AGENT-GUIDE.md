@@ -56,11 +56,11 @@ assertion. The player ignores `tests/` during play.
 - **Explore every path:** `unmei-play <pack-dir> --explore --budget 10000` takes every choice option
   and every decision landing, then saves each finding as a runnable case under `tests/findings/`. Each
   saved finding fails until the pack is fixed, so keep it as a regression case.
-- **Look at the screen:** `frame [name]` writes the current frame as a 1280×720 PNG beside the take's
-  copy of the pack, under `<pack-dir>.keiko/frames/<case>/`, and prints the path. `click <control>`
+- **Look at the screen:** `frame [name]` writes the current frame as a 1280×720 PNG beside the pack,
+  under `<pack-dir>.keiko/frames/<case>/`, and prints the path. The file stays after the run. `click <control>`
   presses a control by its role id and `click <x> <y>` presses a point, both through the player's own
   hit test. They need the software rasterizer, WARP on Windows and Mesa's llvmpipe on Linux, and fail
-  with `keiko.render.unavailable` without it. Add `--keep` to read the PNG after the run.
+  with `keiko.render.unavailable` without it.
 - **Read it from a script:** add `--format json` for one JSON document per run.
 - **Offline unless asked:** a take needs no key. A `decide` header sets the landing a case asserts
   on, and every other decision takes the author's fallback. `--take --live` sends the unset ones to

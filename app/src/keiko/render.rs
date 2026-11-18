@@ -65,9 +65,10 @@ pub struct Rendered {
 }
 
 impl Rendered {
-    /// Set up the take's render target beside the sandbox pack (the sidecar
-    /// layout of spec §4.2) and the stand-in window the pointer moves on.
-    pub fn new(app: &mut App, take_dir: &Path, pack_name: &str, case: &str) -> Self {
+    /// Set up the take's render target, the stand-in window the pointer moves
+    /// on, and the frames folder `<pack-parent>/<pack-name>.keiko/frames/<case>/`
+    /// beside the real pack (spec §13).
+    pub fn new(app: &mut App, pack_parent: &Path, pack_name: &str, case: &str) -> Self {
         // A window entity with no raw handle is never presented: the renderer
         // creates no surface for it, so it exists only to give the pointer and
         // the UI focus path a cursor (spec §13).
@@ -90,7 +91,7 @@ impl Rendered {
             image,
             window,
             camera: None,
-            frames: take_dir
+            frames: pack_parent
                 .join(format!("{pack_name}.keiko"))
                 .join("frames")
                 .join(sanitize(case)),

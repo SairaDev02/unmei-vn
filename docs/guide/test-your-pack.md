@@ -135,8 +135,8 @@ and the held-key rules hold inside a take. `activate` names a control by its rol
 [§ 3.2](../keiko-spec.md#32-control-ids-k10) lists every control id.
 
 A case can also look at the screen and click it. `frame [name]` writes the current frame as a
-1280×720 PNG in the take's own copy of the pack, beside the pack under
-`<pack-dir>.keiko/frames/<case>/`, and prints the path; add `--keep` to read it after the run.
+1280×720 PNG beside the pack, under `<pack-dir>.keiko/frames/<case>/`, and prints the path. The
+file stays after the run.
 `click <control>` presses a control by its role id, at the point the control is drawn, and
 `click <x> <y>` presses a point in the same 1280×720 frame. Both go through the player's own hit
 test, so a control that another surface covers takes no click, exactly as for a player. Both need a

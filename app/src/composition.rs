@@ -104,6 +104,11 @@ impl Selection {
                 .disable::<bevy::winit::WinitPlugin>()
                 .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
                 .disable::<bevy::gilrs::GilrsPlugin>()
+                // As in the windowless take, the global logger stays out: the
+                // take's session log is the funnel's own file, and the
+                // renderer's console lines would otherwise reach stderr and
+                // that file.
+                .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,

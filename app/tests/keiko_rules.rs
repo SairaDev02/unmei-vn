@@ -1752,7 +1752,9 @@ frame titled
 ",
         )],
     );
-    let output = run(&pack, &["--take", "frames", "--keep"]);
+    // No `--keep`: the frames land beside the real pack, so they outlive the
+    // take and its sandbox (spec §13).
+    let output = run(&pack, &["--take", "frames"]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let paths = frame_paths(&output);
     assert_eq!(
@@ -1761,18 +1763,18 @@ frame titled
         "one path per frame step:\n{}",
         stderr(&output)
     );
-    assert!(
-        paths[0].ends_with("demo-pack.keiko/frames/frames/1.png"),
-        "the first frame takes its ordinal: {}",
-        paths[0].display()
-    );
-    assert!(
-        paths[1].ends_with("demo-pack.keiko/frames/frames/2-titled.png"),
-        "the second frame takes its ordinal and its name: {}",
-        paths[1].display()
-    );
-    for path in &paths {
-        assert!(path.exists(), "{} is written", path.display());
+    let folder = std::fs::canonicalize(pack.parent().unwrap())
+        .unwrap()
+        .join("demo-pack.keiko")
+        .join("frames")
+        .join("frames");
+    for (path, name) in paths.iter().zip(["1.png", "2-titled.png"]) {
+        assert!(path.exists(), "{} outlives the take", path.display());
+        assert_eq!(
+            std::fs::canonicalize(path).unwrap(),
+            folder.join(name),
+            "the frame takes its ordinal and its name, beside the pack"
+        );
         let image = image::open(path).expect("the frame decodes as an image");
         assert_eq!(
             (image.width(), image.height()),
@@ -1780,12 +1782,15 @@ frame titled
             "the frame is the reference size"
         );
     }
-    // The frames land in the take's own sandbox, so the pack keeps its files.
-    let kept = kept_path(&output);
+    // The renderer's console logging stays out: stderr holds only the paths.
+    let stray: Vec<String> = stderr(&output)
+        .lines()
+        .filter(|line| !line.trim().is_empty() && !line.starts_with("frame "))
+        .map(str::to_string)
+        .collect();
     assert!(
-        paths.iter().all(|path| path.starts_with(&kept)),
-        "every frame sits inside the kept take: {}",
-        kept.display()
+        stray.is_empty(),
+        "stderr holds only frame paths: {stray:#?}"
     );
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -1911,12 +1916,14 @@ fn a_frame_writes_in_observe_and_step_modes_and_never_edits_the_case() {
     let before = std::fs::read(&watched).unwrap();
     let output = run(&pack, &["--observe", "watched"]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let watched_frames = frame_paths(&output);
     assert_eq!(
-        frame_paths(&output).len(),
+        watched_frames.len(),
         1,
         "--observe writes the frame:\n{}",
         stderr(&output)
     );
+    assert!(watched_frames[0].exists(), "the frame outlives --observe");
     assert_eq!(
         std::fs::read(&watched).unwrap(),
         before,

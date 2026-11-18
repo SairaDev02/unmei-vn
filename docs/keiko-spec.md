@@ -375,7 +375,7 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 - **The render path** is the one the preview's software rendering ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)) reuses. A machine with no fallback adapter fails `frame` and `click` with `keiko.render.unavailable`. It does not fail the rest of the case's steps before them.
 - **CI.** The Linux `check` job installs the Mesa Vulkan driver for this slice.
 
-**Where a frame lands and how it is numbered.** A take plays its sandbox copy of the pack (§4.2), so `<pack-parent>` is the take folder `take-<n>/` and the frames sit beside the sandbox pack; `--keep` keeps them for reading. In `<n>[-<name>].png`, `<n>` is the 1-based ordinal of the `frame` step in the case, so a rerun overwrites the same files. Every mode that runs a `frame` step writes its PNG, `--observe` and `--step` included, so rule 25's "never writes" means the case file. *(Amended 2026-11-18.)*
+**Where a frame lands and how it is numbered.** `<pack-parent>` is the folder that holds the real pack, so the frames sit beside it, never inside it, and outlive the take and its sandbox without `--keep`. In `<n>[-<name>].png`, `<n>` is the 1-based ordinal of the `frame` step in the case, so a rerun overwrites the same files. Every mode that runs a `frame` step writes its PNG, `--observe` and `--step` included, so rule 25's "never writes" means the case file. *(Amended 2026-11-18.)*
 
 ## 14. The gate and the docs (Done when)
 
@@ -449,7 +449,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine's `keiko` module and `unmei-play`'s Keiko modes.
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
-- **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames in the take folder, and rule 25's `--observe` sentence now means the case file.
+- **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

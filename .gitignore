@@ -12,6 +12,10 @@ out/
 *.settings.ron
 *.read.ron
 
+# Keiko frames, written beside a pack (`<pack>.keiko/frames/`). The trailing
+# slash matches the folder only, never a `tests/<id>.keiko` case file.
+*.keiko/
+
 # Rust
 # Cargo build output. `cli/src/target/` is the authoring-target source module,
 # not build output, so it is re-included below.

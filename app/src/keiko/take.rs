@@ -211,14 +211,20 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             // A rendered app's plugins are finished before its first frame, as
             // `App::run` does: the renderer's resources are unpacked there.
             app.finish();
-            let pack_name = sandbox
-                .pack_root()
+            // Frames land beside the real pack, not in the take folder, so
+            // they outlive the take without `--keep` (spec §13).
+            let pack_name = request
+                .original_pack
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_else(|| "pack".to_string());
+            let pack_parent = request
+                .original_pack
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new(""));
             state.render = Some(super::render::Rendered::new(
                 &mut app,
-                sandbox.take_dir(),
+                pack_parent,
                 &pack_name,
                 &super::render::case_name(&request.case_file),
             ));
