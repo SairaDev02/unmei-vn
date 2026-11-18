@@ -193,6 +193,32 @@ fn auto_waits_its_dwell_and_not_a_frame_less() {
 }
 
 // ---------------------------------------------------------------------------
+// Rule 8: the Notice's lifetime under a virtual clock
+// ---------------------------------------------------------------------------
+
+/// A Notice lives `NOTICE_SECONDS` (5 s) of unpaused time. Steps that move no
+/// time leave it up; `wait` is what spends it. The menu pauses play, so the
+/// case closes the menu before it waits.
+#[test]
+fn a_notice_expires_under_wait_and_not_without_it() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "notice",
+            "keiko 1\nfault write-blocked slot-1\nsetting play.text_speed 0\n\n\
+             new-game\nsave 1\nexpect notice contains \"couldn't save\"\n\
+             menu\nexpect surface play\nadvance\n\
+             expect notice contains \"couldn't save\"\n\
+             wait 4.9s\nexpect notice contains \"couldn't save\"\n\
+             wait 200ms\nexpect notice none\n",
+        )],
+    );
+    assert_pass(&pack, "notice");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+// ---------------------------------------------------------------------------
 // Rules 13, 15 and 16: decisions, offline and faulted
 // ---------------------------------------------------------------------------
 
