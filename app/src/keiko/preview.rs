@@ -146,6 +146,7 @@ pub fn parse_state(value: &str) -> Option<StateValue> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::keiko::take::{self, TakeRequest};
 
     #[test]
     fn parse_state_reads_the_state_ron_form() {
@@ -173,6 +174,90 @@ mod tests {
         std::fs::write(root.join("scenes/a.unmei"), SPINNING_SCENE).unwrap();
         let loaded = unmei_engine::load_pack(&root).expect("the pack loads");
         (dir, loaded.pack)
+    }
+
+    /// Two options that land on different say-lines, so a settled line names
+    /// which option the replay took.
+    const CHOICE_SCENE: &str = "Narrator: entry.
+choice
+  \"Left\" -> left
+  \"Right\" -> right
+end
+label left
+Narrator: the left line.
+jump done
+label right
+Narrator: the right line.
+label done
+Narrator: done.
+";
+
+    /// Lines 7 and 10 are the two options' say-lines.
+    const LEFT_LINE: u32 = 7;
+    const RIGHT_LINE: u32 = 10;
+
+    fn choice_pack() -> (tempfile::TempDir, std::path::PathBuf, Pack) {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let root = dir.path().join("pick");
+        std::fs::create_dir_all(root.join("scenes")).unwrap();
+        std::fs::create_dir_all(root.join("npcs")).unwrap();
+        std::fs::write(root.join("pack.ron"), "(name: \"pick\", entry: \"a\")").unwrap();
+        std::fs::write(root.join("state.ron"), "(met: false,)").unwrap();
+        std::fs::write(root.join("scenes/a.unmei"), CHOICE_SCENE).unwrap();
+        let loaded = unmei_engine::load_pack(&root).expect("the pack loads");
+        (dir, root, loaded.pack)
+    }
+
+    /// Build the preview's case and run it through the same take engine a test
+    /// uses, which is the preview's whole contract.
+    fn take(request: &PreviewRequest) -> (tempfile::TempDir, take::TakeResult) {
+        let (dir, root, pack) = choice_pack();
+        let case = build_case(&pack, request).expect("the replay reaches the line");
+        let result = take::run(TakeRequest {
+            case: &case,
+            case_file: "preview".to_string(),
+            original_pack: &root,
+            pack: &pack,
+            take_index: 1,
+            keep: false,
+            live: None,
+        });
+        (dir, result)
+    }
+
+    /// `--at` past a choice with a `--pick` list settles at that line.
+    #[test]
+    fn a_replay_past_a_choice_settles_at_the_picked_options_line() {
+        let (_dir, result) = take(&PreviewRequest {
+            at: Some(("a".to_string(), RIGHT_LINE)),
+            picks: vec![2],
+            ..PreviewRequest::default()
+        });
+        assert_eq!(result.outcome, Ok(()), "{:?}", result.outcome);
+        assert_eq!(result.observation.line, Some(RIGHT_LINE));
+        assert_eq!(
+            result.observation.text.as_deref(),
+            Some("the right line."),
+            "{:?}",
+            result.observation
+        );
+    }
+
+    /// A choice past the end of the `--pick` list takes option 1.
+    #[test]
+    fn an_empty_pick_list_takes_the_first_option() {
+        let (_dir, result) = take(&PreviewRequest {
+            at: Some(("a".to_string(), LEFT_LINE)),
+            ..PreviewRequest::default()
+        });
+        assert_eq!(result.outcome, Ok(()), "{:?}", result.outcome);
+        assert_eq!(result.observation.line, Some(LEFT_LINE));
+        assert_eq!(
+            result.observation.text.as_deref(),
+            Some("the left line."),
+            "{:?}",
+            result.observation
+        );
     }
 
     /// The replay stops on the runner's wait-free cycle. It must report why in
