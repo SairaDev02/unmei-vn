@@ -6207,6 +6207,7 @@ version = "0.2.0"
 dependencies = [
  "bevy",
  "bevy_kira_audio",
+ "image",
  "jiff",
  "log",
  "ron 0.10.1",
@@ -6217,6 +6218,7 @@ dependencies = [
  "tracing-log",
  "unmei-engine",
  "url",
+ "wgpu",
 ]
 
 [[package]]

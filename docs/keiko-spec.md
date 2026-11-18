@@ -11,7 +11,7 @@ keywords:
 ---
 # Keiko — build-ready spec
 
-**Status (2026-11-17).** Slice 1 is **built**, on the integration branch `spec/28-keiko`. Slice 2 is **not built**: a case may carry `frame` and `click`, and both fail with `keiko.render.unavailable` ([`app/src/keiko/steps.rs`](../app/src/keiko/steps.rs)). This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
+**Status (2026-11-18).** Slices 1 and 2 are **built**, on the integration branch `spec/28-keiko`. A case may carry `frame` and `click`: both draw the player's own composition at 1280×720 on wgpu's fallback adapter ([`app/src/keiko/render.rs`](../app/src/keiko/render.rs)), and a machine without one fails them with `keiko.render.unavailable`. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
 **Slices.** The build ships in two slices. Each slice is complete and mergeable on its own.
 
@@ -375,6 +375,8 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 - **The render path** is the one the preview's software rendering ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)) reuses. A machine with no fallback adapter fails `frame` and `click` with `keiko.render.unavailable`. It does not fail the rest of the case's steps before them.
 - **CI.** The Linux `check` job installs the Mesa Vulkan driver for this slice.
 
+**Where a frame lands and how it is numbered.** `<pack-parent>` is the folder that holds the real pack, so the frames sit beside it, never inside it, and outlive the take and its sandbox without `--keep`. In `<n>[-<name>].png`, `<n>` is the 1-based ordinal of the `frame` step in the case, so a rerun overwrites the same files. Every mode that runs a `frame` step writes its PNG, `--observe` and `--step` included, so rule 25's "never writes" means the case file. *(Amended 2026-11-18.)*
+
 ## 14. The gate and the docs (Done when)
 
 - **Fixture packs.** The smoke checklist's recipes D, L, G and B become fixture packs under `app/tests/keiko/<name>/`, each with its own `tests/`. The S/K recipes (disposable sidecars and credential faults) run their cases over D's pack with their own fixtures, because every take already has its own sandbox. *(Amended 2026-11-18.)*
@@ -414,7 +416,7 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 22. A take leaves no folder behind without `--keep`, and leaves exactly its take folder with `--keep`.
 23. A system that panics (a test-only plugin in a test build) ends the take with `keiko.panic` and the next take passes.
 24. A world that never becomes quiet ends with `keiko.unsettled` after 600 frames.
-25. `--step` appends only a step that passed, creates a missing case with its version line, and leaves the file byte-identical on failure. `--observe` never writes.
+25. `--step` appends only a step that passed, creates a missing case with its version line, and leaves the file byte-identical on failure. `--observe` never writes the case file; a `frame` step still writes its PNG (§13). *(Amended 2026-11-18.)*
 26. A case built by `--step` passes under `--take` unchanged.
 27. Exploration of the demo pack reaches both choice options and every landing key of `ace.greet`, and saves no finding.
 28. Exploration of a fixture pack with a missing sprite, an unreachable label and a scene that loops forever saves one `keiko.log.row-*` and one `keiko.stuck` finding, and lists the label as unreached coverage, not as a finding.
@@ -447,6 +449,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine's `keiko` module and `unmei-play`'s Keiko modes.
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
+- **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

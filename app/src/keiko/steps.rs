@@ -12,7 +12,7 @@ use std::time::Duration;
 use bevy::input::keyboard::{Key, KeyboardInput, NativeKey};
 use bevy::input::ButtonState;
 use bevy::prelude::*;
-use unmei_engine::keiko::{exact, Click, Expect, LoadTarget, Pick, Step};
+use unmei_engine::keiko::{exact, Expect, LoadTarget, Pick, Step};
 use unmei_engine::runner::Wait;
 
 use super::controls::{focus_for_id, is_enabled, surface_ids};
@@ -39,12 +39,15 @@ pub enum Applied {
     Assert(Expect),
 }
 
-/// Apply one step.
+/// Apply one step. `render` is the take's rendered composition when the case
+/// asks for a frame or a click and the machine has a software rasterizer
+/// (spec §13).
 pub fn apply(
     app: &mut App,
     step: &Step,
     run: FrameRun,
     resolver: &super::decide::KeikoResolver,
+    render: Option<&mut super::render::Rendered>,
 ) -> Result<Applied, Finding> {
     let fail = |rule: &str, message: String| {
         Finding::new("case", format!("step `{}`", verb(step)), rule, message)
@@ -171,13 +174,23 @@ pub fn apply(
         // verdict, the other removes the sandbox obstruction it knows the path
         // of.
         Step::ReleaseKeyCheck | Step::Unblock(_) => Ok(Applied::Input),
-        Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _)) => {
-            Err(Finding::new(
-                "case",
-                format!("step `{}`", verb(step)),
-                rules::RENDER_UNAVAILABLE,
-                "no software rasterizer is available in this take",
-            ))
+        Step::Frame(name) => {
+            let Some(render) = render else {
+                return Err(unavailable(step));
+            };
+            render
+                .capture(app, run, name.as_deref())
+                .map_err(|message| fail(rules::RENDER_UNAVAILABLE, message))?;
+            Ok(Applied::Input)
+        }
+        Step::Click(click) => {
+            let Some(render) = render else {
+                return Err(unavailable(step));
+            };
+            render
+                .click_control(app, run, click)
+                .map_err(|error| fail(error.rule, error.message))?;
+            Ok(Applied::Input)
         }
         Step::Expect(expect) => Ok(Applied::Assert(expect.clone())),
     }
@@ -250,7 +263,7 @@ pub struct ActivationError {
 }
 
 impl ActivationError {
-    fn no_target(message: impl Into<String>) -> Self {
+    pub(super) fn no_target(message: impl Into<String>) -> Self {
         Self {
             rule: rules::STEP_NO_TARGET,
             message: message.into(),
@@ -260,6 +273,13 @@ impl ActivationError {
     fn disabled(message: impl Into<String>) -> Self {
         Self {
             rule: rules::STEP_DISABLED,
+            message: message.into(),
+        }
+    }
+
+    pub(super) fn render_unavailable(message: impl Into<String>) -> Self {
+        Self {
+            rule: rules::RENDER_UNAVAILABLE,
             message: message.into(),
         }
     }
@@ -318,7 +338,22 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
     Ok(())
 }
 
-fn surface_name(menu: &MenuState) -> &'static str {
+/// The finding a `frame` or `click` step files when the take has no rendered
+/// composition: no fallback adapter, or a case the take did not prepare one for.
+fn unavailable(step: &Step) -> Finding {
+    Finding::new(
+        "case",
+        format!("step `{}`", verb(step)),
+        rules::RENDER_UNAVAILABLE,
+        "no software rasterizer is available in this take",
+    )
+}
+
+/// `click <control>` / `click <x> <y>`: move the stand-in window's cursor and
+/// press and release the left button, so the player's own hit test decides what
+/// the click reaches (spec §13, K9). A covered control therefore takes no click,
+/// exactly as for a player.
+pub(super) fn surface_name(menu: &MenuState) -> &'static str {
     if !menu.open {
         "play"
     } else {

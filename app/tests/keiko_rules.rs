@@ -919,26 +919,6 @@ activate overlay.slot.1
     let _ = std::fs::remove_dir_all(dir);
 }
 
-#[test]
-fn frame_reports_that_no_renderer_is_available() {
-    let dir = temp_dir();
-    let pack = pack(
-        &dir,
-        &[(
-            "render",
-            "keiko 1\nsetting play.text_speed 0\n\nnew-game\nframe\n",
-        )],
-    );
-    let output = take(&pack, &["render"]);
-    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
-    assert!(
-        stdout(&output).contains("keiko.render.unavailable"),
-        "{}",
-        stdout(&output)
-    );
-    let _ = std::fs::remove_dir_all(dir);
-}
-
 /// Rule 18: a blocked save reports itself and leaves the old slot byte for byte
 /// as it was, and `unblock` then lets the save land. Both halves start from a
 /// fixture that holds a park in another scene, so a landing save is visible as
@@ -1717,6 +1697,255 @@ expect surface settings
             .iter()
             .all(|control| control["id"] != "overlay.exit-to-title"),
         "the title's door draws no rail control"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+// ---------------------------------------------------------------------------
+// Rules 35-37: the render path (slice 2)
+// ---------------------------------------------------------------------------
+
+fn stderr(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+/// Run the binary with extra environment, so a test can take the fallback
+/// adapter away with no product hook (`WGPU_BACKEND` names a backend this
+/// platform does not have).
+fn run_env(pack: &Path, args: &[&str], envs: &[(&str, &str)]) -> Output {
+    let mut full = vec![pack.to_str().unwrap().to_string()];
+    full.extend(args.iter().map(|arg| arg.to_string()));
+    let mut command = Command::new(binary());
+    command.args(&full).env_remove("NANOGPT_API_KEY");
+    for (key, value) in envs {
+        command.env(key, value);
+    }
+    command.output().expect("the binary runs")
+}
+
+/// Every `frame <n>: <path>` line a take printed, in order.
+fn frame_paths(output: &Output) -> Vec<PathBuf> {
+    stderr(output)
+        .lines()
+        .filter_map(|line| line.strip_prefix("frame "))
+        .filter_map(|line| line.split_once(": "))
+        .map(|(_, path)| PathBuf::from(path.trim()))
+        .collect()
+}
+
+/// Rule 35: a `frame` writes a 1280×720 PNG at the documented path on the
+/// software rasterizer, numbered by the step's ordinal and named by the step.
+#[test]
+fn a_frame_step_writes_a_1280_by_720_png() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "frames",
+            "keiko 1
+setting play.text_speed 0
+
+new-game
+expect line contains \"Morning light\"
+frame
+frame titled
+",
+        )],
+    );
+    // No `--keep`: the frames land beside the real pack, so they outlive the
+    // take and its sandbox (spec §13).
+    let output = run(&pack, &["--take", "frames"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let paths = frame_paths(&output);
+    assert_eq!(
+        paths.len(),
+        2,
+        "one path per frame step:\n{}",
+        stderr(&output)
+    );
+    let folder = std::fs::canonicalize(pack.parent().unwrap())
+        .unwrap()
+        .join("demo-pack.keiko")
+        .join("frames")
+        .join("frames");
+    for (path, name) in paths.iter().zip(["1.png", "2-titled.png"]) {
+        assert!(path.exists(), "{} outlives the take", path.display());
+        assert_eq!(
+            std::fs::canonicalize(path).unwrap(),
+            folder.join(name),
+            "the frame takes its ordinal and its name, beside the pack"
+        );
+        let image = image::open(path).expect("the frame decodes as an image");
+        assert_eq!(
+            (image.width(), image.height()),
+            (1280, 720),
+            "the frame is the reference size"
+        );
+    }
+    // The renderer's console logging stays out: stderr holds only the paths.
+    let stray: Vec<String> = stderr(&output)
+        .lines()
+        .filter(|line| !line.trim().is_empty() && !line.starts_with("frame "))
+        .map(str::to_string)
+        .collect();
+    assert!(
+        stray.is_empty(),
+        "stderr holds only frame paths: {stray:#?}"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Rule 36: a control click goes through the player's own hit test — it starts
+/// play, and a click on a control the confirm surface covers does nothing.
+#[test]
+fn a_click_reaches_the_player_hit_test_and_a_covered_click_does_nothing() {
+    let dir = temp_dir();
+    // The covering surface is the New Game confirm's full-screen dimmer: while
+    // it is up, `title.quit` lies under it. Were the click to reach that button
+    // the confirm would ask about quitting instead (its accept is "Quit"), so
+    // the "Start" label proves the covering surface took the click.
+    let pack = pack(
+        &dir,
+        &[(
+            "clicks",
+            "keiko 1
+setting play.text_speed 0
+
+click title.new-game
+expect surface play
+expect line contains \"Morning light\"
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+activate overlay.exit-to-title
+activate confirm.yes
+expect surface title
+click title.quit
+expect surface confirm
+expect control confirm.yes label \"Quit\"
+activate confirm.no
+expect surface title
+click title.new-game
+expect surface confirm
+expect control confirm.yes label \"Start\"
+click title.quit
+expect surface confirm
+expect control confirm.yes label \"Start\"
+click confirm.no
+expect surface title
+",
+        )],
+    );
+    let output = run(&pack, &["--take", "clicks"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Rule 37: with no fallback adapter, `frame` (and `click`) fails with
+/// `keiko.render.unavailable`, and the steps before it still apply.
+#[test]
+fn without_a_fallback_adapter_frames_and_clicks_report_render_unavailable() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "frame",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+expect line contains \"Morning light\"
+frame
+expect surface play
+",
+            ),
+            (
+                "click",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+click title.new-game
+",
+            ),
+        ],
+    );
+    // `metal` is not a backend this platform compiles, so the probe finds no
+    // fallback adapter and the take keeps the windowless app.
+    for (id, line) in [("frame", 6), ("click", 5)] {
+        let output = run_env(&pack, &["--take", id], &[("WGPU_BACKEND", "metal")]);
+        assert_eq!(output.status.code(), Some(1), "{id}: {}", stdout(&output));
+        let text = stdout(&output);
+        assert!(
+            text.contains("keiko.render.unavailable"),
+            "{id}: expected the render rule, got:\n{text}"
+        );
+        assert!(
+            text.contains(&format!("line {line}")),
+            "{id}: the render step is line {line}, and no earlier step failed:\n{text}"
+        );
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Decision 3 of the slice-2 brief: every mode that runs a `frame` step writes
+/// its PNG, and `--observe` still leaves the case file alone.
+#[test]
+fn a_frame_writes_in_observe_and_step_modes_and_never_edits_the_case() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "watched",
+                "keiko 1\nsetting play.text_speed 0\n\nnew-game\nframe\n",
+            ),
+            (
+                "stepped",
+                "keiko 1\nsetting play.text_speed 0\n\nnew-game\n",
+            ),
+        ],
+    );
+    let watched = pack.join("tests/watched.keiko");
+    let before = std::fs::read(&watched).unwrap();
+    let output = run(&pack, &["--observe", "watched"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let watched_frames = frame_paths(&output);
+    assert_eq!(
+        watched_frames.len(),
+        1,
+        "--observe writes the frame:\n{}",
+        stderr(&output)
+    );
+    assert!(watched_frames[0].exists(), "the frame outlives --observe");
+    assert_eq!(
+        std::fs::read(&watched).unwrap(),
+        before,
+        "--observe never writes the case file"
+    );
+
+    let stepped = pack.join("tests/stepped.keiko");
+    let before = std::fs::read(&stepped).unwrap();
+    let output = run(&pack, &["--step", "stepped", "frame"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    assert_eq!(
+        frame_paths(&output).len(),
+        1,
+        "--step writes the frame too:\n{}",
+        stderr(&output)
+    );
+    let after = std::fs::read(&stepped).unwrap();
+    let appended = after.get(before.len()..).unwrap_or_default();
+    assert!(
+        after.starts_with(&before) && appended == b"frame\n",
+        "the passed step is appended, and the file is otherwise unchanged: {:?}",
+        String::from_utf8_lossy(appended)
     );
     let _ = std::fs::remove_dir_all(dir);
 }
