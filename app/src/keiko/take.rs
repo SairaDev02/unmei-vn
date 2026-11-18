@@ -169,9 +169,10 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         key_check_release,
     };
 
-    // The app owns the open session-log file and the audio device. Both must be
-    // gone before the sandbox is deleted, or Windows refuses to remove a folder
-    // whose file is still open.
+    // The app owns the open session-log file, and Kira's backend (in every app
+    // that has one) holds the audio device. Both must be gone before the
+    // sandbox is deleted, or Windows refuses to remove a folder whose file is
+    // still open. A take installs no audio backend at all (spec §4.1).
     let outcome = {
         let mut app = crate::composition::keiko_app(
             config,

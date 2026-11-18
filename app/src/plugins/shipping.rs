@@ -3,7 +3,7 @@
 //! the input-ownership harness.
 
 use bevy::prelude::*;
-use bevy_kira_audio::AudioApp;
+use bevy_kira_audio::{AudioApp, AudioChannel};
 
 use crate::{
     input, presentation, MonitorDrawerSet, NoticeSet, PresentationSet, RuntimeCorePlugin,
@@ -18,8 +18,6 @@ impl Plugin for UnmeiPlugin {
         // (`docs/title-and-menu.md` § Type system §1).
         presentation::style::embed_text_faces(app);
         app.add_plugins(RuntimeCorePlugin)
-            .add_audio_channel::<presentation::play::Bgm>()
-            .add_audio_channel::<presentation::play::Sfx>()
             .init_resource::<presentation::assets::AssetWatch>()
             // The one `Update` phase order every runtime system is placed in:
             // the core frame, then notice ticking, then the presentation syncs,
@@ -59,7 +57,31 @@ impl Plugin for UnmeiPlugin {
         // composes them in today's order.
         presentation::register(app);
         register_ownership_gated_presentation(app);
+        register_audio_channels(app);
     }
+}
+
+/// Register the play surface's two audio channels.
+///
+/// `bevy_kira_audio`'s plugin owns the device, the `Assets<AudioSource>` type and
+/// the systems that drain a channel's queued commands, so it must be added
+/// before [`UnmeiPlugin`] — both app constructors add it first. A take has no
+/// audio device (spec §4.1) and adds no audio plugin, so it gets the same two
+/// channel resources and the track decoder the player registers, and no channel
+/// system: the mix and the staging bookkeeping run unchanged, and nothing
+/// sounds.
+fn register_audio_channels(app: &mut App) {
+    if app.is_plugin_added::<bevy_kira_audio::AudioPlugin>() {
+        app.add_audio_channel::<presentation::play::Bgm>()
+            .add_audio_channel::<presentation::play::Sfx>();
+        return;
+    }
+    app.init_resource::<AudioChannel<presentation::play::Bgm>>()
+        .init_resource::<AudioChannel<presentation::play::Sfx>>()
+        .init_asset::<bevy_kira_audio::AudioSource>()
+        // The player's decoder set: `bevy_kira_audio`'s default features enable
+        // ogg only, so `AudioPlugin` registers this loader and no other.
+        .init_asset_loader::<bevy_kira_audio::prelude::OggLoader>();
 }
 
 /// Register the app-input-ownership gates for the presentation side.

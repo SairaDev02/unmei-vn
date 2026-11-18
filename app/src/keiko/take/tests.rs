@@ -10,11 +10,14 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::Arc;
 
 use bevy::prelude::*;
+use bevy_kira_audio::{AudioChannel, AudioPlugin};
 use unmei_engine::keiko::{parse_case, Case};
 use unmei_engine::{load_pack, Pack, StateValue};
 
 use super::{run, run_with, TakeRequest};
 use crate::keiko::finding::rules;
+use crate::presentation::play::Bgm;
+use crate::RuntimeConfig;
 
 /// The demo pack, copied to a temp dir so the take's sandbox and sidecars never
 /// touch the repository.
@@ -145,5 +148,51 @@ fn a_world_that_changes_every_frame_ends_unsettled_at_the_600_frame_guard() {
         frames.load(Ordering::Relaxed),
         600,
         "the guard spends its whole budget before giving up"
+    );
+}
+
+#[test]
+fn a_take_boots_with_no_audio_device() {
+    let (_dir, root, pack) = demo_pack();
+    let app = crate::composition::keiko_app(
+        RuntimeConfig::new(root.clone(), None),
+        crate::failure::SessionLogResult::NotAttempted,
+        crate::credentials::ClipboardPort::Memory(None),
+        crate::KeyCheckChannel::default(),
+        crate::DecisionFactory { builder: None },
+        Arc::new(crate::keiko::assets::AssetFaults::default()),
+    );
+    assert!(
+        !app.is_plugin_added::<AudioPlugin>(),
+        "spec §4.1: a take has no audio device"
+    );
+    // The player's audio systems still have the resources they read: the two
+    // channels the mix and the staging bookkeeping touch, and the decoded-track
+    // asset the play sync loads.
+    assert!(app.world().contains_resource::<AudioChannel<Bgm>>());
+    assert!(app
+        .world()
+        .contains_resource::<Assets<bevy_kira_audio::AudioSource>>());
+
+    // A take whose entry scene starts a track still boots and stages it, and
+    // the decoder settles it with no row-5 asset failure.
+    let case = parse_case(
+        "tests/no-device.keiko",
+        "keiko 1
+
+new-game
+",
+    )
+    .expect("parses");
+    let result = run(request(&case, &pack, &root));
+    assert!(result.outcome.is_ok(), "{:?}", result.outcome);
+    assert_eq!(
+        result.observation.staging.music.as_deref(),
+        Some("music_morning")
+    );
+    assert!(
+        !result.log.iter().any(|line| line.row == 5),
+        "no row-5 asset failure, got {:?}",
+        result.log
     );
 }

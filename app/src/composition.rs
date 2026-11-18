@@ -164,7 +164,10 @@ pub fn shipping_app(
 
 /// Build a fresh, unrun Keiko take app (spec §4.1): the headless selection plus
 /// the take's own session log, sandbox config, clipboard, key check, resolver
-/// factory and manual clock.
+/// factory and manual clock. It has no audio device: `UnmeiPlugin` registers the
+/// play surface's channel resources and the track decoder without
+/// `bevy_kira_audio`'s plugin, so the mix and staging bookkeeping run and
+/// nothing sounds.
 ///
 /// It is deliberately not a wrapper around [`schedule_app`]: a take needs the
 /// session-log layer that the strict schedule gate leaves out, and the real
@@ -215,7 +218,6 @@ pub fn keiko_app(
     app.register_asset_loader(bevy::image::ImageLoader::new(
         bevy::image::CompressedImageFormats::NONE,
     ));
-    app.add_plugins(bevy_kira_audio::AudioPlugin);
     app.insert_resource(clipboard)
         .insert_resource(key_check)
         .insert_resource(decision_factory);
