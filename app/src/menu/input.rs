@@ -22,7 +22,9 @@ use super::navigation::{
     next_top_bar_subview, settings_target, timeline_arrow, title_target,
 };
 use super::persistence::flush_settings;
-use super::state::{legacy_visible, MenuFocus, MenuState, MenuView, LEGACY_TARGETS};
+use super::state::{
+    exit_to_title_shown, legacy_visible, MenuFocus, MenuState, MenuView, LEGACY_TARGETS,
+};
 use super::transition::escape;
 
 /// The Decisions key row's system parameters, bundled so [`menu_input`] stays
@@ -227,10 +229,10 @@ pub(crate) fn menu_input(
             track.step(&mut settings, -1);
         } else if keys.just_pressed(KeyCode::ArrowRight) {
             track.step(&mut settings, 1);
-        } else if let Some(focus) = settings_target(menu.focus, &keys) {
+        } else if let Some(focus) = settings_target(menu.focus, &keys, exit_to_title_shown(&menu)) {
             menu.focus = focus;
         }
-    } else if let Some(focus) = settings_target(menu.focus, &keys) {
+    } else if let Some(focus) = settings_target(menu.focus, &keys, exit_to_title_shown(&menu)) {
         menu.focus = focus;
     }
 

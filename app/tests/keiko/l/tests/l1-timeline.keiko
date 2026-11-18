@@ -1,0 +1,61 @@
+keiko 1
+# L1 (Timeline entry list and restart) — declared order only, unvisited ids hidden as
+# "???" and inert, browsing and cancel preserve play, a confirm restarts the visited
+# scene from its first wait. The overlay's Timeline button is Tab-reached (the control
+# walk cannot leave the card grid), so the case presses the player's own keys.
+# Excluded: rendered cards, their art, and audio.
+setting play.text_speed 0
+
+new-game
+expect line "S1 opening"
+menu
+press Tab
+press Tab
+press Tab
+expect control overlay.timeline focused
+press Enter
+expect surface timeline
+expect control timeline.card.1 label "smoke_entry"
+expect control timeline.card.1 enabled
+expect control timeline.card.1 focused
+expect control timeline.card.2 label "???"
+expect control timeline.card.2 disabled
+expect control timeline.card.3 disabled
+expect control timeline.card.4 absent
+press ArrowRight
+expect control timeline.card.2 focused
+press Enter
+expect surface timeline
+expect notice none
+press Escape
+expect surface menu
+press Escape
+expect surface play
+advance 6
+pick "Carry changed state"
+advance
+expect scene smoke_target
+expect line "TARGET first high"
+menu
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface timeline
+expect control timeline.card.2 label "smoke_target"
+expect control timeline.card.2 enabled
+press ArrowRight
+expect control timeline.card.2 focused
+press Enter
+expect surface confirm
+activate confirm.no
+expect surface timeline
+expect slot 1 empty
+expect bg school_gate
+press Enter
+expect surface confirm
+activate confirm.yes
+expect surface play
+expect scene smoke_target
+expect line "TARGET first high"
+expect skip off

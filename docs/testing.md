@@ -51,7 +51,19 @@ Prioritize player-visible behavior, gameplay progression, persistence, asynchron
 - Reserve exact dimensions, spacing, colors, typography, and hierarchy assertions for documented presentation requirements.
 - Prefer representative UI state transitions over exhaustive permutations without distinct failure risks.
 - Keep tests isolated from process-global logging and other shared state.
-- *(Amended 2026-11-17: Keiko, once built, is the player-level end-to-end layer above these tests. Its gate and the cases it takes over from the human checklist are in [Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when). Until it is built, nothing here changes.)*
+
+**Keiko is the player-level end-to-end layer above these tests.** It plays a pack through the real
+player with real input messages and asserts what the player perceives, from outside the ECS
+([Keiko spec §3–§5](keiko-spec.md#3-steps-k9k12)). It covers, on a pack's own cases: the surface and
+the text after each step; offline decisions and their fallback posture; save slots and loads;
+settings and credential degradation; the session log; declared fixtures and the fixed fault list; and
+an exploration of every choice option and landing key within a budget. It cannot prove what its
+windowless player does not do: rendering on a real GPU, that audio is heard, that physical input
+arrives, or that a live model answered, which `--take --live` marks nondeterministic. The gate is
+[`app/tests/keiko_gate.rs`](../app/tests/keiko_gate.rs) and the fixture-pack test
+[`app/tests/keiko_fixtures.rs`](../app/tests/keiko_fixtures.rs), which runs every case in every pack
+under `app/tests/keiko/`; both run inside the existing workspace test step, so `check.yml` gains no
+job ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)).
 
 ## External Dependencies
 

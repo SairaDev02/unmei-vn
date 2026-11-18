@@ -134,7 +134,7 @@ This section covers the **Decisions group** in the Settings view and the **crede
 - A pasted `…\n` reaches the field as the trimmed key, not as nothing (the all-or-nothing filter's known trap).
 - `Copy path` writes the path string to the clipboard resource and its label returns from `Copied` to `Copy path`.
 - No key ever appears in a log line: drive a shape failure with a distinctive value and assert the session log contains neither it nor its fingerprint beyond §4.1's four characters.
-- The group is the last stop of the walk in both Settings surfaces, and Continue/New Game are enabled in every key state (Not set, Set, Invalid, From environment).
+- The group is the last of the walk's three groups in both Settings surfaces, and Continue/New Game are enabled in every key state (Not set, Set, Invalid, From environment). From the overlay's door the rail's `Exit to title` is the walk's one stop past the group when it is shown ([Title](#title) §4, amended 2026-11-18).
 
 ### Amendments
 
@@ -142,6 +142,7 @@ Amendments to this section are dated and made **in place**, with a note here say
 
 - **2026-10-14**: the settled banner above now reads **Built** — the group and the credential file shipped. No rule changed.
 - **2026-11-16**: NanoGPT replaces OpenRouter as the provider ([ADR 0015](adr/0015-nanogpt-is-the-one-provider.md), [`nanogpt.md`](nanogpt.md)). §1 to §6 are amended in place: the credential file holds a NanoGPT key, the override variable is `NANOGPT_API_KEY`, the key check is `GET /api/v1/api-keys/current` and accepts any `2xx`, the key row's copy names NanoGPT, and two states are new: **Invalid, an OpenRouter key** and **From environment (OpenRouter key)**. An `sk-or-` key is never sent: a stored or environment one builds no resolver, and a typed one is refused before it is written. A stored OpenRouter key is not migrated and its file is left as it is.
+- **2026-11-18**: §6's last-stop rule names the overlay Settings rail's `Exit to title` as the walk's one stop past the Decisions group, so the control is keyboard- (and Keiko-) reachable; the group itself stays the last group. The title's door still draws no rail control.
 
 ### Out of scope for this section
 
@@ -193,7 +194,7 @@ This section covers the **title screen**: what is true while it is up, what each
   - the back control reads `← Back to title` on the title's door and stays `← Back to slots` on the overlay's;
   - `Esc` backs out of Settings to the title, then does nothing on the title;
   - the title's Settings has no Resume control.
-- **`Exit to title` appears in the Settings left rail only when the door is the overlay** — there is no live session to leave when the door is the title. It joins Resume as a session-scoped rail control, so the Decisions group keeps its settled position as the last group and the last stop of the walk.
+- **`Exit to title` appears in the Settings left rail only when the door is the overlay** — there is no live session to leave when the door is the title. It joins Resume as a session-scoped rail control, so the Decisions group keeps its settled position as the last group; the rail control is the walk's one stop past it when the overlay's door shows it (the `↑`/`↓` walk reaches it after `Clear key`).
 - Leaving Settings still flushes the settings file (the existing dirty-state rule); the title itself writes nothing.
 
 ### 5. Exit to title
@@ -239,7 +240,7 @@ The in-play help line is unchanged by this section. The `Quit` sentence is the L
 - The title's Settings rail has no Resume; `Exit to title` renders from the overlay door and is absent from the title door.
 - `Esc` in the title's Settings returns to the title; `Esc` on the title does nothing, and never opens the overlay.
 - Leaving Settings flushes a dirty settings file; opening the title's Settings creates no file.
-- The Decisions group is the last walk stop from both doors, and Continue and New Game stay enabled in every key state.
+- The Decisions group is the last walk stop from the title's door; from the overlay's door the rail's `Exit to title` follows it when it is shown, `↑`/`↓` from the group's last control reaches it, and activating it confirms once. Continue and New Game stay enabled in every key state.
 - With no live session, New Game starts play with no confirm; with one, it confirms once, and cancelling changes nothing.
 - New Game's reset: the runner is back at the entry scene with `pc 0`, staging re-applied, pending/held/hold/auto/reveal cleared, `PendingAutosave` disarmed, the Notice cleared, and audio/visual replay forced.
 - An in-flight request is cancelled and a held answer discarded by New Game, so neither lands in the new session.
@@ -264,6 +265,7 @@ Amendments to this section are dated and made **in place**, with a note here say
 - **2026-10-04**: §1 gains **The title is static** — the motion deferral is consciously rejected, and any future motion is the real-art pass's, across the title, the overlay and Settings.
 - **2026-10-05**: the `Gallery` row is enabled and caption-free — §2, §6 and §7 are amended in place, and the Out-of-scope line below now points at [Gallery](#gallery) instead of the disabled button.
 - **2026-10-14**: the settled banner above now reads **Built** — the section shipped. No rule changed.
+- **2026-11-18**: §4 and §7's walk rule now includes the overlay Settings rail's `Exit to title` as the walk's one stop past the Decisions group, so a keyboard (and Keiko) route reaches the control and its confirm; the title's door still draws no rail control.
 
 ### Out of scope for this section
 

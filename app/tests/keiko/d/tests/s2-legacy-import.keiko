@@ -1,0 +1,28 @@
+keiko 1
+# S2 (a valid v1 legacy save) — the overlay offers the one-time Legacy card, it
+# imports into a manual slot only, retires once imported, and the imported slot
+# loads its exact line.
+# Excluded: the `.save.ron.imported` rename and the original file's byte
+# survival (a kept-sandbox file check), the card's caption text.
+fixture legacy-save fixtures/legacy-v1.ron
+setting play.text_speed 0
+
+new-game
+menu
+expect surface menu
+expect control overlay.legacy enabled
+activate overlay.legacy
+expect control legacy.target.1 focused
+expect control legacy.cancel enabled
+activate legacy.target.1
+expect surface menu
+expect control overlay.legacy absent
+expect slot 1 scene first_meeting
+menu
+expect surface play
+advance
+expect line "You're not from around here, are you?"
+load 1
+activate confirm.yes
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."

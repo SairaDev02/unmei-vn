@@ -11,7 +11,7 @@ keywords:
 ---
 # Keiko — requirements
 
-**Status (2026-11-17).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions) and accepted 2026-11-15. **Specified 2026-11-17 in the [build-ready spec](keiko-spec.md), not built.** The spec amended each contract in [Contracts this will amend](#9-contracts-this-will-amend) with a dated pointer ([spec §16](keiko-spec.md#16-amendments)).
+**Status (2026-11-17).** Requirements reviewed 2026-11-15 in one requirements review (four rounds, 26 questions) and accepted 2026-11-15. **Specified 2026-11-17 in the [build-ready spec](keiko-spec.md), and slice 1 is built** (*amended 2026-11-17*; the spec's status is the current one). The spec amended each contract in [Contracts this will amend](#9-contracts-this-will-amend) with a dated pointer ([spec §16](keiko-spec.md#16-amendments)).
 
 **What this is.** Unmei's tests today stop short of the player. The headless app tests assert ECS-level state transitions. The Monitor examples drive a real window with a real GPU. The [human smoke checklist](testing-human-smoke.md) is the only end-to-end pass over menus, saves, skip, the Timeline and failures, and a person runs it by hand. An author has nothing beyond playing their own pack. **Keiko** (稽古, rehearsal) plays a pack the way a player does and checks what that player would perceive. A coding agent can drive it from a shell without a person present. Authors test their own packs with it. Maintainers test Unmei with it through the demo pack and fixture packs.
 
@@ -84,7 +84,7 @@ keywords:
 
 ## 9. Contracts this will amend
 
-These are not amended yet. The spec amends each in place, with a dated pointer.
+Each row is amended in place, with a dated pointer ([spec §16](keiko-spec.md#16-amendments)).
 
 - [Plugin family C4 and C5](plugin-family.md#5-pack-wide-check-and-preview): the preview's replay is Keiko's, and its `--pick` and `--state` formats move to Keiko's spec (K29).
 - [Pack layout](content-format.md#2-pack-layout): the optional `tests/` folder (K6).

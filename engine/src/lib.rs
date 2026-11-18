@@ -40,6 +40,7 @@ pub mod content;
 #[cfg_attr(not(feature = "network"), allow(dead_code))]
 pub mod decision;
 pub mod error;
+pub mod keiko;
 pub mod pack;
 pub mod pack_ron;
 pub mod parser;

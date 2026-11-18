@@ -1,0 +1,35 @@
+keiko 1
+# R3 (saved early park) — save at S1, read S2/S3, load S1 back with seen skip off,
+# then a fresh Tab passes the lines read after the checkpoint and stops at S4.
+# The save/load steps cannot reach the overlay's tab controls (the control walk never
+# leaves the card grid, and the top bar is Tab-only), so the case drives the player's
+# own keys: Tab to the tab, arrows to the card, Enter to activate.
+# Excluded: rendered text, audio, physical input, the on-disk time stamp.
+setting play.text_speed 0
+
+new-game
+expect line "S1 opening"
+menu
+activate overlay.slot.1
+expect slot 1 scene smoke_entry
+menu
+expect surface play
+advance 2
+expect line "S3 third"
+menu
+press Tab
+press Tab
+expect control overlay.load-tab focused
+press Enter
+press ArrowLeft
+expect control overlay.slot.1 focused
+press Enter
+expect surface confirm
+activate confirm.yes
+expect surface play
+expect line "S1 opening"
+expect skip off
+skip
+wait 1s
+expect line "S4 fourth"
+expect skip off

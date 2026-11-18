@@ -31,6 +31,7 @@ You need:
 - `git`, `gh` (authenticated), `python3`, `cargo` and `curl`;
 - a POSIX shell, because every `sh` block on this page assumes one;
 - a Windows machine with a real GPU, for § 3;
+- a Linux x64 machine, for the Linux half of § 3.1;
 - the GitHub and crates.io accounts that § 0 checks.
 
 Set these variables once per release attempt, in the shell you use for every step:
@@ -142,11 +143,79 @@ git push origin "v$VERSION"
 
 [The contract's tag-timing rule](release-certification.md#item-eleven-plan-amendment-planned-2026-11-07) decides when the tag may still move. [Failure paths](#failure-paths) keeps the short version.
 
-## 3. The Windows walk
+## 3. The candidate's evidence runs
+
+Run both evidence runs after the tag (§ 2) and before any publication. Keiko's takes supply the
+functional outcomes, and the Windows walk supplies what a windowless take cannot observe. The walk
+retires on the first candidate after Keiko's slice 1 merges and its gate passes
+([the contract](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)).
+
+### 3.1 Run Keiko over the extracted archives
+
+Run the candidate's own extracted `unmei-play` on both platforms, never a source build. On each
+platform, run three sets of cases: `--take` over the demo pack, `--take` over every fixture pack from
+the tagged source, and `--explore --budget 10000` over the demo pack. Every command prints one JSON
+document and must exit 0 ([Keiko spec §14.1](keiko-spec.md#141-release-evidence-added-2026-11-17)).
+
+1. Open a POSIX shell in the folder that holds `candidate/` (§ 1 step 3), and make the evidence
+   folder:
+
+   ```sh
+   KEIKO="$PWD/keiko"
+   mkdir -p "$KEIKO/windows" "$KEIKO/linux" "$KEIKO/source"
+   ```
+
+2. Extract both player archives into fresh folders. Extract the fixture packs from the tag, so they
+   are the tagged source and not the clone's working tree:
+
+   ```sh
+   unzip -q "$WINDOWS_DIR"/unmei-play-"$VERSION"-x86_64-windows.zip -d "$KEIKO/windows"
+   tar -xzf "$LINUX_DIR"/unmei-play-"$VERSION"-x86_64-linux.tar.gz -C "$KEIKO/linux"
+   git archive "v$VERSION" app/tests/keiko | tar -x -C "$KEIKO/source"
+   ```
+
+3. On the Windows machine, run the three sets from the extracted Windows folder. Name the host in the
+   record in step 6:
+
+   ```sh
+   cd "$KEIKO/windows/unmei-play-$VERSION-x86_64-windows"
+   for pack in demo-pack "$KEIKO"/source/app/tests/keiko/*; do
+     name="$(basename "$pack")"
+     ./unmei-play.exe "$pack" --take --format json > "$KEIKO/take-windows-$name.json" || exit 1
+   done
+   ./unmei-play.exe demo-pack --explore --budget 10000 --format json \
+     > "$KEIKO/explore-windows.json" || exit 1
+   ```
+
+4. On the Linux x64 machine, run the same three sets from the extracted Linux folder:
+
+   ```sh
+   cd "$KEIKO/linux/unmei-play-$VERSION-x86_64-linux"
+   for pack in demo-pack "$KEIKO"/source/app/tests/keiko/*; do
+     name="$(basename "$pack")"
+     ./unmei-play "$pack" --take --format json > "$KEIKO/take-linux-$name.json" || exit 1
+   done
+   ./unmei-play demo-pack --explore --budget 10000 --format json \
+     > "$KEIKO/explore-linux.json" || exit 1
+   ```
+
+5. Check the exit codes. A non-zero exit blocks the candidate, so open an issue, fix the pack and
+   build a new candidate ([the contract](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)).
+   An exploration that exits 1 saved its findings under the explored pack's `tests/findings/`, in the
+   extracted folder; read those cases before you decide what failed.
+
+6. Record the run in the release log (§ 14): the archive SHA-256 values, the two hosts, the commands,
+   the pack names and each document's `takes[].result`. Upload the JSON files with the release assets
+   in § 8, so the release record keeps each take's own output. The extracted folders and the
+   tagged-source copy are disposable: delete them by path once the JSON files are recorded.
+
+### 3.2 The Windows walk
 
 To accept the Windows player window, extract the Windows player archive from `$WINDOWS_DIR` (§ 1 step 3) and follow the checklist in [§ 10 Windows release walk checklist](#10-windows-release-walk-checklist) on a real GPU. Run it on that archived player, not on a local build. Record the Windows build, the GPU, the driver and the display with the screenshots, in the `windows-walk` appendix (§ 12).
 
 This walk is the only Windows GUI acceptance. The coordinator's `accept-windows` job checks the archive, not the window.
+
+Once Keiko replaces the human walks, the two archive boots stay as a release step: start the extracted player once as a normal release and once with `--dev`, and record the window, the version output and the session-log head beside the Keiko documents. The contract names who runs them ([the contract](release-certification.md#keiko-replaces-the-human-walks-decided-2026-11-17)).
 
 ## 4. Residuals
 
@@ -328,10 +397,11 @@ The CLI's own registry check could not run before the engine existed, so it runs
      "$RECORD_DIR/SHA256SUMS" \
      "$RECORD_DIR/candidate-record.json" \
      "unmei-$VERSION-coverage.tar.gz" \
+     "$KEIKO"/*.json \
      windows-walk.md stranger.md residuals.md engine-publication.md cli-publication.md
    ```
 
-   The upload is the four archives, the record's `SHA256SUMS`, the record, the appendices made so far and the coverage bundle as one `.tar.gz` file. The `release-assets` appendix follows in § 9, once you sign it. The two `.crate` files are not release assets, because crates.io serves them. `$RECORD_DIR/SHA256SUMS` is the merged list the record job wrote. It is the only sums file the release carries. Each packaging job's own `SHA256SUMS` stays in its artifact, where the record rechecked it. A rehearsal bundle and a rehearsal record stay behind, because they are not candidate evidence.
+   The upload is the four archives, the record's `SHA256SUMS`, the record, the appendices made so far, the Keiko documents of § 3.1 and the coverage bundle as one `.tar.gz` file. The `release-assets` appendix follows in § 9, once you sign it. The two `.crate` files are not release assets, because crates.io serves them. `$RECORD_DIR/SHA256SUMS` is the merged list the record job wrote. It is the only sums file the release carries. Each packaging job's own `SHA256SUMS` stays in its artifact, where the record rechecked it. A rehearsal bundle and a rehearsal record stay behind, because they are not candidate evidence.
 
 4. Start the `release-assets` appendix:
 
@@ -412,7 +482,7 @@ Take a screenshot for each surface. Record the Windows build, the GPU, the drive
 - Launching from inside the zip.
 - The missing pack.
 
-Where a case in [Human smoke testing](testing-human-smoke.md) covers a surface, record its ID (for example `S1`) beside the screenshot.
+Where a case in the retired [human smoke checklist](testing-human-smoke.md) covers a surface, record its ID (for example `S1`) beside the screenshot.
 
 ## 11. Stranger run
 

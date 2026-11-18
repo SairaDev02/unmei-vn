@@ -93,11 +93,10 @@ pub(in crate::presentation) fn build_overlay(
                 ));
                 // `Exit to title` is session-scoped and appears only from the
                 // overlay's Settings door: the title's door has no live session
-                // to leave (`docs/title-and-menu.md` § Title §4).
-                if menu.view == MenuView::Settings
-                    && menu.settings_origin == menu::MenuOrigin::Slots
-                    && menu::live_session(menu)
-                {
+                // to leave (`docs/title-and-menu.md` § Title §4). The one
+                // predicate is `exit_to_title_shown`, which the keyboard walk
+                // and the Keiko control table read too.
+                if menu::exit_to_title_shown(menu) {
                     rail.spawn((
                         MenuAction::ExitToTitle,
                         Button,

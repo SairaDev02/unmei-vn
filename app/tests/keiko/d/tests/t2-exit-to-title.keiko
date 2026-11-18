@@ -1,0 +1,37 @@
+keiko 1
+# T2 (live D, stable say-park) — the overlay's rail Exit to title confirms once,
+# cancelling keeps the session, confirming shows the title, and Continue resumes
+# the same live park instead of reading a slot.
+# Excluded: what the rendered title draws, the Continue scene-id line (the
+# observation exposes no title reason text), audio, physical input.
+setting play.text_speed 0
+
+new-game
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+expect control overlay.exit-to-title label "Exit to title"
+activate overlay.exit-to-title
+expect control confirm.yes focused
+activate confirm.no
+expect surface settings
+expect control overlay.exit-to-title focused
+activate overlay.exit-to-title
+activate confirm.yes
+expect surface title
+expect slot 1 empty
+expect slot autosave empty
+wait 1s
+expect surface title
+activate title.continue
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+expect slot 1 empty
+expect slot autosave empty

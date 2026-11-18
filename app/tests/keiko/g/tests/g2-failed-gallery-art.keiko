@@ -1,0 +1,44 @@
+keiko 1
+# G2 (recipe G: failed gallery art) — one sprite's PNG is missing and another is
+# undecodable, while the background is healthy. Both declared entries stay in
+# the gallery, the failed still opens, each failed path logs its sprite row once
+# and no Notice appears; the healthy art logs nothing.
+# Excluded: the placeholder frame's rendering (contain-fit, outline and the
+# still's usability as drawn), and the "no repeat spam on revisit" count — the
+# case grammar asserts a line's presence or absence, not how many times it was
+# written, so the count is a rule test.
+decide ace.greet warm
+setting play.text_speed 0
+
+new-game
+advance
+advance
+pick "Ask about the letter"
+advance
+expect scene reunion
+advance
+expect line "You came back! I... hoped you would."
+expect log warn row 4 contains "sprites/ace/neutral.png"
+expect log warn row 4 contains "sprites/ace/happy.png"
+expect no-log warn row 3
+expect notice none
+menu
+expect surface menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface gallery
+expect control gallery.card.1 label "school_gate"
+expect control gallery.card.2 label "ace · happy"
+expect control gallery.card.3 label "ace · neutral"
+activate gallery.card.2
+expect surface still
+expect notice none
+press Escape
+expect surface gallery
+activate gallery.card.3
+expect surface still
+press Escape
+expect surface gallery

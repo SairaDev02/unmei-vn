@@ -76,6 +76,14 @@ fn main() -> AppExit {
     // not a usage error).
     let pack_root = resolved.canonical_pack_root();
 
+    // A Keiko mode is a testing entry point, not a play session: it never builds
+    // the shipping app, never opens a window and never touches the user's
+    // settings, saves, read log, session log or credential file (spec §1).
+    if let Some(mode) = &cli.keiko {
+        let code = unmei_app::keiko::run(mode, &pack_root, cli.keep, cli.format);
+        return AppExit::from_code(code);
+    }
+
     // The offline posture is normal, not a fault: no key just means every
     // decision point takes its authored fallback (failure row 10 is logged per
     // decision, through the one funnel). A non-empty `NANOGPT_API_KEY`

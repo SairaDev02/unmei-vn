@@ -1,0 +1,18 @@
+bg school_gate
+play music_morning
+Narrator: S1 opening
+Narrator: S2 second
+Narrator: S3 third
+Narrator: S4 fourth
+Narrator: S5 fifth
+Narrator: S6 sixth
+choice
+  "Carry changed state" -> changed
+  "Carry changed state again" -> changed
+end
+label changed
+set affinity_level = "high"
+set met_ace = true
+sprite ace happy
+Narrator: CHANGED {affinity_level}
+jump smoke_target

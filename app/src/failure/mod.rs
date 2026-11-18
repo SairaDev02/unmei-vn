@@ -29,6 +29,7 @@ mod funnel;
 mod notice;
 mod rows;
 mod session_log;
+pub mod tap;
 
 use std::sync::Arc;
 
@@ -44,9 +45,10 @@ pub use funnel::{report, report_runner_call, DefensiveHold, Failure};
 pub use notice::{tick_notice, Notice, NOTICE_SECONDS};
 pub use rows::{FailureRow, Posture};
 pub use session_log::{
-    file_layer, report_log_open_error, session_log_file_name, session_log_path_for, LogOpenError,
-    SessionLog, SessionLogResult,
+    file_layer, keiko_file_layer, report_log_open_error, session_log_file_name,
+    session_log_path_for, set_keiko_log, LogOpenError, SessionLog, SessionLogResult,
 };
+pub use tap::RecordedLine;
 
 use audio_setup::kira_setup_layer;
 
@@ -79,6 +81,19 @@ pub fn app_log_layer(app: &mut App) -> Option<BoxedLayer> {
     }
 
     Some(Box::new(layers))
+}
+
+/// `LogPlugin::custom_layer` for a Keiko take: the take's own session file and
+/// kira's row-7 watcher, with no console sink and no Monitor capture of its own.
+///
+/// `LogPlugin` is process-global, so only the first take's layer is ever
+/// installed; [`session_log::set_keiko_log`] points that one layer at whichever
+/// take is running.
+pub fn keiko_log_layer(app: &mut App) -> Option<BoxedLayer> {
+    let failure = AudioSetupFailure::default();
+    let slot = failure.slot();
+    app.insert_resource(failure);
+    Some(Box::new(vec![keiko_file_layer(), kira_setup_layer(slot)]))
 }
 
 /// A shared `log` capture, so the funnel's tests and the presentation tests in

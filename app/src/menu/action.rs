@@ -14,8 +14,8 @@ use super::key_field::{copy_key_path, enter_key_editing};
 use super::labels::control_focus;
 use super::persistence::{complete_load, import_legacy, LoadSurface};
 use super::state::{
-    legacy_slot, legacy_visible, live_session, ConfirmKind, LegacyPicker, MenuFocus, MenuMode,
-    MenuOrigin, MenuState, MenuView,
+    exit_to_title_shown, legacy_slot, legacy_visible, live_session, ConfirmKind, LegacyPicker,
+    MenuFocus, MenuMode, MenuOrigin, MenuState, MenuView,
 };
 use super::transition::{
     back_out_of_gallery, back_out_of_settings, back_out_of_timeline, close, confirm_focus,
@@ -128,6 +128,7 @@ pub(crate) fn action_for_focus(focus: MenuFocus) -> MenuAction {
         MenuFocus::TitleQuit => MenuAction::Quit,
         MenuFocus::GalleryButton => MenuAction::OpenGallery,
         MenuFocus::TimelineButton => MenuAction::OpenTimeline,
+        MenuFocus::ExitToTitle => MenuAction::ExitToTitle,
     }
 }
 
@@ -291,7 +292,10 @@ pub(super) fn apply(
             }
         }
         MenuAction::ExitToTitle => {
-            if menu.confirm.is_none() {
+            // Defence for a direct caller: the rail control is drawn only from
+            // the overlay's door with a live session, so a stale focus (the
+            // session ended under it) asks nothing.
+            if menu.confirm.is_none() && exit_to_title_shown(menu) {
                 menu.confirm = Some(ConfirmKind::ExitToTitle);
                 menu.focus = MenuFocus::ConfirmYes;
             }

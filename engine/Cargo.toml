@@ -30,6 +30,9 @@ network = ["dep:reqwest", "dep:log", "dep:tokio"]
 ron = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# The case format compares text exactly after NFC normalisation (Keiko spec
+# §2.1); the engine owns that rule so the player and the CLI cannot drift.
+unicode-normalization = "0.1"
 thiserror = "2"
 log = { version = "0.4", optional = true }
 # rustls avoids an OpenSSL system dependency; `json` for the Decisions payloads.

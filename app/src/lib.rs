@@ -34,6 +34,7 @@ pub mod credentials;
 pub mod drawer;
 pub mod failure;
 mod input;
+pub mod keiko;
 pub mod launch;
 pub mod menu;
 pub mod monitor;
@@ -82,6 +83,11 @@ pub struct RuntimeConfig {
     /// persisted. Resolved before the logger and runtime plugins are installed
     /// so the capture hook and the shortcut gate consume the same value.
     pub dev_mode: bool,
+    /// The one folder every pack asset is read from: `<pack_root>/assets` unless
+    /// a caller points it elsewhere. The asset server's root, [`Runtime`]'s asset
+    /// root and the sound-effect existence probe all read this value, so no code
+    /// re-derives the folder from [`RuntimeConfig::pack_root`].
+    pub asset_root: PathBuf,
 }
 
 impl RuntimeConfig {
@@ -92,12 +98,23 @@ impl RuntimeConfig {
     /// as explicitly given until [`RuntimeConfig::with_pack_origin`] says
     /// otherwise.
     pub fn new(pack_root: PathBuf, decisions: Option<Arc<dyn DecisionResolver>>) -> Self {
+        let asset_root = pack_root.join("assets");
         Self {
             pack_root,
             pack_origin: crate::launch::PackOrigin::Explicit,
             decisions,
             dev_mode: cfg!(debug_assertions),
+            asset_root,
         }
+    }
+
+    /// Read pack assets from `asset_root` instead of `<pack_root>/assets`.
+    ///
+    /// Keiko points this at the original pack's folder while it plays a copy, so
+    /// the assets are read in place and never copied or written.
+    pub fn with_asset_root(mut self, asset_root: PathBuf) -> Self {
+        self.asset_root = asset_root;
+        self
     }
 
     /// The explicit construction-time override: force dev mode either on or off
@@ -136,7 +153,8 @@ pub struct Runtime {
     pub runner: ScriptRunner,
     pub staging: StagingState,
     pub pack_root: PathBuf,
-    /// `<pack_root>/assets` — the asset server's root.
+    /// The asset server's root, taken from [`RuntimeConfig::asset_root`] at pack
+    /// load. Never re-derived from the pack root here.
     pub asset_root: PathBuf,
 }
 

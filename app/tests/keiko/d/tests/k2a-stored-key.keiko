@@ -1,0 +1,13 @@
+keiko 1
+# K2 (a stored synthetic key, stored source) — the stored value appears Set
+# with no environment override, and Clear is offered.
+# Excluded: "no standing ping" (the observation carries no ping), the
+# fingerprint's value, the hand-edit-while-open pickup (a take cannot edit a
+# file mid-run).
+fixture credential fixtures/cred-stored.ron
+setting play.text_speed 0
+
+activate title.settings
+expect surface settings
+expect control settings.key label "Set — sk-nano-…mnop"
+expect control settings.clear-key enabled

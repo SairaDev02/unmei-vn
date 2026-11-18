@@ -1,0 +1,17 @@
+keiko 1
+# T3, the unusable-autosave half — an autosave that is not a save disables
+# Continue instead of falling back to a manual slot, and the bytes are never
+# deleted by the read (the take leaves the fixture in place; byte equality is
+# the rule test's job).
+# Excluded: the rendered Continue reason string (the observation exposes the
+# control's disabled state, not the title's reason text).
+fixture autosave fixtures/autosave-unreadable.ron
+setting play.text_speed 0
+
+expect surface title
+expect slot autosave unreadable
+expect control title.continue disabled
+expect control title.new-game enabled
+new-game
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."

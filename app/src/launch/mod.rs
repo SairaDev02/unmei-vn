@@ -19,8 +19,10 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+mod keiko;
 mod pack;
 
+pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
 };
@@ -50,6 +52,13 @@ pub struct Launch {
     /// Whether exact `--dev` was present — the force-on request. The effective
     /// value also folds in the build default; see [`Launch::dev_mode`].
     pub force_dev: bool,
+    /// The Keiko testing mode, when one was asked for. `None` is the ordinary
+    /// player launch.
+    pub keiko: Option<KeikoMode>,
+    /// Keep every take's sandbox instead of deleting it.
+    pub keep: bool,
+    /// The Keiko output format. Text is the default for every mode.
+    pub format: Format,
 }
 
 impl Launch {
@@ -81,7 +90,7 @@ pub struct UsageError {
 }
 
 impl UsageError {
-    fn new(message: impl Into<String>) -> Self {
+    pub(super) fn new(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
         }
@@ -105,13 +114,19 @@ pub fn parse<I>(args: I) -> Result<LaunchRequest, UsageError>
 where
     I: IntoIterator<Item = OsString>,
 {
+    let tokens: Vec<OsString> = args.into_iter().collect();
     let mut dev = false;
     let mut help = false;
     let mut version = false;
     let mut positional: Option<OsString> = None;
     let mut options_ended = false;
+    let mut keiko = keiko::KeikoArgs::default();
 
-    for token in args {
+    let mut index = 0;
+    while index < tokens.len() {
+        let token = &tokens[index];
+        index += 1;
+
         // Before `--`, an exact `--` ends option parsing. After it, `--` is a
         // path token like any other.
         if !options_ended && token == OsStr::new("--") {
@@ -120,27 +135,80 @@ where
         }
 
         if !options_ended {
-            if token == OsStr::new("--dev") {
-                dev = true;
+            let text = token.to_string_lossy();
+            match text.as_ref() {
+                "--dev" => {
+                    dev = true;
+                    continue;
+                }
+                "-h" | "--help" => {
+                    help = true;
+                    continue;
+                }
+                "-V" | "--version" => {
+                    version = true;
+                    continue;
+                }
+                "--take" => {
+                    keiko.take()?;
+                    continue;
+                }
+                "--step" => {
+                    keiko.step()?;
+                    continue;
+                }
+                "--observe" => {
+                    keiko.observe()?;
+                    continue;
+                }
+                "--explore" => {
+                    keiko.explore()?;
+                    continue;
+                }
+                "--live" => {
+                    keiko.live()?;
+                    continue;
+                }
+                "--keep" => {
+                    keiko.keep();
+                    continue;
+                }
+                "--format" | "--budget" | "--from" => {
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
+                    index += 1;
+                    let value = value.to_string_lossy();
+                    match text.as_ref() {
+                        "--format" => keiko.set_format(&value)?,
+                        "--budget" => keiko.set_budget(&value)?,
+                        _ => keiko.set_from(&value)?,
+                    }
+                    continue;
+                }
+                // Any other leading-dash token is an unknown option, including
+                // `--dev=false`, `--pack` and `--no-dev`. A non-Unicode path is
+                // not rejected for its encoding: only the leading dash is a
+                // shape.
+                other if other.starts_with('-') => {
+                    return Err(UsageError::new(format!(
+                        "unrecognized option '{}'",
+                        token.to_string_lossy()
+                    )));
+                }
+                _ => {}
+            }
+        }
+
+        // A bare token is the open mode's operand when it is waiting for one;
+        // otherwise it is the positional `PACK_DIR`. `--take` keeps taking ids
+        // until the next option, so its ids must follow it (spec §1).
+        match keiko.bare_target() {
+            keiko::Bare::TakeId | keiko::Bare::Value => {
+                keiko.push_value(token.clone())?;
                 continue;
             }
-            if token == OsStr::new("-h") || token == OsStr::new("--help") {
-                help = true;
-                continue;
-            }
-            if token == OsStr::new("-V") || token == OsStr::new("--version") {
-                version = true;
-                continue;
-            }
-            // Any other leading-dash token is an unknown option, including
-            // `--dev=false`, `--pack` and `--no-dev`. A non-Unicode path is not
-            // rejected for its encoding: only the leading dash is a shape.
-            if token.to_string_lossy().starts_with('-') {
-                return Err(UsageError::new(format!(
-                    "unrecognized option '{}'",
-                    token.to_string_lossy()
-                )));
-            }
+            keiko::Bare::None => {}
         }
 
         if token.is_empty() {
@@ -152,7 +220,7 @@ where
                 token.to_string_lossy()
             )));
         }
-        positional = Some(token);
+        positional = Some(token.clone());
     }
 
     // The settled precedence: usage errors beat both exits (they returned
@@ -164,9 +232,13 @@ where
         return Ok(LaunchRequest::Version);
     }
 
+    let keiko_mode = keiko.clone().finish(dev)?;
     Ok(LaunchRequest::Run(Launch {
         pack_dir: positional.map(PathBuf::from),
         force_dev: dev,
+        keiko: keiko_mode,
+        keep: keiko.keeping(),
+        format: keiko.output_format(),
     }))
 }
 
@@ -196,6 +268,23 @@ Options:
   --dev           Force developer affordances on, even in a release build.
   -h, --help      Print this help and exit. Repeats are idempotent.
   -V, --version   Print the version and exit. Repeats are idempotent.
+
+Testing (Keiko):
+  --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case
+                  under `tests/` when no id is given. Ids follow `--take`.
+  --step ID STEP  Replay a case, apply one step line and append it only if it
+                  passed.
+  --observe ID    Replay a case and print what the player sees; never writes.
+  --explore       Walk every choice option and landing key within a budget and
+                  save each finding as a case under `tests/findings/`.
+  --live          With --take only: send unset decisions to NanoGPT. Needs
+                  NANOGPT_API_KEY; results are marked nondeterministic.
+  --budget N      With --explore only: the step budget (default 10000).
+  --from ID       With --explore only: start from the end of an existing case.
+  --keep          Keep each take's sandbox and print its path.
+  --format F      `text` (the default) or `json`.
+  A case sets dev mode itself, so `--dev` cannot be combined with a Keiko mode.
+  Exit codes: 0 pass, 1 failure or findings, 2 usage.
 
 A literal `--` ends option parsing: every later token is a path, so
 `unmei-play -- --dev` plays a pack named `--dev`, and `unmei-play -- -h` names a
@@ -236,196 +325,4 @@ Developer controls (not part of the player interface):
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn parse_strs(args: &[&str]) -> Result<LaunchRequest, UsageError> {
-        parse(args.iter().map(OsString::from))
-    }
-
-    fn run(args: &[&str]) -> Launch {
-        match parse_strs(args) {
-            Ok(LaunchRequest::Run(launch)) => launch,
-            other => panic!("expected a run request, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn no_positional_stays_absent_and_the_dev_value_follows_the_build() {
-        let launch = run(&[]);
-        assert_eq!(launch.pack_dir, None, "an absent positional stays absent");
-        assert!(!launch.force_dev);
-        // With no `--dev`, the effective value is the build default.
-        assert_eq!(launch.dev_mode(), cfg!(debug_assertions));
-    }
-
-    #[test]
-    fn dev_alone_forces_on_and_still_has_no_pack_dir() {
-        let launch = run(&["--dev"]);
-        assert_eq!(launch.pack_dir, None);
-        assert!(launch.force_dev);
-        // Exact `--dev` forces on in any build, including release.
-        assert!(launch.dev_mode());
-    }
-
-    /// The version text is the binary name plus the crate's own version, which
-    /// comes from `[workspace.package]` rather than a literal here.
-    #[test]
-    fn the_version_text_names_the_binary_and_the_crate_version() {
-        assert_eq!(
-            version_text(),
-            format!("unmei-play {}", env!("CARGO_PKG_VERSION"))
-        );
-    }
-
-    #[test]
-    fn version_is_recognized_in_both_spellings_and_repeats() {
-        assert_eq!(parse_strs(&["-V"]).unwrap(), LaunchRequest::Version);
-        assert_eq!(parse_strs(&["--version"]).unwrap(), LaunchRequest::Version);
-        assert_eq!(
-            parse_strs(&["-V", "--version", "-V"]).unwrap(),
-            LaunchRequest::Version
-        );
-        assert_eq!(
-            parse_strs(&["my-pack", "--dev", "--version"]).unwrap(),
-            LaunchRequest::Version
-        );
-    }
-
-    /// The settled precedence: usage errors beat both exits, and `--help` beats
-    /// `--version` in either order, so `-V --help` prints help and exits 0.
-    #[test]
-    fn help_beats_version_and_errors_beat_both() {
-        assert_eq!(parse_strs(&["-V", "--help"]).unwrap(), LaunchRequest::Help);
-        assert_eq!(
-            parse_strs(&["--help", "--version"]).unwrap(),
-            LaunchRequest::Help
-        );
-        for args in [
-            vec!["-V", "--bogus"],
-            vec!["--version", "--dev=false"],
-            vec!["-V", "pack-a", "pack-b"],
-            vec!["--version", ""],
-        ] {
-            assert!(
-                parse_strs(&args).is_err(),
-                "{args:?} should be a usage error"
-            );
-        }
-    }
-
-    #[test]
-    fn dev_may_precede_or_follow_the_pack_and_repeats_are_idempotent() {
-        let before = run(&["--dev", "my-pack"]);
-        let after = run(&["my-pack", "--dev"]);
-        assert_eq!(before, after);
-        assert_eq!(before.pack_dir, Some(PathBuf::from("my-pack")));
-        assert!(before.force_dev);
-
-        let repeated = run(&["--dev", "--dev", "my-pack", "--dev"]);
-        assert_eq!(repeated, before);
-    }
-
-    #[test]
-    fn a_bare_double_dash_has_no_pack_and_a_later_dash_token_is_a_path() {
-        let bare = run(&["--"]);
-        assert_eq!(bare.pack_dir, None);
-        assert!(!bare.force_dev);
-
-        let escaped_dev = run(&["--", "--dev"]);
-        assert_eq!(escaped_dev.pack_dir, Some(PathBuf::from("--dev")));
-        assert!(!escaped_dev.force_dev);
-
-        let escaped_help = run(&["--", "-h"]);
-        assert_eq!(escaped_help.pack_dir, Some(PathBuf::from("-h")));
-        assert!(!escaped_help.force_dev);
-
-        // `--` also makes the version spellings plain paths.
-        assert_eq!(run(&["--", "-V"]).pack_dir, Some(PathBuf::from("-V")));
-        assert_eq!(
-            run(&["--", "--version"]).pack_dir,
-            Some(PathBuf::from("--version"))
-        );
-
-        let forced_with_escaped_path = run(&["--dev", "--", "--dev"]);
-        assert_eq!(
-            forced_with_escaped_path.pack_dir,
-            Some(PathBuf::from("--dev"))
-        );
-        assert!(forced_with_escaped_path.force_dev);
-    }
-
-    #[test]
-    fn help_is_recognized_in_both_spellings_and_repeats() {
-        assert_eq!(parse_strs(&["--help"]).unwrap(), LaunchRequest::Help);
-        assert_eq!(parse_strs(&["-h"]).unwrap(), LaunchRequest::Help);
-        assert_eq!(
-            parse_strs(&["--help", "--help", "-h"]).unwrap(),
-            LaunchRequest::Help
-        );
-        assert_eq!(
-            parse_strs(&["my-pack", "--dev", "--help"]).unwrap(),
-            LaunchRequest::Help
-        );
-        assert_eq!(
-            parse_strs(&["--help", "missing-pack"]).unwrap(),
-            LaunchRequest::Help
-        );
-    }
-
-    #[test]
-    fn errors_beat_help_even_when_help_comes_first() {
-        for args in [
-            vec!["--help", "--bogus"],
-            vec!["-h", "pack-a", "pack-b"],
-            vec!["--help", "--dev=false"],
-            vec!["--help", ""],
-        ] {
-            assert!(
-                parse_strs(&args).is_err(),
-                "{args:?} should be a usage error"
-            );
-        }
-    }
-
-    #[test]
-    fn unknown_options_are_rejected() {
-        for arg in ["--bogus", "--dev=false", "--pack", "--no-dev", "-", "-dev"] {
-            let error = parse_strs(&[arg]).unwrap_err();
-            assert!(
-                error.to_string().contains("unrecognized option"),
-                "{arg}: {error}"
-            );
-        }
-    }
-
-    #[test]
-    fn empty_and_extra_positionals_are_rejected() {
-        assert_eq!(
-            parse_strs(&[""]).unwrap_err().to_string(),
-            "unmei-play: PACK_DIR must not be empty"
-        );
-        assert!(parse_strs(&["pack-a", "pack-b"])
-            .unwrap_err()
-            .to_string()
-            .contains("unexpected extra argument 'pack-b'"));
-        // Extra positionals after `--` are still an error.
-        assert!(parse_strs(&["--", "pack-a", "pack-b"]).is_err());
-        assert!(parse_strs(&["--dev", "pack-a", "pack-b"]).is_err());
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_non_unicode_path_is_not_invalid_for_its_encoding() {
-        use std::os::unix::ffi::OsStringExt;
-
-        // 0x80 is not valid UTF-8; the path is still a path.
-        let path = OsString::from_vec(vec![b'p', b'a', b't', b'h', 0x80]);
-        let launch = match parse([path.clone()]) {
-            Ok(LaunchRequest::Run(launch)) => launch,
-            other => panic!("expected a run request, got {other:?}"),
-        };
-        assert_eq!(launch.pack_dir, Some(PathBuf::from(path)));
-        assert!(!launch.force_dev);
-    }
-}
+mod tests;

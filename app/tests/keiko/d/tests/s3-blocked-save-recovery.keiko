@@ -1,0 +1,31 @@
+keiko 1
+# S3 (exact temp-path obstruction) — saving over an occupied slot with the
+# writer's own temp path obstructed fails, leaves the old slot's park untouched
+# and notifies; removing the obstruction lets the retry land and load again.
+# Excluded: the on-disk byte equality of the old slot (the case proves the slot
+# still reports its park; the byte comparison is the rule test's job).
+fixture slot-1 fixtures/slot-reunion.ron
+fault write-blocked slot-1
+setting play.text_speed 0
+
+new-game
+expect surface play
+expect slot 1 scene reunion
+save 1
+activate confirm.yes
+expect surface menu
+expect notice contains "couldn't save"
+expect slot 1 scene reunion
+unblock slot-1
+save 1
+activate confirm.yes
+expect surface menu
+expect slot 1 scene first_meeting
+menu
+expect surface play
+advance
+expect line "You're not from around here, are you?"
+load 1
+activate confirm.yes
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."

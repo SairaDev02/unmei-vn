@@ -60,7 +60,7 @@ pub(crate) fn setup_pack(
     }
 
     let pack_root = loaded.pack.root.clone();
-    let asset_root = pack_root.join("assets");
+    let asset_root = config.asset_root.clone();
     let mut runtime = Runtime {
         runner: ScriptRunner::new(loaded.pack),
         staging: StagingState::default(),

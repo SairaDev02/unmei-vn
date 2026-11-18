@@ -1,0 +1,11 @@
+(
+    version: 1,
+    read: {
+        "first_meeting": [
+            7,
+        ],
+    },
+    visited: [
+        "first_meeting",
+    ],
+)

@@ -1,0 +1,28 @@
+keiko 1
+# S1 (stable D line) — two manual slots take different parks, the overlay's
+# cards name each slot's scene, and loading Slot 1 restores the exact saved
+# line through the player's own controls (no F5/F9, which are dev-only).
+# Excluded: the card's formatted local time (a real clock stamped it, and the
+# rendered date is not machine-independent), physical pointer hit-testing.
+setting play.text_speed 0
+
+new-game
+expect surface play
+save 1
+expect slot 1 scene first_meeting
+menu
+expect surface play
+advance
+expect line "You're not from around here, are you?"
+save 2
+expect slot 2 scene first_meeting
+menu
+expect surface play
+advance
+load 1
+activate confirm.yes
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+expect slot 1 scene first_meeting
+expect slot 2 scene first_meeting
+expect slot autosave empty

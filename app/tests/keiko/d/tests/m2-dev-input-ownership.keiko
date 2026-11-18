@@ -1,0 +1,89 @@
+keiko 1
+# M2 (dev on representative surfaces) — the Monitor opens over the title, play,
+# Settings, the gallery, the Timeline and a confirm, and Esc closes only it: the
+# surface underneath keeps its view and a key pressed while it owns input acts
+# on nothing. A held Enter is released and only a fresh press acts.
+# Excluded: the rendered Monitor (a real GPU), pointer drags and click-through,
+# paste into the key field, the error-screen cell (the B fixture pack's case).
+dev
+setting play.text_speed 0
+
+# Title
+expect surface title
+press F3
+expect monitor open
+press Enter
+expect surface title
+press Escape
+expect monitor closed
+expect surface title
+new-game
+expect surface play
+# Play: a held Enter does not advance through the Monitor.
+press F3
+expect monitor open
+hold Enter
+press Escape
+expect monitor closed
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+release Enter
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+advance
+expect line "You're not from around here, are you?"
+# Settings
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+press F3
+expect monitor open
+press Enter
+expect surface settings
+press Escape
+expect monitor closed
+expect surface settings
+# Confirm: the audio reset asks, and the Monitor leaves it standing.
+activate settings.reset-audio
+expect surface confirm
+press F3
+expect monitor open
+press Enter
+expect surface confirm
+press Escape
+expect monitor closed
+expect surface confirm
+expect control confirm.yes focused
+activate confirm.no
+expect surface settings
+press Escape
+expect surface menu
+# Gallery
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface gallery
+press F3
+expect monitor open
+press Escape
+expect monitor closed
+expect surface gallery
+press Escape
+expect surface menu
+# Timeline
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface timeline
+press F3
+expect monitor open
+press Escape
+expect monitor closed
+expect surface timeline

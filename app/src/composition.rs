@@ -102,6 +102,18 @@ impl Selection {
         }
     }
 
+    /// The take's log: the session-log layer that follows the current take's
+    /// sandbox file, reinstalled where `headless_subtraction` removed the
+    /// console-only default.
+    fn with_keiko_log(self) -> Self {
+        Self {
+            group: self.group.set(LogPlugin {
+                custom_layer: crate::failure::keiko_log_layer,
+                ..default()
+            }),
+        }
+    }
+
     fn with_headless_asset_root(self, asset_root: &Path) -> Self {
         Self {
             group: self.group.set(AssetPlugin {
@@ -129,7 +141,7 @@ pub fn shipping_app(
     session_log: SessionLogResult,
     install_startup: impl FnOnce(&mut App),
 ) -> App {
-    let asset_root = config.pack_root.join("assets");
+    let asset_root = config.asset_root.clone();
     let mut app = App::new();
     app.insert_resource(config);
     match session_log {
@@ -150,13 +162,76 @@ pub fn shipping_app(
     app
 }
 
+/// Build a fresh, unrun Keiko take app (spec §4.1): the headless selection plus
+/// the take's own session log, sandbox config, clipboard, key check, resolver
+/// factory and manual clock. It has no audio device: `UnmeiPlugin` registers the
+/// play surface's channel resources and the track decoder without
+/// `bevy_kira_audio`'s plugin, so the mix and staging bookkeeping run and
+/// nothing sounds.
+///
+/// It is deliberately not a wrapper around [`schedule_app`]: a take needs the
+/// session-log layer that the strict schedule gate leaves out, and the real
+/// image loader that a windowless app otherwise never registers (`ImagePlugin`
+/// only preregisters it, and a renderer supplies the real one in play).
+pub fn keiko_app(
+    config: RuntimeConfig,
+    session_log: SessionLogResult,
+    clipboard: crate::credentials::ClipboardPort,
+    key_check: crate::KeyCheckChannel,
+    decision_factory: crate::DecisionFactory,
+    asset_faults: std::sync::Arc<crate::keiko::assets::AssetFaults>,
+) -> App {
+    let asset_root = config.asset_root.clone();
+    let mut app = App::new();
+    // The Keiko asset reader replaces the default source, so the two asset
+    // faults act where the player reads its files and nowhere else.
+    let mut sources = bevy::asset::io::AssetSourceBuilders::default();
+    let reader_root = asset_root.clone();
+    sources.insert(
+        bevy::asset::io::AssetSourceId::Default,
+        bevy::asset::io::AssetSourceBuilder::new(move || {
+            Box::new(crate::keiko::assets::KeikoAssetReader::new(
+                reader_root.clone(),
+                asset_faults.clone(),
+            ))
+        }),
+    );
+    app.insert_resource(sources);
+    app.insert_resource(config);
+    match session_log {
+        SessionLogResult::Opened(log) => {
+            crate::failure::set_keiko_log(Some(log.writer()));
+            app.insert_resource(log);
+        }
+        SessionLogResult::Unwritable(error) => {
+            crate::failure::set_keiko_log(None);
+            app.insert_resource(error);
+        }
+        SessionLogResult::NotAttempted => crate::failure::set_keiko_log(None),
+    }
+    Selection::upstream()
+        .headless_subtraction()
+        .with_atlas()
+        .with_headless_asset_root(&asset_root)
+        .with_keiko_log()
+        .finish(&mut app);
+    app.register_asset_loader(bevy::image::ImageLoader::new(
+        bevy::image::CompressedImageFormats::NONE,
+    ));
+    app.insert_resource(clipboard)
+        .insert_resource(key_check)
+        .insert_resource(decision_factory);
+    app.add_plugins(UnmeiPlugin);
+    app
+}
+
 /// Build a fresh, unrun headless schedule app from the shared selection.
 ///
 /// Renderer/window backend/global logger and their dependants are excluded.
 /// This app is update-only, without a runtime schedule runner; the caller sets
 /// strict ScheduleBuildSettings, executes frames and owns assertions.
 pub fn schedule_app(config: RuntimeConfig) -> App {
-    let asset_root = config.pack_root.join("assets");
+    let asset_root = config.asset_root.clone();
     let mut app = App::new();
     app.insert_resource(config);
     Selection::upstream()

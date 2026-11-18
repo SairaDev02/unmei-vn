@@ -1,0 +1,20 @@
+keiko 1
+# R2 (force skip lane) — held Ctrl passes unread say-lines S1-S6 and holds at the
+# choice without selecting it; the force-passed lines stay unread. The human walk
+# also returns to the title and re-enters with Tab; that needs the overlay's Exit to
+# title, which has no keyboard route and no Keiko control id. The read marks are
+# asserted directly instead, which is what the revisit would prove.
+# Excluded: rendered text, audio, physical key hardware.
+setting play.text_speed 0
+
+new-game
+expect line "S1 opening"
+hold ControlLeft
+wait 2s
+expect surface play
+expect choices "Carry changed state" "Carry changed state again"
+expect skip force
+release ControlLeft
+expect skip off
+expect unread smoke_entry:4
+expect unread smoke_entry:8

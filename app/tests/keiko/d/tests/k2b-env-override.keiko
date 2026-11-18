@@ -1,0 +1,14 @@
+keiko 1
+# K2 (a stored synthetic key plus a separate environment key) — the environment
+# source renders From environment read-only, Clear is disabled, and the stored
+# bytes are untouched (the fixture still holds the stored key after the take).
+# Excluded: the stored file's byte equality (kept-sandbox check), removing the
+# override restoring the stored source (k2a is the stored-source take).
+fixture credential fixtures/cred-stored.ron
+fixture env-key fixtures/env-key.ron
+setting play.text_speed 0
+
+activate title.settings
+expect surface settings
+expect control settings.key label "From environment — sk-nano-…1234 NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key."
+expect control settings.clear-key disabled

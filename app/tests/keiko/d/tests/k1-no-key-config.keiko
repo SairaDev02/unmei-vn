@@ -1,0 +1,34 @@
+keiko 1
+# K1 (an isolated no-key config) — no key gates play, a shape-invalid text
+# commits as Invalid, Esc discards an edit before backing out of Settings, and
+# Copy path reports the copy.
+# Excluded: that the failed commit writes no credential file and that opening
+# Settings creates none (kept-sandbox file checks), the transient real-time
+# countdown of `Copied` (the take clock advances only on `wait`), the copied
+# path's value, the OS clipboard.
+setting play.text_speed 0
+
+expect surface title
+expect control title.continue disabled
+expect control title.new-game enabled
+activate title.settings
+expect surface settings
+expect control settings.key label "Not set Paste or type a NanoGPT key"
+expect control settings.clear-key enabled
+activate settings.key
+type "not a key"
+press Enter
+expect surface settings
+expect control settings.key label "Invalid — does not look like a key"
+activate settings.key
+type "sk-nano-0123456789abcdef"
+press Escape
+expect surface settings
+expect control settings.key label "Invalid — does not look like a key"
+activate settings.copy-path
+expect control settings.copy-path label "Copied"
+press Escape
+expect surface title
+new-game
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."

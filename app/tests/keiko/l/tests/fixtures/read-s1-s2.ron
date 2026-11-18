@@ -1,0 +1,7 @@
+(
+    version: 1,
+    read: {
+        "smoke_entry": [3, 4],
+    },
+    visited: ["smoke_entry"],
+)

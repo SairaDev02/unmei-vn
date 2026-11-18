@@ -123,7 +123,8 @@ impl AssetWatch {
         failed
     }
 
-    #[cfg(test)]
+    /// Whether every watched handle has loaded or failed. The Keiko settle rule
+    /// and the presentation's own tests both ask this.
     pub(crate) fn is_empty(&self) -> bool {
         self.pending.is_empty()
     }

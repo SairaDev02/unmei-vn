@@ -1,0 +1,14 @@
+keiko 1
+# K3 (verified offline blocking) — the write precedes the check, and an
+# unreachable verdict leaves the row Set but not checked rather than Invalid.
+# Excluded: the transient Checking frame (k3b), the resolver rebuild and the
+# absence of a live validity claim, the network block's own verification.
+fault key-check unreachable
+setting play.text_speed 0
+
+activate title.settings
+activate settings.key
+type "sk-nano-0123456789abcdef"
+press Enter
+expect surface settings
+expect control settings.key label "Set — sk-nano-…cdef · not checked (see the log)"

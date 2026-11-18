@@ -1,0 +1,19 @@
+(
+    version: 1,
+    state: {
+        "letters_found": 0.0,
+        "met_ace": false,
+        "affinity_level": "low",
+    },
+    scene_id: "first_meeting",
+    pc: 3,
+    wait: Some(Say(
+        speaker: "Narrator",
+        text: "Morning light. A folded letter on the ground, half under a shoe.",
+    )),
+    staging: (
+        background: Some("school_gate"),
+        sprites: {},
+        bgm: Some("music_morning"),
+    ),
+)

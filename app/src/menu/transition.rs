@@ -175,7 +175,7 @@ pub(super) fn confirm_focus(confirm: ConfirmKind) -> MenuFocus {
         ConfirmKind::ResetPlay => MenuFocus::PlayReset,
         ConfirmKind::NewGame => MenuFocus::TitleNewGame,
         ConfirmKind::Quit => MenuFocus::TitleQuit,
-        ConfirmKind::ExitToTitle => MenuFocus::SettingsBack,
+        ConfirmKind::ExitToTitle => MenuFocus::ExitToTitle,
         ConfirmKind::ClearKey => MenuFocus::KeyRow,
         ConfirmKind::TimelineJump(index) => MenuFocus::TimelineCard(index),
     }

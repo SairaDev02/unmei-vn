@@ -128,6 +128,22 @@ impl FailureRow {
     }
 
     /// The exactly-one log level for the row; `None` means nothing is logged.
+    /// The inventory row number (1-based), so a Keiko finding can name the row
+    /// the pack caused (spec §9.2).
+    pub fn number(self) -> u32 {
+        Self::ALL
+            .iter()
+            .position(|row| *row == self)
+            .map(|index| index as u32 + 1)
+            .unwrap_or(0)
+    }
+
+    /// The row at a 1-based log number, as `number` reports it.
+    pub fn of_number(number: u32) -> Option<Self> {
+        let index = usize::try_from(number).ok()?.checked_sub(1)?;
+        Self::ALL.get(index).copied()
+    }
+
     pub fn level(self) -> Option<log::Level> {
         match self.posture()? {
             Posture::QuitWithMessage | Posture::ContinueWithMessage | Posture::Defensive => {

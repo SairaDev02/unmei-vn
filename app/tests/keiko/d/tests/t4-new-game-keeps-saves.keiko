@@ -1,0 +1,55 @@
+keiko 1
+# T4 (a live session with saves, a read mark and a stored key) — Exit to title,
+# then New Game: Cancel changes nothing, Start once returns the fresh entry park
+# and clears the comfort flags while manual slots, the autosave, read knowledge
+# and the stored key survive.
+# Excluded: byte equality of the protected sidecars, the settings file's
+# survival (the observation exposes no settings values), the rendered confirm
+# strings, physical input.
+fixture slot-1 fixtures/slot-first.ron
+fixture credential fixtures/cred-stored.ron
+fixture read-log fixtures/read.ron
+setting play.text_speed 0
+
+new-game
+expect surface play
+expect read first_meeting:7
+skip
+expect skip seen
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+activate overlay.exit-to-title
+activate confirm.yes
+expect surface title
+activate title.new-game
+expect surface confirm
+activate confirm.no
+expect surface title
+activate title.new-game
+activate confirm.yes
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+expect skip off
+expect state affinity_level = "low"
+expect state met_ace = false
+expect slot 1 scene first_meeting
+expect slot autosave empty
+expect read first_meeting:7
+expect unread first_meeting:10
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+expect control settings.key label "Set — sk-nano-…mnop"
+press Escape
+expect surface menu

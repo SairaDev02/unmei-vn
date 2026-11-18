@@ -1,0 +1,24 @@
+keiko 1
+# A1 (a held model answer) — the held answer keeps the decision pending across
+# waits, the overlay turns it held, and the release lands it once the overlay
+# closes again.
+# Excluded: the answer text (the take stays offline; no live call), Auto/skip
+# interaction with the hold (their own cases).
+fault decision-hold ace.greet
+setting play.text_speed 0
+
+new-game
+advance
+advance
+pick "Ask about the letter"
+advance
+advance
+expect decision pending
+wait 500ms
+expect decision pending
+menu
+expect decision held
+release-decision ace.greet
+menu
+expect decision none
+expect line contains "Oh. It's you."

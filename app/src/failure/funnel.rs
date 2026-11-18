@@ -61,6 +61,7 @@ pub fn report(failure: Failure, notice: &mut Notice, hold: &mut DefensiveHold) {
             (None, _) => failure.detail.clone(),
         };
         log::log!(target: LOG_TARGET, level, "{line}");
+        super::tap::record(failure.row, level, line);
     }
 
     if failure.row.notices() {

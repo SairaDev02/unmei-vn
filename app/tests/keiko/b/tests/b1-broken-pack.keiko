@@ -1,0 +1,25 @@
+keiko 1
+# B1 (recipe B: a broken pack) — the pack fails to load before the title, so the
+# error screen is the only surface, and the dev Monitor opens over it and closes
+# back to it.
+# Excluded: the load errors' text and the session-log pointer (the observation's
+# `error` field has no `expect` form, and the pointer is drawn chrome), the
+# player's nonzero startup exit (a normal launch opens a real window the test
+# environment cannot run), and the twenty-error cap/overflow fixtures.
+#
+# The fixture pack itself stays loadable: `--take` loads a pack before it runs
+# any case, so a genuinely broken pack cannot reach a case at all. The recipe's
+# break is therefore a `fault` header, which deletes the manifest from the
+# take's own sandbox copy (spec §7.2), and the take then boots to the error
+# screen exactly as a broken launch does.
+fault pack-file-missing pack.ron
+dev
+setting play.text_speed 0
+
+expect surface error
+expect control title.new-game absent
+press F3
+expect monitor open
+press Escape
+expect monitor closed
+expect surface error

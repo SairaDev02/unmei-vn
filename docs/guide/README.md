@@ -1,6 +1,6 @@
 ---
 title: The Unmei Guide
-summary: Find the Guide page for playing the demo, writing a pack, contributing to Unmei or fixing a failed launch or load.
+summary: Find the Guide page for playing the demo, writing and testing a pack, contributing to Unmei or fixing a failed launch or load.
 keywords:
   - content-pack
   - authoring-cli
@@ -35,6 +35,8 @@ tool (the CLI) works on a pack.
   key environment variable and give the CLI a model.
 - [`write-your-first-pack.md`](write-your-first-pack.md): copy the demo pack, change a scene line, add
   a choice, validate the pack and play it. Read `install-the-cli.md` first.
+- [`test-your-pack.md`](test-your-pack.md): write a case under `tests/`, run every case with one
+  command, build one step at a time and explore every path for findings.
 - [`format-overview.md`](format-overview.md): what each part of a pack is, and the section of the
   content format that owns it.
 - [`author-with-the-cli.md`](author-with-the-cli.md): the worked `unmei author npc` and

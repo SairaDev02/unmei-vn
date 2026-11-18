@@ -1,0 +1,39 @@
+keiko 1
+# P1 (offline decision and pause) — the player picks the silence option, the offline
+# ace.greet decision lands on the authored cold reply with the categorical fallback log
+# line and no Notice, and Esc freezes progression until resume restores the park.
+# Excluded: the too-brief no-client decision wait (A1 owns held/slow answers), rendered
+# text and reveal timing, audio, physical input.
+setting play.text_speed 0
+
+new-game
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+advance
+expect speaker "Ace"
+expect line "You're not from around here, are you?"
+advance
+expect choices "Ask about the letter" "Stay silent"
+pick "Stay silent"
+expect speaker "Ace"
+expect line "...Fine, don't talk. See if I care."
+expect state affinity_level = "low"
+expect state met_ace = true
+advance
+expect scene reunion
+expect line "The gate again, hours later. She's still there."
+advance
+expect speaker "Ace"
+expect line "Oh. It's you."
+expect notice none
+expect decision none
+expect log warn row 10 contains "`cold`: "
+menu
+expect surface menu
+press KeyA
+wait 1s
+expect surface menu
+expect auto off
+menu
+expect surface play
+expect line "Oh. It's you."
+expect skip off
