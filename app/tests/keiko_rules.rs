@@ -913,25 +913,82 @@ fn frame_reports_that_no_renderer_is_available() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Rule 18: a blocked save reports itself and leaves the old slot byte for byte
+/// as it was, and `unblock` then lets the save land. Both halves start from a
+/// fixture that holds a park in another scene, so a landing save is visible as
+/// a changed scene and as changed bytes.
 #[test]
-fn a_blocked_save_reports_its_row_and_leaves_the_slot_empty() {
+fn a_blocked_save_keeps_the_old_slot_bytes_and_an_unblocked_one_lands() {
     let dir = temp_dir();
     let pack = pack(
         &dir,
-        &[(
-            "blocked",
-            "keiko 1\nfault write-blocked slot-1\nsetting play.text_speed 0\n\n\
-             new-game\nmenu\nsave 1\nexpect slot 1 empty\nexpect log error row 14\n",
-        )],
+        &[
+            (
+                "blocked",
+                "keiko 1
+fixture slot-1 fixtures/old.ron
+fault write-blocked slot-1
+                 setting play.text_speed 0
+
+new-game
+menu
+save 1
+                 activate confirm.yes
+expect notice contains \"couldn't save\"
+                 expect slot 1 scene reunion
+",
+            ),
+            (
+                "recovered",
+                "keiko 1
+fixture slot-1 fixtures/old.ron
+fault write-blocked slot-1
+                 setting play.text_speed 0
+
+new-game
+menu
+unblock slot-1
+save 1
+                 activate confirm.yes
+expect slot 1 scene first_meeting
+",
+            ),
+        ],
     );
-    let output = take(&pack, &["blocked"]);
-    // The step may fail at the save itself; either way the slot must stay empty
-    // and the write must be reported.
-    assert!(
-        stdout(&output).contains("row 14") || output.status.code() == Some(1),
-        "{}",
-        stdout(&output)
+    // A manual slot holding a park in `reunion`, copied from the demo fixture
+    // pack, so the slot's scene and bytes both differ from a save at the
+    // new-game park.
+    let fixture = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/keiko/d/tests/fixtures/slot-reunion.ron"),
+    )
+    .expect("the slot fixture is checked in");
+    std::fs::create_dir_all(pack.join("tests/fixtures")).unwrap();
+    std::fs::write(pack.join("tests/fixtures/old.ron"), &fixture).unwrap();
+    let name = pack.file_name().unwrap().to_string_lossy().to_string();
+    let slot = |kept: &Path| kept.join(format!("{name}.slot1.save.ron"));
+
+    // The blocked save: the take passes, the Notice names the lost save, the
+    // slot still describes the fixture's park, and its bytes are unchanged.
+    let output = run(&pack, &["--take", "blocked", "--keep"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let kept = kept_path(&output);
+    assert_eq!(
+        std::fs::read(slot(&kept)).expect("the fixture slot is still there"),
+        fixture,
+        "a refused write leaves the slot byte-identical"
     );
+    let _ = std::fs::remove_dir_all(&kept);
+
+    // After `unblock`, the same save writes the new park over the old one.
+    let output = run(&pack, &["--take", "recovered", "--keep"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let kept = kept_path(&output);
+    assert_ne!(
+        std::fs::read(slot(&kept)).expect("the save wrote the slot"),
+        fixture,
+        "the unblocked save landed"
+    );
+    let _ = std::fs::remove_dir_all(&kept);
     let _ = std::fs::remove_dir_all(dir);
 }
 
