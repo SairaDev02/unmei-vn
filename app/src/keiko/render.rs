@@ -10,15 +10,18 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
+use crate::menu::{MenuAction, MenuState};
 use bevy::camera::{ImageRenderTarget, RenderTarget};
+use bevy::input::mouse::MouseButtonInput;
+use bevy::input::ButtonState;
 use bevy::prelude::*;
 use bevy::render::gpu_readback::{Readback, ReadbackComplete};
 use bevy::render::render_resource::{TextureFormat, TextureUsages};
 use bevy::ui::IsDefaultUiCamera;
-use bevy::window::WindowRef;
+use bevy::window::{PrimaryWindow, Window, WindowRef};
 
-use super::steps::FrameRun;
-use unmei_engine::keiko::{Case, Step};
+use super::steps::{ActivationError, FrameRun};
+use unmei_engine::keiko::{Case, Click, Step};
 
 /// The reference frame size every take renders at (spec §13).
 pub const WIDTH: u32 = 1280;
@@ -55,6 +58,7 @@ pub fn adapter() -> Option<wgpu::AdapterInfo> {
 /// pointer moves on, and the folder its PNGs land in.
 pub struct Rendered {
     image: Handle<Image>,
+    window: Entity,
     camera: Option<Entity>,
     frames: PathBuf,
     count: u32,
@@ -62,8 +66,21 @@ pub struct Rendered {
 
 impl Rendered {
     /// Set up the take's render target beside the sandbox pack (the sidecar
-    /// layout of spec §4.2).
+    /// layout of spec §4.2) and the stand-in window the pointer moves on.
     pub fn new(app: &mut App, take_dir: &Path, pack_name: &str, case: &str) -> Self {
+        // A window entity with no raw handle is never presented: the renderer
+        // creates no surface for it, so it exists only to give the pointer and
+        // the UI focus path a cursor (spec §13).
+        let window = app
+            .world_mut()
+            .spawn((
+                Window {
+                    resolution: bevy::window::WindowResolution::new(WIDTH, HEIGHT),
+                    ..default()
+                },
+                PrimaryWindow,
+            ))
+            .id();
         let mut image =
             Image::new_target_texture(WIDTH, HEIGHT, TextureFormat::Rgba8UnormSrgb, None);
         // The readback copies the texture out; without `COPY_SRC` it cannot.
@@ -71,6 +88,7 @@ impl Rendered {
         let image = app.world_mut().resource_mut::<Assets<Image>>().add(image);
         Self {
             image,
+            window,
             camera: None,
             frames: take_dir
                 .join(format!("{pack_name}.keiko"))
@@ -137,6 +155,72 @@ impl Rendered {
         Ok(path)
     }
 
+    /// Move the stand-in window's cursor to a reference point and click the left
+    /// button: press in one frame, release in the next. The player's own hit test
+    /// decides what, if anything, the click reaches (spec §13, K9).
+    pub fn click(&mut self, app: &mut App, run: FrameRun, point: Vec2) -> Result<(), String> {
+        let Some(mut window) = app.world_mut().get_mut::<Window>(self.window) else {
+            return Err("the take has no stand-in window".to_string());
+        };
+        window.set_physical_cursor_position(Some(point.as_dvec2()));
+        run(app);
+        button(app, run, self.window, ButtonState::Pressed);
+        button(app, run, self.window, ButtonState::Released);
+        Ok(())
+    }
+
+    /// `click <control>` / `click <x> <y>`: move the stand-in window's cursor
+    /// and press and release the left button, so the player's own hit test
+    /// decides what the click reaches (spec §13, K9).
+    pub fn click_control(
+        &mut self,
+        app: &mut App,
+        run: FrameRun,
+        click: &Click,
+    ) -> Result<(), ActivationError> {
+        let point = match click {
+            Click::Position(x, y) => Vec2::new(*x, *y),
+            Click::Control(id) => Self::control_centre(app, id)?,
+        };
+        self.click(app, run, point)
+            .map_err(ActivationError::render_unavailable)
+    }
+
+    /// The centre of a control's laid-out node, in reference pixels. The topmost
+    /// visible node carrying the control's action is the one a player sees, so it is
+    /// the one clicked; a control with no laid-out node fails like an absent one.
+    fn control_centre(app: &mut App, id: &str) -> Result<Vec2, ActivationError> {
+        let Some(action) = super::controls::action_for_id(id) else {
+            return Err(ActivationError::no_target(format!(
+                "unknown control `{id}`"
+            )));
+        };
+        let mut found: Option<((bool, u32), Vec2)> = None;
+        let mut query = app.world_mut().query::<(
+            &MenuAction,
+            &bevy::ui::UiGlobalTransform,
+            &bevy::camera::visibility::InheritedVisibility,
+            Option<&bevy::ui::ComputedStackIndex>,
+        )>();
+        for (candidate, transform, visible, stack) in query.iter(app.world()) {
+            if *candidate != action {
+                continue;
+            }
+            let key = (visible.get(), stack.map(|stack| stack.0).unwrap_or(0));
+            if found.as_ref().is_none_or(|(best, _)| key > *best) {
+                found = Some((key, transform.transform_point2(Vec2::ZERO)));
+            }
+        }
+        match found {
+            Some(((true, _), centre)) => Ok(centre),
+            Some(((false, _), _)) => Err(ActivationError::no_target(format!(
+                "`{id}` has no visible node on the {} surface",
+                super::steps::surface_name(&app.world().resource::<MenuState>().clone())
+            ))),
+            None => Err(ActivationError::no_target(format!("`{id}` has no node"))),
+        }
+    }
+
     /// The player's camera. It spawns with the play surface, so the first frame
     /// step finds it; marking it the UI's default camera keeps the player's
     /// nodes attached to it while it points at the image.
@@ -180,6 +264,16 @@ impl Rendered {
 /// How many zero-length frames a readback may take before the step gives up.
 const READBACK_FRAMES: usize = 120;
 
+/// One left-button message for the stand-in window.
+fn button(app: &mut App, run: FrameRun, window: Entity, state: ButtonState) {
+    app.world_mut().write_message(MouseButtonInput {
+        button: MouseButton::Left,
+        state,
+        window,
+    });
+    run(app);
+}
+
 /// Write the readback bytes as a PNG, creating the frames folder.
 fn write_png(path: &Path, data: &[u8]) -> Result<(), String> {
     if let Some(parent) = path.parent() {
@@ -200,12 +294,16 @@ fn sanitize(name: &str) -> String {
         .collect()
 }
 
-/// Whether the case asks for the rendered composition: one `frame` step builds
-/// it for the whole take, so the steps before it run as usual (spec §13).
+/// Whether the case asks for the rendered composition: one `frame` or `click`
+/// step builds it for the whole take, so the steps before it run as usual
+/// (spec §13).
 pub fn draws(case: &Case) -> bool {
-    case.steps
-        .iter()
-        .any(|line| matches!(line.step, Step::Frame(_)))
+    case.steps.iter().any(|line| {
+        matches!(
+            line.step,
+            Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _))
+        )
+    })
 }
 
 /// The case's folder name: its id, never a path and never its extension.
@@ -223,6 +321,7 @@ mod tests {
     fn rendered() -> Rendered {
         Rendered {
             image: Handle::default(),
+            window: Entity::PLACEHOLDER,
             camera: None,
             frames: PathBuf::new(),
             count: 0,

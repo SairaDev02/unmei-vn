@@ -298,8 +298,9 @@ pub fn is_enabled(menu: &MenuState, id: &str, world: &World) -> bool {
     }
 }
 
-/// The actions one surface's controls carry, in walk order.
-fn action_for_id(id: &str, menu: &MenuState) -> Option<MenuAction> {
+/// The action a control id carries; the one map a click or an observation
+/// resolves an id through.
+pub(super) fn action_for_id(id: &str) -> Option<MenuAction> {
     let action = match id {
         "title.continue" => MenuAction::Continue,
         "title.new-game" => MenuAction::NewGame,
@@ -345,7 +346,6 @@ fn action_for_id(id: &str, menu: &MenuState) -> Option<MenuAction> {
         }
         _ => return None,
     };
-    let _ = menu;
     Some(action)
 }
 
@@ -369,7 +369,7 @@ pub fn observe_controls(world: &mut World) -> Vec<Control> {
     let focused = owned_id_for_focus(menu.focus);
     ids.iter()
         .filter_map(|id| {
-            let action = action_for_id(id, &menu)?;
+            let action = action_for_id(id)?;
             let label = labels
                 .iter()
                 .find(|(candidate, _)| *candidate == action)

@@ -11,7 +11,7 @@ keywords:
 ---
 # Keiko — build-ready spec
 
-**Status (2026-11-18).** Slice 1 is **built**, on the integration branch `spec/28-keiko`, and slice 2's `frame` step is **built**: it draws the player's own composition at 1280×720 on wgpu's fallback adapter ([`app/src/keiko/render.rs`](../app/src/keiko/render.rs)), and a machine without one fails it with `keiko.render.unavailable`. `click` is the rest of slice 2 and still fails with that rule. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
+**Status (2026-11-18).** Slices 1 and 2 are **built**, on the integration branch `spec/28-keiko`. A case may carry `frame` and `click`: both draw the player's own composition at 1280×720 on wgpu's fallback adapter ([`app/src/keiko/render.rs`](../app/src/keiko/render.rs)), and a machine without one fails them with `keiko.render.unavailable`. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
 **Slices.** The build ships in two slices. Each slice is complete and mergeable on its own.
 

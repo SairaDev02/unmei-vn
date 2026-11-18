@@ -1702,7 +1702,7 @@ expect surface settings
 }
 
 // ---------------------------------------------------------------------------
-// Rule 35 and the first half of rule 37: the render path (slice 2)
+// Rules 35-37: the render path (slice 2)
 // ---------------------------------------------------------------------------
 
 fn stderr(output: &Output) -> String {
@@ -1790,16 +1790,68 @@ frame titled
     let _ = std::fs::remove_dir_all(dir);
 }
 
-/// Rule 37: with no fallback adapter, `frame` fails with
-/// `keiko.render.unavailable`, and the steps before it still apply.
+/// Rule 36: a control click goes through the player's own hit test — it starts
+/// play, and a click on a control the confirm surface covers does nothing.
 #[test]
-fn without_a_fallback_adapter_a_frame_reports_render_unavailable() {
+fn a_click_reaches_the_player_hit_test_and_a_covered_click_does_nothing() {
     let dir = temp_dir();
+    // The covering surface is the New Game confirm's full-screen dimmer: while
+    // it is up, `title.quit` lies under it. Were the click to reach that button
+    // the confirm would ask about quitting instead (its accept is "Quit"), so
+    // the "Start" label proves the covering surface took the click.
     let pack = pack(
         &dir,
         &[(
-            "frame",
+            "clicks",
             "keiko 1
+setting play.text_speed 0
+
+click title.new-game
+expect surface play
+expect line contains \"Morning light\"
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+activate overlay.exit-to-title
+activate confirm.yes
+expect surface title
+click title.quit
+expect surface confirm
+expect control confirm.yes label \"Quit\"
+activate confirm.no
+expect surface title
+click title.new-game
+expect surface confirm
+expect control confirm.yes label \"Start\"
+click title.quit
+expect surface confirm
+expect control confirm.yes label \"Start\"
+click confirm.no
+expect surface title
+",
+        )],
+    );
+    let output = run(&pack, &["--take", "clicks"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// Rule 37: with no fallback adapter, `frame` (and `click`) fails with
+/// `keiko.render.unavailable`, and the steps before it still apply.
+#[test]
+fn without_a_fallback_adapter_frames_and_clicks_report_render_unavailable() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "frame",
+                "keiko 1
 setting play.text_speed 0
 
 new-game
@@ -1807,23 +1859,33 @@ expect line contains \"Morning light\"
 frame
 expect surface play
 ",
-        )],
+            ),
+            (
+                "click",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+click title.new-game
+",
+            ),
+        ],
     );
     // `metal` is not a backend this platform compiles, so the probe finds no
     // fallback adapter and the take keeps the windowless app.
-    let output = run_env(&pack, &["--take", "frame"], &[("WGPU_BACKEND", "metal")]);
-    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
-    let text = stdout(&output);
-    assert!(
-        text.contains("keiko.render.unavailable"),
-        "expected the render rule, got:
-{text}"
-    );
-    assert!(
-        text.contains("line 6"),
-        "the frame step is line 6, and no earlier step failed:
-{text}"
-    );
+    for (id, line) in [("frame", 6), ("click", 5)] {
+        let output = run_env(&pack, &["--take", id], &[("WGPU_BACKEND", "metal")]);
+        assert_eq!(output.status.code(), Some(1), "{id}: {}", stdout(&output));
+        let text = stdout(&output);
+        assert!(
+            text.contains("keiko.render.unavailable"),
+            "{id}: expected the render rule, got:\n{text}"
+        );
+        assert!(
+            text.contains(&format!("line {line}")),
+            "{id}: the render step is line {line}, and no earlier step failed:\n{text}"
+        );
+    }
     let _ = std::fs::remove_dir_all(dir);
 }
 

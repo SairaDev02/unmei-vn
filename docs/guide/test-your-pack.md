@@ -126,7 +126,7 @@ Each step does one thing. These are the four kinds a case uses most:
 | Raw input | `press <key>`, `hold <key>`, `release <key>`, `type "<text>"`, `paste "<text>"` |
 | Clock | `wait <duration>`, a decimal number with `s` or `ms`, such as `wait 2s` |
 | Fault control | `release-decision <npc>.<question>`, `release-key-check`, `unblock <target>` |
-| Rendering | `frame [name]` |
+| Rendering | `frame [name]`, `click <control>`, `click <x> <y>` |
 
 An intent reaches the player as real input messages, exactly as a key press would, so input ownership
 and the held-key rules hold inside a take. `activate` names a control by its role id, such as
@@ -134,11 +134,14 @@ and the held-key rules hold inside a take. `activate` names a control by its rol
 [`docs/keiko-spec.md` § 3](../keiko-spec.md#3-steps-k9k12) lists every step with its exact input, and
 [§ 3.2](../keiko-spec.md#32-control-ids-k10) lists every control id.
 
-A case can also look at the screen. `frame [name]` writes the current frame as a 1280×720 PNG in
-the take's own copy of the pack, beside the pack under `<pack-dir>.keiko/frames/<case>/`, and prints
-the path; add `--keep` to read it after the run. A frame needs a software rasterizer, WARP on Windows
-and Mesa's llvmpipe on Linux. A machine without one fails the step with `keiko.render.unavailable`
-and still runs the steps before it
+A case can also look at the screen and click it. `frame [name]` writes the current frame as a
+1280×720 PNG in the take's own copy of the pack, beside the pack under
+`<pack-dir>.keiko/frames/<case>/`, and prints the path; add `--keep` to read it after the run.
+`click <control>` presses a control by its role id, at the point the control is drawn, and
+`click <x> <y>` presses a point in the same 1280×720 frame. Both go through the player's own hit
+test, so a control that another surface covers takes no click, exactly as for a player. Both need a
+software rasterizer, WARP on Windows and Mesa's llvmpipe on Linux. A machine without one fails the
+step with `keiko.render.unavailable` and still runs the steps before it
 ([`docs/keiko-spec.md` § 13](../keiko-spec.md#13-slice-2-frames-and-position-clicks-k14-k9)).
 
 An assertion starts with `expect` and compares one part of what the player sees or stores: the
