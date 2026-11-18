@@ -167,21 +167,36 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         live: live_marked.clone(),
         resolver,
         key_check_release,
+        render: None,
     };
 
     // The app owns the open session-log file, and Kira's backend (in every app
     // that has one) holds the audio device. Both must be gone before the
     // sandbox is deleted, or Windows refuses to remove a folder whose file is
     // still open. A take installs no audio backend at all (spec §4.1).
+    // Only a case that draws pays for the renderer, and only a machine with a
+    // fallback adapter can build one at all (spec §13).
+    let rendered = super::render::draws(request.case) && super::render::available();
     let outcome = {
-        let mut app = crate::composition::keiko_app(
-            config,
-            session_log,
-            crate::credentials::ClipboardPort::Memory(None),
-            key_check,
-            crate::DecisionFactory { builder: None },
-            asset_faults,
-        );
+        let mut app = if rendered {
+            crate::composition::keiko_app_rendered(
+                config,
+                session_log,
+                crate::credentials::ClipboardPort::Memory(None),
+                key_check,
+                crate::DecisionFactory { builder: None },
+                asset_faults,
+            )
+        } else {
+            crate::composition::keiko_app(
+                config,
+                session_log,
+                crate::credentials::ClipboardPort::Memory(None),
+                key_check,
+                crate::DecisionFactory { builder: None },
+                asset_faults,
+            )
+        };
         // The launch read is preloaded, so the sandbox's credential fixture and
         // the `env-key` fixture are what the app sees (spec §7.1).
         app.insert_resource(crate::credentials::StartupCredentials {
@@ -191,6 +206,22 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         #[cfg(test)]
         for plugin in plugins {
             app.add_plugins(plugin);
+        }
+        if rendered {
+            // A rendered app's plugins are finished before its first frame, as
+            // `App::run` does: the renderer's resources are unpacked there.
+            app.finish();
+            let pack_name = sandbox
+                .pack_root()
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .unwrap_or_else(|| "pack".to_string());
+            state.render = Some(super::render::Rendered::new(
+                &mut app,
+                sandbox.take_dir(),
+                &pack_name,
+                &super::render::case_name(&request.case_file),
+            ));
         }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
@@ -243,6 +274,9 @@ pub(super) struct TakeState {
     live: Arc<std::sync::atomic::AtomicBool>,
     resolver: Arc<KeikoResolver>,
     key_check_release: Arc<std::sync::atomic::AtomicBool>,
+    /// The rendered composition, when the case asks for a frame or a click and
+    /// the machine has a software rasterizer (spec §13).
+    render: Option<super::render::Rendered>,
 }
 
 /// Boot the app and settle on the first surface (spec §4.3), then honour a
@@ -282,7 +316,7 @@ fn start_at_scene(
     // Enter play through the title's own New Game, so the live session the menu
     // keeps is real.
     let mut frame_run = |app: &mut App| frame(app, &state.timed, &state.clock, Duration::ZERO);
-    super::steps::apply(app, &Step::NewGame, &mut frame_run, &state.resolver)
+    super::steps::apply(app, &Step::NewGame, &mut frame_run, &state.resolver, None)
         .map_err(|finding| fail(finding.message))?;
     settle(app, state, request)?;
 
@@ -334,12 +368,13 @@ fn step_once(
     }
     let resolver = state.resolver.clone();
     let mut frame_run = |app: &mut App| frame(app, &state.timed, &state.clock, Duration::ZERO);
-    let applied = apply(app, step, &mut frame_run, &resolver).map_err(|finding| {
-        let mut finding = finding;
-        finding.file = request.case_file.clone();
-        finding.path = format!("line {line}");
-        finding
-    })?;
+    let applied =
+        apply(app, step, &mut frame_run, &resolver, state.render.as_mut()).map_err(|finding| {
+            let mut finding = finding;
+            finding.file = request.case_file.clone();
+            finding.path = format!("line {line}");
+            finding
+        })?;
     match applied {
         Applied::Input => settle_with_step(app, state, request, line)?,
         Applied::Wait(duration) => {

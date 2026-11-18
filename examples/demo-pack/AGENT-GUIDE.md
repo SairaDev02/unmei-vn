@@ -44,8 +44,8 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
 
 A case is one file `tests/<id>.keiko` in the pack folder: a `keiko 1` line, then any headers
 (`decide`, `setting`, `fixture`, `fault`, `dev`, `start`, `state`), then one step per line. A step is a
-player intent, a raw input, a clock move or an `expect` assertion. The player ignores `tests/` during
-play.
+player intent, a raw input, a clock move, a `frame` of the drawn screen, or an `expect` assertion. The
+player ignores `tests/` during play.
 
 - **Run every case:** `unmei-play <pack-dir> --take` prints one result per case. Name an id after
   `--take` to run one. Exit `0` means every case passed, `1` means a take failed or a case was
@@ -56,6 +56,10 @@ play.
 - **Explore every path:** `unmei-play <pack-dir> --explore --budget 10000` takes every choice option
   and every decision landing, then saves each finding as a runnable case under `tests/findings/`. Each
   saved finding fails until the pack is fixed, so keep it as a regression case.
+- **Look at the screen:** `frame [name]` writes the current frame as a 1280×720 PNG beside the take's
+  copy of the pack, under `<pack-dir>.keiko/frames/<case>/`, and prints the path. It needs the software
+  rasterizer, WARP on Windows and Mesa's llvmpipe on Linux, and fails with
+  `keiko.render.unavailable` without it. Add `--keep` to read the PNG after the run.
 - **Read it from a script:** add `--format json` for one JSON document per run.
 - **Offline unless asked:** a take needs no key. A `decide` header sets the landing a case asserts
   on, and every other decision takes the author's fallback. `--take --live` sends the unset ones to

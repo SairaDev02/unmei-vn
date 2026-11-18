@@ -38,6 +38,14 @@ jiff = "0.2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ron = "0.10"
+# The fallback-adapter probe (spec §13): the take must know whether a software
+# rasterizer exists before it builds a renderer, because Bevy panics when none
+# does. wgpu is already in the graph through `bevy_render`, so this adds the
+# direct edge only.
+wgpu = { version = "29", default-features = false }
+# A frame is written as a PNG (spec §13). `image` is already in the graph
+# through `bevy_image`, with the same `png` feature enabled.
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [dev-dependencies]
 tempfile = "3"
