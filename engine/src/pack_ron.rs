@@ -267,3 +267,91 @@ mod tests {
         );
     }
 }
+
+/// Generators for property tests of the state map, shared by this module and
+/// the save suite (`save/tests/properties.rs`).
+#[cfg(test)]
+pub(crate) mod strategies {
+    use std::collections::HashMap;
+
+    use proptest::prelude::*;
+    use proptest::test_runner::{Config, RngSeed};
+
+    use crate::content::StateValue;
+
+    /// The property-test configuration `docs/testing.md` asks for: a fixed
+    /// seed, so the workspace gate is deterministic, and no regressions file.
+    pub(crate) fn config() -> Config {
+        Config {
+            cases: 512,
+            rng_seed: RngSeed::Fixed(0x756e_6d65_6901),
+            failure_persistence: None,
+            ..Config::default()
+        }
+    }
+
+    /// Any text of up to 12 characters, control characters and every plane of
+    /// Unicode included.
+    pub(crate) fn text() -> impl Strategy<Value = String> {
+        prop::collection::vec(any::<char>(), 0..=12).prop_map(String::from_iter)
+    }
+
+    /// Any finite number: whole numbers as authors write them, and every
+    /// finite class, including subnormals and `-0.0`. Non-finite numbers are
+    /// out: `decode_state` rejects them by design.
+    fn finite() -> impl Strategy<Value = f64> {
+        use prop::num::f64::{NEGATIVE, NORMAL, POSITIVE, SUBNORMAL, ZERO};
+        prop_oneof![
+            (-1000i32..=1000).prop_map(f64::from),
+            POSITIVE | NEGATIVE | NORMAL | SUBNORMAL | ZERO,
+        ]
+    }
+
+    fn value() -> impl Strategy<Value = StateValue> {
+        prop_oneof![
+            text().prop_map(StateValue::Str),
+            finite().prop_map(StateValue::Num),
+            any::<bool>().prop_map(StateValue::Bool),
+        ]
+    }
+
+    pub(crate) fn state_map() -> impl Strategy<Value = HashMap<String, StateValue>> {
+        prop::collection::hash_map(text(), value(), 0..8)
+    }
+
+    /// Whether two state maps hold the same entries, numbers compared bit for
+    /// bit: `StateValue`'s own equality would let `-0.0` come back as `0.0`.
+    pub(crate) fn same_state(
+        a: &HashMap<String, StateValue>,
+        b: &HashMap<String, StateValue>,
+    ) -> bool {
+        a.len() == b.len()
+            && a.iter().all(|(key, value)| match (value, b.get(key)) {
+                (StateValue::Num(x), Some(StateValue::Num(y))) => x.to_bits() == y.to_bits(),
+                (value, other) => Some(value) == other,
+            })
+    }
+}
+
+#[cfg(test)]
+mod properties {
+    use proptest::prelude::*;
+
+    use super::strategies::{config, same_state, state_map};
+    use super::*;
+
+    proptest! {
+        #![proptest_config(config())]
+
+        /// Any state map decodes back to exactly the map that was encoded.
+        #[test]
+        fn decode_returns_exactly_the_encoded_state(state in state_map()) {
+            let text = encode_state(&state).expect("a finite state map encodes");
+            let decoded = decode_state(&text);
+            prop_assert!(
+                decoded.as_ref().is_ok_and(|decoded| same_state(decoded, &state)),
+                "{state:?} encoded as {text} decoded as {decoded:?}"
+            );
+        }
+    }
+}

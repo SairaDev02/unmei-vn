@@ -6264,6 +6264,7 @@ name = "unmei-engine"
 version = "0.2.0"
 dependencies = [
  "log",
+ "proptest",
  "reqwest",
  "ron 0.10.1",
  "serde",

@@ -45,6 +45,10 @@ reqwest = { version = "0.12", default-features = false, features = [
 tokio = { version = "1", features = ["rt-multi-thread"], optional = true }
 
 [dev-dependencies]
+# Property tests for the state and save round trips (`src/pack_ron.rs`,
+# `src/save/tests/properties.rs`). `std` alone leaves out the process-fork and
+# timeout runners, which those tests do not need.
+proptest = { version = "1.12.0", default-features = false, features = ["std"] }
 tempfile = "3"
 # Only used by the ignored live Decisions test (feature `network`).
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

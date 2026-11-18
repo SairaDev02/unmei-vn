@@ -6,6 +6,7 @@ use crate::content::{Line, Pack};
 use std::path::Path as StdPath;
 
 mod legacy;
+mod properties;
 mod resume;
 mod slots;
 
