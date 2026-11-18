@@ -262,11 +262,14 @@ jobs:
       # feature set also builds the Wayland backend through pkg-config.
       # `system_font_discovery` (`app/Cargo.toml`) pulls parley's fontconfig
       # backend on Linux, so the fontconfig headers are needed too.
+      # Keiko's `frame` step renders on the software rasterizer (spec §13):
+      # Mesa's Vulkan driver, lavapipe, is the fallback adapter wgpu finds on a
+      # runner with no GPU.
       - name: Install Linux dependencies
         run: >
           sudo apt-get update && sudo apt-get install -y
           libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-          libfontconfig1-dev
+          libfontconfig1-dev mesa-vulkan-drivers
 
       # With no argument, rustup installs the active toolchain: the pinned one
       # from rust-toolchain.toml, with its rustfmt and clippy components.
