@@ -409,6 +409,18 @@ fn collect_label(world: &World, entity: Entity, out: &mut String, depth: usize) 
     if depth > 6 {
         return;
     }
+    // A hidden node's text is not on screen, so it is not part of the
+    // control's label. The key row's placeholder is the one such child: it is
+    // drawn only while the row is `Not set` and the field empty.
+    if world.get::<Visibility>(entity) == Some(&Visibility::Hidden) {
+        return;
+    }
+    // Separate fragments with one space: a control's label is the text its
+    // parts show, in reading order, not those parts run together. `node_label`
+    // then collapses the result to single spaces.
+    if out.chars().last().is_some_and(|last| last != ' ') {
+        out.push(' ');
+    }
     if let Some(text) = world.get::<Text>(entity) {
         out.push_str(text.as_str());
     }
