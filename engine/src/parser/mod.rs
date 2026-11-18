@@ -17,6 +17,9 @@ mod commands;
 mod flow;
 mod syntax;
 
+#[cfg(test)]
+mod properties;
+
 use std::collections::HashMap;
 
 use crate::content::{Line, Scene};
