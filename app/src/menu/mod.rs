@@ -65,6 +65,6 @@ pub use navigation::{gallery_browse, gallery_move, timeline_move, GalleryDir};
 #[cfg(test)]
 pub(crate) use persistence::{complete_load, LoadSurface};
 pub use state::{
-    legacy_slot, legacy_visible, live_session, menu_closed, ConfirmKind, LegacyPicker, MenuFocus,
-    MenuMode, MenuOrigin, MenuState, MenuView, LEGACY_TARGETS,
+    exit_to_title_shown, legacy_slot, legacy_visible, live_session, menu_closed, ConfirmKind,
+    LegacyPicker, MenuFocus, MenuMode, MenuOrigin, MenuState, MenuView, LEGACY_TARGETS,
 };

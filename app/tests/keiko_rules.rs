@@ -1261,3 +1261,128 @@ fn an_unblocked_credential_write_lands() {
     assert!(row.starts_with("Set — sk-nano-…wxyz"), "{row}");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+// ---------------------------------------------------------------------------
+// The overlay Settings rail's Exit to title (the tenth pass's control id)
+// ---------------------------------------------------------------------------
+
+/// The overlay's Settings walk reaches the rail's `Exit to title` control, its
+/// cancel returns focus to it, confirming runs to the title and Continue resumes
+/// the live park; the title's door draws no such control.
+#[test]
+fn the_overlay_settings_rail_reaches_the_title_through_its_control() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "route",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+menu
+                 press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+                 expect surface settings
+activate overlay.exit-to-title
+                 activate confirm.yes
+expect surface title
+",
+            ),
+            (
+                "resume",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+menu
+                 press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+                 activate overlay.exit-to-title
+activate confirm.yes
+                 activate title.continue
+expect surface play
+                 expect line \"Morning light. A folded letter on the ground, half under a shoe.\"
+",
+            ),
+            (
+                "cancel",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+menu
+                 press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+                 activate overlay.exit-to-title
+activate confirm.no
+                 expect surface settings
+expect control overlay.exit-to-title focused
+",
+            ),
+            (
+                "title-door",
+                "keiko 1
+activate title.settings
+expect surface settings
+                 expect control overlay.exit-to-title absent
+                 expect control overlay.resume absent
+",
+            ),
+        ],
+    );
+    let output = run(
+        &pack,
+        &[
+            "--take",
+            "route",
+            "resume",
+            "cancel",
+            "title-door",
+            "--format",
+            "json",
+        ],
+    );
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let document: serde_json::Value = serde_json::from_str(&stdout(&output)).unwrap();
+    let takes = document["takes"].as_array().expect("a takes array");
+    assert_eq!(
+        takes[0]["observation"]["surface"], "title",
+        "the route runs to the title through the rail control"
+    );
+    assert_eq!(
+        takes[1]["observation"]["surface"], "play",
+        "Continue resumes the live park the exit kept"
+    );
+    let rail = takes[2]["observation"]["controls"]
+        .as_array()
+        .expect("controls")
+        .iter()
+        .find(|control| control["id"] == "overlay.exit-to-title")
+        .expect("the rail control is on the overlay Settings surface");
+    assert_eq!(rail["label"], "Exit to title");
+    assert_eq!(rail["focused"], true, "cancel returns focus to the control");
+    assert!(control_enabled(&takes[2], "overlay.exit-to-title"));
+    assert!(
+        takes[3]["observation"]["controls"]
+            .as_array()
+            .expect("controls")
+            .iter()
+            .all(|control| control["id"] != "overlay.exit-to-title"),
+        "the title's door draws no rail control"
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}

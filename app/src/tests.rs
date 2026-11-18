@@ -2603,8 +2603,11 @@ fn settings_route_is_reachable_and_esc_backs_out_to_the_grid() {
     assert_eq!(menu(&app).view, MenuView::Settings);
     assert_eq!(menu(&app).focus, MenuFocus::AudioMaster);
 
-    // Up wraps to the Decisions group's last control; the back control is a
-    // click/`Esc` affordance, not an arrow stop.
+    // Up wraps to the rail's session-scoped `Exit to title`, the walk's one
+    // stop past the Decisions group; Up again reaches the group's last control.
+    // The back control is a click/`Esc` affordance, not an arrow stop.
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
     press_and_update(&mut app, KeyCode::ArrowUp);
     assert_eq!(menu(&app).focus, MenuFocus::ClearKey);
     click(&mut app, MenuAction::BackToSlots);
@@ -6363,7 +6366,8 @@ fn the_settings_keyboard_model_moves_controls_and_steps_sliders() {
         100
     );
 
-    // Down walks the controls, wrapping through the back control.
+    // Down walks the controls, passing the rail's `Exit to title` and wrapping
+    // to the first one.
     for expected in [
         MenuFocus::AudioMusic,
         MenuFocus::AudioSfx,
@@ -6376,13 +6380,14 @@ fn the_settings_keyboard_model_moves_controls_and_steps_sliders() {
         MenuFocus::KeyRow,
         MenuFocus::CopyKeyPath,
         MenuFocus::ClearKey,
+        MenuFocus::ExitToTitle,
         MenuFocus::AudioMaster,
     ] {
         press_and_update(&mut app, KeyCode::ArrowDown);
         assert_eq!(menu(&app).focus, expected);
     }
     press_and_update(&mut app, KeyCode::ArrowUp);
-    assert_eq!(menu(&app).focus, MenuFocus::ClearKey);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
 
     // Tab cycles the top bar; Down returns to the group's first control.
     press_and_update(&mut app, KeyCode::Tab);
@@ -9915,7 +9920,7 @@ fn a_default_credentials_resource_renders_not_set_without_a_path() {
 }
 
 #[test]
-fn the_decisions_group_is_the_last_walk_stop() {
+fn the_decisions_group_is_the_last_group_and_the_rail_control_follows_it() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     open_settings(&mut app);
@@ -9934,7 +9939,13 @@ fn the_decisions_group_is_the_last_walk_stop() {
     assert_eq!(
         menu(&app).focus,
         MenuFocus::ClearKey,
-        "the Decisions group's last control is the walk's last stop"
+        "the Decisions group's last control is the last group's last stop"
+    );
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the rail's session-scoped Exit to title is the walk's one stop past it"
     );
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(
@@ -9943,7 +9954,7 @@ fn the_decisions_group_is_the_last_walk_stop() {
         "the walk wraps to the first control"
     );
     press_and_update(&mut app, KeyCode::ArrowUp);
-    assert_eq!(menu(&app).focus, MenuFocus::ClearKey);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
 }
 
 /// The Decisions group is the last walk stop from the title door too
@@ -12625,6 +12636,7 @@ fn continue_resuming_a_clean_session_writes_nothing() {
     // Exit to title and Continue the live session: nothing changes, nothing
     // writes.
     press_and_update(&mut app, KeyCode::Escape);
+    click(&mut app, MenuAction::OpenSettings);
     click(&mut app, MenuAction::ExitToTitle);
     click(&mut app, MenuAction::ConfirmAccept);
     assert!(live_session(&app));
@@ -14460,6 +14472,7 @@ fn a_new_game_disarms_the_force_hold() {
     assert!(skip_force(&app));
 
     tap_key(&mut app, KeyCode::Escape);
+    click_input(&mut app, MenuAction::OpenSettings);
     click_input(&mut app, MenuAction::ExitToTitle);
     click_input(&mut app, MenuAction::ConfirmAccept);
     assert!(menu(&app).title_surface_up());
@@ -14481,6 +14494,7 @@ fn title_to_play_disarms_the_force_hold() {
     assert!(skip_force(&app));
 
     tap_key(&mut app, KeyCode::Escape);
+    click_input(&mut app, MenuAction::OpenSettings);
     click_input(&mut app, MenuAction::ExitToTitle);
     click_input(&mut app, MenuAction::ConfirmAccept);
     assert!(menu(&app).title_surface_up());

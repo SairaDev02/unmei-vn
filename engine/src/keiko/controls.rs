@@ -20,6 +20,7 @@ pub const CONTROL_IDS: &[&str] = &[
     "overlay.slot.3",
     "overlay.slot.autosave",
     "overlay.resume",
+    "overlay.exit-to-title",
     "overlay.settings",
     "overlay.gallery",
     "overlay.timeline",

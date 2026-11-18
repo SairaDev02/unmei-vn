@@ -26,6 +26,7 @@ pub fn focus_ids() -> Vec<(MenuFocus, &'static str)> {
         (MenuFocus::Card(2), "overlay.slot.3"),
         (MenuFocus::Card(3), "overlay.slot.autosave"),
         (MenuFocus::Resume, "overlay.resume"),
+        (MenuFocus::ExitToTitle, "overlay.exit-to-title"),
         (MenuFocus::SettingsButton, "overlay.settings"),
         (MenuFocus::GalleryButton, "overlay.gallery"),
         (MenuFocus::TimelineButton, "overlay.timeline"),
@@ -227,24 +228,32 @@ pub fn surface_ids(
             }
             ids
         }
-        MenuView::Settings => [
-            "settings.back",
-            "settings.master",
-            "settings.music",
-            "settings.sfx",
-            "settings.mute",
-            "settings.reset-audio",
-            "settings.text-speed",
-            "settings.auto",
-            "settings.fullscreen",
-            "settings.reset-play",
-            "settings.key",
-            "settings.copy-path",
-            "settings.clear-key",
-        ]
-        .into_iter()
-        .map(str::to_string)
-        .collect(),
+        MenuView::Settings => {
+            let mut ids: Vec<String> = [
+                "settings.back",
+                "settings.master",
+                "settings.music",
+                "settings.sfx",
+                "settings.mute",
+                "settings.reset-audio",
+                "settings.text-speed",
+                "settings.auto",
+                "settings.fullscreen",
+                "settings.reset-play",
+                "settings.key",
+                "settings.copy-path",
+                "settings.clear-key",
+            ]
+            .into_iter()
+            .map(str::to_string)
+            .collect();
+            // The rail's session-scoped stop, past the Decisions group
+            // (`docs/title-and-menu.md` §4).
+            if crate::menu::exit_to_title_shown(menu) {
+                ids.push("overlay.exit-to-title".to_string());
+            }
+            ids
+        }
         MenuView::Gallery => {
             if menu.gallery_still {
                 Vec::new()
@@ -304,6 +313,7 @@ fn action_for_id(id: &str, menu: &MenuState) -> Option<MenuAction> {
         "overlay.slot.3" => MenuAction::Card(2),
         "overlay.slot.autosave" => MenuAction::Card(3),
         "overlay.resume" => MenuAction::Resume,
+        "overlay.exit-to-title" => MenuAction::ExitToTitle,
         "overlay.settings" => MenuAction::OpenSettings,
         "overlay.gallery" => MenuAction::OpenGallery,
         "overlay.timeline" => MenuAction::OpenTimeline,

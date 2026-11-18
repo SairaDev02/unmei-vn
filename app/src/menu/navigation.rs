@@ -214,8 +214,15 @@ pub(super) fn timeline_arrow(
 
 /// The Settings view's vertical navigation: `↑`/`↓` walk
 /// [`SETTINGS_ORDER`] with wrap-around, and any vertical move from the top bar
-/// lands on the first slider (or the back control going up).
-pub(super) fn settings_target(focus: MenuFocus, keys: &ButtonInput<KeyCode>) -> Option<MenuFocus> {
+/// lands on the first slider (or the walk's last stop going up). The rail's
+/// session-scoped `Exit to title` joins the walk after the Decisions group when
+/// the overlay's door draws it, so the group keeps its settled position and the
+/// rail control is the one stop past it (`docs/title-and-menu.md` §4).
+pub(super) fn settings_target(
+    focus: MenuFocus,
+    keys: &ButtonInput<KeyCode>,
+    exit_to_title: bool,
+) -> Option<MenuFocus> {
     let delta = if keys.just_pressed(KeyCode::ArrowDown) {
         1
     } else if keys.just_pressed(KeyCode::ArrowUp) {
@@ -223,15 +230,19 @@ pub(super) fn settings_target(focus: MenuFocus, keys: &ButtonInput<KeyCode>) -> 
     } else {
         return None;
     };
-    let Some(index) = SETTINGS_ORDER.iter().position(|entry| *entry == focus) else {
+    let mut order: Vec<MenuFocus> = SETTINGS_ORDER.to_vec();
+    if exit_to_title {
+        order.push(MenuFocus::ExitToTitle);
+    }
+    let Some(index) = order.iter().position(|entry| *entry == focus) else {
         return Some(if delta > 0 {
-            SETTINGS_ORDER[0]
+            order[0]
         } else {
-            SETTINGS_ORDER[SETTINGS_ORDER.len() - 1]
+            order[order.len() - 1]
         });
     };
-    let next = (index as i32 + delta).rem_euclid(SETTINGS_ORDER.len() as i32) as usize;
-    Some(SETTINGS_ORDER[next])
+    let next = (index as i32 + delta).rem_euclid(order.len() as i32) as usize;
+    Some(order[next])
 }
 
 /// The title's vertical walk: `↑`/`↓` over [`TITLE_ORDER`], wrapping. Disabled
