@@ -40,7 +40,8 @@ pub enum Applied {
 }
 
 /// Apply one step. `render` is the take's rendered composition when the case
-/// asks for a frame and the machine has a software rasterizer (spec §13).
+/// asks for a frame or a click and the machine has a software rasterizer
+/// (spec §13).
 pub fn apply(
     app: &mut App,
     step: &Step,
@@ -182,7 +183,15 @@ pub fn apply(
                 .map_err(|message| fail(rules::RENDER_UNAVAILABLE, message))?;
             Ok(Applied::Input)
         }
-        Step::Click(_) => Err(unavailable(step)),
+        Step::Click(click) => {
+            let Some(render) = render else {
+                return Err(unavailable(step));
+            };
+            render
+                .click_control(app, run, click)
+                .map_err(|error| fail(error.rule, error.message))?;
+            Ok(Applied::Input)
+        }
         Step::Expect(expect) => Ok(Applied::Assert(expect.clone())),
     }
 }
@@ -254,7 +263,7 @@ pub struct ActivationError {
 }
 
 impl ActivationError {
-    fn no_target(message: impl Into<String>) -> Self {
+    pub(super) fn no_target(message: impl Into<String>) -> Self {
         Self {
             rule: rules::STEP_NO_TARGET,
             message: message.into(),
@@ -264,6 +273,13 @@ impl ActivationError {
     fn disabled(message: impl Into<String>) -> Self {
         Self {
             rule: rules::STEP_DISABLED,
+            message: message.into(),
+        }
+    }
+
+    pub(super) fn render_unavailable(message: impl Into<String>) -> Self {
+        Self {
+            rule: rules::RENDER_UNAVAILABLE,
             message: message.into(),
         }
     }
@@ -337,7 +353,7 @@ fn unavailable(step: &Step) -> Finding {
 /// press and release the left button, so the player's own hit test decides what
 /// the click reaches (spec §13, K9). A covered control therefore takes no click,
 /// exactly as for a player.
-fn surface_name(menu: &MenuState) -> &'static str {
+pub(super) fn surface_name(menu: &MenuState) -> &'static str {
     if !menu.open {
         "play"
     } else {
