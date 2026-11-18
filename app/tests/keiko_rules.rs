@@ -573,6 +573,57 @@ jump quiet
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Rule 35's message shape: a failed `log` or `no-log` assertion names the log
+/// line it found, which is what the author needs, not the park the take stopped
+/// at, which says nothing about the log.
+#[test]
+fn a_failed_log_assertion_names_the_line_it_found() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "absent",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+advance
+                 expect no-log warn row 4
+",
+            ),
+            (
+                "mismatch",
+                "keiko 1
+setting play.text_speed 0
+
+new-game
+advance
+                 expect log warn row 4 contains \"this text is not in the log\"
+",
+            ),
+        ],
+    );
+    std::fs::remove_file(pack.join("assets/sprites/ace/neutral.png")).unwrap();
+
+    let output = take(&pack, &["absent"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(text.contains("expected no warn row 4 line"), "{text}");
+    assert!(text.contains("observed warn row 4 \""), "{text}");
+    assert!(text.contains("sprites/ace/neutral.png"), "{text}");
+
+    let output = take(&pack, &["mismatch"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(
+        text.contains("expected log warn row 4 containing \"this text is not in the log\""),
+        "{text}"
+    );
+    assert!(text.contains("observed warn row 4 \""), "{text}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn wait_advances_exactly_sixty_frames_a_second() {
     let dir = temp_dir();
