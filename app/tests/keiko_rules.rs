@@ -642,6 +642,63 @@ fn new_game_in_play_fails_instead_of_moving_the_focus() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Rule 9: a disabled control fails with `keiko.step.disabled`, while a control
+/// the current surface does not show still fails with `keiko.step.no-target`.
+#[test]
+fn a_disabled_control_reports_step_disabled_and_an_absent_one_step_no_target() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[
+            (
+                "disabled",
+                "keiko 1
+setting play.text_speed 0
+
+                 expect control title.continue disabled
+activate title.continue
+",
+            ),
+            (
+                "absent",
+                "keiko 1
+setting play.text_speed 0
+
+activate overlay.slot.1
+",
+            ),
+        ],
+    );
+
+    let output = take(&pack, &["disabled"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.step.disabled"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(
+        !stdout(&output).contains("keiko.step.no-target"),
+        "a disabled control is not a missing one:
+{}",
+        stdout(&output)
+    );
+
+    let output = take(&pack, &["absent"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.step.no-target"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(
+        stdout(&output).contains("`overlay.slot.1` is not on the title surface"),
+        "{}",
+        stdout(&output)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 #[test]
 fn frame_reports_that_no_renderer_is_available() {
     let dir = temp_dir();
