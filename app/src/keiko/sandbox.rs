@@ -11,6 +11,21 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
+/// The first free `unmei-keiko-<pid>-<n>` root from `nonce` on, created on the
+/// spot so no two takes can pick it. A recycled process id can leave a kept
+/// sandbox behind, and a take that reused it would boot with another run's
+/// slots, read log or settings instead of a clean one (spec §4.2).
+fn fresh_root(mut nonce: u64) -> io::Result<PathBuf> {
+    loop {
+        let root = std::env::temp_dir().join(format!("unmei-keiko-{}-{nonce}", std::process::id()));
+        match fs::create_dir(&root) {
+            Ok(()) => return Ok(root),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => nonce += 1,
+            Err(error) => return Err(error),
+        }
+    }
+}
+
 /// One take's sandbox folder.
 #[derive(Debug, Clone)]
 pub struct Sandbox {
@@ -32,12 +47,7 @@ impl Sandbox {
     /// Create the root and its first take folder, and copy the pack's text files
     /// into it.
     pub fn create(original_pack: &Path, take_index: usize) -> io::Result<Self> {
-        let nonce = format!(
-            "{}-{}",
-            std::process::id(),
-            NONCE.fetch_add(1, Ordering::Relaxed)
-        );
-        let root = std::env::temp_dir().join(format!("unmei-keiko-{nonce}"));
+        let root = fresh_root(NONCE.fetch_add(1, Ordering::Relaxed))?;
         Self::create_in(&root, original_pack, take_index)
     }
 
@@ -218,6 +228,27 @@ mod tests {
 
         sandbox.finish(false);
         assert!(!root.join("take-1").exists());
+    }
+
+    /// A leftover sandbox at the next root's own name — what a recycled process
+    /// id leaves after `--keep` — must be stepped over, not reused.
+    #[test]
+    fn a_take_never_reuses_an_existing_sandbox_root() {
+        let start = NONCE.fetch_add(1, Ordering::Relaxed);
+        let taken =
+            std::env::temp_dir().join(format!("unmei-keiko-{}-{start}", std::process::id()));
+        fs::create_dir_all(taken.join("take-1")).unwrap();
+        fs::write(taken.join("take-1/old.slot1.save.ron"), "stale").unwrap();
+
+        let root = fresh_root(start).unwrap();
+        assert_ne!(root, taken, "a fresh root is never an existing one");
+        assert_eq!(
+            fs::read_dir(&root).unwrap().count(),
+            0,
+            "and it starts empty"
+        );
+        fs::remove_dir_all(&root).unwrap();
+        fs::remove_dir_all(&taken).unwrap();
     }
 
     #[test]
