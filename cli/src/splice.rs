@@ -671,7 +671,7 @@ mod tests {
         }
 
         fn config() -> impl Strategy<Value = DecisionConfig> {
-            let choice = prop::sample::subsequence(vec!["a", "b", "c"], 1..=3)
+            let choice = prop::sample::subsequence(vec!["a", "b", "q1"], 1..=3)
                 .prop_flat_map(|ids| {
                     let ids: Vec<String> = ids.into_iter().map(String::from).collect();
                     let fallback = prop::sample::select(ids.clone());
@@ -745,8 +745,11 @@ mod tests {
             npc: Npc,
             /// The NPC pretty-printed, with comment lines inserted.
             src: String,
-            /// The inserted comments outside `question`'s block.
-            kept: Vec<String>,
+            /// The text the splice must keep byte for byte: everything before
+            /// and after `question`'s config, or before and after the decisions
+            /// map's closing brace when the question is new.
+            before: String,
+            after: String,
             question: String,
             config: DecisionConfig,
         }
@@ -765,11 +768,13 @@ mod tests {
                         for (line, comment) in comments.iter().rev() {
                             lines.insert(*line, comment.clone());
                         }
-                        let kept = kept_comments(&lines, &npc, &question);
+                        let src = lines.join("\n");
+                        let cut = untouched(&lines, &question);
                         Case {
+                            before: src[..cut.0].to_string(),
+                            after: src[cut.1..].to_string(),
                             npc,
-                            src: lines.join("\n"),
-                            kept,
+                            src,
                             question,
                             config,
                         }
@@ -778,26 +783,36 @@ mod tests {
             })
         }
 
-        /// The inserted comments outside `question`'s block. Pretty printing
-        /// puts each decision key at eight spaces with its config's `(` on the
-        /// same line, and the config's closing `),` alone at the same indent.
-        fn kept_comments(lines: &[String], npc: &Npc, question: &str) -> Vec<String> {
+        /// The byte range of the joined `lines` a splice of `question` may
+        /// change, read from the pretty-printed layout rather than by scanning
+        /// RON. Each decision key sits alone at eight spaces with its config's
+        /// `(` ending the line, and the config closes with `),` alone at the
+        /// same indent; the decisions map closes with `},` at four. Inserted
+        /// comment lines start with `//` or `/*`, so they match neither.
+        fn untouched(lines: &[String], question: &str) -> (usize, usize) {
+            let offset = |line: usize| lines[..line].iter().map(|l| l.len() + 1).sum::<usize>();
             let header = format!("        \"{question}\": (");
-            let replaced = npc.decisions.contains_key(question);
-            let mut inside = false;
-            let mut kept = Vec::new();
-            for line in lines {
-                let is_comment = line.starts_with("//") || line.starts_with("/*");
-                if is_comment && !inside {
-                    kept.push(line.clone());
+            match lines.iter().position(|line| *line == header) {
+                Some(open) => {
+                    let close = open
+                        + lines[open..]
+                            .iter()
+                            .position(|line| line == "        ),")
+                            .expect("a pretty-printed config closes");
+                    (
+                        offset(open) + header.len() - 1,
+                        offset(close) + "        )".len(),
+                    )
                 }
-                if replaced && *line == header {
-                    inside = true;
-                } else if inside && line == "        )," {
-                    inside = false;
+                None => {
+                    let close = lines
+                        .iter()
+                        .position(|line| line == "    },")
+                        .expect("a pretty-printed decisions map closes");
+                    let at = offset(close) + "    ".len();
+                    (at, at)
                 }
             }
-            kept
         }
 
         proptest! {
@@ -811,11 +826,11 @@ mod tests {
             })]
 
             /// Splicing one question leaves a file that reads back as the
-            /// original NPC with only that question set, and keeps every
-            /// comment outside the replaced block.
+            /// original NPC with only that question set, and every byte outside
+            /// that question's config, comments included, is unchanged.
             #[test]
-            fn a_splice_sets_one_question_and_keeps_every_other_comment(case in case()) {
-                let Case { npc, src, kept, question, config } = case;
+            fn a_splice_changes_only_the_one_config(case in case()) {
+                let Case { npc, src, before, after, question, config } = case;
                 let parsed: Npc = ron::from_str(&src).expect("the generated file parses");
                 prop_assert_eq!(&parsed, &npc);
                 let out = super::super::splice_question(&src, &npc, &question, &config);
@@ -823,9 +838,12 @@ mod tests {
                 expected.decisions.insert(question, config);
                 let read: Result<Npc, _> = ron::from_str(&out);
                 prop_assert_eq!(read.ok(), Some(expected), "spliced file:\n{}", out);
-                for comment in &kept {
-                    prop_assert!(out.contains(comment.as_str()), "{comment:?} lost from:\n{out}");
-                }
+                prop_assert!(
+                    out.len() >= before.len() + after.len()
+                        && out.starts_with(&before)
+                        && out.ends_with(&after),
+                    "text outside the config changed:\n{out}"
+                );
             }
         }
     }
