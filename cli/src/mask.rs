@@ -467,4 +467,104 @@ mod tests {
         let mut writer = mask.writer(Failing);
         assert!(writer.write_all(b"ordinary text\n").is_err());
     }
+
+    /// The writer's guarantees over generated values, text and write boundaries.
+    ///
+    /// Values and text share a three-letter alphabet, so values overlap, share
+    /// prefixes and recur often. None of those letters occurs in [`MARKER`], so a
+    /// value found in the output is a leak, not one rebuilt from a marker.
+    mod properties {
+        use super::*;
+        use proptest::prelude::*;
+        use proptest::test_runner::RngSeed;
+
+        const ALPHABET: [char; 3] = ['m', 'n', '-'];
+
+        fn letter() -> impl Strategy<Value = String> {
+            prop::sample::select(ALPHABET.to_vec()).prop_map(String::from)
+        }
+
+        fn value() -> impl Strategy<Value = String> {
+            prop::collection::vec(letter(), 1..=5).prop_map(|letters| letters.concat())
+        }
+
+        /// `text` plus up to six byte offsets where it is split into writes.
+        fn with_cuts(text: String) -> impl Strategy<Value = (String, Vec<usize>)> {
+            let cuts = prop::collection::vec(0..=text.len(), 0..=6);
+            (Just(text), cuts)
+        }
+
+        /// The writes `cuts` splits `text` into, in order. The text is ASCII, so
+        /// every offset is a character boundary.
+        fn chunks(text: &str, mut cuts: Vec<usize>) -> Vec<&str> {
+            cuts.extend([0, text.len()]);
+            cuts.sort_unstable();
+            cuts.dedup();
+            cuts.windows(2)
+                .map(|pair| &text[pair[0]..pair[1]])
+                .collect()
+        }
+
+        /// One or two values, and a text made mostly of them and loose letters.
+        fn values_in_text() -> impl Strategy<Value = (Vec<String>, String, Vec<usize>)> {
+            prop::collection::vec(value(), 1..=2).prop_flat_map(|values| {
+                let piece = prop_oneof![prop::sample::select(values.clone()), letter()];
+                prop::collection::vec(piece, 0..=12)
+                    .prop_flat_map(|pieces| with_cuts(pieces.concat()))
+                    .prop_map(move |(text, cuts)| (values.clone(), text, cuts))
+            })
+        }
+
+        /// Values ending in `z`, and a text of their prefixes and loose letters
+        /// that never contains `z`: every value starts in the text and none ends.
+        fn prefixes_only() -> impl Strategy<Value = (Vec<String>, String, Vec<usize>)> {
+            prop::collection::vec(value(), 1..=2).prop_flat_map(|stems| {
+                let prefix = prop::sample::select(stems.clone()).prop_flat_map(|stem| {
+                    (1..=stem.len()).prop_map(move |len| stem[..len].to_string())
+                });
+                let piece = prop_oneof![prefix, letter()];
+                let values: Vec<String> = stems.iter().map(|stem| format!("{stem}z")).collect();
+                prop::collection::vec(piece, 0..=12)
+                    .prop_flat_map(|pieces| with_cuts(pieces.concat()))
+                    .prop_map(move |(text, cuts)| (values.clone(), text, cuts))
+            })
+        }
+
+        proptest! {
+            // A fixed seed keeps the workspace gate deterministic. A failure is a
+            // confirmed defect: keep its shrunk case as a named example test above
+            // rather than in a regressions file, so nothing is persisted here.
+            #![proptest_config(ProptestConfig {
+                cases: 512,
+                rng_seed: RngSeed::Fixed(0x756e_6d65_6900),
+                failure_persistence: None,
+                ..ProptestConfig::default()
+            })]
+
+            /// However the text is split into writes, the output is what one write
+            /// of the whole text gives.
+            #[test]
+            fn write_boundaries_never_change_the_output((values, text, cuts) in values_in_text()) {
+                let mask = Mask::new(values);
+                let whole = written(&mask, &[&text]);
+                prop_assert_eq!(written(&mask, &chunks(&text, cuts)), whole);
+            }
+
+            /// No value survives into the output, however the text is split.
+            #[test]
+            fn no_value_reaches_the_output((values, text, cuts) in values_in_text()) {
+                let output = written(&Mask::new(values.clone()), &chunks(&text, cuts));
+                for value in &values {
+                    prop_assert!(!output.contains(value.as_str()), "{value:?} leaked: {output:?}");
+                }
+            }
+
+            /// Bytes held back as a possible value come out unchanged, neither lost
+            /// nor repeated, when the value never completes.
+            #[test]
+            fn an_incomplete_value_is_emitted_unchanged((values, text, cuts) in prefixes_only()) {
+                prop_assert_eq!(written(&Mask::new(values), &chunks(&text, cuts)), text);
+            }
+        }
+    }
 }
