@@ -2,12 +2,14 @@
 //! save each finding as a ready-to-run case, and report coverage (spec §9).
 
 use std::collections::{HashSet, VecDeque};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde_json::{json, Value};
 
 mod coverage;
+mod save;
 use coverage::Coverage;
+use save::{save_finding, Collected};
 use unmei_engine::keiko::{Header, HeaderLine, Pick, Step, StepLine, CASE_VERSION};
 use unmei_engine::runner::Wait;
 use unmei_engine::Pack;
@@ -69,14 +71,14 @@ impl Report {
 
 /// One branch: the headers it carries and the steps it applies.
 #[derive(Clone, Default)]
-struct Branch {
+pub(super) struct Branch {
     headers: Vec<HeaderLine>,
     steps: Vec<StepLine>,
 }
 
 impl Branch {
     /// The case text a saved finding holds.
-    fn case_text(&self, closing: &[String]) -> String {
+    pub(super) fn case_text(&self, closing: &[String]) -> String {
         let mut text = format!("keiko {CASE_VERSION}\n");
         for line in &self.headers {
             if let Some(rendered) = render_header(&line.header) {
@@ -97,7 +99,7 @@ impl Branch {
         text
     }
 
-    fn digest(&self) -> String {
+    pub(super) fn digest(&self) -> String {
         let mut text = String::new();
         for line in &self.steps {
             if let Some(rendered) = render_step(&line.step) {
@@ -366,138 +368,6 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
 /// The failure rows a pack can cause: a pack warning, a missing or undecodable
 /// asset, a missing decide point, a missing decision label.
 const PACK_ROWS: &[u32] = &[2, 3, 4, 5, 6, 11, 12];
-
-/// The closing assertion a saved finding carries, so the case fails while the
-/// finding remains (spec §9.4).
-fn closing_assertion(
-    finding: &Finding,
-    park: Option<&Observation>,
-    pack: &unmei_engine::Pack,
-) -> Vec<String> {
-    if finding.rule == rules::NOTICE {
-        return vec!["expect notice none".to_string()];
-    }
-    if finding.rule == rules::DEFENSIVE
-        || finding.rule == rules::PANIC
-        || finding.rule == rules::UNSETTLED
-    {
-        return vec!["expect surface play".to_string()];
-    }
-    if finding.rule == rules::STUCK {
-        // A stuck park never moves on, so the next say-line after it is never
-        // read. Asserting that read mark fails while the loop remains and
-        // passes once the pack walks past the park. A park with no say-line
-        // after it has no expressible closure, so it saves no case.
-        if let Some(park) = park {
-            if let Some((scene, line)) = next_say_line(pack, park) {
-                return vec![format!("expect read {scene}:{line}")];
-            }
-        }
-        return Vec::new();
-    }
-    if let Some(row) = finding.rule.strip_prefix("keiko.log.row-") {
-        // The level comes from the row table, never from a copy of it here.
-        let level = row
-            .parse::<u32>()
-            .ok()
-            .and_then(crate::failure::FailureRow::of_number)
-            .and_then(crate::failure::FailureRow::level)
-            .map(|level| {
-                if level == log::Level::Warn {
-                    "warn"
-                } else {
-                    "error"
-                }
-            })
-            .unwrap_or("error");
-        return vec![format!("expect no-log {level} row {row}")];
-    }
-    Vec::new()
-}
-
-/// The first say-line after the park's own line in its scene, if one exists.
-fn next_say_line(pack: &unmei_engine::Pack, park: &Observation) -> Option<(String, usize)> {
-    let scene = park.scene.as_deref()?;
-    let line = usize::try_from(park.line?).ok()?;
-    let script = pack.scenes.get(scene)?;
-    let park = script
-        .lines
-        .iter()
-        .enumerate()
-        .find(|(index, _)| script.source_line(*index) == line)?
-        .0;
-    script
-        .lines
-        .iter()
-        .enumerate()
-        .skip(park + 1)
-        .find(|(_, word)| matches!(word, unmei_engine::Line::Say { .. }))
-        .map(|(index, _)| (scene.to_string(), script.source_line(index)))
-}
-
-/// What the walk has reported so far. `seen` keeps one problem to one finding:
-/// the first branch, in walk order, that hits a (rule, message) pair reports
-/// and saves it, and later branches that hit the same problem stay silent (spec
-/// §9.4). `saved` keeps a rerun from rewriting a file that already exists.
-#[derive(Default)]
-struct Collected {
-    findings: Vec<Value>,
-    saved: HashSet<String>,
-    seen: HashSet<(String, String)>,
-}
-
-fn save_finding(
-    pack_root: &Path,
-    pack: &unmei_engine::Pack,
-    branch: &Branch,
-    finding: &Finding,
-    park: Option<&Observation>,
-    collected: &mut Collected,
-) {
-    if !collected
-        .seen
-        .insert((finding.rule.clone(), finding.message.clone()))
-    {
-        return;
-    }
-    let closing = closing_assertion(finding, park, pack);
-    let mut json = super::output::finding_json(finding);
-    if closing.is_empty() {
-        // Rule 29: a saved case must fail while its finding remains. Without an
-        // expressible closure the finding is reported unsaved, not written as a
-        // case that would pass.
-        if let Some(object) = json.as_object_mut() {
-            object.insert("saved".to_string(), Value::Bool(false));
-        }
-        collected.findings.push(json);
-        return;
-    }
-    let path = saved_finding_path(pack_root, branch, finding);
-    let relative = path
-        .strip_prefix(pack_root)
-        .map(|path| path.display().to_string())
-        .unwrap_or_else(|_| path.display().to_string())
-        .replace('\\', "/");
-    if collected.saved.insert(relative.clone()) && !path.exists() {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        let _ = std::fs::write(&path, branch.case_text(&closing));
-    }
-    if let Some(object) = json.as_object_mut() {
-        object.insert("case".to_string(), Value::String(relative));
-    }
-    collected.findings.push(json);
-}
-
-/// `tests/findings/<rule>-<hash>.keiko`, named by the step list's content hash.
-fn saved_finding_path(pack_root: &Path, branch: &Branch, finding: &Finding) -> PathBuf {
-    pack_root.join("tests").join("findings").join(format!(
-        "{}-{}.keiko",
-        finding.rule,
-        branch.digest()
-    ))
-}
 
 fn visited_key(observation: &Observation) -> String {
     let mut key = format!(
