@@ -109,7 +109,7 @@ fn condition_with(key: &str, op: CondOp, value: &str) -> Result<Condition, Strin
 }
 
 /// String / number / bool literals. Strings are double-quoted, no escapes in
-/// the slice (content is prose); numbers are f64-parseable.
+/// the slice (content is prose); numbers are f64-parseable and finite.
 pub(super) fn parse_literal(value: &str) -> Result<Literal, String> {
     if value == "true" {
         return Ok(Literal::Bool(true));
@@ -124,6 +124,11 @@ pub(super) fn parse_literal(value: &str) -> Result<Literal, String> {
         return Ok(Literal::Str(inner.to_string()));
     }
     if let Ok(n) = value.parse::<f64>() {
+        // `f64` parsing accepts `NaN`, `inf` and an overflowing exponent.
+        // NaN never equals itself, so a state number must be finite.
+        if !n.is_finite() {
+            return Err(format!("number literal must be finite; got `{value}`"));
+        }
         return Ok(Literal::Num(n));
     }
     Err(format!(

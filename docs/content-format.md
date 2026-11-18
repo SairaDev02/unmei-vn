@@ -61,7 +61,7 @@ Line-oriented: one command per line, `#` comments, indentation is cosmetic. A li
 | Hide sprite | `hide <npc_id>` | |
 | Play sound | `play <sound_id>` | → `assets/audio/<sound_id>.ogg` (music and sfx share the namespace) |
 | Stop sound | `stop <sound_id>` | takes the same id `play` took |
-| Set variable | `set <name> = <literal>` | literal is string / number / bool |
+| Set variable | `set <name> = <literal>` | literal is string / finite number / bool |
 | Player choice | `choice` / `end` block | options: `"<text>" -> <target>` inside the block |
 | Label | `label <name>` | names may contain `.` (e.g. `reply.warm`) |
 | Jump | `jump <name>` | see transitions (§5) |
@@ -73,7 +73,7 @@ Grammar deliberately **excluded**: arithmetic, loops, macros, string operations,
 
 ### Variables
 
-`set name = "bucket"` · `set name = 3` · `set name = true`. Three literal types — bucketed strings (the recommended pattern: `affinity_level: "high"` not raw counters), simple numbers, bool flags. References: `{name}` in say-line text. Branching comes from player `choice`, `decide`, and conditionals (below); state is also collected and sent to Decisions. **A key's declared kind in `state.ron` is fixed** — every `set` must assign the declared kind, and a mismatch is a load-time error.
+`set name = "bucket"` · `set name = 3` · `set name = true`. Three literal types — bucketed strings (the recommended pattern: `affinity_level: "high"` not raw counters), simple numbers, bool flags. References: `{name}` in say-line text. Branching comes from player `choice`, `decide`, and conditionals (below); state is also collected and sent to Decisions. **A key's declared kind in `state.ron` is fixed** — every `set` must assign the declared kind, and a mismatch is a load-time error. **A number must be finite.** `NaN`, `inf`, `-inf` and an exponent too large for a 64-bit float, such as `1e400`, are load-time errors in `state.ron`, on a `set` line and in a condition literal. A `NaN` never equals itself, so equality on it could never hold.
 
 ### Conditionals
 
@@ -261,7 +261,7 @@ No `call`/`return`, no arguments, no label parameters. The demo: `first_meeting`
     - Every diagnostic is emitted **sorted by scene id**, so output and tests are deterministic.
   - The optional fields are authored as **plain RON values** — `tagline` and `title_backdrop` as strings, `scenes` as a list — or omitted, never RON's `Some("…")` wrapping — and a malformed value is a load-time error. A build older than the fields rejects a pack that declares them (unknown fields are load errors), accepted under the declined-versioning stance.
 - `state.ron` is the state vocabulary: every `set` target, every condition's state key, and every `state_keys` entry must be declared here — undeclared keys are load-time errors. Each key's kind (string / number / bool) is **fixed**: every `set` and every condition literal must match it, or it is a load-time error. It doubles as the save-schema anchor for the save/load scope.
-- State values are **flat scalars only**: string, number, or bool. Nested values (maps, sequences) are load-time errors — the state map serializes directly into the Decisions request's `state` object. The canonical authored syntax remains the RON struct form `(key: value, …)` as shown; the loader also accepts the RON map form `{"key": value, …}`. State keys are pack-defined, not a closed set of struct fields; unknown schema fields in the manifest and NPC definitions are load-time errors.
+- State values are **flat scalars only**: string, finite number, or bool. Nested values (maps, sequences) are load-time errors — the state map serializes directly into the Decisions request's `state` object. The canonical authored syntax remains the RON struct form `(key: value, …)` as shown; the loader also accepts the RON map form `{"key": value, …}`. State keys are pack-defined, not a closed set of struct fields; unknown schema fields in the manifest and NPC definitions are load-time errors.
 - Scene/asset ids are filename stems; labels `[a-zA-Z0-9_.]+`; speakers are free text up to the first `: ` (say-line rule).
 - State keys use `snake_case` ids `[a-z0-9_]+` **by authoring convention**. The state-map loader currently requires string keys, not that identifier subset; the bridge change below preserves that tolerance, with no trimming or normalization. This does not expand which spellings the dialogue DSL can reference.
 
@@ -290,7 +290,7 @@ Behind the interface sit the generic `ron::Value` parsing, state-map shape and s
 - **State reads:** preserve both existing struct and map forms. Non-string keys and non-scalar values still fail; no new key-shape restrictions are added.
 - **State writes:** `encode_state` emits a RON **map with quoted string keys**, using the engine's `StateValue::Serialize`. Keys and string values are serialized as strings, never inserted into RON through interpolation. Quotes and backslashes use RON escaping (for example `\"` and `\\`); line breaks, control characters and Unicode use valid RON string encoding. Decoding must preserve the exact string text, not literal escape spellings. There is no key trimming, normalization or escape pre-processing.
 - **Staging fidelity:** semantic, not byte-for-byte. Braces, numeric spelling, whitespace, entry order and comments may differ in the temporary pack; exact formatting and deterministic key order are not promised. The canonical authored struct convention is unchanged, and no migration or rewrite of existing source packs is performed.
-- **Numbers and duplicate entries:** retain the current RON-number-to-`f64` conversion and RON map behavior. This slice adds no rounding/coercion, finite-number requirement or duplicate-key diagnostics. No new numeric policy is implied by serializer spelling changes.
+- **Numbers and duplicate entries:** retain the current RON-number-to-`f64` conversion and RON map behavior. This slice adds no rounding/coercion, finite-number requirement or duplicate-key diagnostics. (A later change added the finite-number rule at pack load; see “Variables” in §3.) No new numeric policy is implied by serializer spelling changes.
 - **Diagnostics:** preserve the engine-owned messages for an invalid root, non-string key and invalid scalar at a named state key, as well as the existing `StateValue` and optional-string error prefixes. `decode_state` preserves the `invalid RON: …` distinction; `pack.rs` adds `state.ron` context once. The private type names remain shared. Dependency-generated parser details and OS-generated IO text are not new byte-stability promises.
 
 #### Delivery and validation

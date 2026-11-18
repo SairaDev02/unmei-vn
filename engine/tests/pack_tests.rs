@@ -1877,3 +1877,79 @@ fn a_loop_that_exits_through_an_if_loads() {
         "label top\nif met_ace\njump out\nendif\nset met_ace = true\njump top\nlabel out\nNarrator: Out.\n";
     load_with_scenes(&[("scenes/scene_a.unmei", src)]).unwrap();
 }
+
+// --- state numbers must be finite ------------------------------------------
+
+/// The authored spellings of a non-finite number: RON's `NaN` / `inf` /
+/// `-inf`, and an exponent too large for `f64`, which overflows to infinity.
+const NON_FINITE: [&str; 4] = ["NaN", "inf", "-inf", "1e400"];
+
+/// A valid pack whose `state.ron` declares the number key `count`.
+fn pack_with_count(state_value: &str, scene: &str) -> (tempfile::TempDir, std::path::PathBuf) {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut files = valid_pack_files();
+    files[1] = (
+        "state.ron",
+        STATE_RON.replace(")", &format!("    count: {state_value},\n)")),
+    );
+    files[2] = ("scenes/scene_a.unmei", scene.to_string());
+    let root = write_pack(tmp.path(), &files);
+    (tmp, root)
+}
+
+#[test]
+fn finite_state_numbers_load() {
+    let (_tmp, root) = pack_with_count(
+        "0",
+        "set count = -2.5\nif count < 1e300\nNarrator: Ok.\nendif\n",
+    );
+    load_pack(&root).expect("finite numbers load");
+}
+
+#[test]
+fn non_finite_initial_state_number_is_a_load_error() {
+    for spelling in NON_FINITE {
+        let (_tmp, root) = pack_with_count(spelling, "Narrator: Hi.\n");
+        let errs = load_pack(&root).expect_err(spelling);
+        let err = errs
+            .iter()
+            .find(|e| {
+                e.message
+                    .contains("state value for `count` must be a finite number")
+            })
+            .unwrap_or_else(|| panic!("{spelling}: non-finite state error, got {errs:?}"));
+        assert_eq!(err.file, "state.ron", "{spelling}");
+    }
+}
+
+#[test]
+fn non_finite_set_literal_is_a_load_error() {
+    for spelling in NON_FINITE {
+        let (_tmp, root) = pack_with_count("0", &format!("set count = {spelling}\n"));
+        let errs = load_pack(&root).expect_err(spelling);
+        let err = errs
+            .iter()
+            .find(|e| e.message.contains("number literal must be finite"))
+            .unwrap_or_else(|| panic!("{spelling}: non-finite set error, got {errs:?}"));
+        assert_eq!(err.file, "scenes/scene_a.unmei", "{spelling}");
+        assert_eq!(err.line, Some(1), "{spelling}");
+        assert!(err.message.contains(spelling), "{spelling}: {err}");
+    }
+}
+
+#[test]
+fn non_finite_condition_literal_is_a_load_error() {
+    for spelling in NON_FINITE {
+        for op in ["==", "!=", "<", ">="] {
+            let scene = format!("if count {op} {spelling}\nNarrator: No.\nendif\n");
+            let (_tmp, root) = pack_with_count("0", &scene);
+            let errs = load_pack(&root).expect_err(&scene);
+            let err = errs
+                .iter()
+                .find(|e| e.message.contains("number literal must be finite"))
+                .unwrap_or_else(|| panic!("{scene}: non-finite condition error, got {errs:?}"));
+            assert_eq!(err.file, "scenes/scene_a.unmei", "{scene}");
+            assert_eq!(err.line, Some(1), "{scene}");
+        }
+    }
+}
