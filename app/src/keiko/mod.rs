@@ -15,6 +15,7 @@ pub mod observe;
 mod observe_text;
 pub mod output;
 pub mod preview;
+pub mod render;
 pub mod sandbox;
 pub mod sha256;
 pub mod steps;

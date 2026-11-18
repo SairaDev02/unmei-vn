@@ -92,6 +92,38 @@ impl Selection {
         }
     }
 
+    /// The slice-2 render selection (spec §13): the shipping plugin group with
+    /// no window backend, the renderer pinned to the fallback (software)
+    /// adapter, and rendering unpipelined so a readback belongs to the frame the
+    /// take asked for. A take supplies its own image target and never presents.
+    fn rendered(self) -> Self {
+        let backends = wgpu::Backends::from_env().unwrap_or(wgpu::Backends::all());
+        Self {
+            group: self
+                .group
+                .disable::<bevy::winit::WinitPlugin>()
+                .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
+                .disable::<bevy::gilrs::GilrsPlugin>()
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                    ..default()
+                })
+                .set(bevy::render::RenderPlugin {
+                    render_creation: bevy::render::settings::RenderCreation::Automatic(Box::new(
+                        bevy::render::settings::WgpuSettings {
+                            backends: Some(backends),
+                            force_fallback_adapter: true,
+                            ..default()
+                        },
+                    )),
+                    synchronous_pipeline_compilation: true,
+                    ..default()
+                }),
+        }
+    }
+
     fn with_atlas(self) -> Self {
         Self {
             // Sprite normally nests atlas support. Supply it at the upstream
@@ -181,6 +213,75 @@ pub fn keiko_app(
     decision_factory: crate::DecisionFactory,
     asset_faults: std::sync::Arc<crate::keiko::assets::AssetFaults>,
 ) -> App {
+    let mut app = take_app(
+        config,
+        session_log,
+        clipboard,
+        key_check,
+        decision_factory,
+        asset_faults,
+    );
+    let asset_root = app.world().resource::<RuntimeConfig>().asset_root.clone();
+    Selection::upstream()
+        .headless_subtraction()
+        .with_atlas()
+        .with_headless_asset_root(&asset_root)
+        .with_keiko_log()
+        .finish(&mut app);
+    // A windowless app never registers the real image loader (`ImagePlugin`
+    // only preregisters it, and a renderer supplies it in play).
+    app.register_asset_loader(bevy::image::ImageLoader::new(
+        bevy::image::CompressedImageFormats::NONE,
+    ));
+    app.add_plugins(UnmeiPlugin);
+    app
+}
+
+/// Build a take app that draws (spec §13): the player's full plugin selection,
+/// minus the window backend, with the renderer pinned to the software
+/// rasterizer and rendering itself unpipelined, so a readback belongs to the
+/// frame the take asked for.
+///
+/// The caller checks [`crate::keiko::render::available`] first: without a
+/// fallback adapter Bevy's renderer panics, so a take that cannot draw keeps
+/// today's windowless app and fails its `frame` and `click` steps instead.
+pub fn keiko_app_rendered(
+    config: RuntimeConfig,
+    session_log: SessionLogResult,
+    clipboard: crate::credentials::ClipboardPort,
+    key_check: crate::KeyCheckChannel,
+    decision_factory: crate::DecisionFactory,
+    asset_faults: std::sync::Arc<crate::keiko::assets::AssetFaults>,
+) -> App {
+    let mut app = take_app(
+        config,
+        session_log,
+        clipboard,
+        key_check,
+        decision_factory,
+        asset_faults,
+    );
+    let asset_root = app.world().resource::<RuntimeConfig>().asset_root.clone();
+    Selection::upstream()
+        .rendered()
+        .with_headless_asset_root(&asset_root)
+        .with_keiko_log()
+        .finish(&mut app);
+    app.add_plugins(UnmeiPlugin);
+    app
+}
+
+/// The parts every take app shares: the sandbox asset source, the config, the
+/// session log and the take's own ports, all inserted before the selection so
+/// the asset plugin sees the reader that carries the fault inventory.
+fn take_app(
+    config: RuntimeConfig,
+    session_log: SessionLogResult,
+    clipboard: crate::credentials::ClipboardPort,
+    key_check: crate::KeyCheckChannel,
+    decision_factory: crate::DecisionFactory,
+    asset_faults: std::sync::Arc<crate::keiko::assets::AssetFaults>,
+) -> App {
     let asset_root = config.asset_root.clone();
     let mut app = App::new();
     // The Keiko asset reader replaces the default source, so the two asset
@@ -209,19 +310,9 @@ pub fn keiko_app(
         }
         SessionLogResult::NotAttempted => crate::failure::set_keiko_log(None),
     }
-    Selection::upstream()
-        .headless_subtraction()
-        .with_atlas()
-        .with_headless_asset_root(&asset_root)
-        .with_keiko_log()
-        .finish(&mut app);
-    app.register_asset_loader(bevy::image::ImageLoader::new(
-        bevy::image::CompressedImageFormats::NONE,
-    ));
     app.insert_resource(clipboard)
         .insert_resource(key_check)
         .insert_resource(decision_factory);
-    app.add_plugins(UnmeiPlugin);
     app
 }
 
