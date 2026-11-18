@@ -112,7 +112,7 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Surface | Ids |
 |---|---|
 | Title | `title.continue`, `title.new-game`, `title.settings`, `title.gallery`, `title.quit` |
-| Overlay | `overlay.save-tab`, `overlay.load-tab`, `overlay.slot.1`, `overlay.slot.2`, `overlay.slot.3`, `overlay.slot.autosave`, `overlay.resume`, `overlay.settings`, `overlay.gallery`, `overlay.timeline`, `overlay.legacy` |
+| Overlay | `overlay.save-tab`, `overlay.load-tab`, `overlay.slot.1`, `overlay.slot.2`, `overlay.slot.3`, `overlay.slot.autosave`, `overlay.resume`, `overlay.exit-to-title`, `overlay.settings`, `overlay.gallery`, `overlay.timeline`, `overlay.legacy` |
 | Legacy picker | `legacy.target.1`, `legacy.target.2`, `legacy.target.3`, `legacy.cancel` |
 | Settings | `settings.back`, `settings.master`, `settings.music`, `settings.sfx`, `settings.mute`, `settings.reset-audio`, `settings.text-speed`, `settings.auto`, `settings.fullscreen`, `settings.reset-play`, `settings.key`, `settings.copy-path`, `settings.clear-key` |
 | Gallery | `gallery.card.<n>` (1-based, in entry order) |
@@ -375,7 +375,7 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 
 ## 14. The gate and the docs (Done when)
 
-- **Fixture packs.** The smoke checklist's recipes D, L, G, B and S/K become fixture packs under `app/tests/keiko/<name>/`, each with its own `tests/`.
+- **Fixture packs.** The smoke checklist's recipes D, L, G and B become fixture packs under `app/tests/keiko/<name>/`, each with its own `tests/`. The S/K recipes (disposable sidecars and credential faults) run their cases over D's pack with their own fixtures, because every take already has its own sandbox. *(Amended 2026-11-18.)*
 - **Migrated cases.** Every smoke case that needs no real GPU, audio device or physical input becomes a case over a fixture pack. That means T1–T4, P1, S1–S3, K1–K4 (with `key-check` faults in place of network blocking), G2 without its visual check, R1–R3, L1–L2, M1, the input-ownership parts of M2, and B1. A1's held and slow answers become `decision-hold` and `decision-slow` cases.
 - **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack and each fixture pack, and with `--explore --budget 10000` over the demo pack, and fails on a non-zero exit. The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
 - **Docs.** The demo pack's `AGENT-GUIDE.md` gains a Keiko section and the Guide a Keiko page (K28). [`testing.md`](testing.md) names Keiko as the player-level end-to-end layer. The smoke checklist is retired, and its rendered, audio and physical-input checks become accepted unverified residuals (*amended 2026-11-17*, [K31](keiko.md#8-relation-to-other-work)). The [release runbook](release-runbook.md) gains the release run of §14.1. `GLOSSARY.md` gains the terms in [requirements §9](keiko.md#9-contracts-this-will-amend).
@@ -444,6 +444,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Pack layout](content-format.md#2-pack-layout): the optional `tests/` folder.
 - [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine's `keiko` module and `unmei-play`'s Keiko modes.
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
+- **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

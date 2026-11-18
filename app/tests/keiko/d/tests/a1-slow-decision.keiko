@@ -1,0 +1,19 @@
+keiko 1
+# A1 (a slow model answer) — the decision lands only after its declared delay,
+# never before.
+# Excluded: the answer text (offline), Auto/skip interaction with the wait.
+fault decision-slow ace.greet 3s
+setting play.text_speed 0
+
+new-game
+advance
+advance
+pick "Ask about the letter"
+advance
+advance
+expect decision pending
+wait 1s
+expect decision pending
+wait 2s
+expect decision none
+expect line contains "Oh. It's you."

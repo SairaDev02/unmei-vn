@@ -1,0 +1,21 @@
+(
+    version: 2,
+    state: {
+        "letters_found": 1.0,
+        "met_ace": true,
+        "affinity_level": "high",
+    },
+    scene_id: "reunion",
+    pc: 3,
+    wait: Some(Say(
+        speaker: "Narrator",
+        text: "The gate again, hours later. She\'s still there.",
+    )),
+    staging: (
+        background: Some("school_gate"),
+        sprites: {
+            "ace": "neutral",
+        },
+        bgm: Some("music_evening"),
+    ),
+)

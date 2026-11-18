@@ -1,0 +1,16 @@
+keiko 1
+# K3, the visible Checking state — the row reports Checking while the ping is
+# held and the released verdict is Set/not checked, never Invalid.
+# Excluded: the field's greyed editing state (the observation exposes no field
+# colour), live Accepted/Rejected verdicts.
+fault key-check hold
+setting play.text_speed 0
+
+activate title.settings
+activate settings.key
+type "sk-nano-0123456789abcdef"
+press Enter
+expect surface settings
+expect control settings.key label "Checking…"
+release-key-check
+expect control settings.key label "Set — sk-nano-…cdef · not checked (see the log)"

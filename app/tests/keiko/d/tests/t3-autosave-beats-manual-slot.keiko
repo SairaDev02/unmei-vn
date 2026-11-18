@@ -1,0 +1,19 @@
+keiko 1
+# T3 (distinct autosave and manual parks), the fresh-launch half — a relaunch
+# has no live session, so Continue describes and loads the autosave, not the
+# manual Slot 1 that holds a different park.
+# Excluded: the process restart itself (the take starts from the kept sidecar
+# bytes), the Continue line's rendered scene/time, unusable-autosave bytes
+# preservation (t3b covers the disabled row; file equality is a rule test).
+fixture autosave fixtures/autosave-reunion.ron
+fixture slot-1 fixtures/slot-first.ron
+setting play.text_speed 0
+
+expect surface title
+expect slot 1 scene first_meeting
+expect slot autosave scene reunion
+activate title.continue
+expect surface play
+expect scene reunion
+expect line "The gate again, hours later. She's still there."
+expect slot 1 scene first_meeting

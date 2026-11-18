@@ -61,10 +61,52 @@ fn take_pack(name: &str, cases: &[&str]) {
 }
 
 /// Recipe D: a clean content-only copy of the demo pack. The title, offline
-/// decision and comfort cases play its story.
+/// decision and comfort cases play its story; the live-session, save, credential
+/// and dev cases keep their own fixtures under its `tests/fixtures/`.
 #[test]
 fn the_clean_demo_fixture_packs_cases_pass() {
-    take_pack("d", &["t1-title", "p1-choice-fallback"]);
+    take_pack(
+        "d",
+        &[
+            "t1-title",
+            "p1-choice-fallback",
+            "t2-exit-to-title",
+            "t3-autosave-beats-manual-slot",
+            "t3b-unusable-autosave",
+            "t4-new-game-keeps-saves",
+            "s1-manual-save-and-load",
+            "s1b-relaunch-loads-a-manual-slot",
+            "s2-legacy-import",
+            "s3-blocked-save-recovery",
+            "k1-no-key-config",
+            "k2a-stored-key",
+            "k2b-env-override",
+            "k3-offline-blocking",
+            "k3b-checking-holds",
+            "k3c-clear-key",
+            "k4-unreadable-credential",
+            "k4b-blocked-credential-write",
+            "m1-normal-mode-shortcuts-inert",
+            "m1-dev-shortcuts",
+            "m2-dev-input-ownership",
+            "a1-held-decision",
+            "a1-slow-decision",
+        ],
+    );
+}
+
+/// Recipe G: the clean demo copy with one sprite file removed and another made
+/// undecodable, so the gallery's failed art is a take's subject.
+#[test]
+fn the_failed_gallery_art_fixture_packs_cases_pass() {
+    take_pack("g", &["g2-failed-gallery-art"]);
+}
+
+/// Recipe B: a loadable copy whose case removes the manifest from the take's
+/// own sandbox, so boot reaches the error screen before the title.
+#[test]
+fn the_broken_pack_fixture_packs_cases_pass() {
+    take_pack("b", &["b1-broken-pack"]);
 }
 
 /// Recipe L: the demo copy with the smoke lane's three declared scenes. The

@@ -1,0 +1,20 @@
+keiko 1
+# M1 (release `--dev` on a disposable Slot 1) — the dev shortcuts work: F3
+# opens the Monitor, F5 writes manual Slot 1 and F9 loads it.
+# Excluded: the release-vs-debug build identity (the case's `dev` header is the
+# take's only switch), the real window and physical keys.
+dev
+setting play.text_speed 0
+
+new-game
+expect surface play
+press F3
+expect monitor open
+press Escape
+expect monitor closed
+press F5
+expect slot 1 scene first_meeting
+advance
+expect line "You're not from around here, are you?"
+press F9
+expect line "Morning light. A folded letter on the ground, half under a shoe."

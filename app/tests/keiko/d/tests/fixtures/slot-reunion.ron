@@ -1,0 +1,21 @@
+(
+    version: 2,
+    state: {
+        "letters_found": 1.0,
+        "met_ace": true,
+        "affinity_level": "high",
+    },
+    scene_id: "reunion",
+    pc: 12,
+    wait: Some(Say(
+        speaker: "Ace",
+        text: "Oh. It\'s you.",
+    )),
+    staging: (
+        background: Some("school_gate"),
+        sprites: {
+            "ace": "neutral",
+        },
+        bgm: Some("music_evening"),
+    ),
+)

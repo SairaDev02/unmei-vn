@@ -1,0 +1,28 @@
+keiko 1
+# K3, the Clear half — cancelling changes nothing, confirming returns the row
+# to Not set, and play then takes the authored offline fallback at the decide
+# point.
+# Excluded: the deleted file's absence (kept-sandbox check).
+fixture credential fixtures/cred-stored.ron
+setting play.text_speed 0
+
+activate title.settings
+activate settings.clear-key
+expect surface confirm
+activate confirm.no
+expect surface settings
+expect control settings.key label "Set — sk-nano-…mnop"
+activate settings.clear-key
+activate confirm.yes
+expect surface settings
+expect control settings.key label "Not set Paste or type a NanoGPT key"
+press Escape
+expect surface title
+new-game
+advance
+advance
+pick "Ask about the letter"
+advance
+advance
+expect decision none
+expect line contains "Oh. It's you."

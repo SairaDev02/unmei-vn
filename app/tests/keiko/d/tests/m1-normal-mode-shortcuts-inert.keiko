@@ -1,0 +1,27 @@
+keiko 1
+# M1 (normal release, no dev) — F3, F5 and F9 are inert and the ordinary menu
+# save/load still works.
+# Excluded: the real release profile (the case declares no `dev` header, which
+# is the take's dev-off), the window and physical keys.
+setting play.text_speed 0
+
+new-game
+expect surface play
+press F3
+expect monitor closed
+press F5
+expect slot 1 empty
+advance
+expect line "You're not from around here, are you?"
+press F9
+expect line "You're not from around here, are you?"
+expect slot 1 empty
+save 2
+expect slot 2 scene first_meeting
+menu
+expect surface play
+advance
+load 2
+activate confirm.yes
+expect surface play
+expect line "You're not from around here, are you?"

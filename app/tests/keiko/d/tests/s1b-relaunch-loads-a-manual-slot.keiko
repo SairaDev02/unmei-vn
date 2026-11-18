@@ -1,0 +1,21 @@
+keiko 1
+# S1, the relaunch half — a fresh take is a fresh launch: no live session, and
+# the manual slot written earlier still loads its own line through the overlay.
+# Excluded: the real process restart (a take starts from the fixture bytes the
+# kept sandbox produced), the card's formatted local time.
+fixture slot-1 fixtures/slot-first.ron
+setting play.text_speed 0
+
+expect surface title
+expect slot 1 scene first_meeting
+# A fresh launch has no overlay door on the title, so play starts first; the
+# load then proves the slot's own line rather than the new game's.
+new-game
+expect surface play
+advance
+expect line "You're not from around here, are you?"
+load 1
+activate confirm.yes
+expect surface play
+expect line "Morning light. A folded letter on the ground, half under a shoe."
+expect slot autosave empty
