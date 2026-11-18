@@ -201,22 +201,42 @@ mod faults {
 /// text. Everything before and after the block — comments included — passes
 /// through byte-for-byte.
 fn splice_question(src: &str, existing: &Npc, question: &str, config: &DecisionConfig) -> String {
-    // The block's text starts at `"question": (` and ends at the matching `)`.
-    let needle = format!("\"{question}\":");
-    if let Some(start) = find_block_start(src, &needle) {
-        let end = find_block_end(src, start);
-        let rendered = ron::ser::to_string_pretty(config, pretty())
-            .unwrap_or_else(|_| ron::ser::to_string(config).unwrap());
-        let indented = indent(&rendered, &indent_of(&src[..start]));
-        let mut out = String::with_capacity(src.len() + 128);
-        out.push_str(&src[..start]);
-        out.push_str(&indented);
-        out.push_str(&src[end..]);
-        out
-    } else {
-        // New question: insert a block before the closing paren of `decisions`,
-        // reusing whatever trailing structure the file has.
-        insert_question(src, existing, question, config)
+    let layout = Layout::of(src);
+    let Some((map_open, map_close)) = layout.decisions_map(src) else {
+        // No decisions map at all — unreachable for a parsed NPC, whose
+        // `decisions` field is required; fall back to re-serializing (loses
+        // comments).
+        let mut npc = existing.clone();
+        npc.decisions.insert(question.to_string(), config.clone());
+        return ron::ser::to_string_pretty(&npc, pretty())
+            .unwrap_or_else(|_| ron::ser::to_string(&npc).unwrap());
+    };
+    let rendered = ron::ser::to_string_pretty(config, pretty())
+        .unwrap_or_else(|_| ron::ser::to_string(config).unwrap());
+    match layout.question_block(src, map_open, map_close, question) {
+        Some((start, end)) => {
+            let indented = indent(&rendered, &indent_of(&src[..start]));
+            let mut out = String::with_capacity(src.len() + 128);
+            out.push_str(&src[..start]);
+            out.push_str(&indented);
+            out.push_str(&src[end..]);
+            out
+        }
+        // New question: insert a block before the decisions map's closing
+        // brace, reusing whatever trailing structure the file has.
+        None => {
+            let line_indent = indent_of(&src[..map_open]) + "    ";
+            let indented = indent(&rendered, &line_indent);
+            let mut out = String::with_capacity(src.len() + rendered.len() + 32);
+            out.push_str(&src[..map_close]);
+            out.push('\n');
+            out.push_str(&line_indent);
+            out.push_str(&format!("\"{question}\": "));
+            out.push_str(&indented);
+            out.push(',');
+            out.push_str(&src[map_close..]);
+            out
+        }
     }
 }
 
@@ -227,50 +247,183 @@ fn pretty() -> ron::ser::PrettyConfig {
         .separate_tuple_members(true)
 }
 
-/// Find where the named block's `(` begins (after the `"question":` needle).
-fn find_block_start(src: &str, needle: &str) -> Option<usize> {
-    let pos = src.find(needle)?;
-    let after = &src[pos + needle.len()..];
-    let open = after.find('(')?;
-    Some(pos + needle.len() + open)
+/// Where the RON code is in an NPC file, so the splice finds structure only
+/// where the RON parser would: never in a comment or a string body.
+///
+/// `code[i]` is true when byte `i` is outside every comment and string body; a
+/// string's opening quote counts as code, so a key is found where its quote
+/// starts. `depth[i]` is the bracket depth before byte `i`, counting `(`, `[`
+/// and `{` in code only. Comments are read as RON reads them: `//` to the end
+/// of the line and nested `/* … */`. Strings are quoted with `\` escapes, or
+/// raw (`r"…"`, `r#"…"#`).
+struct Layout {
+    code: Vec<bool>,
+    depth: Vec<usize>,
 }
 
-/// Walk to the `)` that closes the `(` at `start`, skipping strings/comments.
-fn find_block_end(src: &str, start: usize) -> usize {
-    let bytes = src.as_bytes();
-    let mut depth = 0usize;
-    let mut i = start;
-    let mut in_string = false;
-    let mut in_comment = false;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if in_comment {
-            if c == b'\n' {
-                in_comment = false;
+impl Layout {
+    fn of(src: &str) -> Self {
+        let bytes = src.as_bytes();
+        let mut code = vec![false; bytes.len()];
+        let mut depth = vec![0; bytes.len()];
+        let mut level = 0usize;
+        let mut i = 0;
+        while i < bytes.len() {
+            let rest = &bytes[i..];
+            let span = if rest.starts_with(b"//") {
+                rest.iter().position(|&c| c == b'\n').unwrap_or(rest.len())
+            } else if rest.starts_with(b"/*") {
+                block_comment_len(rest)
+            } else if let Some(len) = raw_string_len(bytes, i) {
+                code[i] = true;
+                len
+            } else if bytes[i] == b'"' {
+                code[i] = true;
+                quoted_string_len(rest)
+            } else {
+                code[i] = true;
+                1
+            };
+            let span = span.clamp(1, rest.len());
+            depth[i..i + span].fill(level);
+            if code[i] && span == 1 {
+                match bytes[i] {
+                    b'(' | b'[' | b'{' => level += 1,
+                    b')' | b']' | b'}' => level = level.saturating_sub(1),
+                    _ => {}
+                }
             }
-        } else if in_string {
-            if c == b'\\' {
-                i += 1; // skip escaped char
-            } else if c == b'"' {
-                in_string = false;
+            i += span;
+        }
+        Self { code, depth }
+    }
+
+    /// The first code byte at or after `from` that is not whitespace.
+    fn next_code(&self, src: &str, from: usize) -> Option<usize> {
+        (from..src.len()).find(|&i| self.code[i] && !src.as_bytes()[i].is_ascii_whitespace())
+    }
+
+    /// The first `needle` in `src[from..to]` that starts in code at `depth`.
+    fn find(&self, src: &str, needle: &str, from: usize, to: usize, depth: usize) -> Option<usize> {
+        src[from..to]
+            .match_indices(needle)
+            .map(|(at, _)| from + at)
+            .find(|&at| self.code[at] && self.depth[at] == depth)
+    }
+
+    /// The closing bracket of the bracket that opens at `open`.
+    fn close_of(&self, src: &str, open: usize) -> usize {
+        let inside = self.depth[open] + 1;
+        (open + 1..src.len())
+            .find(|&i| {
+                self.code[i]
+                    && self.depth[i] == inside
+                    && matches!(src.as_bytes()[i], b')' | b']' | b'}')
+            })
+            .unwrap_or(src.len())
+    }
+
+    /// The `{` and `}` of the NPC's top-level `decisions` map.
+    fn decisions_map(&self, src: &str) -> Option<(usize, usize)> {
+        let ident = |c: u8| c.is_ascii_alphanumeric() || c == b'_';
+        let bytes = src.as_bytes();
+        let mut from = 0;
+        while let Some(at) = self.find(src, "decisions", from, src.len(), 1) {
+            from = at + 1;
+            let end = at + "decisions".len();
+            if (at > 0 && ident(bytes[at - 1])) || bytes.get(end).copied().is_some_and(ident) {
+                continue;
+            }
+            let colon = self.next_code(src, end)?;
+            if bytes[colon] != b':' {
+                continue;
+            }
+            let open = self.next_code(src, colon + 1)?;
+            if bytes[open] != b'{' {
+                continue;
+            }
+            return Some((open, self.close_of(src, open)));
+        }
+        None
+    }
+
+    /// The span of `question`'s config — from its `(` through the matching `)`
+    /// — among the decisions map's own entries.
+    fn question_block(
+        &self,
+        src: &str,
+        map_open: usize,
+        map_close: usize,
+        question: &str,
+    ) -> Option<(usize, usize)> {
+        let key = format!("\"{question}\"");
+        let entry_depth = self.depth[map_open] + 1;
+        let at = self.find(src, &key, map_open, map_close, entry_depth)?;
+        let colon = self.next_code(src, at + key.len())?;
+        if src.as_bytes()[colon] != b':' {
+            return None;
+        }
+        let start = (colon + 1..map_close)
+            .find(|&i| self.code[i] && self.depth[i] == entry_depth && src.as_bytes()[i] == b'(')?;
+        Some((start, self.close_of(src, start) + 1))
+    }
+}
+
+/// The length of the nested `/* … */` comment at the start of `rest`.
+fn block_comment_len(rest: &[u8]) -> usize {
+    let mut level = 0usize;
+    let mut i = 0;
+    while i < rest.len() {
+        if rest[i..].starts_with(b"/*") {
+            level += 1;
+            i += 2;
+        } else if rest[i..].starts_with(b"*/") {
+            level -= 1;
+            i += 2;
+            if level == 0 {
+                return i;
             }
         } else {
-            match c {
-                b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => in_comment = true,
-                b'"' => in_string = true,
-                b'(' => depth += 1,
-                b')' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return i + 1;
-                    }
-                }
-                _ => {}
-            }
+            i += 1;
         }
-        i += 1;
     }
-    src.len()
+    rest.len()
+}
+
+/// The length of the `"…"` string at the start of `rest`, escapes included.
+fn quoted_string_len(rest: &[u8]) -> usize {
+    let mut i = 1;
+    while i < rest.len() {
+        match rest[i] {
+            b'\\' => i += 2,
+            b'"' => return i + 1,
+            _ => i += 1,
+        }
+    }
+    rest.len()
+}
+
+/// The length of the raw string (`r"…"`, `r#"…"#`, …) starting at `at`, if one
+/// does: an `r` that does not continue an identifier, then hashes and a quote.
+fn raw_string_len(bytes: &[u8], at: usize) -> Option<usize> {
+    let continues_ident =
+        at > 0 && (bytes[at - 1].is_ascii_alphanumeric() || bytes[at - 1] == b'_');
+    if bytes[at] != b'r' || continues_ident {
+        return None;
+    }
+    let hashes = bytes[at + 1..].iter().take_while(|&&c| c == b'#').count();
+    let quote = at + 1 + hashes;
+    if bytes.get(quote) != Some(&b'"') {
+        return None;
+    }
+    let mut closing = vec![b'"'];
+    closing.extend(std::iter::repeat_n(b'#', hashes));
+    let body = &bytes[quote + 1..];
+    let end = body
+        .windows(closing.len())
+        .position(|window| window == closing.as_slice())
+        .map_or(body.len(), |pos| pos + closing.len());
+    Some(quote + 1 - at + end)
 }
 
 /// The leading whitespace of the line containing `pos`.
@@ -298,81 +451,6 @@ fn indent(rendered: &str, indent: &str) -> String {
         })
         .collect();
     lines.join("\n")
-}
-
-/// Insert a new question's config before the `decisions` map's closing brace.
-fn insert_question(src: &str, existing: &Npc, question: &str, config: &DecisionConfig) -> String {
-    // Find the `decisions: {` map and insert before its closing `}`.
-    let marker = "decisions: {";
-    let map_pos = match src.find(marker) {
-        Some(p) => p,
-        None => {
-            // No decisions map at all — shouldn't happen for a parsed NPC;
-            // fall back to re-serializing (loses comments, but unreachable in
-            // practice since every pack NPC has decisions).
-            let mut npc = existing.clone();
-            npc.decisions.insert(question.to_string(), config.clone());
-            return ron::ser::to_string_pretty(&npc, pretty())
-                .unwrap_or_else(|_| ron::ser::to_string(&npc).unwrap());
-        }
-    };
-    let map_close = find_map_close(src, map_pos + marker.len() - 1);
-
-    let rendered = ron::ser::to_string_pretty(config, pretty())
-        .unwrap_or_else(|_| ron::ser::to_string(config).unwrap());
-    let line_indent = indent_of(&src[..map_pos]) + "    ";
-    let indented = indent(&rendered, &line_indent);
-    let mut rebuilt = String::with_capacity(src.len() + rendered.len() + 32);
-    rebuilt.push_str(&src[..map_close]);
-    rebuilt.push('\n');
-    rebuilt.push_str(&line_indent);
-    rebuilt.push_str(&format!("\"{question}\": "));
-    rebuilt.push_str(&indented);
-    rebuilt.push(',');
-    rebuilt.push_str(&src[map_close..]);
-    rebuilt
-}
-
-/// Find the `}` closing the map whose `{` sits at `open`.
-fn find_map_close(src: &str, open: usize) -> usize {
-    find_matching(src, open, b'{', b'}')
-}
-
-fn find_matching(src: &str, open: usize, open_c: u8, close_c: u8) -> usize {
-    let bytes = src.as_bytes();
-    let mut depth = 0usize;
-    let mut i = open;
-    let mut in_string = false;
-    let mut in_comment = false;
-    while i < bytes.len() {
-        let c = bytes[i];
-        if in_comment {
-            if c == b'\n' {
-                in_comment = false;
-            }
-        } else if in_string {
-            if c == b'\\' {
-                i += 1;
-            } else if c == b'"' {
-                in_string = false;
-            }
-        } else {
-            match c {
-                b'/' if i + 1 < bytes.len() && bytes[i + 1] == b'/' => in_comment = true,
-                b'"' => in_string = true,
-                x if x == open_c => depth += 1,
-                x if x == close_c => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return i;
-                    }
-                }
-                _ => {}
-            }
-        }
-        i += 1;
-    }
-    src.len()
 }
 
 #[cfg(test)]
@@ -445,5 +523,310 @@ mod tests {
         write_atomic(&path, "new contents").expect("the retry lands whole");
         assert_eq!(std::fs::read_to_string(&path).unwrap(), "new contents");
         assert!(leftovers(dir.path()).is_empty(), "the retry leaves no temp");
+    }
+
+    /// Splice fixtures: the demo pack's `ace.ron` with one edit, and a config to
+    /// write into it.
+    mod comment_fixtures {
+        use unmei_engine::content::{Criteria, DecisionConfig, Fallback, Npc, QuestionType};
+
+        pub(super) const ACE: &str = include_str!("../../examples/demo-pack/npcs/ace.ron");
+
+        pub(super) fn config() -> DecisionConfig {
+            DecisionConfig {
+                question_type: QuestionType::Choice,
+                instructions: "A new instruction.".into(),
+                state_keys: vec!["met_ace".into()],
+                criteria: Criteria::Choice(
+                    [
+                        ("open".to_string(), "x".to_string()),
+                        ("shut".to_string(), "y".to_string()),
+                    ]
+                    .into_iter()
+                    .collect(),
+                ),
+                fallback: Fallback::Action("open".into()),
+            }
+        }
+
+        /// `ace.ron` with `from` replaced by `to` exactly once.
+        pub(super) fn ace_with(from: &str, to: &str) -> String {
+            assert_eq!(
+                ACE.matches(from).count(),
+                1,
+                "{from:?} occurs once in ace.ron"
+            );
+            ACE.replacen(from, to, 1)
+        }
+
+        /// Splice `question` into `src`, then require the result to read back as
+        /// the original NPC with only that question set, keeping each of `kept`
+        /// verbatim.
+        pub(super) fn assert_spliced(src: &str, question: &str, kept: &[&str]) {
+            let existing: Npc = ron::from_str(src).expect("the fixture parses");
+            let out = super::super::splice_question(src, &existing, question, &config());
+            let mut expected = existing;
+            expected.decisions.insert(question.to_string(), config());
+            let read: Result<Npc, _> = ron::from_str(&out);
+            assert_eq!(read.ok(), Some(expected), "spliced file:\n{out}");
+            for kept in kept {
+                assert!(out.contains(kept), "{kept:?} survives in:\n{out}");
+            }
+        }
+    }
+
+    use comment_fixtures::{ace_with, assert_spliced};
+
+    #[test]
+    fn a_comment_naming_the_key_before_the_npc_is_not_spliced_into() {
+        let comment = "// old \"greet\": (draft)\n";
+        let src = ace_with("(\n    id:", &format!("{comment}(\n    id:"));
+        assert_spliced(&src, "greet", &[comment]);
+    }
+
+    #[test]
+    fn a_block_comment_with_a_brace_does_not_swallow_an_added_question() {
+        let src = ace_with("        ),\n    },", "        ),\n        /* } */\n    },");
+        assert_spliced(&src, "farewell", &["/* } */"]);
+    }
+
+    #[test]
+    fn a_block_comment_with_a_paren_inside_the_block_does_not_end_it() {
+        let src = ace_with(
+            "            fallback: \"cold\",",
+            "            /* ) */\n            fallback: \"cold\",",
+        );
+        // The comment sits inside the replaced block, so it goes with the block.
+        assert_spliced(&src, "greet", &[]);
+    }
+
+    #[test]
+    fn a_comment_with_a_paren_after_the_key_does_not_start_the_block() {
+        let src = ace_with("\"greet\": (", "\"greet\": // (x)\n        (");
+        assert_spliced(&src, "greet", &["// (x)"]);
+    }
+
+    #[test]
+    fn a_comment_after_the_decisions_naming_a_new_key_is_not_spliced_into() {
+        let comment = "    // \"farewell\": (\n";
+        let src = ace_with("    },\n)", &format!("    }},\n{comment})"));
+        assert_spliced(&src, "farewell", &[comment]);
+    }
+
+    /// The splice over generated NPC files: comment lines inserted anywhere,
+    /// config strings holding brackets, quotes and comment markers, and a
+    /// question that is either replaced or added.
+    mod properties {
+        use std::collections::HashMap;
+
+        use proptest::prelude::*;
+        use proptest::test_runner::{Config, RngSeed};
+        use unmei_engine::content::{Criteria, DecisionConfig, Fallback, Npc, QuestionType};
+
+        /// Fragments that confuse a scanner reading RON by hand. The first 12
+        /// hold no `/` or `*`, so a block comment can use them safely.
+        const FRAGMENTS: [&str; 14] = [
+            "x",
+            " ",
+            "(",
+            ")",
+            "{",
+            "}",
+            "[",
+            "]",
+            "\"",
+            "\\",
+            "\"q0\": (",
+            "decisions: {",
+            "//",
+            "r#\"",
+        ];
+        const QUESTIONS: [&str; 3] = ["q0", "q1", "q2"];
+
+        fn text_from(fragments: &'static [&'static str]) -> impl Strategy<Value = String> {
+            prop::collection::vec(prop::sample::select(fragments), 0..6)
+                .prop_map(|parts| parts.concat())
+        }
+
+        fn text() -> impl Strategy<Value = String> {
+            text_from(&FRAGMENTS)
+        }
+
+        /// A comment on its own line. A block comment's text leaves out `/` and
+        /// `*`, so only its own nested `/* … */` opens or closes it.
+        fn comment() -> impl Strategy<Value = String> {
+            let plain = || text_from(&FRAGMENTS[..12]);
+            prop_oneof![
+                text().prop_map(|text| format!("// {text}")),
+                (plain(), prop::option::of(plain())).prop_map(|(outer, inner)| match inner {
+                    Some(inner) => format!("/* {outer} /* {inner} */ */"),
+                    None => format!("/* {outer} */"),
+                }),
+            ]
+        }
+
+        fn descriptions(keys: Vec<String>) -> impl Strategy<Value = HashMap<String, String>> {
+            prop::collection::vec(text(), keys.len())
+                .prop_map(move |texts| keys.clone().into_iter().zip(texts).collect())
+        }
+
+        fn config() -> impl Strategy<Value = DecisionConfig> {
+            let choice = prop::sample::subsequence(vec!["a", "b", "c"], 1..=3)
+                .prop_flat_map(|ids| {
+                    let ids: Vec<String> = ids.into_iter().map(String::from).collect();
+                    let fallback = prop::sample::select(ids.clone());
+                    (descriptions(ids), fallback)
+                })
+                .prop_map(|(map, fallback)| {
+                    (
+                        QuestionType::Choice,
+                        Criteria::Choice(map),
+                        Fallback::Action(fallback),
+                    )
+                });
+            let noul = (
+                prop::option::of(descriptions(vec!["true".into(), "false".into()])),
+                any::<bool>(),
+            )
+                .prop_map(|(map, fallback)| {
+                    (
+                        QuestionType::Noul,
+                        Criteria::Noul(map),
+                        Fallback::Bool(fallback),
+                    )
+                });
+            let score = prop::collection::vec(text(), 2..=3).prop_flat_map(|levels| {
+                let len = levels.len();
+                (Just(levels), 0..len).prop_map(|(levels, index)| {
+                    (
+                        QuestionType::Score,
+                        Criteria::Score(levels),
+                        Fallback::Index(index),
+                    )
+                })
+            });
+            (
+                text(),
+                prop::sample::subsequence(vec!["met_ace", "trust"], 0..=2),
+                prop_oneof![choice, noul, score],
+            )
+                .prop_map(
+                    |(instructions, keys, (question_type, criteria, fallback))| DecisionConfig {
+                        question_type,
+                        instructions,
+                        state_keys: keys.into_iter().map(String::from).collect(),
+                        criteria,
+                        fallback,
+                    },
+                )
+        }
+
+        fn npc() -> impl Strategy<Value = Npc> {
+            (
+                text(),
+                prop::option::of(text()),
+                prop::collection::hash_map(
+                    prop::sample::select(&QUESTIONS[..]).prop_map(String::from),
+                    config(),
+                    1..=3,
+                ),
+            )
+                .prop_map(|(name, model, decisions)| Npc {
+                    id: "ace".into(),
+                    name,
+                    model,
+                    decisions,
+                })
+        }
+
+        /// One generated splice.
+        #[derive(Debug, Clone)]
+        struct Case {
+            npc: Npc,
+            /// The NPC pretty-printed, with comment lines inserted.
+            src: String,
+            /// The inserted comments outside `question`'s block.
+            kept: Vec<String>,
+            question: String,
+            config: DecisionConfig,
+        }
+
+        fn case() -> impl Strategy<Value = Case> {
+            npc().prop_flat_map(|npc| {
+                let text = ron::ser::to_string_pretty(&npc, ron::ser::PrettyConfig::default())
+                    .expect("a generated NPC encodes");
+                let lines = text.lines().count();
+                let comments = prop::collection::vec((0..=lines, comment()), 0..6);
+                let question = prop::sample::select(&QUESTIONS[..]).prop_map(String::from);
+                (Just(npc), Just(text), comments, question, config()).prop_map(
+                    |(npc, text, mut comments, question, config)| {
+                        comments.sort_by_key(|(line, _)| *line);
+                        let mut lines: Vec<String> = text.lines().map(String::from).collect();
+                        for (line, comment) in comments.iter().rev() {
+                            lines.insert(*line, comment.clone());
+                        }
+                        let kept = kept_comments(&lines, &npc, &question);
+                        Case {
+                            npc,
+                            src: lines.join("\n"),
+                            kept,
+                            question,
+                            config,
+                        }
+                    },
+                )
+            })
+        }
+
+        /// The inserted comments outside `question`'s block. Pretty printing
+        /// puts each decision key at eight spaces with its config's `(` on the
+        /// same line, and the config's closing `),` alone at the same indent.
+        fn kept_comments(lines: &[String], npc: &Npc, question: &str) -> Vec<String> {
+            let header = format!("        \"{question}\": (");
+            let replaced = npc.decisions.contains_key(question);
+            let mut inside = false;
+            let mut kept = Vec::new();
+            for line in lines {
+                let is_comment = line.starts_with("//") || line.starts_with("/*");
+                if is_comment && !inside {
+                    kept.push(line.clone());
+                }
+                if replaced && *line == header {
+                    inside = true;
+                } else if inside && line == "        )," {
+                    inside = false;
+                }
+            }
+            kept
+        }
+
+        proptest! {
+            // A fixed seed keeps the workspace gate deterministic; a failure
+            // becomes a named example test above, so nothing is persisted.
+            #![proptest_config(Config {
+                cases: 512,
+                rng_seed: RngSeed::Fixed(0x756e_6d65_6902),
+                failure_persistence: None,
+                ..Config::default()
+            })]
+
+            /// Splicing one question leaves a file that reads back as the
+            /// original NPC with only that question set, and keeps every
+            /// comment outside the replaced block.
+            #[test]
+            fn a_splice_sets_one_question_and_keeps_every_other_comment(case in case()) {
+                let Case { npc, src, kept, question, config } = case;
+                let parsed: Npc = ron::from_str(&src).expect("the generated file parses");
+                prop_assert_eq!(&parsed, &npc);
+                let out = super::super::splice_question(&src, &npc, &question, &config);
+                let mut expected = npc;
+                expected.decisions.insert(question, config);
+                let read: Result<Npc, _> = ron::from_str(&out);
+                prop_assert_eq!(read.ok(), Some(expected), "spliced file:\n{}", out);
+                for comment in &kept {
+                    prop_assert!(out.contains(comment.as_str()), "{comment:?} lost from:\n{out}");
+                }
+            }
+        }
     }
 }
