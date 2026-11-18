@@ -145,8 +145,7 @@ impl Branch {
 pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep: bool) -> Report {
     let mut used = 0u32;
     let mut budget_spent = false;
-    let mut findings: Vec<Value> = Vec::new();
-    let mut saved: HashSet<String> = HashSet::new();
+    let mut collected = Collected::default();
 
     let start = match from {
         Some(id) => match load_branch(pack_root, id) {
@@ -195,15 +194,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
     while let Some((branch, result)) = queue.pop_front() {
         coverage.observe(&result);
         for finding in branch_findings(&result) {
-            save_finding(
-                pack_root,
-                pack,
-                &branch,
-                &finding,
-                None,
-                &mut findings,
-                &mut saved,
-            );
+            save_finding(pack_root, pack, &branch, &finding, None, &mut collected);
         }
         if result.outcome.is_err() {
             continue;
@@ -258,8 +249,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
                 &repeat,
                 &finding,
                 Some(&observation),
-                &mut findings,
-                &mut saved,
+                &mut collected,
             );
             continue;
         }
@@ -272,7 +262,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
     }
 
     Report {
-        findings,
+        findings: collected.findings,
         coverage: coverage.to_json(pack),
         used,
         limit: budget,
@@ -370,7 +360,6 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
             line.text.clone(),
         ));
     }
-    findings.dedup_by(|left, right| left.rule == right.rule);
     findings
 }
 
@@ -446,15 +435,31 @@ fn next_say_line(pack: &unmei_engine::Pack, park: &Observation) -> Option<(Strin
         .map(|(index, _)| (scene.to_string(), script.source_line(index)))
 }
 
+/// What the walk has reported so far. `seen` keeps one problem to one finding:
+/// the first branch, in walk order, that hits a (rule, message) pair reports
+/// and saves it, and later branches that hit the same problem stay silent (spec
+/// §9.4). `saved` keeps a rerun from rewriting a file that already exists.
+#[derive(Default)]
+struct Collected {
+    findings: Vec<Value>,
+    saved: HashSet<String>,
+    seen: HashSet<(String, String)>,
+}
+
 fn save_finding(
     pack_root: &Path,
     pack: &unmei_engine::Pack,
     branch: &Branch,
     finding: &Finding,
     park: Option<&Observation>,
-    findings: &mut Vec<Value>,
-    saved: &mut HashSet<String>,
+    collected: &mut Collected,
 ) {
+    if !collected
+        .seen
+        .insert((finding.rule.clone(), finding.message.clone()))
+    {
+        return;
+    }
     let closing = closing_assertion(finding, park, pack);
     let mut json = super::output::finding_json(finding);
     if closing.is_empty() {
@@ -464,7 +469,7 @@ fn save_finding(
         if let Some(object) = json.as_object_mut() {
             object.insert("saved".to_string(), Value::Bool(false));
         }
-        findings.push(json);
+        collected.findings.push(json);
         return;
     }
     let path = saved_finding_path(pack_root, branch, finding);
@@ -473,7 +478,7 @@ fn save_finding(
         .map(|path| path.display().to_string())
         .unwrap_or_else(|_| path.display().to_string())
         .replace('\\', "/");
-    if saved.insert(relative.clone()) && !path.exists() {
+    if collected.saved.insert(relative.clone()) && !path.exists() {
         if let Some(parent) = path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
@@ -482,7 +487,7 @@ fn save_finding(
     if let Some(object) = json.as_object_mut() {
         object.insert("case".to_string(), Value::String(relative));
     }
-    findings.push(json);
+    collected.findings.push(json);
 }
 
 /// `tests/findings/<rule>-<hash>.keiko`, named by the step list's content hash.

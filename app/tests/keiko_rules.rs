@@ -573,6 +573,149 @@ jump quiet
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Rule 28: one problem is one finding, however many branches replay it, and the
+/// line a broken pack never reaches is coverage, not a finding. The saved row-4
+/// case then fails on the broken fixture and passes once it is repaired (rule
+/// 29's repair half).
+#[test]
+fn exploration_reports_one_problem_once_and_the_saved_case_repairs() {
+    let dir = temp_dir();
+    let pack = pack(&dir, &[]);
+    // The fixture: a sprite file deleted, `epilogue` ending in a jump to a
+    // looping scene with an unreachable say-line after it, and that scene.
+    std::fs::remove_file(pack.join("assets/sprites/ace/neutral.png")).unwrap();
+    let epilogue = std::fs::read_to_string(pack.join("scenes/epilogue.unmei")).unwrap();
+    std::fs::write(
+        pack.join("scenes/epilogue.unmei"),
+        format!(
+            "{epilogue}
+jump spin
+
+label orphan
+Narrator: unreachable.
+"
+        ),
+    )
+    .unwrap();
+    std::fs::write(
+        pack.join("scenes/spin.unmei"),
+        "Narrator: spin start.
+label round
+Narrator: again.
+jump round
+",
+    )
+    .unwrap();
+
+    let explore = |pack: &Path| {
+        let output = run_with_timeout(
+            pack,
+            &["--explore", "--budget", "10000", "--format", "json"],
+            Duration::from_secs(120),
+        );
+        // Findings fail the command (spec §10.3), so this walk exits 1.
+        assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+        let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
+        json
+    };
+    let json = explore(&pack);
+    let findings = json["findings"].as_array().unwrap();
+    let count = |rule: &str| {
+        findings
+            .iter()
+            .filter(|finding| finding["rule"] == rule)
+            .count()
+    };
+    assert_eq!(
+        count("keiko.log.row-4"),
+        1,
+        "one row-4 finding:
+{json}"
+    );
+    assert_eq!(
+        count("keiko.stuck"),
+        1,
+        "one stuck finding:
+{json}"
+    );
+
+    // The orphan say-line is unreached coverage. Moving it above the jump makes
+    // the walk read it, which is what an unreached count is measuring.
+    let say_of = |json: &serde_json::Value| {
+        let say = &json["coverage"]["scenes"]["epilogue"]["say_lines"];
+        (
+            say["reached"].as_u64().unwrap(),
+            say["total"].as_u64().unwrap(),
+        )
+    };
+    let (reached, total) = say_of(&json);
+    assert!(
+        reached < total,
+        "the orphan line is not counted as reached:
+{json}"
+    );
+    let reachable = dir.join("reachable");
+    copy_dir(&pack, &reachable);
+    std::fs::write(
+        reachable.join("scenes/epilogue.unmei"),
+        format!(
+            "{epilogue}
+label orphan
+Narrator: unreachable.
+jump spin
+"
+        ),
+    )
+    .unwrap();
+    let (reached_when_readable, total_when_readable) = say_of(&explore(&reachable));
+    assert_eq!(total_when_readable, total, "the same say-lines");
+    assert_eq!(
+        reached_when_readable,
+        reached + 1,
+        "the line the jump skips is the one that counts as unreached"
+    );
+
+    // A rerun adds no file.
+    let findings_dir = pack.join("tests/findings");
+    let before = std::fs::read_dir(&findings_dir).unwrap().count();
+    let _ = explore(&pack);
+    let after = std::fs::read_dir(&findings_dir).unwrap().count();
+    assert_eq!(before, after, "a rerun adds no file");
+
+    // The saved row-4 case is a case that fails while the sprite is missing,
+    // naming the log line, and passes once the sprite is back.
+    let saved = findings
+        .iter()
+        .find(|finding| finding["rule"] == "keiko.log.row-4")
+        .and_then(|finding| finding["case"].as_str())
+        .expect("the row-4 finding is saved")
+        .to_string();
+    let id = saved
+        .trim_start_matches("tests/")
+        .trim_end_matches(".keiko")
+        .to_string();
+    let output = take(&pack, &[id.as_str()]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("expected no warn row 4 line"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(
+        stdout(&output).contains("observed warn row 4"),
+        "the failing assertion names the log line:
+{}",
+        stdout(&output)
+    );
+    std::fs::copy(
+        demo_pack().join("assets/sprites/ace/neutral.png"),
+        pack.join("assets/sprites/ace/neutral.png"),
+    )
+    .unwrap();
+    assert_pass(&pack, &id);
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Rule 35's message shape: a failed `log` or `no-log` assertion names the log
 /// line it found, which is what the author needs, not the park the take stopped
 /// at, which says nothing about the log.

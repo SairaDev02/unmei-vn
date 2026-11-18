@@ -328,6 +328,7 @@ Each finding is saved as `tests/findings/<rule>-<hash>.keiko`, where `<hash>` is
 
 A finding with no closing assertion the case grammar can express is reported but not saved, because a case without one would pass while the problem exists (rule 29). This happens, for example, with a stuck park that has no say-line after it. *(Amended 2026-11-17.)*
 
+**One problem is one finding.** Exploration reports and saves a finding at most once per (rule, message) pair, keeping the first branch in walk order that hits it. A pack whose every branch replays the same failed asset load therefore yields one `keiko.log.row-<n>` finding, not one per branch, and a loop reached by two paths yields one `keiko.stuck` finding. The walk order and the budget accounting are unchanged. *(Amended 2026-11-18.)*
 
 ## 10. Output and exit codes (K27)
 
@@ -445,7 +446,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Pack layout](content-format.md#2-pack-layout): the optional `tests/` folder.
 - [Crate boundaries](architecture.md#crate-boundaries-and-invariants): the engine's `keiko` module and `unmei-play`'s Keiko modes.
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
-- **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
+- **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 
