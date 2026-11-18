@@ -28,6 +28,18 @@ pub fn evaluate(
             format!("expected {expected}, observed {}", describe(observed)),
         )
     };
+    let log_fail = |expected: String, line: Option<&LogLine>| {
+        let observed = match line {
+            Some(line) => format!("{} row {} \"{}\"", line.level, line.row, line.text),
+            None => "no log lines".to_string(),
+        };
+        Finding::new(
+            "case",
+            format!("step `expect {}`", expect_name(expect)),
+            rules::EXPECT,
+            format!("expected {expected}, observed {observed}"),
+        )
+    };
     match expect {
         Expect::Surface(name) => {
             if &observed.surface == name {
@@ -292,34 +304,55 @@ pub fn evaluate(
         Expect::Log { level, row, text } => {
             let level = level_name(*level);
             let found = all_log.iter().any(|line| {
-                line.level == level
-                    && row.is_none_or(|row| line.row == row)
-                    && line.text.contains(text.as_str())
+                matches_log_line(line, level, *row) && line.text.contains(text.as_str())
             });
             if found {
                 Ok(())
             } else {
-                Err(fail(format!(
-                    "log {level}{} containing \"{text}\"",
-                    row.map(|row| format!(" row {row}")).unwrap_or_default()
-                )))
+                let expected = format!("log {level}{} containing \"{text}\"", row_suffix(*row));
+                Err(log_fail(expected, nearest_log_line(all_log, level, *row)))
             }
         }
         Expect::NoLog { level, row } => {
             let level = level_name(*level);
-            let found = all_log
+            match all_log
                 .iter()
-                .any(|line| line.level == level && row.is_none_or(|row| line.row == row));
-            if found {
-                Err(fail(format!(
-                    "no {level}{} line",
-                    row.map(|row| format!(" row {row}")).unwrap_or_default()
-                )))
-            } else {
-                Ok(())
+                .find(|line| matches_log_line(line, level, *row))
+            {
+                Some(line) => Err(log_fail(
+                    format!("no {level}{} line", row_suffix(*row)),
+                    Some(line),
+                )),
+                None => Ok(()),
             }
         }
     }
+}
+
+/// Whether a log line is the one an assertion names: the level always, the row
+/// when the assertion gives one.
+fn matches_log_line(line: &LogLine, level: &str, row: Option<u32>) -> bool {
+    line.level == level && row.is_none_or(|row| line.row == row)
+}
+
+fn row_suffix(row: Option<u32>) -> String {
+    row.map(|row| format!(" row {row}")).unwrap_or_default()
+}
+
+/// The line a failed `log` assertion should show: the nearest candidate, so the
+/// author sees what the log holds. The park the take stopped at says nothing
+/// about the log, so it is the wrong observed value for these two assertions.
+fn nearest_log_line<'a>(
+    lines: &'a [LogLine],
+    level: &str,
+    row: Option<u32>,
+) -> Option<&'a LogLine> {
+    let newest = || lines.iter().rev();
+    newest()
+        .find(|line| matches_log_line(line, level, row))
+        .or_else(|| newest().find(|line| line.level == level))
+        .or_else(|| newest().find(|line| row.is_none_or(|row| line.row == row)))
+        .or_else(|| lines.last())
 }
 
 fn level_name(level: LogLevel) -> &'static str {

@@ -52,12 +52,12 @@ pub fn apply(
     match step {
         Step::NewGame => {
             activate_control(app, run, "title.new-game")
-                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+                .map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
         Step::Continue => {
             activate_control(app, run, "title.continue")
-                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+                .map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
         Step::Advance(count) => {
@@ -150,18 +150,17 @@ pub fn apply(
         }
         Step::Wait(duration) => Ok(Applied::Wait(*duration)),
         Step::Activate(id) => {
-            activate_control(app, run, id)
-                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+            activate_control(app, run, id).map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
         Step::Save(slot) => {
             save_or_load(app, run, true, LoadTarget::Slot(*slot))
-                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+                .map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
         Step::Load(slot) => {
             save_or_load(app, run, false, *slot)
-                .map_err(|message| fail(rules::STEP_NO_TARGET, message))?;
+                .map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
         Step::ReleaseDecision(point) => {
@@ -238,23 +237,53 @@ fn digit(index: u8) -> KeyCode {
     }
 }
 
+/// Why an activation did not reach its control. The rule id follows the cause:
+/// a control the surface does not show is `keiko.step.no-target`, and one it
+/// shows but that holds no action right now is `keiko.step.disabled` (spec
+/// §3.1's `activate` row, rule 9).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ActivationError {
+    /// The rule id the step's finding is filed under.
+    pub rule: &'static str,
+    /// The human-readable detail.
+    pub message: String,
+}
+
+impl ActivationError {
+    fn no_target(message: impl Into<String>) -> Self {
+        Self {
+            rule: rules::STEP_NO_TARGET,
+            message: message.into(),
+        }
+    }
+
+    fn disabled(message: impl Into<String>) -> Self {
+        Self {
+            rule: rules::STEP_DISABLED,
+            message: message.into(),
+        }
+    }
+}
+
 /// Walk focus to a control with the arrow keys, then press Enter, exactly as a
-/// player would. Fails when the control is not on the current surface or is
-/// disabled.
-pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), String> {
+/// player would. Fails with the rule id that names why the control is out of
+/// reach.
+pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), ActivationError> {
     let Some(target) = focus_for_id(id) else {
-        return Err(format!("unknown control `{id}`"));
+        return Err(ActivationError::no_target(format!(
+            "unknown control `{id}`"
+        )));
     };
     let menu = app.world().resource::<MenuState>().clone();
     let ids = surface_ids_on(app, &menu);
     if !ids.iter().any(|candidate| candidate == id) {
-        return Err(format!(
+        return Err(ActivationError::no_target(format!(
             "`{id}` is not on the {} surface",
             surface_name(&menu)
-        ));
+        )));
     }
     if !is_enabled(&menu, id, app.world()) {
-        return Err(format!("`{id}` is disabled"));
+        return Err(ActivationError::disabled(format!("`{id}` is disabled")));
     }
     for _ in 0..64 {
         if app.world().resource::<MenuState>().focus == target {
@@ -275,13 +304,15 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), St
             }
         }
         if app.world().resource::<MenuState>().focus == before {
-            return Err(format!(
+            return Err(ActivationError::no_target(format!(
                 "focus cannot reach `{id}` from the current control"
-            ));
+            )));
         }
     }
     if app.world().resource::<MenuState>().focus != target {
-        return Err(format!("focus cannot reach `{id}`"));
+        return Err(ActivationError::no_target(format!(
+            "focus cannot reach `{id}`"
+        )));
     }
     tap(app, run, KeyCode::Enter);
     Ok(())
@@ -323,7 +354,7 @@ fn save_or_load(
     run: FrameRun,
     save: bool,
     target: LoadTarget,
-) -> Result<(), String> {
+) -> Result<(), ActivationError> {
     let menu = app.world().resource::<MenuState>().clone();
     if !menu.open || menu.view != MenuView::Slots {
         tap(app, run, KeyCode::Escape);
