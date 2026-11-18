@@ -85,6 +85,7 @@ Use deterministic fakes and loopback HTTP servers for provider responses, timeou
 - Update assertions when requirements legitimately change; never weaken them solely to make tests pass.
 - Remove redundant tests only when their distinct regression protection is demonstrably covered elsewhere.
 - For important behavior, prefer independently expected regression cases and focused, bounded fault injection when safe. Mutation testing is not part of this policy: no campaign tooling is maintained, so demonstrate sensitivity with those cases rather than with a mutation score.
+- Use a property test (`proptest`, a dev-dependency) only for a guarantee that must hold across a large input space whose risky combinations hand-picked cases cannot list, such as the CLI credential mask under any split of its output into writes. It adds to example tests and does not replace them: exact expected outputs stay in examples. Fix its seed and persist no regressions file, so the gate stays deterministic, and turn a failure it finds into a named example test.
 
 ## Validation
 
