@@ -129,6 +129,16 @@ impl Selection {
         }
     }
 
+    /// A take opens no audio device (spec §4.1). Bevy's own audio plugin
+    /// opens the default output when it builds, and on a machine without one
+    /// ALSA prints straight to stderr. The player's audio is Kira's, which a
+    /// take leaves out too, so nothing in the player needs this plugin.
+    fn without_audio_device(self) -> Self {
+        Self {
+            group: self.group.disable::<bevy::audio::AudioPlugin>(),
+        }
+    }
+
     fn with_atlas(self) -> Self {
         Self {
             // Sprite normally nests atlas support. Supply it at the upstream
@@ -229,6 +239,7 @@ pub fn keiko_app(
     let asset_root = app.world().resource::<RuntimeConfig>().asset_root.clone();
     Selection::upstream()
         .headless_subtraction()
+        .without_audio_device()
         .with_atlas()
         .with_headless_asset_root(&asset_root)
         .with_keiko_log()
@@ -269,6 +280,7 @@ pub fn keiko_app_rendered(
     let asset_root = app.world().resource::<RuntimeConfig>().asset_root.clone();
     Selection::upstream()
         .rendered()
+        .without_audio_device()
         .with_headless_asset_root(&asset_root)
         .with_keiko_log()
         .finish(&mut app);
