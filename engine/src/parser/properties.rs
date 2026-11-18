@@ -274,46 +274,42 @@ fn lay_out(text: &[String], layout: &Layout) -> (String, Vec<usize>) {
     (file.join(ending), numbers)
 }
 
-/// Text built from scene tokens, valid or not.
+/// Text built from scene tokens, valid or not: lines that each start with a
+/// keyword or a speaker and go on with arbitrary tokens, so command arguments
+/// end in odd places.
 fn token_soup() -> impl Strategy<Value = String> {
-    prop::collection::vec(
-        pick(&[
-            "if",
-            "else",
-            "endif",
-            "choice",
-            "end",
-            "set",
-            "label",
-            "jump",
-            "decide",
-            "bg",
-            "sprite",
-            "x",
-            "n",
-            "Ace",
-            ".",
-            ":",
-            ": ",
-            "\"",
-            "->",
-            "=",
-            "==",
-            ">=",
-            "{",
-            "}",
-            "{met_ace}",
-            "#",
-            " ",
-            "\t",
-            "\n",
-            "\r\n",
-            "1e999",
-            "\u{a0}",
-        ]),
-        0..40,
-    )
-    .prop_map(|tokens| tokens.concat())
+    let head = pick(&[
+        "if", "else", "endif", "choice", "end", "set", "label", "jump", "decide", "bg", "sprite",
+        "hide", "Ace", "#", "",
+    ]);
+    let token = pick(&[
+        "x",
+        "n",
+        " ",
+        "\t",
+        "\u{a0}",
+        ".",
+        ":",
+        ": ",
+        "\"",
+        "->",
+        "=",
+        "==",
+        ">=",
+        "<",
+        "{",
+        "}",
+        "{met_ace}",
+        "#",
+        "true",
+        "1e999",
+        "-0",
+        "\"a\"",
+    ]);
+    let line = (head, prop::collection::vec(token, 0..6))
+        .prop_map(|(head, tokens)| format!("{head} {}", tokens.concat()));
+    (prop::collection::vec(line, 0..8), any::<bool>())
+        .prop_map(|(lines, crlf)| lines.join(if crlf { "\r\n" } else { "\n" }))
 }
 
 proptest! {
@@ -346,17 +342,21 @@ proptest! {
         prop_assert_eq!(&scene.line_numbers, &expected, "{}", file);
     }
 
-    /// Any text built from scene tokens parses or fails with an error whose
-    /// line number lies within the text; it never panics.
+    /// Any text built from scene tokens, and each of its lines alone, parses
+    /// or fails with an error whose line number lies within that text; it
+    /// never panics. Each line is also parsed alone because a parse stops at
+    /// its first error, which would leave later lines unread.
     #[test]
     fn token_soup_fails_cleanly(text in token_soup()) {
-        if let Err(error) = Parser::new("soup.unmei").parse("soup", &text) {
-            let last = text.lines().count().max(1);
-            prop_assert!(
-                error.line.is_some_and(|line| (1..=last).contains(&line)),
-                "line {:?} outside 1..={last}: {error}\n{text:?}",
-                error.line
-            );
+        for text in std::iter::once(text.as_str()).chain(text.lines()) {
+            if let Err(error) = Parser::new("soup.unmei").parse("soup", text) {
+                let last = text.lines().count().max(1);
+                prop_assert!(
+                    error.line.is_some_and(|line| (1..=last).contains(&line)),
+                    "line {:?} outside 1..={last}: {error}\n{text:?}",
+                    error.line
+                );
+            }
         }
     }
 }
