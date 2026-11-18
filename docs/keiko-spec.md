@@ -77,7 +77,7 @@ expect state affinity_level = "low"
 | Header | Meaning | Ref. |
 |---|---|---|
 | `decide <npc>.<question> <action>` | Sets the landing key of one decision point. `<action>` is one of the question's actions or `fallback`. | K15 |
-| `setting <key> <value>` | Writes one value into the sandbox settings file before boot. Keys are the settings file's own (`audio.master`, `audio.music`, `audio.sfx`, `audio.mute`, `play.text_speed`, `play.auto`, `play.fullscreen`), with values in the file's RON form. The player's own validation applies, so an out-of-range value normalises as it would in play. | K18 |
+| `setting <key> <value>` | Writes one value into the sandbox settings file before boot. Keys are the settings file's own (`audio.master`, `audio.music`, `audio.sfx`, `audio.muted`, `play.text_speed`, `play.auto`, `play.fullscreen`), with values in the file's RON form. The player's own validation applies, so an out-of-range value normalises as it would in play. *(Amended 2026-11-18: `audio.muted`, not `audio.mute`, which is the settings file's field name.)* | K18 |
 | `fixture <kind> <path>` | Copies a file from the pack's `tests/` folder into the sandbox before boot (§7.1). | K18 |
 | `fault <name> [args]` | Declares a fault from the fixed list (§7.2). | K19 |
 | `dev` | Starts the player in dev mode. Without it, dev mode is off in every build, so a case behaves the same in a debug and a release binary. | K20 |
