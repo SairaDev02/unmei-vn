@@ -154,16 +154,13 @@ pub(super) fn parse_decide(rest: &str) -> Result<(String, String, String), Strin
     Ok((npc_id.to_string(), question.to_string(), prefix.to_string()))
 }
 
-/// `"<text>" -> <label>` inside a choice block.
+/// `"<text>" -> <label>` inside a choice block. The text is everything between
+/// the two quotes, so it may hold `->`; the separating arrow is the first one
+/// after the closing quote.
 pub(super) fn parse_choice_option(s: &str) -> Option<(String, String)> {
-    let (text, target) = s.split_once("->")?;
-    let text = text.trim();
-    let inner = text.strip_prefix('"')?.strip_suffix('"')?;
-    if inner.is_empty() || inner.contains('"') {
-        return None;
-    }
-    let target = target.trim();
-    if target.is_empty() {
+    let (inner, after) = s.trim().strip_prefix('"')?.split_once('"')?;
+    let target = after.trim_start().strip_prefix("->")?.trim();
+    if inner.is_empty() || target.is_empty() {
         return None;
     }
     Some((inner.to_string(), target.to_string()))

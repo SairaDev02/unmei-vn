@@ -62,7 +62,7 @@ Line-oriented: one command per line, `#` comments, indentation is cosmetic. A li
 | Play sound | `play <sound_id>` | → `assets/audio/<sound_id>.ogg` (music and sfx share the namespace) |
 | Stop sound | `stop <sound_id>` | takes the same id `play` took |
 | Set variable | `set <name> = <literal>` | literal is string / finite number / bool |
-| Player choice | `choice` / `end` block | options: `"<text>" -> <target>` inside the block |
+| Player choice | `choice` / `end` block | options: `"<text>" -> <target>` inside the block; the text is everything between the quotes and may contain `->` |
 | Label | `label <name>` | names may contain `.` (e.g. `reply.warm`) |
 | Jump | `jump <name>` | see transitions (§5) |
 | Conditional | `if <condition>` … `else` … `endif` | block form; `else` optional; see “Conditionals” below |
