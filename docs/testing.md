@@ -56,7 +56,7 @@ Prioritize player-visible behavior, gameplay progression, persistence, asynchron
 player with real input messages and asserts what the player perceives, from outside the ECS
 ([Keiko spec §3–§5](keiko-spec.md#3-steps-k9k12)). It covers, on a pack's own cases: the surface and
 the text after each step; offline decisions and their fallback posture; save slots and loads;
-settings and credential degradation; the session log; declared fixtures and the fixed fault list; and
+settings and credential degradation; the player's failure lines; declared fixtures and the fixed fault list; and
 an exploration of every choice option and landing key within a budget. It cannot prove what its
 windowless player does not do: rendering on a real GPU, that audio is heard, that physical input
 arrives, or that a live model answered, which `--take --live` marks nondeterministic. The gate is
