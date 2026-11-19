@@ -31,6 +31,11 @@ use crate::launch::{Format, KeikoMode};
 
 /// Run one Keiko mode. Returns the process exit code (spec §10.3).
 pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8 {
+    // The preview loads the pack itself: §9.3 wants the loader's own findings
+    // in the check's shape, not Keiko's one summary of them.
+    if let KeikoMode::Preview(args) = mode {
+        return preview::run(args, pack_root, keep, format);
+    }
     let loaded = match unmei_engine::load_pack(pack_root) {
         Ok(loaded) => loaded,
         Err(errors) => {
@@ -76,7 +81,8 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
         KeikoMode::Explore { budget, from } => {
             explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
         }
-        // The preview is a mode of its own beside the Keiko group (spec §9).
+        // Handled before the shared load, which would summarize the loader's
+        // findings into one (spec §9.3); kept whole here so no mode is a panic.
         KeikoMode::Preview(args) => preview::run(args, pack_root, keep, format),
     }
 }

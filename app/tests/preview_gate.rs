@@ -268,3 +268,176 @@ fn a_scene_frames_the_decide_park_and_the_fallback_it_lands_on() {
         ]
     );
 }
+
+// ---------------------------------------------------------------------------
+// Rule 23: `--pick` and `--state` choose the branch the replay walks
+// ---------------------------------------------------------------------------
+
+/// `first_meeting:28` is the second option's say-line, so the frame proves the
+/// pick reached that branch, and the default picks cannot reach it at all.
+#[test]
+fn a_pick_reaches_the_second_options_branch() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let pack = demo_pack();
+    let pack = pack.to_str().expect("a pack path");
+    let out_arg = out.to_str().expect("a folder path");
+
+    let missed = run(&[pack, "--preview", out_arg, "--at", "first_meeting:28"]);
+    assert_eq!(missed.status.code(), Some(1), "{}", stdout(&missed));
+    assert!(
+        stdout(&missed).contains("keiko.case.reference"),
+        "{}",
+        stdout(&missed)
+    );
+    assert!(written(&out).is_empty(), "no frame is written");
+
+    let picked = run(&[
+        pack,
+        "--preview",
+        out_arg,
+        "--at",
+        "first_meeting:28",
+        "--pick",
+        "2",
+    ]);
+    assert_eq!(
+        picked.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&picked),
+        stderr(&picked)
+    );
+    assert_eq!(written(&out), ["at-first_meeting-28.png"]);
+}
+
+/// `epilogue:10` is the say-line in the `affinity_level == "high"` arm, which
+/// the pack's own initial state skips (spec §13 rule 23).
+#[test]
+fn a_state_file_reaches_the_if_arm_the_initial_state_skips() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let state = dir.path().join("high.ron");
+    std::fs::write(&state, "(affinity_level: \"high\",)").expect("the state file");
+    let pack = demo_pack();
+    let args = [
+        pack.to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "epilogue:10",
+        "--state",
+        state.to_str().expect("a state path"),
+    ];
+
+    let skipped = run(&args[..5]);
+    assert_eq!(skipped.status.code(), Some(1), "{}", stdout(&skipped));
+    assert!(
+        stdout(&skipped).contains("keiko.case.reference"),
+        "{}",
+        stdout(&skipped)
+    );
+    assert!(written(&out).is_empty(), "no frame is written");
+
+    let reached = run(&args);
+    assert_eq!(
+        reached.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&reached),
+        stderr(&reached)
+    );
+    assert_eq!(written(&out), ["at-epilogue-10.png"]);
+}
+
+// ---------------------------------------------------------------------------
+// Rule 25: a pack that fails to load writes no frame
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_pack_that_fails_to_load_reports_its_findings_and_writes_no_frame() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let pack = fixture_pack("unloaded");
+    let output = run(&[
+        pack.to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "main:1",
+    ]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(text.contains("pack.manifest"), "{text}");
+    assert!(
+        !text.contains("keiko.case.version"),
+        "the preview runs no part of the check: {text}"
+    );
+    assert!(written(&out).is_empty(), "no frame is written");
+}
+
+// ---------------------------------------------------------------------------
+// Rule 26: no fallback adapter fails the preview before any frame
+// ---------------------------------------------------------------------------
+
+#[test]
+fn without_a_fallback_adapter_the_preview_fails_before_any_frame() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    // `metal` is not a backend this platform compiles, so the probe finds no
+    // fallback adapter.
+    let output = run_env(
+        &[
+            demo_pack().to_str().expect("a pack path"),
+            "--preview",
+            out.to_str().expect("a folder path"),
+            "--at",
+            "reunion:19",
+        ],
+        &[("WGPU_BACKEND", "metal")],
+    );
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.render.unavailable"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(written(&out).is_empty(), "no frame is written");
+}
+
+// ---------------------------------------------------------------------------
+// Rule 27: a rerun overwrites its own files and leaves the rest alone
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_rerun_overwrites_its_files_and_leaves_another_file_alone() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    std::fs::create_dir_all(&out).expect("the folder");
+    std::fs::write(out.join("keep.txt"), "not a frame").expect("the other file");
+    let pack = demo_pack();
+    let args = [
+        pack.to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "reunion:7",
+    ];
+
+    let first = run(&args);
+    assert_eq!(first.status.code(), Some(0), "{}", stderr(&first));
+    let frame = out.join("at-reunion-7.png");
+    assert_eq!(size(&frame), (1280, 720));
+
+    // A rerun replaces the frame it names, whatever is there now.
+    std::fs::write(&frame, b"not a png any more").expect("the corrupted frame");
+    let second = run(&args);
+    assert_eq!(second.status.code(), Some(0), "{}", stderr(&second));
+    assert_eq!(size(&frame), (1280, 720), "the frame is written again");
+    assert_eq!(
+        std::fs::read_to_string(out.join("keep.txt")).expect("the other file"),
+        "not a frame",
+        "every other file in the folder is left alone"
+    );
+    assert_eq!(written(&out), ["at-reunion-7.png"]);
+}
