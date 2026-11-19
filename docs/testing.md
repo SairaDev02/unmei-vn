@@ -65,6 +65,12 @@ arrives, or that a live model answered, which `--take --live` marks nondetermini
 under `app/tests/keiko/`; both run inside the existing workspace test step, so `check.yml` gains no
 job ([Keiko spec §14](keiko-spec.md#14-the-gate-and-the-docs-done-when)).
 
+The check gate is [`app/tests/check_gate.rs`](../app/tests/check_gate.rs). It runs the built
+`unmei-play` with `--check --format json` over the demo pack and over every fixture pack under
+`app/tests/check/`, asserting each pack's exit code, error and warning counts, and findings in the
+fixed order. It runs inside the same existing workspace test step, so `check.yml` gains no job
+([check and preview spec §11](check-preview-spec.md#11-the-gate-and-the-docs)).
+
 ## External Dependencies
 
 Use deterministic fakes and loopback HTTP servers for provider responses, timeouts, protocol errors, and retry scenarios.

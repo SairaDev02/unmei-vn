@@ -259,8 +259,11 @@ pub fn validate_case(pack_root: &Path, pack: &Pack, case: &Case, case_file: &str
 }
 
 /// The case files a run names, as `(id, path)` pairs in byte order of their
-/// relative paths (spec §1).
-fn case_files(pack_root: &Path, ids: &[String]) -> Result<Vec<(String, PathBuf)>, String> {
+/// relative paths (spec §1). The check asks for every case with no ids.
+pub(crate) fn case_files(
+    pack_root: &Path,
+    ids: &[String],
+) -> Result<Vec<(String, PathBuf)>, String> {
     let tests = pack_root.join("tests");
     if ids.is_empty() {
         let mut files = Vec::new();

@@ -1,7 +1,7 @@
 # Agent guide: working on an Unmei content pack
 
 This file is for an AI coding agent helping an author edit this pack. It points at the files that
-matter and the two ways to check a change. It does not replace the format documentation: the Guide
+matter and the ways to check a change. It does not replace the format documentation: the Guide
 carries [Write your first pack](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/write-your-first-pack.md) and the content format
 overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md) links.
 
@@ -35,6 +35,12 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
   ```sh
   unmei author draft <scene> --list --pack <pack-dir>
   ```
+
+- **Check the whole pack.** `unmei-play <pack-dir> --check` reports every load finding and every
+  Keiko case finding in one run, one `file:line: message [rule]` line each, then a summary. It runs
+  no take, opens no window and never reads or writes the pack's sidecars or the user's key. Exit `0`
+  means no error finding, `1` an error finding and `2` a usage error. Add `--format json` for one
+  machine-readable document with each finding's severity and rule id.
 
 - **Play the pack.** `unmei-play <pack-dir>` lists every load error on screen and in
   `<pack-dir>.log`, so a broken file is reported with its own `file:line`. A pack that loads plays,

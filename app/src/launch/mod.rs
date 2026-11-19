@@ -19,9 +19,11 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+mod check;
 mod keiko;
 mod pack;
 
+use check::CheckArgs;
 pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
@@ -55,6 +57,8 @@ pub struct Launch {
     /// The Keiko testing mode, when one was asked for. `None` is the ordinary
     /// player launch.
     pub keiko: Option<KeikoMode>,
+    /// Whether `--check` was asked for: report the pack's findings and exit.
+    pub check: bool,
     /// Keep every take's sandbox instead of deleting it.
     pub keep: bool,
     /// The Keiko output format. Text is the default for every mode.
@@ -121,6 +125,7 @@ where
     let mut positional: Option<OsString> = None;
     let mut options_ended = false;
     let mut keiko = keiko::KeikoArgs::default();
+    let mut check = CheckArgs::default();
 
     let mut index = 0;
     while index < tokens.len() {
@@ -147,6 +152,10 @@ where
                 }
                 "-V" | "--version" => {
                     version = true;
+                    continue;
+                }
+                "--check" => {
+                    check.request();
                     continue;
                 }
                 "--take" => {
@@ -232,11 +241,13 @@ where
         return Ok(LaunchRequest::Version);
     }
 
-    let keiko_mode = keiko.clone().finish(dev)?;
+    let keiko_mode = keiko.clone().finish(dev, check.requested())?;
+    let check = check.finish(dev, keiko_mode.is_some())?;
     Ok(LaunchRequest::Run(Launch {
         pack_dir: positional.map(PathBuf::from),
         force_dev: dev,
         keiko: keiko_mode,
+        check,
         keep: keiko.keeping(),
         format: keiko.output_format(),
     }))
@@ -245,6 +256,7 @@ where
 /// The concise usage block the binary prints to stderr alongside a diagnostic.
 pub const USAGE: &str = "\
 Usage: unmei-play [--dev] [PACK_DIR]
+       unmei-play [PACK_DIR] --check [--format text|json]
        unmei-play --help
        unmei-play --version
 ";
@@ -268,6 +280,13 @@ Options:
   --dev           Force developer affordances on, even in a release build.
   -h, --help      Print this help and exit. Repeats are idempotent.
   -V, --version   Print the version and exit. Repeats are idempotent.
+
+Check:
+  --check         Report every load finding and every Keiko case finding in the
+                  pack without running a take. It opens no window and never
+                  touches the pack's sidecars or the user's credential file.
+  --format F      With --check: `text` (the default) or `json`.
+  Exit codes: 0 no error finding, 1 an error finding, 2 usage.
 
 Testing (Keiko):
   --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case
