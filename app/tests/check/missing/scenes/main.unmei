@@ -1,0 +1,27 @@
+bg missing_bg
+play missing_theme
+
+if met_ace
+  sprite ace happy
+  play missing_warm
+else
+  sprite ace sad
+  bg missing_rain
+endif
+
+choice
+  "Ask" -> ask
+  "Leave" -> leave
+end
+
+label ask
+sprite ace neutral
+jump done
+
+label leave
+play missing_cold
+jump done
+
+label done
+stop missing_theme
+Narrator: Done.
