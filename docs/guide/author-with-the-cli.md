@@ -132,7 +132,8 @@ To generate a config for one question of an NPC, or to replace it, follow these 
    `decisions["greet"]` in `npcs/ace.ron`: a `greet` config that already exists is replaced, and the
    rest of the file, comments included, stays as it was
    ([`docs/author-cli.md` § 1 Command surface](../author-cli.md#1-command-surface)).
-   Then run the same command without `--dry-run`.
+   If the edited file would not read back as the old one with only that config changed, the
+   command stops with an error and writes nothing. Then run the same command without `--dry-run`.
 
 Optionally, add these options to the command:
 
