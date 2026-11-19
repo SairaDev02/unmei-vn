@@ -21,7 +21,7 @@
 //! - the full real-client/real-runner response matrix and the stalled 30-second
 //!   timeout: `engine/tests/decision_matrix.rs`;
 //! - the absent-client fallback and the fake resolver's spawn/poll/held/
-//!   cancellation/exactly-once model-autosave lifecycle: `app/src/tests.rs`;
+//!   cancellation/exactly-once model-autosave lifecycle: `app/src/tests/decisions.rs`;
 //! - credential sinks, redirect handling and categorical status text:
 //!   `app/tests/credential_safety.rs`, `engine/tests/decision_safety.rs`.
 //!
