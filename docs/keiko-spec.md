@@ -165,8 +165,8 @@ An assertion compares against the current observation (§5). A failing assertion
 | `expect state <key> = <value>` | The state map holds this value. |
 | `expect read <scene>:<line>` / `expect unread <scene>:<line>` | The read log does or does not hold this line. `<line>` is the 1-based source line of the say-line in its `.unmei` file. |
 | `expect slot <1-3\|autosave> empty\|unreadable\|scene <id>` | The slot's status matches. |
-| `expect log <level> [row <n>] contains "<text>"` | Since the take began, the session log has a line at this level (`error`, `warn`, `info`), optionally from failure row `<n>` of the [failure inventory](runtime-hardening.md#runtime-failure-posture), containing the text. |
-| `expect no-log <level> [row <n>]` | No such line since the take began. |
+| `expect log <level> [row <n>] contains "<text>"` | Since the take began, the take's failure lines hold a line at this level (`error`, `warn`, `info`), optionally from failure row `<n>` of the [failure inventory](runtime-hardening.md#runtime-failure-posture), containing the text. The failure lines are the ones the take's own player logs under `unmei::failure`, not the session log or the sandbox's `<pack>.log`. Every failure row logs at `error` or `warn`, so `info` is accepted but never matches. *(Amended 2026-11-19: the take's failure lines, not the session log, and `info` never matches.)* |
+| `expect no-log <level> [row <n>]` | No such failure line since the take began. `expect no-log info` therefore always passes. *(Amended 2026-11-19.)* |
 
 ## 4. The take (K2, K4, K17)
 
@@ -226,7 +226,7 @@ After each step the take builds an **observation** from the world. Building it r
 | `error` | On the error screen: its messages, in order. |
 | `state` | The state map. |
 | `slots` | `[{ "slot": "1", "status": "empty" \| "unreadable" \| "ok", "scene" }]`. |
-| `log` | The session log lines written since the previous observation: `[{ "level", "row", "text" }]`. |
+| `log` | The take's failure lines (§3.5) written since the previous observation: `[{ "level", "row", "text" }]`. Each is an `error` or `warn` line under `unmei::failure`, never a session log line. *(Amended 2026-11-19: not the session log.)* |
 
 The read log is not printed in full. It is asserted with `expect read` and `expect unread`.
 
@@ -450,6 +450,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 - **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
+- **2026-11-19:** §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

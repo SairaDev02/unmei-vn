@@ -148,8 +148,10 @@ An assertion starts with `expect` and compares one part of what the player sees 
 surface; the Monitor; the speaker, the full say-line, whether the reveal finished or the choice
 options; the Notice; one control's condition or label; the staging of background, sprites and music;
 auto and skip mode; a pending decision; the scene and label; the state map; the read log; a save slot;
-or a session-log line. `expect no-log` asserts that a log line did not appear. A failing assertion
-ends the take with `keiko.expect` and prints the expected and the observed value.
+or a failure line, one of the `error` and `warn` lines the player logs when something fails.
+`expect no-log` asserts that a failure line did not appear. A log assertion reads only these lines
+and not the session log, so `expect log info` never matches and `expect no-log info` always passes.
+A failing assertion ends the take with `keiko.expect` and prints the expected and the observed value.
 [`docs/keiko-spec.md` § 3.5](../keiko-spec.md#35-assertions-k11-k12) has the table of forms.
 
 Text matching is exact and case-sensitive. Use `expect line contains "<text>"` and
