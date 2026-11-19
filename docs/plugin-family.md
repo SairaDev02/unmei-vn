@@ -98,6 +98,8 @@ These are additions to the UI plugin's interface, not a new kind.
 
   *(Amended 2026-11-17: C4's `--at` and `--scene` and C5's replay are Keiko's one replay, and the `--state` and `--pick` formats are defined there ([Keiko spec §12](keiko-spec.md#12-the-shared-replay-k29)).)*
 - **C6 — Motion as keyframe strips.** A park with motion renders its start, middle and end as separate PNGs.
+
+  *(Amended 2026-11-19: the [check and preview spec](check-preview-spec.md) specifies C1–C5 and C7. C6 moves to the stage plugin spec, because nothing produces motion before it (§9.5). C2's "a `decide` with no label for one of its landing keys" is already a load error, and stays one, not a flow-lint warning (§6).)*
 - **C7 — No GPU needed.** The preview runs on the software rasterizer CI already boots on, so an agent in a container can use it. Its frames may differ slightly from GPU frames; the native Monitor walk stays the rendered gate.
 
 ## 6. Authoring profile

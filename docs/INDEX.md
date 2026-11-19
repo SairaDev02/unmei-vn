@@ -14,6 +14,7 @@ Generated discovery index. Edit a document's frontmatter, then run
   - [Provider configuration](author-cli.md#4-provider-configuration)
   - [Staged pack validation](author-cli.md#9-staged-pack-validation--decided-design-2026-10-14)
   - [Authoring-target confinement](author-cli.md#10-authoring-target-confinement--decided-design-2026-10-14)
+- [Pack-wide check and preview — build-ready spec](check-preview-spec.md) — The build-ready spec for unmei-play --check and --preview, covering findings, all-at-once loading, rule ids, asset and flow rules and the preview. (`pack-validation`, `diagnostics`, `content-pack`, `presentation-surface`, `verification`, `agent-tooling`)
 - [Pack content format — structured data, dialogue DSL and decision configs](content-format.md) — The pack's content contracts — RON structured data, the line-oriented dialogue DSL, decision configs, transitions, manifest and state. (`content-format`, `content-pack`, `dialogue-dsl`, `decision-point`, `decisions`)
   - [Structured data](content-format.md#1-structured-data-ron)
   - [Pack layout](content-format.md#2-pack-layout)
