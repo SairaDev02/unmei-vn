@@ -177,6 +177,8 @@ pub mod rules {
     pub const FLOW_UNREACHABLE_LABEL: &str = "flow.unreachable-label";
     pub const FLOW_NO_EXIT: &str = "flow.no-exit";
 
+    pub const PREVIEW_STATE_UNREACHABLE: &str = "preview.state.unreachable";
+
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
         format!("keiko.log.row-{row}")

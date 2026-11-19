@@ -1,6 +1,5 @@
-//! The preview's entry: load the pack, build the generated case, probe the
-//! rasterizer and run one take that writes its frames into the output folder
-//! (spec §9).
+//! The preview's entry: load the pack, plan the request, probe the rasterizer
+//! and run the takes that write its frames into the output folder (spec §9).
 //!
 //! A preview opens no window, needs no key and never touches the pack's
 //! sidecars or the user's credential file: the take engine works in its own
@@ -8,16 +7,18 @@
 
 use std::path::Path;
 
-use unmei_engine::keiko::rules;
-use unmei_engine::{Finding, StateValue};
+use unmei_engine::keiko::{rules, Case};
+use unmei_engine::{Finding, Pack, StateValue};
 
-use super::{build_case, PreviewRequest};
+use super::states::{Fixture, Outcome};
+use super::{plan, Plan, PreviewRequest};
 use crate::check::report;
 use crate::keiko::{output, render, take};
 use crate::launch::{Format, PreviewArgs};
 
-/// Run the preview. Returns the process exit code: 0 frames written, 1 a
-/// finding, 2 a usage error, which returns before this runs (spec §8).
+/// Run the preview. Returns the process exit code: 0 frames written and no
+/// error finding, 1 a finding, 2 a usage error, which returns before this runs
+/// (spec §8, §9.2).
 pub fn run(args: &PreviewArgs, pack_root: &Path, keep: bool, format: Format) -> u8 {
     // §9.3: a pack that fails to load reports its findings and writes no frame.
     let pack = match unmei_engine::load_pack(pack_root) {
@@ -28,11 +29,13 @@ pub fn run(args: &PreviewArgs, pack_root: &Path, keep: bool, format: Format) -> 
         Ok(request) => request,
         Err(finding) => return report_findings(vec![finding], format),
     };
-    let case = match build_case(&pack, &request) {
-        Ok(case) => case,
+    let plan = match plan(&pack, &request) {
+        Ok(plan) => plan,
         Err(finding) => return report_findings(vec![finding], format),
     };
-    // §9.4: with no fallback adapter the preview fails before any frame.
+    // §9.4: with no fallback adapter the preview fails before any frame. One
+    // probe covers every take in the slate, so no state is misreported as
+    // unreachable on a machine that cannot draw at all.
     if !render::available() {
         return report_findings(
             vec![Finding::new(
@@ -51,23 +54,109 @@ pub fn run(args: &PreviewArgs, pack_root: &Path, keep: bool, format: Format) -> 
         );
         return output::FAIL;
     }
+    match plan {
+        Plan::Slate(fixtures) => slate(&pack, pack_root, args, keep, fixtures, format),
+        Plan::One(case) => one(&pack, pack_root, args, keep, &case, format),
+    }
+}
 
-    let result = take::run(take::TakeRequest {
-        case: &case,
-        case_file: "preview".to_string(),
-        original_pack: pack_root,
-        pack: &pack,
-        take_index: 1,
-        keep,
-        live: None,
-        // §9.1: the frames go to the folder the request names, under their
-        // fixed `at-<scene>-<line>` or `scene-<id>-<line>` names.
-        frames: Some(args.dir.clone()),
-    });
-    match result.outcome {
+/// One take for a request that names a line or a scene (spec §9.1).
+fn one(
+    pack: &Pack,
+    pack_root: &Path,
+    args: &PreviewArgs,
+    keep: bool,
+    case: &Case,
+    format: Format,
+) -> u8 {
+    match take::run(take_request(pack, pack_root, args, keep, case, 1)).outcome {
         Ok(()) => output::PASS,
         Err(finding) => report_findings(vec![finding], format),
     }
+}
+
+/// §9.2's slate: one fresh take per fixture state, and one warning per state the
+/// pack cannot reach. A state whose take fails for any other reason keeps the
+/// failure an error, so a broken pack, a panic or a missing rasterizer is never
+/// reported as a missing state.
+fn slate(
+    pack: &Pack,
+    pack_root: &Path,
+    args: &PreviewArgs,
+    keep: bool,
+    fixtures: Vec<Fixture>,
+    format: Format,
+) -> u8 {
+    let mut findings = Vec::new();
+    for (index, fixture) in fixtures.into_iter().enumerate() {
+        let name = fixture.name;
+        match fixture.outcome {
+            Outcome::Unreachable(reason) => findings.push(unreachable(name, &reason)),
+            Outcome::Case(case) => {
+                match take::run(take_request(pack, pack_root, args, keep, &case, index + 1)).outcome
+                {
+                    Ok(()) => {}
+                    // A step that could not find or activate its control is the one
+                    // honest "this take did not reach the state" signal: a
+                    // precondition the pack cannot set up (spec §9.2).
+                    Err(finding) if unreached(&finding) => {
+                        findings.push(unreachable(name, &finding.message));
+                    }
+                    Err(finding) => findings.push(named(name, finding)),
+                }
+            }
+        }
+    }
+    let (errors, _) = report::print(&mut findings, format, "preview");
+    if errors > 0 {
+        output::FAIL
+    } else {
+        output::PASS
+    }
+}
+
+/// One take's request: the case, the pack and the folder the frames land in
+/// under their fixed names (spec §9.1).
+fn take_request<'a>(
+    pack: &'a Pack,
+    pack_root: &'a Path,
+    args: &PreviewArgs,
+    keep: bool,
+    case: &'a Case,
+    take_index: usize,
+) -> take::TakeRequest<'a> {
+    take::TakeRequest {
+        case,
+        case_file: "preview".to_string(),
+        original_pack: pack_root,
+        pack,
+        take_index,
+        keep,
+        live: None,
+        frames: Some(args.dir.clone()),
+    }
+}
+
+/// The warning §9.2 reports for a state the pack cannot reach.
+fn unreachable(name: &str, reason: &str) -> Finding {
+    Finding::warning(
+        "preview",
+        String::new(),
+        rules::PREVIEW_STATE_UNREACHABLE,
+        format!("{name}: {reason}"),
+    )
+}
+
+/// A take's failure, named for the state whose take it was.
+fn named(name: &str, mut finding: Finding) -> Finding {
+    finding.message = format!("{name}: {}", finding.message);
+    finding
+}
+
+/// Whether a take failed because a step could not reach its target, which for
+/// the slate is a state the pack cannot set up (spec §9.2).
+fn unreached(finding: &Finding) -> bool {
+    finding.rule == rules::STEP_NO_TARGET || finding.rule == rules::STEP_DISABLED
 }
 
 /// The grammar's request plus `--state`'s file, read here because the parser
