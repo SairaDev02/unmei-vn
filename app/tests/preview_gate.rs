@@ -196,3 +196,75 @@ fn an_at_line_that_is_no_park_reports_the_reference_rule_and_writes_nothing() {
     );
     assert!(written(&out).is_empty(), "no frame is written");
 }
+
+// ---------------------------------------------------------------------------
+// Rule 22: `--scene` writes one frame per park, and stops at the scene's edge
+// ---------------------------------------------------------------------------
+
+/// `first_meeting` parks twice on say-lines, once on its choice and once on the
+/// first option's say-line; the jump to `reunion` ends the walk.
+#[test]
+fn a_scene_writes_one_frame_at_every_park_it_meets() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        demo_pack().to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--scene",
+        "first_meeting",
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    let names = [
+        "scene-first_meeting-7.png",
+        "scene-first_meeting-10.png",
+        "scene-first_meeting-12.png",
+        "scene-first_meeting-21.png",
+    ];
+    let mut expected: Vec<&str> = names.to_vec();
+    expected.sort_unstable();
+    assert_eq!(
+        written(&out),
+        expected,
+        "one frame per park, no scene cross"
+    );
+    for name in names {
+        assert_eq!(size(&out.join(name)), (1280, 720), "{name}");
+    }
+}
+
+/// `reunion` parks on a say-line, on its decide point and on the say-line the
+/// authored fallback lands, so a decision park is framed like any other.
+#[test]
+fn a_scene_frames_the_decide_park_and_the_fallback_it_lands_on() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        demo_pack().to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--scene",
+        "reunion",
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    assert_eq!(
+        written(&out),
+        [
+            "scene-reunion-10.png",
+            "scene-reunion-19.png",
+            "scene-reunion-7.png",
+        ]
+    );
+}

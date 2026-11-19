@@ -133,6 +133,12 @@ impl Rendered {
         self.point_at(app, camera, true);
         run(app);
         run(app);
+        // The composition is in the image now. The copy reads the image rather
+        // than the camera, so the camera goes back to the window before the
+        // copy is asked for: a frame that also redraws the image keeps the
+        // software rasterizer a whole frame behind, and its queue only ever
+        // grows (spec §13).
+        self.point_at(app, camera, false);
 
         let landed: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
         let sink = landed.clone();
@@ -143,20 +149,22 @@ impl Rendered {
                 *sink.lock().unwrap() = Some(event.data.clone());
             })
             .id();
+        // A live `Readback` asks for another copy every frame; one copy is all
+        // this step wants, so the component goes as soon as it was extracted.
+        run(app);
+        app.world_mut().entity_mut(entity).remove::<Readback>();
         for _ in 0..READBACK_FRAMES {
-            run(app);
             if landed.lock().unwrap().is_some() {
                 break;
             }
+            run(app);
         }
         app.world_mut().entity_mut(entity).despawn();
-        // The copies requested on the frames before the first one came back are
-        // still in flight; two more frames let them land, so a take that ends
+        // Two more frames let the last submissions land, so a take that ends
         // right after this step leaves no readback pending at teardown.
         for _ in 0..2 {
             run(app);
         }
-        self.point_at(app, camera, false);
 
         let data = landed
             .lock()
