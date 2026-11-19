@@ -31,11 +31,37 @@ use crate::launch::{Format, KeikoMode};
 
 /// Run one Keiko mode. Returns the process exit code (spec §10.3).
 pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8 {
-    // The preview loads the pack itself: §9.3 wants the loader's own findings
-    // in the check's shape, not Keiko's one summary of them.
-    if let KeikoMode::Preview(args) = mode {
-        return preview::run(args, pack_root, keep, format);
+    match mode {
+        // The preview loads the pack itself: §9.3 wants the loader's own
+        // findings in the check's shape, not Keiko's one summary of them.
+        KeikoMode::Preview(args) => preview::run(args, pack_root, keep, format),
+        KeikoMode::Take { ids, live } => with_pack(pack_root, format, |pack| {
+            let live = match live_client(*live) {
+                Ok(live) => live,
+                Err(message) => {
+                    eprintln!("unmei-play: {message}");
+                    return output::USAGE;
+                }
+            };
+            take(pack_root, pack, ids, keep, format, None, live)
+        }),
+        KeikoMode::Step { id, step } => with_pack(pack_root, format, |pack| {
+            append_step(pack_root, pack, id, step, keep, format)
+        }),
+        // `--observe` reports one case with the same document as `--step`
+        // (spec §10.1), not under "takes".
+        KeikoMode::Observe { id } => with_pack(pack_root, format, |pack| {
+            observe_one(pack_root, pack, id, keep, format)
+        }),
+        KeikoMode::Explore { budget, from } => with_pack(pack_root, format, |pack| {
+            explore(pack_root, pack, *budget, from.as_deref(), keep, format)
+        }),
     }
+}
+
+/// Run one mode on the shared load, or report a pack that will not load as one
+/// finding and fail. Every mode but the preview runs here.
+fn with_pack(pack_root: &Path, format: Format, run: impl FnOnce(&Pack) -> u8) -> u8 {
     let loaded = match unmei_engine::load_pack(pack_root) {
         Ok(loaded) => loaded,
         Err(errors) => {
@@ -61,30 +87,7 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
             return output::FAIL;
         }
     };
-    let pack = loaded.pack;
-
-    match mode {
-        KeikoMode::Take { ids, live } => {
-            let live = match live_client(*live) {
-                Ok(live) => live,
-                Err(message) => {
-                    eprintln!("unmei-play: {message}");
-                    return output::USAGE;
-                }
-            };
-            take(pack_root, &pack, ids, keep, format, None, live)
-        }
-        KeikoMode::Step { id, step } => append_step(pack_root, &pack, id, step, keep, format),
-        // `--observe` reports one case with the same document as `--step`
-        // (spec §10.1), not under "takes".
-        KeikoMode::Observe { id } => observe_one(pack_root, &pack, id, keep, format),
-        KeikoMode::Explore { budget, from } => {
-            explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
-        }
-        // Handled before the shared load, which would summarize the loader's
-        // findings into one (spec §9.3); kept whole here so no mode is a panic.
-        KeikoMode::Preview(args) => preview::run(args, pack_root, keep, format),
-    }
+    run(&loaded.pack)
 }
 
 /// The `--observe` run: one case, reported as one document.
