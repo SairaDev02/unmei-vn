@@ -245,3 +245,82 @@ fn a_take_records_only_its_own_apps_failure_lines() {
         leaked.first()
     );
 }
+
+/// Another take app in the same process that logs a marker line every frame,
+/// the way a concurrently running take test does. It signals once it has
+/// logged, and stops when told to (or after a minute, if the test died first).
+/// It returns its own session log's text.
+fn spawn_logging_take(
+    stop: Arc<std::sync::atomic::AtomicBool>,
+) -> (
+    std::sync::mpsc::Receiver<()>,
+    std::thread::JoinHandle<String>,
+) {
+    let (ready, started) = std::sync::mpsc::channel();
+    let handle = std::thread::spawn(move || {
+        let (dir, root, _pack) = demo_pack();
+        let path = dir.path().join("other.log");
+        let log = crate::failure::SessionLog::open(path.clone(), "other take")
+            .expect("open the other take's log");
+        let mut app = crate::composition::keiko_app(
+            RuntimeConfig::new(root, None),
+            crate::failure::SessionLogResult::Opened(log),
+            crate::credentials::ClipboardPort::Memory(None),
+            crate::KeyCheckChannel::default(),
+            crate::DecisionFactory { builder: None },
+            Arc::new(crate::keiko::assets::AssetFaults::default()),
+        );
+        app.add_systems(Update, || {
+            bevy::log::warn!("marker: another take's line");
+        });
+        let began = std::time::Instant::now();
+        app.update();
+        let _ = ready.send(());
+        while !stop.load(Ordering::Relaxed) && began.elapsed().as_secs() < 60 {
+            app.update();
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        drop(app);
+        std::fs::read_to_string(&path).expect("read the other take's log")
+    });
+    (started, handle)
+}
+
+/// A take installs no global log subscriber, so its `<pack>.log` holds the
+/// version header and nothing else: not its own tracing lines, and not those of
+/// another take running in the same process. Its log assertions read the
+/// app's own funnel recorder instead (spec §4.1).
+#[test]
+fn a_kept_takes_session_log_holds_only_its_version_header() {
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case("tests/own-log.keiko", "keiko 1\n\nnew-game\n").expect("parses");
+
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let (started, other) = spawn_logging_take(stop.clone());
+    started
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("the other take logged its first frame");
+    let mut kept_request = request(&case, &pack, &root);
+    kept_request.keep = true;
+    let result = run(kept_request);
+    stop.store(true, Ordering::Relaxed);
+    let other_log = other.join().expect("the other take ran");
+
+    let kept = result.kept.expect("a kept take names its folder");
+    let text = std::fs::read_to_string(kept.join("pack.log"));
+    let _ = std::fs::remove_dir_all(&kept);
+    if let Some(sandbox_root) = kept.parent() {
+        let _ = std::fs::remove_dir(sandbox_root);
+    }
+    let text = text.expect("the kept take's session log exists");
+    assert!(result.outcome.is_ok(), "{:?}", result.outcome);
+    assert_eq!(
+        text,
+        format!("{}\n", crate::launch::version_text()),
+        "the kept take's session log holds only its version header"
+    );
+    assert_eq!(
+        other_log, "other take\n",
+        "the logging take's own lines do not reach its session log either"
+    );
+}
