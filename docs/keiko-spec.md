@@ -179,7 +179,7 @@ A **take** executes one case from its first line to its last, in its own sandbox
 - `TimeUpdateStrategy::ManualDuration`, set by the take before every frame (§4.3).
 - `RuntimeConfig` pointing at the sandbox pack, with dev mode from the case and a resolver from §6.
 - `ClipboardPort::Memory`, and a `KeyCheckChannel` that follows the `key-check` fault (§7.2), or always answers `Unreachable` when no fault is declared. No take ever reaches the network unless `--live` is given.
-- A session log opened on the sandbox's `<pack>.log`, so log assertions read the real lines the player writes.
+- A session log opened on the sandbox's `<pack>.log`. It holds the version header only, because a take installs no global log subscriber. Log assertions read the take app's own funnel recorder, which holds the same `unmei::failure` lines the player writes to its session log. *(Amended 2026-11-19: the take's `<pack>.log` never carried the player's lines.)*
 - The Keiko asset reader (§4.2) as the default asset source.
 - No audio device. Music and sound effects are observed through staging only.
 

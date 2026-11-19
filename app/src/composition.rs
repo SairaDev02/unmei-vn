@@ -104,10 +104,10 @@ impl Selection {
                 .disable::<bevy::winit::WinitPlugin>()
                 .disable::<bevy::render::pipelined_rendering::PipelinedRenderingPlugin>()
                 .disable::<bevy::gilrs::GilrsPlugin>()
-                // As in the windowless take, the global logger stays out: the
-                // take's session log is the funnel's own file, and the
-                // renderer's console lines would otherwise reach stderr and
-                // that file.
+                // As in the windowless take, the global logger stays out, so
+                // the renderer's console lines never reach stderr. A take's
+                // `<pack>.log` holds its version header only; its log
+                // assertions read the app's own funnel recorder (spec §4.1).
                 .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     primary_window: None,
@@ -146,18 +146,6 @@ impl Selection {
             group: self
                 .group
                 .add_before::<bevy::text::TextPlugin>(TextureAtlasPlugin),
-        }
-    }
-
-    /// The take's log: the session-log layer that follows the current take's
-    /// sandbox file, reinstalled where `headless_subtraction` removed the
-    /// console-only default.
-    fn with_keiko_log(self) -> Self {
-        Self {
-            group: self.group.set(LogPlugin {
-                custom_layer: crate::failure::keiko_log_layer,
-                ..default()
-            }),
         }
     }
 
@@ -216,8 +204,12 @@ pub fn shipping_app(
 /// `bevy_kira_audio`'s plugin, so the mix and staging bookkeeping run and
 /// nothing sounds.
 ///
-/// It is deliberately not a wrapper around [`schedule_app`]: a take needs the
-/// session-log layer that the strict schedule gate leaves out, and the real
+/// It installs no global log subscriber, like [`schedule_app`]: `<pack>.log`
+/// holds the version header only, and the take's log assertions read the app's
+/// own funnel recorder (spec §4.1).
+///
+/// It is deliberately not a wrapper around [`schedule_app`]: a take needs its
+/// own asset source and ports (see `take_app`), no audio device, and the real
 /// image loader that a windowless app otherwise never registers (`ImagePlugin`
 /// only preregisters it, and a renderer supplies the real one in play).
 pub fn keiko_app(
@@ -242,7 +234,6 @@ pub fn keiko_app(
         .without_audio_device()
         .with_atlas()
         .with_headless_asset_root(&asset_root)
-        .with_keiko_log()
         .finish(&mut app);
     // A windowless app never registers the real image loader (`ImagePlugin`
     // only preregisters it, and a renderer supplies it in play).
@@ -282,7 +273,6 @@ pub fn keiko_app_rendered(
         .rendered()
         .without_audio_device()
         .with_headless_asset_root(&asset_root)
-        .with_keiko_log()
         .finish(&mut app);
     app.add_plugins(UnmeiPlugin);
     app
@@ -318,14 +308,12 @@ fn take_app(
     app.insert_resource(config);
     match session_log {
         SessionLogResult::Opened(log) => {
-            crate::failure::set_keiko_log(Some(log.writer()));
             app.insert_resource(log);
         }
         SessionLogResult::Unwritable(error) => {
-            crate::failure::set_keiko_log(None);
             app.insert_resource(error);
         }
-        SessionLogResult::NotAttempted => crate::failure::set_keiko_log(None),
+        SessionLogResult::NotAttempted => {}
     }
     app.insert_resource(clipboard)
         .insert_resource(key_check)

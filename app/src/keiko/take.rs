@@ -256,7 +256,6 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         outcome
     };
 
-    crate::failure::set_keiko_log(None);
     let kept = sandbox.finish(request.keep);
     TakeResult {
         outcome,

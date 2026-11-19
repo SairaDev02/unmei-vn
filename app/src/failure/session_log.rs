@@ -59,11 +59,6 @@ impl SessionLog {
     pub(super) fn file(&self) -> Arc<Mutex<File>> {
         Arc::clone(&self.file)
     }
-
-    /// The shared writer, for a Keiko take's own log layer.
-    pub(crate) fn writer(&self) -> Arc<Mutex<File>> {
-        Arc::clone(&self.file)
-    }
 }
 
 /// The session log a launch brings to composition: opened, refused, or never
@@ -101,72 +96,30 @@ pub fn report_log_open_error(error: Option<Res<LogOpenError>>, mut failures: Fai
     ));
 }
 
-/// The file a Keiko take's log layer writes to. `LogPlugin` is process-global,
-/// so the layer installed by the first take must follow the *current* take's
-/// file; without a take it discards.
-///
-/// This assumes one take per process, which `unmei-play --take` guarantees.
-/// A tracing event carries no app identity, so any other app running in the
-/// same process (an in-process take test beside other app tests) also lands
-/// its lines in the current take's session log. The funnel's row recorder does
-/// not share this limit: it is per-app (`TapLog`). Making this sink per-app is
-/// a known follow-up recorded on #81.
-static KEIKO_LOG: Mutex<Option<Arc<Mutex<File>>>> = Mutex::new(None);
-
-/// Point the Keiko log layer at one take's session log (or nowhere).
-pub fn set_keiko_log(file: Option<Arc<Mutex<File>>>) {
-    if let Ok(mut current) = KEIKO_LOG.lock() {
-        *current = file;
-    }
-}
-
-/// The Keiko-only session sink: one layer that follows the current take's file.
-pub fn keiko_file_layer() -> BoxedLayer {
-    Box::new(
-        tracing_subscriber::fmt::layer()
-            .with_ansi(false)
-            .with_writer(KeikoFile),
-    )
-}
-
-struct KeikoFile;
-
-impl<'a> MakeWriter<'a> for KeikoFile {
-    type Writer = LineFlushedWriter;
-
-    fn make_writer(&'a self) -> Self::Writer {
-        let file = KEIKO_LOG.lock().ok().and_then(|current| current.clone());
-        LineFlushedWriter(file)
-    }
-}
-
 /// A file writer that flushes after every write, so a hard kill still leaves the
 /// tail on disk.
 struct LineFlushedFile(Arc<Mutex<File>>);
 
-struct LineFlushedWriter(Option<Arc<Mutex<File>>>);
+struct LineFlushedWriter(Arc<Mutex<File>>);
+
+impl LineFlushedWriter {
+    fn file(&self) -> io::Result<std::sync::MutexGuard<'_, File>> {
+        self.0
+            .lock()
+            .map_err(|_| io::Error::other("session log writer lock poisoned"))
+    }
+}
 
 impl Write for LineFlushedWriter {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        let Some(file) = &self.0 else {
-            return Ok(buf.len());
-        };
-        let mut file = file
-            .lock()
-            .map_err(|_| io::Error::other("session log writer lock poisoned"))?;
+        let mut file = self.file()?;
         let written = file.write(buf)?;
         file.flush()?;
         Ok(written)
     }
 
     fn flush(&mut self) -> io::Result<()> {
-        match &self.0 {
-            Some(file) => file
-                .lock()
-                .map_err(|_| io::Error::other("session log writer lock poisoned"))?
-                .flush(),
-            None => Ok(()),
-        }
+        self.file()?.flush()
     }
 }
 
@@ -185,7 +138,7 @@ impl<'a> MakeWriter<'a> for LineFlushedFile {
     type Writer = LineFlushedWriter;
 
     fn make_writer(&'a self) -> Self::Writer {
-        LineFlushedWriter(Some(Arc::clone(&self.0)))
+        LineFlushedWriter(Arc::clone(&self.0))
     }
 }
 
