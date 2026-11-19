@@ -318,5 +318,9 @@ mod tests {
         assert_eq!(rules::FLOW_UNREACHABLE_SCENE, "flow.unreachable-scene");
         assert_eq!(rules::FLOW_UNREACHABLE_LABEL, "flow.unreachable-label");
         assert_eq!(rules::FLOW_NO_EXIT, "flow.no-exit");
+        assert_eq!(
+            rules::PREVIEW_STATE_UNREACHABLE,
+            "preview.state.unreachable"
+        );
     }
 }
