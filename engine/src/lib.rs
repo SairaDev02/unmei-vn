@@ -60,7 +60,7 @@ pub use decision::{
     UNVERIFIED_MODEL,
 };
 pub use finding::{Finding, Severity};
-pub use pack::{load_pack, read_pack_text, LoadedPack};
+pub use pack::{load_pack, read_pack_text, AssetKind, AssetReference, LoadedPack};
 pub use parser::{check_id, is_keyword, split_say_line, Parser, KEYWORDS};
 pub use read_log::{
     load_read_log, read_log_path_for, write_read_log, ReadLog, ReadLogError, READ_LOG_VERSION,

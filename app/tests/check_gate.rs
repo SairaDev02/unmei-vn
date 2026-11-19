@@ -112,7 +112,8 @@ const EXPECTATIONS: &[Expectation] = &[
     },
     // The pack does not load, so only the case parser runs: the case that names
     // a missing scene reports nothing, and the bad version still reports. The
-    // orphan scene's flow finding is not reported either (§8).
+    // orphan scene's flow finding is not reported either (§8), and neither are
+    // the scene's missing assets (rule 28).
     Expectation {
         pack: "unloaded",
         errors: 2,
@@ -142,6 +143,40 @@ const EXPECTATIONS: &[Expectation] = &[
         errors: 0,
         warnings: 1,
         findings: &[("scenes/loop.unmei", "flow.no-exit")],
+    },
+    // Rule 9: each `bg`, `sprite`, `play` and the manifest's `title_backdrop`
+    // is one reference, including those in both `if` arms and after a `choice`;
+    // each missing file reports once.
+    Expectation {
+        pack: "missing",
+        errors: 9,
+        warnings: 0,
+        findings: &[
+            ("pack.ron", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+        ],
+    },
+    // Rule 10: the sprite is referenced in `scenes/b.unmei` and twice in
+    // `scenes/main.unmei`, and reports once, at its first reference.
+    Expectation {
+        pack: "repeated",
+        errors: 1,
+        warnings: 0,
+        findings: &[("scenes/b.unmei", "pack.asset.missing")],
+    },
+    // Rule 12: a file in `assets/` that nothing references reports nothing.
+    Expectation {
+        pack: "unreferenced",
+        errors: 0,
+        warnings: 0,
+        findings: &[],
     },
 ];
 
@@ -256,6 +291,9 @@ fn two_runs_over_the_same_pack_give_byte_identical_json() {
         "flow-unreachable-scene",
         "flow-unreachable-label",
         "flow-no-exit",
+        "missing",
+        "repeated",
+        "unreferenced",
     ] {
         let pack = pack(name);
         let first = check_json(&pack);

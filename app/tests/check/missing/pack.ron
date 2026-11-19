@@ -1,0 +1,5 @@
+(
+    name: "check missing assets",
+    entry: "main",
+    title_backdrop: "missing_title",
+)

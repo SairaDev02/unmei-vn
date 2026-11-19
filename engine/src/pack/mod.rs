@@ -42,14 +42,17 @@
 //! not run, and without a state vocabulary so do the declared-key, kind,
 //! `{var}`, condition and `state_keys` rules. Every other rule still runs.
 //!
-//! Asset files are **not** checked for existence: packs validate structurally
-//! (see `examples/demo-pack/assets/README.md`).
+//! Loading validates the pack structurally and checks no asset file: play
+//! degrades silently on a missing one. The author-facing check reports the
+//! referenced files that do not exist, through the loaded pack's separate asset
+//! rule ([`Pack::missing_asset_findings`], check-and-preview spec §5).
 //!
 //! This root owns the directory read and the per-file decode; `validate` is the
 //! semantic pass they hand their result to, `state_rules` holds the rules that
 //! need the state vocabulary, and `entries` holds the read-only views a loaded
 //! pack derives for the title, gallery and Timeline surfaces.
 
+mod assets;
 mod entries;
 mod state_rules;
 mod validate;
@@ -63,6 +66,8 @@ use crate::finding::{rules, sort_findings, Finding};
 use crate::parser::Parser;
 
 use self::validate::validate;
+
+pub use self::assets::{AssetKind, AssetReference};
 
 /// A loaded pack plus its warnings.
 #[derive(Debug)]
@@ -212,8 +217,8 @@ fn read_manifest(
     }
     // The optional title backdrop names an asset resolved exactly like
     // `bg`, so it shares the ids' `[a-z0-9_]+` rule: a malformed id is a load
-    // error. The file's existence is not checked here (assets are not), so a
-    // declared-but-missing file stays a runtime silent degradation.
+    // error. Loading checks no asset file, so a declared-but-missing file stays
+    // a runtime silent degradation; the check's asset rule reports it.
     if let Some(id) = &manifest.title_backdrop {
         if let Err(message) = crate::parser::check_id(id, "title_backdrop id") {
             errors.push(Finding::new("pack.ron", "", rules::PACK_MANIFEST, message));
