@@ -1,0 +1,6 @@
+# The manifest does not decode, so the pack never loads and its assets are
+# never checked: neither the background nor the sprite here reports anything,
+# although neither file exists (spec rule 3, §8).
+bg ghost_bg
+sprite ace neutral
+Narrator: A clean line beside a broken file.

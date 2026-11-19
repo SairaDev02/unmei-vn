@@ -123,6 +123,20 @@ const EXPECTATIONS: &[Expectation] = &[
             ("tests/bad-version.keiko", "keiko.case.version"),
         ],
     },
+    // Rule 3 at the binary: an undecodable `pack.ron` beside a scene with a
+    // syntax error reports both at once, and the manifest rules stay silent
+    // rather than inventing a finding for a manifest that never decoded. The
+    // pack never loads, so its missing assets, its unreachable scene and its
+    // case naming an unknown scene report nothing (§8, rule 28).
+    Expectation {
+        pack: "broken-manifest-and-scene",
+        errors: 2,
+        warnings: 0,
+        findings: &[
+            ("pack.ron", "pack.file.ron"),
+            ("scenes/broken.unmei", "pack.scene.syntax"),
+        ],
+    },
     // §6's three flow warnings, one fixture each. Rule 13's decision-landing
     // scenes are reachable beside an orphan; rule 14's skipped label sits beside
     // a fall-through one; rule 15's looping scene sits beside a leaving option.
@@ -331,6 +345,7 @@ fn two_runs_over_the_same_pack_give_byte_identical_json() {
         "cases",
         "warnings",
         "unloaded",
+        "broken-manifest-and-scene",
         "flow-unreachable-scene",
         "flow-unreachable-label",
         "flow-no-exit",
