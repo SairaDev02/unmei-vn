@@ -349,7 +349,7 @@ One execution of one case, from its first line to its last, on a throwaway copy 
 _Avoid_: run (a block of say-lines), test run, playthrough (avoided under **Live session**)
 
 **Observation**:
-What the player perceives after a step, and the stored data an assertion may read: the surface, the say-line, the choices, the Notice, the staging, the state map, the save slots and the session log.
+What the player perceives after a step, and the stored data an assertion may read: the surface, the say-line, the choices, the Notice, the staging, the state map, the save slots and the take's failure lines (the `error` and `warn` lines its player logs under `unmei::failure`, not the session log).
 _Avoid_: snapshot, view, state dump
 
 **Stepping**:

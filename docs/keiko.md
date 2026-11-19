@@ -38,7 +38,7 @@ keywords:
 ## 3. What a step observes
 
 - **K11 — What the player perceives.** After each step Keiko reports an **observation**: the current surface (title, play, menu view, Gallery, still, Timeline, confirm, error screen); the text on screen (speaker, say-line, choice options, Notice, menu labels and whether each is enabled); and the staging (background, sprites, music). A step may assert on any of it.
-- **K12 — The author's own data.** A step may also assert on what the pack declares and the player stores: the state map, the current scene and label, the read log, the save slots, and the session log by target and text. A silent degradation, such as a missing sprite, is visible only in the log, so an author needs that assertion too.
+- **K12 — The author's own data.** A step may also assert on what the pack declares and the player stores: the state map, the current scene and label, the read log, the save slots, and the failure lines the take's player logs, by level, failure row and text. A silent degradation, such as a missing sprite, is visible only in the log, so an author needs that assertion too. *(Amended 2026-11-19: an assertion reads the take's own failure lines, the `error` and `warn` lines under the one `unmei::failure` target, not the session log by target.)*
 - **K13 — Never Bevy internals.** No step sees entities, components, system order or any other ECS detail. A refactor that keeps the player's behaviour keeps every case passing.
 - **K14 — Frames for looking, never for comparing.** A step may ask for the current frame as a PNG, rendered through the preview's path on the software rasterizer ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)). An agent looks at it. Keiko never compares frames pixel by pixel.
 
