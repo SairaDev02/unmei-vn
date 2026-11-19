@@ -26,6 +26,10 @@ pub enum SpliceError {
     NoSuchNpc(PathBuf),
     #[error("cannot parse {0}: {1}")]
     Parse(String, String),
+    #[error(
+        "the spliced npc file would not read back as the expected npc, so nothing was written: {0}"
+    )]
+    ReadBack(PathBuf),
     #[error(transparent)]
     Target(#[from] TargetError),
     #[error("io error: {0}")]
@@ -36,7 +40,8 @@ pub enum SpliceError {
 ///
 /// - Replace: parse the existing RON, splice in the config, and **rewrite the
 ///   file text with only that question's block changed** — comments and all
-///   other content survive byte-for-byte.
+///   other content survive byte-for-byte. The spliced text must read back as
+///   the existing NPC with only that question set, or nothing is written.
 /// - Create: refuse if the file exists; otherwise write identity + config.
 pub fn apply_candidate(
     pack_root: &Path,
@@ -74,6 +79,18 @@ pub fn apply_candidate(
             let existing: Npc = ron::from_str(&src)
                 .map_err(|e| SpliceError::Parse(npc_path.display().to_string(), e.to_string()))?;
             let updated_src = splice_question(&src, &existing, question, config);
+            #[cfg(test)]
+            let updated_src = faults::corrupt_splice(&src, updated_src);
+            // The splice edits text, not the parsed NPC, so check its result
+            // before it reaches disk: it must read back as the existing NPC
+            // with only this question set, or nothing is written.
+            let mut expected = existing;
+            expected
+                .decisions
+                .insert(question.to_string(), config.clone());
+            if ron::from_str::<Npc>(&updated_src).ok() != Some(expected) {
+                return Err(SpliceError::ReadBack(npc_path));
+            }
             write_atomic(&npc_path, &updated_src)?;
             Ok(())
         }
@@ -140,6 +157,11 @@ mod faults {
         PartialWrite(usize),
         /// Refuse the rename after the complete temp has landed.
         Rename,
+        /// Make the NPC splice produce text that does not parse.
+        UnreadableSplice,
+        /// Make the NPC splice return the original text, which parses but
+        /// lacks the spliced question.
+        UnchangedSplice,
     }
 
     /// What each injected failure reports, so a receipt can tell its own fault
@@ -184,6 +206,21 @@ mod faults {
                 true
             }
             _ => false,
+        })
+    }
+
+    /// Apply an armed splice fault to the spliced text of `original`.
+    pub(super) fn corrupt_splice(original: &str, spliced: String) -> String {
+        ARMED.with(|armed| match armed.get() {
+            Some(WriteFault::UnreadableSplice) => {
+                armed.set(None);
+                format!("{spliced})")
+            }
+            Some(WriteFault::UnchangedSplice) => {
+                armed.set(None);
+                original.to_string()
+            }
+            _ => spliced,
         })
     }
 
@@ -576,6 +613,75 @@ mod tests {
     }
 
     use comment_fixtures::{ace_with, assert_spliced};
+
+    /// A pack whose `npcs/` holds the demo `ace.ron` and one sibling file.
+    fn npc_pack() -> tempfile::TempDir {
+        let pack = tempfile::tempdir().unwrap();
+        let npcs = pack.path().join("npcs");
+        std::fs::create_dir(&npcs).unwrap();
+        std::fs::write(npcs.join("ace.ron"), comment_fixtures::ACE).unwrap();
+        std::fs::write(npcs.join("bea.ron"), "// a sibling\n").unwrap();
+        pack
+    }
+
+    /// Every file in the pack's `npcs/`, with its contents, in name order.
+    fn npc_files(pack: &Path) -> Vec<(PathBuf, String)> {
+        let mut files: Vec<_> = std::fs::read_dir(pack.join("npcs"))
+            .unwrap()
+            .map(|entry| {
+                let path = entry.unwrap().path();
+                let text = std::fs::read_to_string(&path).unwrap();
+                (path, text)
+            })
+            .collect();
+        files.sort();
+        files
+    }
+
+    fn ace() -> Npc {
+        ron::from_str(comment_fixtures::ACE).unwrap()
+    }
+
+    #[test]
+    fn a_replace_or_add_writes_the_npc_with_only_that_question_set() {
+        for question in ["greet", "farewell"] {
+            let pack = npc_pack();
+            let config = comment_fixtures::config();
+            apply_candidate(pack.path(), &ace(), question, &config, CreateMode::Replace).unwrap();
+            let mut expected = ace();
+            expected.decisions.insert(question.to_string(), config);
+            let written = std::fs::read_to_string(pack.path().join("npcs/ace.ron")).unwrap();
+            assert_eq!(
+                ron::from_str::<Npc>(&written).ok(),
+                Some(expected),
+                "{question}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_splice_that_would_not_read_back_is_refused_and_writes_nothing() {
+        for fault in [
+            faults::WriteFault::UnreadableSplice,
+            faults::WriteFault::UnchangedSplice,
+        ] {
+            let pack = npc_pack();
+            let before = npc_files(pack.path());
+            let result = {
+                let _armed = faults::arm(fault);
+                apply_candidate(
+                    pack.path(),
+                    &ace(),
+                    "farewell",
+                    &comment_fixtures::config(),
+                    CreateMode::Replace,
+                )
+            };
+            let error = result.expect_err("the splice is refused");
+            assert!(error.to_string().contains("read back"), "{error}");
+            assert_eq!(npc_files(pack.path()), before, "nothing is written");
+        }
+    }
 
     #[test]
     fn a_comment_naming_the_key_before_the_npc_is_not_spliced_into() {

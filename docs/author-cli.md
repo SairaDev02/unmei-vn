@@ -45,7 +45,7 @@ Options:
   -h, --help
 ```
 
-- `--question` + no `--create`: read the existing `npcs/<id>.ron`, **add or replace only that question's config**. Everything else in the file — identity, other decisions, comments — passes through untouched (RON comments are a stated reason RON was chosen; regeneration must never erase them).
+- `--question` + no `--create`: read the existing `npcs/<id>.ron`, **add or replace only that question's config**. Everything else in the file — identity, other decisions, comments — passes through untouched (RON comments are a stated reason RON was chosen; regeneration must never erase them). Before the write, the spliced text is read back; unless it is the existing NPC with only that question set, the command fails and writes nothing.
 - `--create`: writes a **new** `npcs/<id>.ron` — identity header plus the one config. Every later config is added by re-running without `--create`. Error if the file already exists. *(Amended 2026-11-16: it also writes the NPC's `model` pin, chosen by `--decision-model`, then `decision_model` in `unmei.author.ron`, then the built-in `typesafe/jev-1.14`; [`nanogpt.md`](nanogpt.md) N25. `--decision-model` is valid only with `--create`, and an empty value is an error. Replacing a config in an existing NPC never adds, changes or removes its pin.)*
 - Pack discovery: cwd must be a pack root (`pack.ron` present), or `--pack <DIR>` names it.
 
