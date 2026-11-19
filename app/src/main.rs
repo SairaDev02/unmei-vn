@@ -60,9 +60,21 @@ fn main() -> AppExit {
     // beside it in every build with no working-directory fallback. An explicit
     // PACK_DIR never takes this step.
     let dev_mode = cli.dev_mode();
+    // Decided before `resolve_pack` takes the positional by value; the rule
+    // itself is `Launch::no_pack_exit`.
+    let no_pack_exit = cli.no_pack_exit();
     let resolved = match launch::resolve_pack(cli.pack_dir, launch::executable_dir()) {
         Ok(resolved) => resolved,
-        Err(launch::ExecutableUnknown) => return startup_without_pack(dev_mode),
+        Err(launch::ExecutableUnknown) => {
+            eprintln!("{}", launch::NO_EXECUTABLE_MESSAGE);
+            let _ = std::io::stderr().flush();
+            return match no_pack_exit {
+                launch::NoPackExit::ErrorScreen => startup_without_pack(dev_mode),
+                // A mode builds no app, so it must never fall back to a window
+                // (check and preview spec §1).
+                launch::NoPackExit::Usage => AppExit::from_code(2),
+            };
+        }
     };
 
     // One optional positional PACK_DIR, best-effort canonicalized with the
@@ -186,15 +198,11 @@ fn usage_error(error: &launch::UsageError) -> AppExit {
     AppExit::from_code(2)
 }
 
-/// Start the one error screen that exists before any pack is known: no
-/// `PACK_DIR` was given and this executable cannot find its own folder, so
-/// `demo-pack` beside it cannot be derived. The same text goes to `stderr`, no
-/// session log is attempted (there is no pack for one to sit beside), and no
-/// settings or Decisions work happens — nothing can be played from here.
+/// Start the one error screen that exists before any pack is known, after the
+/// caller printed [`launch::NO_EXECUTABLE_MESSAGE`]. No session log is attempted
+/// (there is no pack for one to sit beside), and no settings or Decisions work
+/// happens — nothing can be played from here.
 fn startup_without_pack(dev_mode: bool) -> AppExit {
-    eprintln!("{}", launch::NO_EXECUTABLE_MESSAGE);
-    let _ = std::io::stderr().flush();
-
     // Inert: the pack load is skipped because the failure is already recorded,
     // so this path is never read. Settings are preloaded as defaults for the
     // same reason — there is no pack directory to read a file from.

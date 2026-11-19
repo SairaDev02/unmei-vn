@@ -75,6 +75,29 @@ impl Launch {
     pub fn dev_mode(&self) -> bool {
         self.force_dev || cfg!(debug_assertions)
     }
+
+    /// The exit this launch takes when no `PACK_DIR` was given and the
+    /// executable's folder is unknown, so the default pack cannot be derived.
+    /// Only play may fall back to the error screen: `--check`, `--preview` and
+    /// the Keiko modes build no app, so they never open a window.
+    pub fn no_pack_exit(&self) -> NoPackExit {
+        if self.check || self.keiko.is_some() {
+            NoPackExit::Usage
+        } else {
+            NoPackExit::ErrorScreen
+        }
+    }
+}
+
+/// Which exit a launch takes when there is no pack at all: no `PACK_DIR` was
+/// given and the executable cannot find its own folder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoPackExit {
+    /// Play: the one error screen that exists before any pack is known.
+    ErrorScreen,
+    /// A mode — `--check`, `--preview` or a Keiko mode: print
+    /// [`NO_EXECUTABLE_MESSAGE`] and exit 2, because a mode builds no app.
+    Usage,
 }
 
 /// What the binary should do with the parsed arguments.
