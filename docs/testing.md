@@ -75,8 +75,10 @@ The preview gate is [`app/tests/preview_gate.rs`](../app/tests/preview_gate.rs).
 `unmei-play` with `--preview` over the demo pack on the software rasterizer, asserting the usage
 errors, each written frame's name and 1280×720 size, the reference finding for a line no park
 produces, a pack that fails to load, a machine with no fallback adapter, and a rerun that overwrites
-its own files only. It runs inside the same existing workspace test step, so `check.yml` gains no job
-([check and preview spec §11](check-preview-spec.md#11-the-gate-and-the-docs)).
+its own files only. One binary run over the demo pack also asserts §9.2's whole fixture slate, and
+one over `app/tests/preview/sparse/` asserts that a state the pack cannot reach is a warning that
+leaves the exit code at 0. It runs inside the same existing workspace test step, so `check.yml` gains
+no job ([check and preview spec §11](check-preview-spec.md#11-the-gate-and-the-docs)).
 
 ## External Dependencies
 
