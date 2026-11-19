@@ -110,7 +110,8 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
     let mut walk = Walk::default();
     let mut picks = request.picks.iter().copied();
     let mut framed = false;
-    for _ in 0..10_000 {
+    let mut parks_met = 0usize;
+    for _ in 0..MAX_PARKS {
         // A cycle with no say-line, choice or decide stops the player with a
         // defensive failure (row 13). The replay must report why it stopped
         // rather than hand back a case that quietly ends short of the line.
@@ -136,6 +137,7 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
         let Some(line) = park_line(&runner) else {
             break;
         };
+        parks_met += 1;
         let frame = parks.target().is_none_or(|target| target == line);
         if frame {
             walk.steps.push(format!(
@@ -197,8 +199,21 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
             )));
         }
     }
+    // A scene that never leaves is an authoring defect, and a case holding
+    // 10 000 frames is not something a preview can render.
+    if parks_met == MAX_PARKS {
+        return Err(Finding::new(
+            "preview",
+            String::new(),
+            unmei_engine::keiko::rules::DEFENSIVE,
+            format!("scene `{scene}` did not end within {MAX_PARKS} parks"),
+        ));
+    }
     Ok(walk)
 }
+
+/// How many parks a walk may meet before the scene counts as never ending.
+const MAX_PARKS: usize = 10_000;
 
 fn reference(message: impl Into<String>) -> Finding {
     Finding::new(
@@ -384,6 +399,39 @@ Narrator: done.
         );
         assert!(
             error.message.contains("`jump top` in scene `a`"),
+            "{error:?}"
+        );
+    }
+
+    /// A scene whose say-line loops back to itself never leaves the scene, so
+    /// the walk stops with the defensive rule rather than hand back a case
+    /// holding ten thousand frames.
+    #[test]
+    fn a_scene_that_never_ends_reports_the_defensive_rule() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let root = dir.path().join("loop");
+        std::fs::create_dir_all(root.join("scenes")).unwrap();
+        std::fs::create_dir_all(root.join("npcs")).unwrap();
+        std::fs::write(root.join("pack.ron"), "(name: \"loop\", entry: \"a\")").unwrap();
+        std::fs::write(root.join("state.ron"), "(met: false,)").unwrap();
+        std::fs::write(
+            root.join("scenes/a.unmei"),
+            "label top\nNarrator: again.\njump top\n",
+        )
+        .unwrap();
+        let loaded = unmei_engine::load_pack(&root).expect("the pack loads");
+        let request = PreviewRequest {
+            scene: Some("a".to_string()),
+            ..PreviewRequest::default()
+        };
+        let error = build_case(&loaded.pack, &request).expect_err("the scene never ends");
+        assert_eq!(
+            error.rule,
+            unmei_engine::keiko::rules::DEFENSIVE,
+            "{error:?}"
+        );
+        assert!(
+            error.message.contains("did not end within 10000 parks"),
             "{error:?}"
         );
     }
