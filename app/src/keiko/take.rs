@@ -156,7 +156,6 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
     .with_dev_mode(request.case.dev())
     .with_asset_root(sandbox.asset_root().to_path_buf());
 
-    crate::failure::tap::arm();
     let mut state = TakeState {
         observation: super::observe::empty(),
         records: Vec::new(),
@@ -258,7 +257,6 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
     };
 
     crate::failure::set_keiko_log(None);
-    let _ = crate::failure::tap::finish_take();
     let kept = sandbox.finish(request.keep);
     TakeResult {
         outcome,

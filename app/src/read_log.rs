@@ -34,7 +34,7 @@ use unmei_engine::read_log::{self as engine_read_log, ReadLog};
 use unmei_engine::runner::Wait;
 
 use crate::core::SkipState;
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureOutlets, FailureRow, Failures};
 use crate::menu::{self, MenuState};
 use crate::Runtime;
 
@@ -111,16 +111,11 @@ impl ReadLogState {
 /// once (row 26) and yields the empty log. The bytes on disk are left exactly as
 /// they are. Filtering drops entries the loaded pack cannot use and is not a
 /// dirtying or writing act.
-pub(crate) fn load_once(
-    pack: &Pack,
-    state: &mut ReadLogState,
-    notice: &mut Notice,
-    hold: &mut DefensiveHold,
-) {
+pub(crate) fn load_once(pack: &Pack, state: &mut ReadLogState, failures: &mut FailureOutlets) {
     let path = engine_read_log::read_log_path_for(pack);
     let (mut log, reason) = engine_read_log::load_read_log(&path);
     if let Some(reason) = reason {
-        failure::report(Failure::new(FailureRow::ReadLog, reason), notice, hold);
+        failures.report(Failure::new(FailureRow::ReadLog, reason));
     }
     filter_against_pack(&mut log, pack);
 
@@ -237,8 +232,7 @@ fn authored_say_line(scene: &Scene, index: usize) -> Option<usize> {
 pub(crate) fn write_pending_read_log(
     runtime: Option<Res<Runtime>>,
     mut state: ResMut<ReadLogState>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     if !state.flush_requested {
         return;
@@ -249,7 +243,7 @@ pub(crate) fn write_pending_read_log(
         return;
     };
     state.flush_requested = false;
-    flush_dirty(runtime.runner.pack(), &mut state, &mut notice, &mut hold);
+    flush_dirty(runtime.runner.pack(), &mut state, &mut failures.outlets());
 }
 
 /// The app-exit flush: the last moment, independent of any in-frame request.
@@ -257,8 +251,7 @@ pub(crate) fn flush_on_exit(
     mut exits: MessageReader<AppExit>,
     runtime: Option<Res<Runtime>>,
     mut state: ResMut<ReadLogState>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     if exits.read().next().is_none() {
         return;
@@ -266,16 +259,11 @@ pub(crate) fn flush_on_exit(
     let Some(runtime) = runtime else {
         return;
     };
-    flush_dirty(runtime.runner.pack(), &mut state, &mut notice, &mut hold);
+    flush_dirty(runtime.runner.pack(), &mut state, &mut failures.outlets());
 }
 
 /// Write the dirty log once, through the one failure funnel (row 26).
-fn flush_dirty(
-    pack: &Pack,
-    state: &mut ReadLogState,
-    notice: &mut Notice,
-    hold: &mut DefensiveHold,
-) {
+fn flush_dirty(pack: &Pack, state: &mut ReadLogState, failures: &mut FailureOutlets) {
     if !state.dirty {
         return;
     }
@@ -284,10 +272,6 @@ fn flush_dirty(
         Ok(()) => state.dirty = false,
         // Row 26: Continue-silently. The previous bytes stay and the dirty flag
         // survives, so the next flush moment retries.
-        Err(error) => failure::report(
-            Failure::new(FailureRow::ReadLog, error.to_string()),
-            notice,
-            hold,
-        ),
+        Err(error) => failures.report(Failure::new(FailureRow::ReadLog, error.to_string())),
     }
 }

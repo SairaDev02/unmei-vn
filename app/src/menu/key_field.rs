@@ -92,8 +92,7 @@ pub(super) fn commit_key(
         return;
     }
 
-    let (notice, hold) = session.notice_and_hold();
-    if !credentials::store(credentials, &key, notice, hold) {
+    if !credentials::store(credentials, &key, &mut session.failures()) {
         // Row 23 already noticed; the row is left as it was and the buffer
         // stays so the player can retry. No ping runs.
         leave_key_field(menu, entity, &mut field, input_focus, false);

@@ -234,9 +234,13 @@ pub fn empty() -> Observation {
     }
 }
 
-/// The take's recorded lines since `cursor`, and the new cursor.
-pub fn log_lines_from(cursor: usize) -> (Vec<LogLine>, usize) {
-    let (lines, cursor) = crate::failure::tap::since(cursor);
+/// The take app's recorded lines since `cursor`, and the new cursor. An app
+/// without a recorder has recorded nothing.
+pub fn log_lines_from(app: &App, cursor: usize) -> (Vec<LogLine>, usize) {
+    let Some(tap) = app.world().get_resource::<crate::failure::TapLog>() else {
+        return (Vec::new(), cursor);
+    };
+    let (lines, cursor) = tap.since(cursor);
     (
         lines
             .into_iter()

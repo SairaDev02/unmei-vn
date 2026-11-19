@@ -329,7 +329,10 @@ fn take_app(
     }
     app.insert_resource(clipboard)
         .insert_resource(key_check)
-        .insert_resource(decision_factory);
+        .insert_resource(decision_factory)
+        // The take's own funnel recorder: only this app's failure lines land
+        // in it, whatever else runs in the process.
+        .init_resource::<crate::failure::TapLog>();
     app
 }
 

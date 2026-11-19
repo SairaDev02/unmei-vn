@@ -1,8 +1,10 @@
 //! The single report funnel and the defensive hold it engages.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::rows::{FailureRow, Posture};
+use super::tap::TapLog;
 use super::{Notice, LOG_TARGET};
 
 /// One failure: its inventory row, the posture derived from it, its one short
@@ -48,8 +50,18 @@ impl Failure {
 /// level, and install the Notice exactly when the inventory marks the row with
 /// one. No call site chooses its own surface. A [`Posture::Defensive`] row also
 /// engages the [`DefensiveHold`], so the table — not the call site — decides
-/// which failures freeze the runner.
-pub fn report(failure: Failure, notice: &mut Notice, hold: &mut DefensiveHold) {
+/// which failures freeze the runner. A take's app also hands the line to its
+/// [`TapLog`]; every other app passes `None`.
+///
+/// Systems reach this through [`Failures`], and helpers through the
+/// [`FailureOutlets`] it lends, so a take's recorder travels with the app's own
+/// Notice and hold.
+pub fn report(
+    failure: Failure,
+    notice: &mut Notice,
+    hold: &mut DefensiveHold,
+    tap: Option<&mut TapLog>,
+) {
     if failure.posture == Some(Posture::Defensive) {
         hold.engage();
     }
@@ -61,7 +73,9 @@ pub fn report(failure: Failure, notice: &mut Notice, hold: &mut DefensiveHold) {
             (None, _) => failure.detail.clone(),
         };
         log::log!(target: LOG_TARGET, level, "{line}");
-        super::tap::record(failure.row, level, line);
+        if let Some(tap) = tap {
+            tap.record(failure.row, level, line);
+        }
     }
 
     if failure.row.notices() {
@@ -71,20 +85,77 @@ pub fn report(failure: Failure, notice: &mut Notice, hold: &mut DefensiveHold) {
     }
 }
 
-/// Funnel a [`RunnerError`](unmei_engine::runner::RunnerError) from an
-/// `advance_say` / `choose` / `resolve_decision` call: row 13 (defensive). The
-/// wait and index checks at the call sites make these unreachable, so the
-/// inventory's hold is the only recovery.
-pub fn report_runner_call(
-    error: impl std::fmt::Display,
-    notice: &mut Notice,
-    hold: &mut DefensiveHold,
-) {
-    report(
-        Failure::new(FailureRow::RunnerCall, error.to_string()),
-        notice,
-        hold,
-    );
+/// One app's failure outlets, borrowed: the Notice and hold the funnel writes,
+/// and the take's recorder when the app has one. Helpers that report take this,
+/// so a unit test can build one from plain values.
+pub struct FailureOutlets<'a> {
+    pub notice: &'a mut Notice,
+    pub hold: &'a mut DefensiveHold,
+    tap: Option<&'a mut TapLog>,
+}
+
+impl<'a> FailureOutlets<'a> {
+    /// Outlets with no take recorder, for code that runs outside an app.
+    pub fn untapped(notice: &'a mut Notice, hold: &'a mut DefensiveHold) -> Self {
+        FailureOutlets {
+            notice,
+            hold,
+            tap: None,
+        }
+    }
+
+    /// A shorter borrow of the same outlets, to hand to a helper.
+    pub fn reborrow(&mut self) -> FailureOutlets<'_> {
+        FailureOutlets {
+            notice: self.notice,
+            hold: self.hold,
+            tap: self.tap.as_deref_mut(),
+        }
+    }
+
+    /// Funnel one failure through this app's outlets.
+    pub fn report(&mut self, failure: Failure) {
+        report(failure, self.notice, self.hold, self.tap.as_deref_mut());
+    }
+
+    /// Funnel a [`RunnerError`](unmei_engine::runner::RunnerError) from an
+    /// `advance_say` / `choose` / `resolve_decision` call: row 13 (defensive).
+    /// The wait and index checks at the call sites make these unreachable, so
+    /// the inventory's hold is the only recovery.
+    pub fn report_runner_call(&mut self, error: impl std::fmt::Display) {
+        self.report(Failure::new(FailureRow::RunnerCall, error.to_string()));
+    }
+}
+
+/// A system's access to its app's failure outlets: the Notice, the hold and,
+/// in a take's app, the [`TapLog`].
+#[derive(SystemParam)]
+pub struct Failures<'w> {
+    pub notice: ResMut<'w, Notice>,
+    pub hold: ResMut<'w, DefensiveHold>,
+    tap: Option<ResMut<'w, TapLog>>,
+}
+
+impl Failures<'_> {
+    /// Lend the outlets to a helper that reports.
+    pub fn outlets(&mut self) -> FailureOutlets<'_> {
+        FailureOutlets {
+            notice: &mut self.notice,
+            hold: &mut self.hold,
+            tap: self.tap.as_deref_mut(),
+        }
+    }
+
+    /// Funnel one failure through this app's outlets.
+    pub fn report(&mut self, failure: Failure) {
+        self.outlets().report(failure);
+    }
+
+    /// Funnel a runner-call error: row 13 (defensive). See
+    /// [`FailureOutlets::report_runner_call`].
+    pub fn report_runner_call(&mut self, error: impl std::fmt::Display) {
+        self.outlets().report_runner_call(error);
+    }
 }
 
 /// The defensive hold ([rows 11–13](../../../docs/runtime-hardening.md#2-the-inventory)):

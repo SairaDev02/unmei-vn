@@ -184,7 +184,7 @@ pub(super) fn release_held(app: &mut App) {
 
 /// Build the observation and accumulate the take's log lines.
 pub(super) fn observe_step(app: &mut App, state: &mut TakeState) {
-    let (lines, cursor) = log_lines_from(state.log_cursor);
+    let (lines, cursor) = log_lines_from(app, state.log_cursor);
     state.log_cursor = cursor;
     state.all_log.extend(lines.iter().cloned());
     state.observation = observe(app, lines, state.live.load(Ordering::Relaxed));

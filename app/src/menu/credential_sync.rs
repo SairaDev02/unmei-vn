@@ -6,7 +6,7 @@ use bevy::prelude::*;
 use bevy::text::EditableText;
 
 use crate::credentials::{self, CredentialsState, KeyField, KeyRow};
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureRow, Failures};
 
 use super::state::{MenuState, MenuView};
 
@@ -49,8 +49,7 @@ pub(crate) fn sync_key_focus(
 pub(crate) fn read_on_settings_open(
     menu: Res<MenuState>,
     mut credentials: ResMut<CredentialsState>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
     mut was_open: Local<bool>,
 ) {
     let open = menu.open && menu.view == MenuView::Settings;
@@ -64,11 +63,7 @@ pub(crate) fn read_on_settings_open(
         credentials.row = read.state.row;
     }
     if let Some(detail) = read.warning {
-        failure::report(
-            Failure::new(FailureRow::CredentialRead, detail),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(FailureRow::CredentialRead, detail));
     }
 }
 

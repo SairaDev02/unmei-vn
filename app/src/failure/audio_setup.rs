@@ -9,8 +9,7 @@ use bevy::log::tracing_subscriber::layer::{Context, Layer};
 use bevy::log::BoxedLayer;
 use bevy::prelude::*;
 
-use super::funnel::{report, DefensiveHold, Failure};
-use super::notice::Notice;
+use super::funnel::{Failure, Failures};
 use super::rows::FailureRow;
 
 /// bevy_kira_audio logs its own backend setup failure under this target. The
@@ -49,19 +48,11 @@ impl AudioSetupFailure {
 /// is already reached because the failing setup never blocked the runner.
 ///
 /// [`LOG_TARGET`]: super::LOG_TARGET
-pub fn report_audio_setup_failure(
-    failure: Option<Res<AudioSetupFailure>>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
-) {
+pub fn report_audio_setup_failure(failure: Option<Res<AudioSetupFailure>>, mut failures: Failures) {
     let Some(message) = failure.and_then(|failure| failure.message()) else {
         return;
     };
-    report(
-        Failure::new(FailureRow::AudioDevice, message),
-        &mut notice,
-        &mut hold,
-    );
+    failures.report(Failure::new(FailureRow::AudioDevice, message));
 }
 
 /// The tracing layer that captures kira's one setup-failure warning.

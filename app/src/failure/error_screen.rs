@@ -244,6 +244,7 @@ mod tests {
             Failure::new(FailureRow::PackLoad, detail),
             &mut notice,
             &mut hold,
+            None,
         );
 
         let records = capture_records();

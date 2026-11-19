@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use unmei_engine::save::{self, SaveError, SaveFile, Slot};
 use unmei_engine::{RunOutcome, ScriptRunner, StagingState};
 
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureRow, Failures};
 use crate::Runtime;
 
 /// Set in the frame an autosave-worthy event happens, consumed by
@@ -96,8 +96,7 @@ pub fn write_manual(
 pub fn write_pending_autosave(
     runtime: Res<Runtime>,
     mut pending: ResMut<PendingAutosave>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     if !pending.0 {
         return;
@@ -106,13 +105,9 @@ pub fn write_pending_autosave(
 
     if let Err(error) = write_stamped(&runtime.runner, &runtime.staging, Slot::Autosave) {
         let path = save::save_path_for(runtime.runner.pack(), Slot::Autosave);
-        failure::report(
-            Failure::new(
-                FailureRow::Autosave,
-                format!("`{}`: {error}", path.display()),
-            ),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(
+            FailureRow::Autosave,
+            format!("`{}`: {error}", path.display()),
+        ));
     }
 }

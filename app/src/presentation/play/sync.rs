@@ -15,7 +15,7 @@ use super::state::{
     AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume, BackgroundSprite, Bgm, ChoiceButton,
     DialogueProse, DialogueText, HelpLine, NpcSprite, Sfx,
 };
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureRow, Failures};
 use crate::menu::MenuState;
 use crate::settings::{self, SettingsState};
 use crate::Runtime;
@@ -193,15 +193,10 @@ pub(crate) fn sync_audio(
 pub(crate) fn report_silent_degradations(
     asset_server: Res<AssetServer>,
     mut watch: ResMut<AssetWatch>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     for (row, path, error) in watch.settle(&asset_server) {
-        failure::report(
-            Failure::new(row, format!("`{path}`: {error}")),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(row, format!("`{path}`: {error}")));
     }
 }
 

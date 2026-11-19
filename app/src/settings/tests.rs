@@ -4,7 +4,7 @@
 use super::*;
 use bevy::window::{MonitorSelection, WindowMode};
 
-use crate::failure::{DefensiveHold, Notice};
+use crate::failure::{DefensiveHold, FailureOutlets, Notice};
 
 fn temp_pack() -> tempfile::TempDir {
     let dir = tempfile::tempdir().unwrap();
@@ -411,7 +411,10 @@ fn a_flush_writes_once_and_clears_dirty() {
 
     let mut notice = Notice::default();
     let mut hold = DefensiveHold::default();
-    flush(&mut state, &mut notice, &mut hold);
+    flush(
+        &mut state,
+        &mut FailureOutlets::untapped(&mut notice, &mut hold),
+    );
 
     assert!(!state.dirty);
     assert!(!notice.is_showing());
@@ -431,7 +434,10 @@ fn a_failed_flush_keeps_dirty_and_notices_row_20() {
 
     let mut notice = Notice::default();
     let mut hold = DefensiveHold::default();
-    flush(&mut state, &mut notice, &mut hold);
+    flush(
+        &mut state,
+        &mut FailureOutlets::untapped(&mut notice, &mut hold),
+    );
 
     assert!(state.dirty, "kept for the next flush to retry");
     assert!(notice.is_showing());

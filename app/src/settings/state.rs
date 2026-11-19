@@ -9,7 +9,7 @@ use super::controls::{
     TEXT_SPEED_LADDER,
 };
 use super::file::{load, save, AudioSettings, PlaySettings, Settings, StartupSettings};
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureOutlets, FailureRow, Failures};
 use crate::RuntimeConfig;
 
 /// The in-memory settings and whether they differ from what is on disk.
@@ -155,17 +155,13 @@ impl SettingsState {
 /// The single flush: one atomic write when the state is dirty. A success clears
 /// `dirty`; a failure keeps the in-session values, leaves `dirty` set for the
 /// next flush to retry, and notices `settings not saved` (row 20).
-pub fn flush(state: &mut SettingsState, notice: &mut Notice, hold: &mut DefensiveHold) {
+pub fn flush(state: &mut SettingsState, failures: &mut FailureOutlets) {
     if !state.dirty {
         return;
     }
     match save(&state.pack_root, &state.settings) {
         Ok(()) => state.dirty = false,
-        Err(error) => failure::report(
-            Failure::new(FailureRow::SettingsFlush, error.to_string()),
-            notice,
-            hold,
-        ),
+        Err(error) => failures.report(Failure::new(FailureRow::SettingsFlush, error.to_string())),
     }
 }
 
@@ -177,19 +173,14 @@ pub(crate) fn setup_settings(
     mut commands: Commands,
     config: Res<RuntimeConfig>,
     preloaded: Option<Res<StartupSettings>>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     let loaded = match preloaded {
         Some(preloaded) => preloaded.0.clone(),
         None => load(&config.pack_root),
     };
     if let Some(detail) = loaded.warning {
-        failure::report(
-            Failure::new(FailureRow::SettingsMalformed, detail),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(FailureRow::SettingsMalformed, detail));
     }
     commands.insert_resource(SettingsState::new(
         config.pack_root.clone(),
@@ -202,8 +193,7 @@ pub(crate) fn setup_settings(
 pub(crate) fn flush_on_exit(
     mut exits: MessageReader<AppExit>,
     state: Option<ResMut<SettingsState>>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     if exits.read().next().is_none() {
         return;
@@ -211,5 +201,5 @@ pub(crate) fn flush_on_exit(
     let Some(mut state) = state else {
         return;
     };
-    flush(&mut state, &mut notice, &mut hold);
+    flush(&mut state, &mut failures.outlets());
 }
