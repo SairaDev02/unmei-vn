@@ -1,0 +1,5 @@
+(
+    name: "check undecodable assets",
+    entry: "main",
+    title_backdrop: "ok",
+)

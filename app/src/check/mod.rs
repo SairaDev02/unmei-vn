@@ -2,17 +2,18 @@
 //! §1, §6–§8).
 //!
 //! The check loads the pack exactly as the boot does, adds the pack's flow lint,
-//! the referenced asset files the pack does not have and every finding from its
-//! Keiko cases, and reports them in §3's order. It opens no window and reads no
-//! sidecar or credential file. When the pack fails to load, its findings and the
-//! case parser's findings are all that can be reported: the flow lint, the asset
-//! rule and the reference checks all need the loaded pack, which a failed load
-//! does not return.
+//! the referenced asset files it does not have or cannot decode, and every
+//! finding from its Keiko cases, then reports them in §3's order. It opens no
+//! window and reads no sidecar or credential file. When the pack fails to load,
+//! its findings and the case parser's findings are all that can be reported: the
+//! flow lint, the asset rules and the reference checks all need the loaded pack,
+//! which a failed load does not return.
 //!
 //! The findings list is built here, once, so a rule family added later pushes
 //! its findings into the same list and inherits the one sort and one output.
 
 mod cases;
+mod decode;
 mod report;
 
 use std::path::Path;
@@ -36,8 +37,9 @@ pub fn run(pack_root: &Path, format: Format) -> u8 {
     if let Some(pack) = pack.as_ref() {
         findings.extend(unmei_engine::flow::findings(pack));
         // §5: the engine lists every asset the pack's files reference and
-        // reports the ones that are not there.
+        // reports the ones that are not there; the player decodes the rest.
         findings.extend(pack.missing_asset_findings());
+        findings.extend(decode::findings(pack));
     }
     findings.extend(cases::findings(pack_root, pack.as_ref()));
 
