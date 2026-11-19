@@ -15,6 +15,18 @@ pub enum Severity {
     Warning,
 }
 
+impl Severity {
+    /// The one spelling of the severity on the wire (`"error"`, `"warning"`),
+    /// which the check's text and JSON forms both use
+    /// (check-and-preview spec §8).
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Severity::Error => "error",
+            Severity::Warning => "warning",
+        }
+    }
+}
+
 /// One problem, reported in the one shape every engine surface speaks.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Finding {
@@ -215,6 +227,14 @@ mod tests {
     fn an_empty_path_displays_the_file_and_the_message_only() {
         let finding = Finding::new("pack.ron", "", rules::PACK_MANIFEST, "boom");
         assert_eq!(finding.to_string(), "pack.ron: boom");
+    }
+
+    /// The check's text and JSON forms spell a severity this one way
+    /// (check-and-preview spec §8), so the spelling has one owner.
+    #[test]
+    fn a_severity_has_one_wire_spelling() {
+        assert_eq!(Severity::Error.as_str(), "error");
+        assert_eq!(Severity::Warning.as_str(), "warning");
     }
 
     #[test]

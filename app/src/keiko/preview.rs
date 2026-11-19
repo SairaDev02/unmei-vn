@@ -12,7 +12,7 @@ mod states;
 
 pub use run::run;
 
-use unmei_engine::keiko::{parse_case, Case, Finding, Step};
+use unmei_engine::keiko::{parse_case, Case, Finding};
 use unmei_engine::runner::Wait;
 use unmei_engine::{Pack, ScriptRunner, StateValue};
 
@@ -262,11 +262,6 @@ fn state_text(value: &StateValue) -> String {
         StateValue::Num(number) => number.to_string(),
         StateValue::Bool(flag) => flag.to_string(),
     }
-}
-
-/// The step list a generated case holds, for a caller that reads it back.
-pub fn generated_steps(case: &Case) -> Vec<&Step> {
-    case.steps.iter().map(|line| &line.step).collect()
 }
 
 /// A `state` override parsed into the map's form.

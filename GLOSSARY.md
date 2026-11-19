@@ -368,6 +368,10 @@ _Avoid_: validate (the CLI's write-time validation), lint (flow lint is one rule
 The check's static read of a pack's control-flow graph, which is state-blind: every line flows to the next except a `jump` (to its target only) and a `choice` or `decide` (to each of its targets), and both `if` arms, every choice option and every landing key of every decision point count as reachable whatever the state or the decision would be. It reports three warnings — a scene no path from the entry scene reaches, a label in a reachable scene that no path reaches, and a reachable scene no path leaves for the end of its file or another scene — and never fails the check on its own. The Timeline is not a path.
 _Avoid_: flow checker, reachability analysis, dead-code scan
 
+**Preview**:
+The frames `unmei-play <pack-dir> --preview DIR` writes: one 1280×720 PNG per park a scene or a line meets, or one per fixture state when neither `--scene` nor `--at` names a selector, each drawn by the player's own composition on the software rasterizer and run through Keiko's take engine. It opens no window, needs no GPU or key, and reads or writes no pack sidecar or credential file. A fixture state the pack cannot reach writes no file and is reported as a `preview.state.unreachable` warning. Exit `0` means every frame was written or only those warnings occurred, `1` a finding or a pack that does not load, and `2` a usage error.
+_Avoid_: screenshot, visual regression (no frame is compared with a stored one), render test
+
 **Finding**:
 Any problem the loader, the check, the preview or Keiko reports, in one shape: the pack-relative file, the path inside it, one rule id, a severity (`error` or `warning`) and a message. Exploration reports one per problem it finds — a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles — and saves it as a case that reproduces it.
 _Avoid_: failure, bug, error (each means something narrower)

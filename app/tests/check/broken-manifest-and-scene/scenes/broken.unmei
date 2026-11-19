@@ -1,0 +1,3 @@
+# The second half of rule 3: this scene's syntax error is reported even though
+# the manifest above it did not decode.
+frobnicate the gate

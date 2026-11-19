@@ -22,6 +22,34 @@ fn no_positional_stays_absent_and_the_dev_value_follows_the_build() {
     assert_eq!(launch.dev_mode(), cfg!(debug_assertions));
 }
 
+/// No `PACK_DIR` and an unknown executable folder leaves nothing to play. Only
+/// play falls back to the error screen; every mode builds no app, so it prints
+/// the message and exits 2 rather than opening a window (check and preview spec
+/// §1). One condition covers the check, the preview and every Keiko mode.
+#[test]
+fn a_launch_without_a_pack_sends_every_mode_to_the_usage_exit() {
+    assert_eq!(run(&[]).no_pack_exit(), NoPackExit::ErrorScreen);
+    assert_eq!(run(&["--dev"]).no_pack_exit(), NoPackExit::ErrorScreen);
+
+    assert_eq!(run(&["--check"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--check", "--format", "json"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--preview", "out"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--preview", "out", "--scene", "a"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--take"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--step", "a", "advance"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--observe", "a"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(run(&["--explore"]).no_pack_exit(), NoPackExit::Usage);
+}
+
 #[test]
 fn dev_alone_forces_on_and_still_has_no_pack_dir() {
     let launch = run(&["--dev"]);

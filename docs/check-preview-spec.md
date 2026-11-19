@@ -11,7 +11,7 @@ keywords:
 ---
 # Pack-wide check and preview — build-ready spec
 
-**Status (2026-11-19).** Specified, **not built**. This page turns the accepted [plugin family requirements](plugin-family.md#5-pack-wide-check-and-preview) C1–C7 into a build-ready spec, as the [Keiko spec](keiko-spec.md) §11 and §12 amended them. The decisions below were settled with the maintainer on 2026-11-19 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
+**Status (2026-11-20).** Both slices are **built**, on the integration branch `spec/91-check-preview`. This page turns the accepted [plugin family requirements](plugin-family.md#5-pack-wide-check-and-preview) C1–C7 into a build-ready spec, as the [Keiko spec](keiko-spec.md) §11 and §12 amended them. The decisions below were settled with the maintainer on 2026-11-19 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
 **What this spec covers.** Today's pack content only. No plugin kind exists yet, so the check runs no plugin rules and the preview renders today's surfaces. Each later kind's spec adds its rules and surfaces through the shapes defined here (C2's third bullet). The plugin-folder loader, G1 in the [readiness audit](plugin-readiness.md#2-shared-groundwork), is deferred to the first plugin-kind spec, which has a real folder to load (*decided 2026-11-19*). This spec builds G2, the diagnostics model.
 

@@ -37,10 +37,10 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
   ```
 
 - **Check the whole pack.** `unmei-play <pack-dir> --check` reports every load finding and every
-  Keiko case finding in one run, one `file:line: message [rule]` line each, then a summary. It runs
-  no take, opens no window and never reads or writes the pack's sidecars or the user's key. Exit `0`
-  means no error finding, `1` an error finding and `2` a usage error. Add `--format json` for one
-  machine-readable document with each finding's severity and rule id.
+  Keiko case finding in one run, one `<severity>: file:line: message [rule]` line each, then a
+  summary. It runs no take, opens no window and never reads or writes the pack's sidecars or the
+  user's key. Exit `0` means no error finding, `1` an error finding and `2` a usage error. Add
+  `--format json` for one machine-readable document with each finding's severity and rule id.
 
 - **Play the pack.** `unmei-play <pack-dir>` lists every load error on screen and in
   `<pack-dir>.log`, so a broken file is reported with its own `file:line`. A pack that loads plays,
