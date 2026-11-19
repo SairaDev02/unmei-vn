@@ -123,11 +123,13 @@ Keiko's exploration lists unreached labels as coverage ([Keiko spec §9.3](keiko
 
 As the [Keiko spec §11](keiko-spec.md#11-check-and-packaging) already settled, the check runs the engine's Keiko validation over every case under `tests/`, `tests/findings/` included, in byte order of their relative paths. Each case finding is an error. The check runs no take.
 
+When the pack fails to load, the check runs only the case parser: the version line, the syntax and the header order. The reference checks need the loaded pack's facts, so they run only when the pack loads. *(Amended 2026-11-19.)*
+
 ## 8. Output and exit codes (C3)
 
 - **Text** is the default: one line per finding, `<severity>: <display> [<rule>]`, using §2's display form, then a summary line, `check: <e> errors, <w> warnings`.
 - **JSON.** `--format json` prints one document to stdout: `{ "findings": [{ "file", "path", "rule", "severity", "message" }], "errors": <e>, "warnings": <w> }`, findings in §3's order.
-- **The check runs every rule it can.** If `load_pack` fails, the check still runs §5's existence rule over the scenes that parsed and §7's case rules. Flow lint and decoding need a loaded pack, so they run only when the pack loads.
+- **When the pack fails to load.** If `load_pack` fails, the check reports its findings and the case-parser findings of §7. It runs no asset rule (§5) and no flow lint (§6), because each needs the loaded pack, which a failed load does not return. *(Amended 2026-11-19: this bullet first said the existence rule and every case rule still run. Neither can: `load_pack` returns no partial pack, and Keiko's reference checks need the loaded one.)*
 - **Exit codes.**
 
   | Code | Meaning |
@@ -244,6 +246,10 @@ Each of these is amended in place on 2026-11-19, with a dated pointer to the sec
 25. A pack that fails to load writes no frame and exits 1 with its findings.
 26. With no fallback adapter, the preview fails with `keiko.render.unavailable` and exit 1.
 27. A rerun overwrites the same files and leaves an unrelated file in `DIR` untouched.
+
+**Slice 1, added 2026-11-19** *(numbered after slice 2 so that earlier rule numbers stay stable)*
+
+28. A pack that fails to load, with a missing asset, an unreachable scene, one case with a bad version line and one case that names an unknown scene, reports the load findings and the `keiko.case.version` finding only: no `keiko.case.reference`, asset or flow finding.
 
 ## 14. Out of scope
 
