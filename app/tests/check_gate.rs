@@ -171,6 +171,18 @@ const EXPECTATIONS: &[Expectation] = &[
         warnings: 0,
         findings: &[("scenes/b.unmei", "pack.asset.missing")],
     },
+    // Rule 11: a truncated PNG and a text file named `.ogg` each report
+    // `pack.asset.decode`, at the first reference to each path; the valid
+    // background, sprite and title backdrop report nothing.
+    Expectation {
+        pack: "decode",
+        errors: 2,
+        warnings: 0,
+        findings: &[
+            ("scenes/main.unmei", "pack.asset.decode"),
+            ("scenes/main.unmei", "pack.asset.decode"),
+        ],
+    },
     // Rule 12: a file in `assets/` that nothing references reports nothing.
     Expectation {
         pack: "unreferenced",
@@ -252,6 +264,37 @@ fn the_check_reports_each_packs_findings_in_order() {
     }
 }
 
+/// Rule 11's finding sits on the reference's own line, not on the file's first
+/// line and not on the manifest: the truncated PNG and the text `.ogg` are
+/// reported where the scene names them. The loader's wording is never asserted;
+/// it belongs to the decoder, not to this contract.
+#[test]
+fn a_decode_finding_lands_on_the_reference_line() {
+    let output = check_json(&fixture_pack("decode"));
+    let text = stdout(&output);
+    let document: Value =
+        serde_json::from_str(&text).unwrap_or_else(|error| panic!("one JSON document: {error}"));
+    let paths: Vec<(&str, &str)> = document["findings"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a findings list: {text}"))
+        .iter()
+        .map(|finding| {
+            (
+                finding["file"].as_str().expect("a file"),
+                finding["path"].as_str().expect("a path"),
+            )
+        })
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            ("scenes/main.unmei", "line 2"),
+            ("scenes/main.unmei", "line 3")
+        ],
+        "each decode finding names its first reference: {text}"
+    );
+}
+
 #[test]
 fn the_text_form_names_each_finding_and_summarizes() {
     let pack = fixture_pack("cases");
@@ -293,6 +336,7 @@ fn two_runs_over_the_same_pack_give_byte_identical_json() {
         "flow-no-exit",
         "missing",
         "repeated",
+        "decode",
         "unreferenced",
     ] {
         let pack = pack(name);

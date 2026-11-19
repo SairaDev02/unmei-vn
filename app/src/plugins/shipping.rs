@@ -77,10 +77,18 @@ fn register_audio_channels(app: &mut App) {
         return;
     }
     app.init_resource::<AudioChannel<presentation::play::Bgm>>()
-        .init_resource::<AudioChannel<presentation::play::Sfx>>()
-        .init_asset::<bevy_kira_audio::AudioSource>()
-        // The player's decoder set: `bevy_kira_audio`'s default features enable
-        // ogg only, so `AudioPlugin` registers this loader and no other.
+        .init_resource::<AudioChannel<presentation::play::Sfx>>();
+    register_track_decoder(app);
+}
+
+/// Register the track asset type and the player's decoder set.
+///
+/// [`bevy_kira_audio::AudioPlugin`] registers both when it is added, so this is
+/// the no-device counterpart: a take and the check have none, and both must
+/// decode exactly the tracks play decodes. `bevy_kira_audio`'s default features
+/// enable ogg only, so `OggLoader` is the whole set.
+pub(crate) fn register_track_decoder(app: &mut App) {
+    app.init_asset::<bevy_kira_audio::AudioSource>()
         .init_asset_loader::<bevy_kira_audio::prelude::OggLoader>();
 }
 

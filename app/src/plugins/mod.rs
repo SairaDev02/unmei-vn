@@ -7,3 +7,4 @@ mod shipping;
 
 #[cfg(test)]
 pub(crate) use shipping::register_ownership_gated_presentation;
+pub(crate) use shipping::register_track_decoder;
