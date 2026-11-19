@@ -292,6 +292,58 @@ mod tests {
         }
         assert!(!notice.is_showing());
     }
+    /// Spec rule 20: boot uses the same loader as the check, so a pack that
+    /// fails to load shows every error the loader reports — not only the
+    /// manifest or state error that used to end the load.
+    #[test]
+    fn the_error_screen_lists_every_error_the_loader_reports() {
+        use bevy::prelude::{ButtonInput, KeyCode, MouseButton};
+        use bevy::MinimalPlugins;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        let pack_root = dir.path().join("broken-pack");
+        std::fs::create_dir_all(pack_root.join("scenes")).expect("scenes dir");
+        std::fs::create_dir_all(pack_root.join("npcs")).expect("npcs dir");
+        std::fs::write(pack_root.join("pack.ron"), "(name: \"broken\", entry: ").expect("manifest");
+        std::fs::write(pack_root.join("state.ron"), "(met_ace: false,)").expect("state");
+        std::fs::write(
+            pack_root.join("scenes/broken.unmei"),
+            "frobnicate the gate\n",
+        )
+        .expect("scene");
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .insert_resource(crate::RuntimeConfig::new(pack_root, None))
+            .add_plugins(crate::RuntimeCorePlugin);
+        app.update();
+
+        let failure = app
+            .world()
+            .get_resource::<StartupFailure>()
+            .expect("the failed load is recorded");
+        let lines = failure.screen_lines();
+        assert_eq!(
+            lines.len(),
+            2,
+            "the manifest error and the scene error, both drawn: {lines:?}"
+        );
+        assert!(
+            lines[0].starts_with("pack.ron: invalid RON"),
+            "the broken manifest comes first in file order: {lines:?}"
+        );
+        assert!(
+            lines[1].starts_with("scenes/broken.unmei:1: "),
+            "the scene behind it is not hidden: {lines:?}"
+        );
+        assert!(
+            app.world().get_resource::<crate::Runtime>().is_none(),
+            "play stays shut behind the screen"
+        );
+    }
+
     /// F49: a real bad-pack run keeps the whole error list for the screen cap.
     #[test]
     fn a_broken_pack_run_keeps_every_error_and_caps_the_screen() {

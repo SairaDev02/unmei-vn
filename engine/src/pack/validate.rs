@@ -1,78 +1,67 @@
-//! Whole-pack semantic validation: the declared state vocabulary and its fixed
-//! kinds, scene-local label and scene-file targets, each decision point's label
-//! closure, and the manifest's declared scene order. The loader runs this after
-//! every file has decoded; it accumulates every diagnostic instead of stopping
-//! at the first.
+//! Whole-pack semantic validation: the manifest's entry scene and declared
+//! scene order, scene-local label and scene-file targets, each decision point's
+//! label closure and each NPC config's own shape. The loader runs this after
+//! every file has decoded, and it accumulates every diagnostic instead of
+//! stopping at the first. The manifest rules run only when `pack.ron` decoded
+//! and the state rules, which live in `state_rules`, only when `state.ron` did
+//! (check-and-preview spec §3).
 
 use std::collections::{BTreeSet, HashMap};
 
-use crate::content::{Line, Literal, Manifest, Npc, Scene, StateValue};
+use crate::content::{Line, Manifest, Npc, Scene, StateValue};
 use crate::finding::{rules, Finding};
 
 pub(super) fn validate(
-    manifest: &Manifest,
-    state: &HashMap<String, StateValue>,
+    manifest: Option<&Manifest>,
+    state: Option<&HashMap<String, StateValue>>,
     scenes: &HashMap<String, Scene>,
     npcs: &HashMap<String, Npc>,
     errors: &mut Vec<Finding>,
     warnings: &mut Vec<Finding>,
 ) {
-    // Entry scene exists.
-    if !scenes.contains_key(&manifest.entry) {
-        errors.push(Finding::new(
-            "pack.ron",
-            "",
-            rules::PACK_MANIFEST,
-            format!(
-                "entry scene `{}` does not exist (scenes: {:?})",
-                manifest.entry,
-                sorted_keys(scenes)
-            ),
-        ));
+    if let Some(manifest) = manifest {
+        validate_entry(manifest, scenes, errors);
+        validate_declared_order(manifest, scenes, errors, warnings);
     }
-
-    validate_declared_order(manifest, scenes, errors, warnings);
     validate_wait_free_cycles(scenes, errors);
+    if let Some(state) = state {
+        super::state_rules::validate(state, scenes, errors);
+    }
+    validate_targets(scenes, npcs, errors);
+    validate_npc_configs(state, npcs, errors, warnings);
+}
 
+/// The manifest's entry scene must be one of the loaded scenes.
+fn validate_entry(manifest: &Manifest, scenes: &HashMap<String, Scene>, errors: &mut Vec<Finding>) {
+    if scenes.contains_key(&manifest.entry) {
+        return;
+    }
+    errors.push(Finding::new(
+        "pack.ron",
+        "",
+        rules::PACK_MANIFEST,
+        format!(
+            "entry scene `{}` does not exist (scenes: {:?})",
+            manifest.entry,
+            sorted_keys(scenes)
+        ),
+    ));
+}
+
+/// Scene-file and label targets, including each `decide` point's label closure.
+/// These rules read no manifest and no state, so they run whatever else
+/// decoded.
+fn validate_targets(
+    scenes: &HashMap<String, Scene>,
+    npcs: &HashMap<String, Npc>,
+    errors: &mut Vec<Finding>,
+) {
     for (scene_id, scene) in scenes {
         let file = format!("scenes/{scene_id}.unmei");
 
         for (idx, line) in scene.lines.iter().enumerate() {
             let line_no = scene.source_line(idx);
             match line {
-                Line::Set { name, value } => match state.get(name) {
-                    None => errors.push(Finding::at_line(
-                        &file,
-                        line_no,
-                        rules::PACK_STATE,
-                        format!("`set {name}` but `{name}` is not declared in state.ron"),
-                    )),
-                    Some(declared) if !kind_matches(declared, value) => {
-                        errors.push(Finding::at_line(
-                            &file,
-                            line_no,
-                            rules::PACK_STATE,
-                            format!(
-                                "`set {name}` assigns a {}, but `{name}` is declared as a {} in state.ron",
-                                literal_kind(value),
-                                state_kind(declared)
-                            ),
-                        ));
-                    }
-                    Some(_) => {}
-                },
-                Line::Say { text, .. } => {
-                    for var in var_refs(text) {
-                        if !state.contains_key(&var) {
-                            errors.push(Finding::at_line(
-                                &file,
-                                line_no,
-                                rules::PACK_STATE,
-                                format!("unknown variable `{{{var}}}` — not declared in state.ron"),
-                            ));
-                        }
-                    }
-                }
                 Line::Jump(target) => {
                     if !scene.labels.contains_key(target) && !scenes.contains_key(target) {
                         errors.push(Finding::at_line(
@@ -99,56 +88,6 @@ pub(super) fn validate(
                         }
                     }
                 }
-                Line::If { condition, .. } => match state.get(&condition.key) {
-                    None => errors.push(Finding::at_line(
-                        &file,
-                        line_no,
-                        rules::PACK_STATE,
-                        format!(
-                            "condition key `{}` is not declared in state.ron",
-                            condition.key
-                        ),
-                    )),
-                    Some(declared) => {
-                        if condition.op.is_ordering() && !matches!(declared, StateValue::Num(_)) {
-                            errors.push(Finding::at_line(
-                                &file,
-                                line_no,
-                                rules::PACK_STATE,
-                                format!(
-                                    "condition `{}` uses an ordering operator, but `{}` is declared as a {} in state.ron — ordering applies to numbers only",
-                                    condition.op.as_str(),
-                                    condition.key,
-                                    state_kind(declared)
-                                ),
-                            ));
-                        } else if condition.bare && !matches!(declared, StateValue::Bool(_)) {
-                            errors.push(Finding::at_line(
-                                &file,
-                                line_no,
-                                rules::PACK_STATE,
-                                format!(
-                                    "bare condition key `{}` must be a bool, but `{}` is declared as a {} in state.ron",
-                                    condition.key,
-                                    condition.key,
-                                    state_kind(declared)
-                                ),
-                            ));
-                        } else if !kind_matches(declared, &condition.value) {
-                            errors.push(Finding::at_line(
-                                &file,
-                                line_no,
-                                rules::PACK_STATE,
-                                format!(
-                                    "condition literal is a {}, but `{}` is declared as a {} in state.ron",
-                                    literal_kind(&condition.value),
-                                    condition.key,
-                                    state_kind(declared)
-                                ),
-                            ));
-                        }
-                    }
-                },
                 Line::Decide {
                     npc_id,
                     question,
@@ -162,24 +101,34 @@ pub(super) fn validate(
             }
         }
     }
+}
 
-    // NPC config checks: state_keys declared, then the type-specific criteria
-    // and fallback rules. `choice` validates its fallback against the criteria
-    // and keeps the only `none` advisory; typed questions own their shape at
-    // deserialization (`try_from`) and their label closure at each decide point.
+/// NPC config checks: `state_keys` declared (only when the state decoded), then
+/// the type-specific criteria and fallback rules. `choice` validates its
+/// fallback against the criteria and keeps the only `none` advisory; typed
+/// questions own their shape at deserialization (`try_from`) and their label
+/// closure at each decide point.
+fn validate_npc_configs(
+    state: Option<&HashMap<String, StateValue>>,
+    npcs: &HashMap<String, Npc>,
+    errors: &mut Vec<Finding>,
+    warnings: &mut Vec<Finding>,
+) {
     for (npc_id, npc) in npcs {
         let file = format!("npcs/{npc_id}.ron");
         for (question, config) in &npc.decisions {
-            for key in &config.state_keys {
-                if !state.contains_key(key) {
-                    errors.push(Finding::new(
-                        &file,
-                        "",
-                        rules::PACK_DECISION,
-                        format!(
-                            "decision `{question}`: state_keys entry `{key}` is not declared in state.ron"
-                        ),
-                    ));
+            if let Some(state) = state {
+                for key in &config.state_keys {
+                    if !state.contains_key(key) {
+                        errors.push(Finding::new(
+                            &file,
+                            "",
+                            rules::PACK_DECISION,
+                            format!(
+                                "decision `{question}`: state_keys entry `{key}` is not declared in state.ron"
+                            ),
+                        ));
+                    }
                 }
             }
             if let (Some(criteria), Some(fallback)) =
@@ -440,56 +389,8 @@ fn validate_decide(
     }
 }
 
-/// `{var}` references in say-line text (well-formed by parse time).
-fn var_refs(text: &str) -> Vec<String> {
-    let mut refs = Vec::new();
-    let bytes = text.as_bytes();
-    let mut i = 0;
-    while i < bytes.len() {
-        if bytes[i] == b'{' {
-            if let Some(close) = text[i + 1..].find('}') {
-                refs.push(text[i + 1..i + 1 + close].to_string());
-                i += close + 2;
-                continue;
-            } else {
-                break;
-            }
-        }
-        i += 1;
-    }
-    refs
-}
-
 fn sorted_keys<V>(map: &HashMap<String, V>) -> Vec<String> {
     let mut keys: Vec<String> = map.keys().cloned().collect();
     keys.sort();
     keys
-}
-
-/// Name of a declared state value's kind, for error messages.
-fn state_kind(v: &StateValue) -> &'static str {
-    match v {
-        StateValue::Str(_) => "string",
-        StateValue::Num(_) => "number",
-        StateValue::Bool(_) => "bool",
-    }
-}
-
-/// Name of a literal's kind, for error messages.
-fn literal_kind(v: &Literal) -> &'static str {
-    match v {
-        Literal::Str(_) => "string",
-        Literal::Num(_) => "number",
-        Literal::Bool(_) => "bool",
-    }
-}
-
-/// A key's declared kind is fixed: a literal must have the same kind.
-fn kind_matches(declared: &StateValue, literal: &Literal) -> bool {
-    matches!(
-        (declared, literal),
-        (StateValue::Str(_), Literal::Str(_))
-            | (StateValue::Num(_), Literal::Num(_))
-            | (StateValue::Bool(_), Literal::Bool(_))
-    )
 }
