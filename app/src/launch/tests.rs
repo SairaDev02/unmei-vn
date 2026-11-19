@@ -308,3 +308,44 @@ fn a_non_unicode_path_is_not_invalid_for_its_encoding() {
     assert_eq!(launch.pack_dir, Some(PathBuf::from(path)));
     assert!(!launch.force_dev);
 }
+
+#[test]
+fn check_is_a_mode_of_its_own_with_an_optional_format() {
+    for (args, format) in [
+        (vec!["--check"], Format::Text),
+        (vec!["my-pack", "--check"], Format::Text),
+        (vec!["--check", "--format", "json"], Format::Json),
+        (vec!["--format", "json", "my-pack", "--check"], Format::Json),
+    ] {
+        let launch = run(&args);
+        assert!(launch.check, "{args:?}");
+        assert_eq!(launch.keiko, None, "{args:?}");
+        assert_eq!(launch.format, format, "{args:?}");
+    }
+}
+
+#[test]
+fn check_is_exclusive_with_every_other_mode_and_with_dev() {
+    for args in [
+        vec!["--check", "--take"],
+        vec!["--take", "--check"],
+        vec!["--check", "--step", "one", "advance 2"],
+        vec!["--check", "--observe", "one"],
+        vec!["--check", "--explore"],
+        vec!["--dev", "--check"],
+        vec!["--check", "--dev"],
+        vec!["--check", "--keep"],
+        vec!["--check", "--live"],
+        vec!["--check", "--format", "yaml"],
+    ] {
+        assert!(
+            parse_strs(&args).is_err(),
+            "{args:?} should be a usage error"
+        );
+    }
+}
+
+#[test]
+fn the_help_lists_the_check_mode() {
+    assert!(help().contains("--check"));
+}

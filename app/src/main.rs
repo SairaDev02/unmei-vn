@@ -76,6 +76,13 @@ fn main() -> AppExit {
     // not a usage error).
     let pack_root = resolved.canonical_pack_root();
 
+    // `--check` reports findings and exits: no shipping app, no window, no
+    // settings, saves, read log, session log or credential file (spec §1).
+    if cli.check {
+        let code = unmei_app::check::run(&pack_root, cli.format);
+        return AppExit::from_code(code);
+    }
+
     // A Keiko mode is a testing entry point, not a play session: it never builds
     // the shipping app, never opens a window and never touches the user's
     // settings, saves, read log, session log or credential file (spec §1).

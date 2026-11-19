@@ -28,6 +28,7 @@ use unmei_engine::save::StagingState;
 use unmei_engine::{DecisionResolver, ScriptRunner};
 
 // Named `core`; note this shadows the `core` crate within this crate.
+pub mod check;
 pub mod composition;
 mod core;
 pub mod credentials;
