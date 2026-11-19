@@ -10,7 +10,7 @@
 
 use unmei_engine::{Parser, Scene};
 
-fn parse(text: &str) -> Result<Scene, unmei_engine::LoadError> {
+fn parse(text: &str) -> Result<Scene, unmei_engine::Finding> {
     Parser::new("test.unmei").parse("test", text)
 }
 

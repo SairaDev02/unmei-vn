@@ -23,7 +23,7 @@ mod properties;
 use std::collections::HashMap;
 
 use crate::content::{Line, Scene};
-use crate::error::LoadError;
+use crate::finding::{rules, Finding};
 
 use self::commands::{parse_condition, parse_decide, parse_set, two_args};
 use self::flow::FlowBlocks;
@@ -41,12 +41,12 @@ impl<'a> Parser<'a> {
         Parser { file }
     }
 
-    fn err(&self, line_no: usize, message: impl Into<String>) -> LoadError {
-        LoadError::new(self.file, Some(line_no), message)
+    fn err(&self, line_no: usize, message: impl Into<String>) -> Finding {
+        Finding::at_line(self.file, line_no, rules::PACK_SCENE_SYNTAX, message)
     }
 
     /// Parse the full text of one `.unmei` scene.
-    pub fn parse(&self, scene_id: &str, text: &str) -> Result<Scene, LoadError> {
+    pub fn parse(&self, scene_id: &str, text: &str) -> Result<Scene, Finding> {
         let src: Vec<&str> = text.lines().collect();
         let mut lines: Vec<Line> = Vec::new();
         let mut line_numbers: Vec<usize> = Vec::new();
@@ -201,7 +201,7 @@ impl<'a> Parser<'a> {
 mod tests {
     use super::*;
 
-    fn parse(text: &str) -> Result<Scene, LoadError> {
+    fn parse(text: &str) -> Result<Scene, Finding> {
         Parser::new("test.unmei").parse("test", text)
     }
 

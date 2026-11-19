@@ -46,34 +46,20 @@ mod entries;
 mod validate;
 
 use std::collections::HashMap;
-use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::content::{Manifest, Npc, Pack, Scene, StateValue};
-use crate::error::LoadError;
+use crate::finding::{rules, Finding};
 use crate::parser::Parser;
 
 use self::validate::validate;
-
-/// A validation warning: real but non-fatal (the pack still loads).
-#[derive(Debug, Clone, PartialEq)]
-pub struct Warning {
-    pub file: String,
-    pub message: String,
-}
-
-impl fmt::Display for Warning {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.file, self.message)
-    }
-}
 
 /// A loaded pack plus its warnings.
 #[derive(Debug)]
 pub struct LoadedPack {
     pub pack: Pack,
-    pub warnings: Vec<Warning>,
+    pub warnings: Vec<Finding>,
 }
 
 /// The tagline length the 1280x720 title column fits; past it the loader warns
@@ -117,18 +103,19 @@ pub fn read_pack_text(path: &Path) -> std::io::Result<String> {
 }
 
 /// Load and validate a content pack from a directory.
-pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
-    let mut errors: Vec<LoadError> = Vec::new();
-    let mut warnings: Vec<Warning> = Vec::new();
+pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<Finding>> {
+    let mut errors: Vec<Finding> = Vec::new();
+    let mut warnings: Vec<Finding> = Vec::new();
 
     // --- manifest -----------------------------------------------------------
     let manifest_path = root.join("pack.ron");
     let manifest_src = match read_pack_text(&manifest_path) {
         Ok(s) => s,
         Err(e) => {
-            return Err(vec![LoadError::new(
+            return Err(vec![Finding::new(
                 "pack.ron",
-                None,
+                "",
+                rules::PACK_FILE_READ,
                 format!("cannot read pack manifest: {e}"),
             )]);
         }
@@ -136,9 +123,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
     let mut manifest: Manifest = match ron::from_str(&manifest_src) {
         Ok(m) => m,
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "pack.ron",
-                None,
+                "",
+                rules::PACK_FILE_RON,
                 format!("invalid RON: {e}"),
             ));
             return Err(errors);
@@ -151,17 +139,21 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             Ok(Some(tagline)) => {
                 let len = tagline.chars().count();
                 if len > TAGLINE_WARN_LEN {
-                    warnings.push(Warning {
-                        file: "pack.ron".to_string(),
-                        message: format!(
+                    warnings.push(Finding::warning(
+                        "pack.ron",
+                        "",
+                        rules::PACK_MANIFEST_TAGLINE_LENGTH,
+                        format!(
                             "tagline is {len} characters long; the 1280x720 title column fits {TAGLINE_WARN_LEN}"
                         ),
-                    });
+                    ));
                 }
                 manifest.tagline = Some(tagline);
             }
             Ok(None) => {}
-            Err(message) => errors.push(LoadError::new("pack.ron", None, message)),
+            Err(message) => {
+                errors.push(Finding::new("pack.ron", "", rules::PACK_MANIFEST, message))
+            }
         }
     }
     // The optional title backdrop names an asset resolved exactly like
@@ -170,7 +162,7 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
     // declared-but-missing file stays a runtime silent degradation.
     if let Some(id) = &manifest.title_backdrop {
         if let Err(message) = crate::parser::check_id(id, "title_backdrop id") {
-            errors.push(LoadError::new("pack.ron", None, message));
+            errors.push(Finding::new("pack.ron", "", rules::PACK_MANIFEST, message));
         }
     }
 
@@ -179,9 +171,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
     let state_src = match read_pack_text(&state_path) {
         Ok(s) => s,
         Err(e) => {
-            return Err(vec![LoadError::new(
+            return Err(vec![Finding::new(
                 "state.ron",
-                None,
+                "",
+                rules::PACK_FILE_READ,
                 format!("cannot read state file: {e}"),
             )]);
         }
@@ -192,7 +185,7 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         // map there) and converts it to the typed state map.
         Ok(s) => s,
         Err(e) => {
-            errors.push(LoadError::new("state.ron", None, e));
+            errors.push(Finding::new("state.ron", "", rules::PACK_FILE_RON, e));
             return Err(errors);
         }
     };
@@ -211,9 +204,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             files
         }
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "scenes/",
-                None,
+                "",
+                rules::PACK_FILE_READ,
                 format!("cannot read scenes directory: {e}"),
             ));
             Vec::new()
@@ -229,9 +223,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         let src = match read_pack_text(&path) {
             Ok(s) => s,
             Err(e) => {
-                errors.push(LoadError::new(
+                errors.push(Finding::new(
                     &rel,
-                    None,
+                    "",
+                    rules::PACK_FILE_READ,
                     format!("cannot read scene: {e}"),
                 ));
                 continue;
@@ -259,9 +254,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             files
         }
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "npcs/",
-                None,
+                "",
+                rules::PACK_FILE_READ,
                 format!("cannot read npcs directory: {e}"),
             ));
             Vec::new()
@@ -277,9 +273,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         let src = match read_pack_text(&path) {
             Ok(s) => s,
             Err(e) => {
-                errors.push(LoadError::new(
+                errors.push(Finding::new(
                     &rel,
-                    None,
+                    "",
+                    rules::PACK_FILE_READ,
                     format!("cannot read NPC file: {e}"),
                 ));
                 continue;
@@ -288,9 +285,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         match ron::from_str::<Npc>(&src) {
             Ok(npc) => {
                 if npc.id != stem {
-                    errors.push(LoadError::new(
+                    errors.push(Finding::new(
                         &rel,
-                        None,
+                        "",
+                        rules::PACK_NPC,
                         format!("npc id `{}` does not match filename stem `{stem}`", npc.id),
                     ));
                     continue;
@@ -298,7 +296,12 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
                 npcs.insert(stem, npc);
             }
             Err(e) => {
-                errors.push(LoadError::new(&rel, None, format!("invalid NPC RON: {e}")));
+                errors.push(Finding::new(
+                    &rel,
+                    "",
+                    rules::PACK_FILE_RON,
+                    format!("invalid NPC RON: {e}"),
+                ));
             }
         }
     }

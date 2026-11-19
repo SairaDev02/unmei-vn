@@ -133,8 +133,8 @@ impl Staging {
 
     /// Reload the staged pack through the real engine loader.
     ///
-    /// Every `LoadError` is displayed verbatim: the engine owns the
-    /// pack-relative file, optional 1-based line and message, and this owner
+    /// Every finding is displayed verbatim: the engine owns the
+    /// pack-relative file, the path inside it and the message, and this owner
     /// adds no scrubbing, deduplication, ranking or reordering. Warnings are
     /// not rejections.
     pub(super) fn reload(&self) -> Result<(), Vec<String>> {

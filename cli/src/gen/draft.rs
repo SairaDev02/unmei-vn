@@ -359,7 +359,7 @@ pub async fn draft_once<C: AuthorChat>(
 
 /// Layer 2 (drafting contract §4): re-parse the edited scene and re-cross-
 /// validate the pack through the shared loader. Diagnostics are the loader's
-/// existing `LoadError`s — pack-relative file plus 1-based line, no column.
+/// existing findings — pack-relative file plus 1-based line, no column.
 ///
 /// The raw public adapter keeps its signature and vector result (contract §10):
 /// an unsafe Scene id or an absent Scene becomes one target/membership refusal

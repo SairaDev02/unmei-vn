@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
-use unmei_engine::LoadError;
+use unmei_engine::Finding;
 
 use super::session_log::session_log_file_name;
 use crate::launch::NO_EXECUTABLE_MESSAGE;
@@ -28,7 +28,7 @@ pub enum StartupFailure {
     /// and whether the default rule chose that path.
     Pack {
         pack_root: PathBuf,
-        errors: Vec<LoadError>,
+        errors: Vec<Finding>,
         /// `true` when no `PACK_DIR` was given and the default rule supplied the
         /// path, which is the only case that shows [`default_pack_hint`].
         defaulted: bool,
@@ -115,6 +115,8 @@ mod tests {
 
     use super::*;
 
+    use unmei_engine::finding::rules;
+
     use super::super::captures::{capture_records, install_capture};
     use super::super::funnel::{report, DefensiveHold, Failure};
     use super::super::notice::Notice;
@@ -122,7 +124,14 @@ mod tests {
     #[test]
     fn the_error_screen_shows_twenty_lines_and_then_a_pointer() {
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), Some(i), "boom"))
+            .map(|i| {
+                Finding::at_line(
+                    format!("scenes/s{i}.unmei"),
+                    i,
+                    rules::PACK_SCENE_SYNTAX,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/pack"),
@@ -137,7 +146,14 @@ mod tests {
     #[test]
     fn the_error_screen_pointer_names_the_pack_sibling_log() {
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), Some(i), "boom"))
+            .map(|i| {
+                Finding::at_line(
+                    format!("scenes/s{i}.unmei"),
+                    i,
+                    rules::PACK_SCENE_SYNTAX,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/demo-pack"),
@@ -153,7 +169,12 @@ mod tests {
     #[test]
     fn the_default_pack_hint_shows_only_when_the_default_was_used() {
         const HINT: &str = "No PACK_DIR given — expected demo-pack beside unmei-play.";
-        let errors = vec![LoadError::new("pack.ron", None, "missing")];
+        let errors = vec![Finding::new(
+            "pack.ron",
+            "",
+            rules::PACK_FILE_READ,
+            "missing",
+        )];
 
         let defaulted = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/demo-pack"),
@@ -212,7 +233,14 @@ mod tests {
     #[test]
     fn twenty_errors_show_without_a_pointer() {
         let errors = (0..MAX_SCREEN_LINES)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), None, "boom"))
+            .map(|i| {
+                Finding::new(
+                    format!("scenes/s{i}.unmei"),
+                    "",
+                    rules::PACK_FILE_READ,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/pack"),
@@ -230,7 +258,14 @@ mod tests {
     fn a_pack_load_failure_carries_every_error_into_one_log_line() {
         install_capture();
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), None, "boom"))
+            .map(|i| {
+                Finding::new(
+                    format!("scenes/s{i}.unmei"),
+                    "",
+                    rules::PACK_FILE_READ,
+                    "boom",
+                )
+            })
             .collect::<Vec<_>>();
         let detail = errors
             .iter()
@@ -252,7 +287,7 @@ mod tests {
         for i in 0..25 {
             assert!(
                 records[0].2.contains(&format!("scenes/s{i}.unmei")),
-                "every LoadError must reach the log line"
+                "every finding must reach the log line"
             );
         }
         assert!(!notice.is_showing());

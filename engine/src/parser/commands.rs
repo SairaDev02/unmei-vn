@@ -171,10 +171,10 @@ mod tests {
     use super::*;
 
     use crate::content::{Line, Scene};
-    use crate::error::LoadError;
+    use crate::finding::Finding;
     use crate::parser::Parser;
 
-    fn parse(text: &str) -> Result<Scene, LoadError> {
+    fn parse(text: &str) -> Result<Scene, Finding> {
         Parser::new("test.unmei").parse("test", text)
     }
 

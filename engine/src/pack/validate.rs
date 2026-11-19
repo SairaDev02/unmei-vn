@@ -7,23 +7,22 @@
 use std::collections::{BTreeSet, HashMap};
 
 use crate::content::{Line, Literal, Manifest, Npc, Scene, StateValue};
-use crate::error::LoadError;
-
-use super::Warning;
+use crate::finding::{rules, Finding};
 
 pub(super) fn validate(
     manifest: &Manifest,
     state: &HashMap<String, StateValue>,
     scenes: &HashMap<String, Scene>,
     npcs: &HashMap<String, Npc>,
-    errors: &mut Vec<LoadError>,
-    warnings: &mut Vec<Warning>,
+    errors: &mut Vec<Finding>,
+    warnings: &mut Vec<Finding>,
 ) {
     // Entry scene exists.
     if !scenes.contains_key(&manifest.entry) {
-        errors.push(LoadError::new(
+        errors.push(Finding::new(
             "pack.ron",
-            None,
+            "",
+            rules::PACK_MANIFEST,
             format!(
                 "entry scene `{}` does not exist (scenes: {:?})",
                 manifest.entry,
@@ -42,15 +41,17 @@ pub(super) fn validate(
             let line_no = scene.source_line(idx);
             match line {
                 Line::Set { name, value } => match state.get(name) {
-                    None => errors.push(LoadError::new(
+                    None => errors.push(Finding::at_line(
                         &file,
-                        Some(line_no),
+                        line_no,
+                        rules::PACK_STATE,
                         format!("`set {name}` but `{name}` is not declared in state.ron"),
                     )),
                     Some(declared) if !kind_matches(declared, value) => {
-                        errors.push(LoadError::new(
+                        errors.push(Finding::at_line(
                             &file,
-                            Some(line_no),
+                            line_no,
+                            rules::PACK_STATE,
                             format!(
                                 "`set {name}` assigns a {}, but `{name}` is declared as a {} in state.ron",
                                 literal_kind(value),
@@ -63,9 +64,10 @@ pub(super) fn validate(
                 Line::Say { text, .. } => {
                     for var in var_refs(text) {
                         if !state.contains_key(&var) {
-                            errors.push(LoadError::new(
+                            errors.push(Finding::at_line(
                                 &file,
-                                Some(line_no),
+                                line_no,
+                                rules::PACK_STATE,
                                 format!("unknown variable `{{{var}}}` — not declared in state.ron"),
                             ));
                         }
@@ -73,9 +75,10 @@ pub(super) fn validate(
                 }
                 Line::Jump(target) => {
                     if !scene.labels.contains_key(target) && !scenes.contains_key(target) {
-                        errors.push(LoadError::new(
+                        errors.push(Finding::at_line(
                             &file,
-                            Some(line_no),
+                            line_no,
+                            rules::PACK_SCENE_TARGET,
                             format!(
                                 "jump target `{target}` is neither a label in `{scene_id}` nor a scene file"
                             ),
@@ -85,9 +88,10 @@ pub(super) fn validate(
                 Line::Choice(options) => {
                     for (text, target) in options {
                         if !scene.labels.contains_key(target) && !scenes.contains_key(target) {
-                            errors.push(LoadError::new(
+                            errors.push(Finding::at_line(
                                 &file,
-                                Some(line_no),
+                                line_no,
+                                rules::PACK_SCENE_TARGET,
                                 format!(
                                     "choice option \"{text}\" targets `{target}`, which is neither a label in `{scene_id}` nor a scene file"
                                 ),
@@ -96,9 +100,10 @@ pub(super) fn validate(
                     }
                 }
                 Line::If { condition, .. } => match state.get(&condition.key) {
-                    None => errors.push(LoadError::new(
+                    None => errors.push(Finding::at_line(
                         &file,
-                        Some(line_no),
+                        line_no,
+                        rules::PACK_STATE,
                         format!(
                             "condition key `{}` is not declared in state.ron",
                             condition.key
@@ -106,9 +111,10 @@ pub(super) fn validate(
                     )),
                     Some(declared) => {
                         if condition.op.is_ordering() && !matches!(declared, StateValue::Num(_)) {
-                            errors.push(LoadError::new(
+                            errors.push(Finding::at_line(
                                 &file,
-                                Some(line_no),
+                                line_no,
+                                rules::PACK_STATE,
                                 format!(
                                     "condition `{}` uses an ordering operator, but `{}` is declared as a {} in state.ron — ordering applies to numbers only",
                                     condition.op.as_str(),
@@ -117,9 +123,10 @@ pub(super) fn validate(
                                 ),
                             ));
                         } else if condition.bare && !matches!(declared, StateValue::Bool(_)) {
-                            errors.push(LoadError::new(
+                            errors.push(Finding::at_line(
                                 &file,
-                                Some(line_no),
+                                line_no,
+                                rules::PACK_STATE,
                                 format!(
                                     "bare condition key `{}` must be a bool, but `{}` is declared as a {} in state.ron",
                                     condition.key,
@@ -128,9 +135,10 @@ pub(super) fn validate(
                                 ),
                             ));
                         } else if !kind_matches(declared, &condition.value) {
-                            errors.push(LoadError::new(
+                            errors.push(Finding::at_line(
                                 &file,
-                                Some(line_no),
+                                line_no,
+                                rules::PACK_STATE,
                                 format!(
                                     "condition literal is a {}, but `{}` is declared as a {} in state.ron",
                                     literal_kind(&condition.value),
@@ -164,9 +172,10 @@ pub(super) fn validate(
         for (question, config) in &npc.decisions {
             for key in &config.state_keys {
                 if !state.contains_key(key) {
-                    errors.push(LoadError::new(
+                    errors.push(Finding::new(
                         &file,
-                        None,
+                        "",
+                        rules::PACK_DECISION,
                         format!(
                             "decision `{question}`: state_keys entry `{key}` is not declared in state.ron"
                         ),
@@ -177,9 +186,10 @@ pub(super) fn validate(
                 (config.choice_criteria(), config.choice_fallback())
             {
                 if !criteria.contains_key(fallback) {
-                    errors.push(LoadError::new(
+                    errors.push(Finding::new(
                         &file,
-                        None,
+                        "",
+                        rules::PACK_DECISION,
                         format!(
                             "decision `{question}`: fallback `{fallback}` is not a criterion id (criteria: {:?})",
                             sorted_keys(criteria)
@@ -187,12 +197,14 @@ pub(super) fn validate(
                     ));
                 }
                 if !criteria.contains_key("none") {
-                    warnings.push(Warning {
-                        file: file.clone(),
-                        message: format!(
+                    warnings.push(Finding::warning(
+                        &file,
+                        "",
+                        rules::PACK_DECISION_NO_NONE,
+                        format!(
                             "decision `{question}`: no `none` action — the model has no way to say nothing fits"
                         ),
-                    });
+                    ));
                 }
             }
             // A `score` fallback is a legend index and must be in range: like the
@@ -202,9 +214,10 @@ pub(super) fn validate(
                 (config.score_criteria(), config.score_fallback())
             {
                 if fallback >= legend.len() {
-                    errors.push(LoadError::new(
+                    errors.push(Finding::new(
                         &file,
-                        None,
+                        "",
+                        rules::PACK_DECISION,
                         format!(
                             "decision `{question}`: fallback index {fallback} is outside the legend (0..={})",
                             legend.len() - 1
@@ -227,8 +240,8 @@ pub(super) fn validate(
 fn validate_declared_order(
     manifest: &Manifest,
     scenes: &HashMap<String, Scene>,
-    errors: &mut Vec<LoadError>,
-    warnings: &mut Vec<Warning>,
+    errors: &mut Vec<Finding>,
+    warnings: &mut Vec<Finding>,
 ) {
     if manifest.scenes.is_empty() {
         return;
@@ -245,16 +258,18 @@ fn validate_declared_order(
     // loaded scenes; an id both missing and repeated reports both.
     for id in listed.iter().copied() {
         if repeated.contains(id) {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "pack.ron",
-                None,
+                "",
+                rules::PACK_MANIFEST,
                 format!("scene `{id}` is listed more than once in `scenes`"),
             ));
         }
         if !scenes.contains_key(id) {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "pack.ron",
-                None,
+                "",
+                rules::PACK_MANIFEST,
                 format!(
                     "scene `{id}` is listed in `scenes` but is not among loaded scenes (scenes: {:?})",
                     sorted_keys(scenes)
@@ -278,10 +293,12 @@ fn validate_declared_order(
         } else {
             ("scene", " — it is absent from the Timeline")
         };
-        warnings.push(Warning {
-            file: "pack.ron".to_string(),
-            message: format!("{noun} `{scene_id}` is not listed in `scenes`{tail}"),
-        });
+        warnings.push(Finding::warning(
+            "pack.ron",
+            "",
+            rules::PACK_MANIFEST_UNLISTED,
+            format!("{noun} `{scene_id}` is not listed in `scenes`{tail}"),
+        ));
     }
 }
 
@@ -291,7 +308,7 @@ fn validate_declared_order(
 /// catches the state that spins ([`crate::runner::RunnerError::WaitFreeCycle`]).
 /// Each cycle is reported once, at its first `jump` in (scene id, line)
 /// order, and the cycles are reported in that order too.
-fn validate_wait_free_cycles(scenes: &HashMap<String, Scene>, errors: &mut Vec<LoadError>) {
+fn validate_wait_free_cycles(scenes: &HashMap<String, Scene>, errors: &mut Vec<Finding>) {
     // Every position has at most one successor, so each walk either ends or
     // runs into a cycle; `done` marks positions whose walk is settled.
     let mut ids: Vec<&str> = scenes.keys().map(String::as_str).collect();
@@ -334,9 +351,10 @@ fn validate_wait_free_cycles(scenes: &HashMap<String, Scene>, errors: &mut Vec<L
         let Line::Jump(target) = &scene.lines[idx] else {
             continue;
         };
-        errors.push(LoadError::new(
+        errors.push(Finding::at_line(
             format!("scenes/{scene_id}.unmei"),
-            Some(scene.source_line(idx)),
+            scene.source_line(idx),
+            rules::PACK_SCENE_CYCLE,
             format!(
                 "`jump {target}` closes a cycle that reaches no say-line, choice or decide — play would freeze here"
             ),
@@ -376,12 +394,13 @@ fn validate_decide(
     prefix: &str,
     scene: &Scene,
     npcs: &HashMap<String, Npc>,
-    errors: &mut Vec<LoadError>,
+    errors: &mut Vec<Finding>,
 ) {
     let Some(npc) = npcs.get(npc_id) else {
-        errors.push(LoadError::new(
+        errors.push(Finding::at_line(
             file,
-            Some(line_no),
+            line_no,
+            rules::PACK_DECISION,
             format!(
                 "decide references unknown npc `{npc_id}` (npcs: {:?})",
                 npcs.keys().collect::<Vec<_>>()
@@ -390,9 +409,10 @@ fn validate_decide(
         return;
     };
     let Some(config) = npc.decisions.get(question) else {
-        errors.push(LoadError::new(
+        errors.push(Finding::at_line(
             file,
-            Some(line_no),
+            line_no,
+            rules::PACK_DECISION,
             format!(
                 "decide references unknown question `{question}` on npc `{npc_id}` (questions: {:?})",
                 npc.decisions.keys().collect::<Vec<_>>()
@@ -408,9 +428,10 @@ fn validate_decide(
     for key in config.landing_keys() {
         let label = format!("{prefix}.{key}");
         if !scene.labels.contains_key(&label) {
-            errors.push(LoadError::new(
+            errors.push(Finding::at_line(
                 file,
-                Some(line_no),
+                line_no,
+                rules::PACK_DECISION,
                 format!(
                     "decision point `{npc_id}.{question} -> {prefix}`: missing label `{label}` in scene `{scene_id}`"
                 ),

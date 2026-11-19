@@ -1,7 +1,6 @@
 //! The step half of the case grammar: every step form and every assertion
 //! (spec §3). Kept apart from `parse.rs` so each file stays under the size limit.
 
-use super::finding::Finding;
 use super::model::{
     Click, ControlCondition, DecisionState, Expect, LogLevel, Pick, SkipMode, SlotExpect, Step,
 };
@@ -11,6 +10,7 @@ use super::parse::{
     Token,
 };
 use super::rules;
+use crate::finding::Finding;
 
 pub(super) fn parse_step(
     verb: &str,
