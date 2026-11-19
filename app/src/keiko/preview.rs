@@ -6,6 +6,10 @@
 //! generated case through the same take engine a test uses, so there is one
 //! replay and it cannot drift.
 
+mod run;
+
+pub use run::run;
+
 use unmei_engine::keiko::{parse_case, Case, Finding, Step};
 use unmei_engine::runner::Wait;
 use unmei_engine::{Pack, ScriptRunner, StateValue};
@@ -17,8 +21,8 @@ pub struct PreviewRequest {
     pub scene: Option<String>,
     /// `(scene, line)` to reach.
     pub at: Option<(String, u32)>,
-    /// `--state` overrides, in `state.ron`'s form.
-    pub state: Vec<(String, String)>,
+    /// `--state` overrides, merged over the pack's initial state.
+    pub state: Vec<(String, StateValue)>,
     /// The 1-based option to take at each successive choice.
     pub picks: Vec<usize>,
 }
@@ -50,7 +54,7 @@ pub fn build_case(pack: &Pack, request: &PreviewRequest) -> Result<Case, Finding
     let mut text = String::from("keiko 1\n");
     text.push_str(&format!("start {scene}\n"));
     for (key, value) in &request.state {
-        text.push_str(&format!("state {key} = {value}\n"));
+        text.push_str(&format!("state {key} = {}\n", state_text(value)));
     }
     if let Some((_, line)) = &request.at {
         for step in steps_to(pack, &scene, *line, &request.picks)? {
@@ -131,6 +135,19 @@ fn park_line(runner: &ScriptRunner) -> Option<u32> {
     let index = runner.pc().saturating_sub(1);
     let line = scene.source_line(index);
     (line > 0).then_some(line as u32)
+}
+
+/// A state value in the case's `state <key> = <value>` form.
+fn state_text(value: &StateValue) -> String {
+    match value {
+        StateValue::Str(text) => {
+            // The case grammar's quoted token accepts exactly these two escapes.
+            let escaped = text.replace('\\', "\\\\").replace('"', "\\\"");
+            format!("\"{escaped}\"")
+        }
+        StateValue::Num(number) => number.to_string(),
+        StateValue::Bool(flag) => flag.to_string(),
+    }
 }
 
 /// The step list a generated case holds, for a caller that reads it back.

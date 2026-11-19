@@ -22,12 +22,14 @@ use std::path::PathBuf;
 mod check;
 mod keiko;
 mod pack;
+mod preview;
 
 use check::CheckArgs;
 pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
 };
+pub use preview::PreviewArgs;
 
 /// The release version, from the crate's manifest (`[workspace.package]`).
 /// Read, never restated, so a release bump touches `Cargo.toml` only.
@@ -195,6 +197,33 @@ where
                     }
                     continue;
                 }
+                // The preview's folder and state file are paths, so they keep
+                // the operating system's own encoding.
+                "--preview" | "--state" => {
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
+                    index += 1;
+                    let path = PathBuf::from(value);
+                    match text.as_ref() {
+                        "--preview" => keiko.preview(path)?,
+                        _ => keiko.set_state(path),
+                    }
+                    continue;
+                }
+                "--scene" | "--at" | "--pick" => {
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
+                    index += 1;
+                    let value = value.to_string_lossy();
+                    match text.as_ref() {
+                        "--scene" => keiko.set_scene(&value)?,
+                        "--at" => keiko.set_at(&value)?,
+                        _ => keiko.set_picks(&value)?,
+                    }
+                    continue;
+                }
                 // Any other leading-dash token is an unknown option, including
                 // `--dev=false`, `--pack` and `--no-dev`. A non-Unicode path is
                 // not rejected for its encoding: only the leading dash is a
@@ -257,6 +286,8 @@ where
 pub const USAGE: &str = "\
 Usage: unmei-play [--dev] [PACK_DIR]
        unmei-play [PACK_DIR] --check [--format text|json]
+       unmei-play [PACK_DIR] --preview DIR [--scene ID | --at SCENE:LINE]
+                          [--state FILE] [--pick N,N,...] [--format text|json]
        unmei-play --help
        unmei-play --version
 ";
@@ -287,6 +318,22 @@ Check:
                   touches the pack's sidecars or the user's credential file.
   --format F      With --check: `text` (the default) or `json`.
   Exit codes: 0 no error finding, 1 an error finding, 2 usage.
+
+Preview:
+  --preview DIR   Draw the pack on the software rasterizer, one 1280x720 PNG per
+                  frame, into DIR. It opens no window, needs no GPU or key, and
+                  never reads or writes the pack's sidecars or the user's
+                  credential file. DIR is created when missing; a DIR inside the
+                  pack folder is a usage error. Exit codes: 0 frames written,
+                  1 a finding or no rasterizer, 2 usage.
+  --scene ID      With --preview: one frame at every park the scene meets from
+                  its first line until it leaves the scene.
+  --at SCENE:LINE With --preview: one frame at the park that line produces. The
+                  line must be a say-line, a choice or a decide.
+  --state FILE    With --preview: a RON map in state.ron's form, merged over the
+                  pack's initial state.
+  --pick N,N,...  With --preview: the 1-based option to take at each successive
+                  choice; past the end of the list, option 1.
 
 Testing (Keiko):
   --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case

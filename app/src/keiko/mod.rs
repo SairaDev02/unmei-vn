@@ -76,6 +76,8 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
         KeikoMode::Explore { budget, from } => {
             explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
         }
+        // The preview is a mode of its own beside the Keiko group (spec §9).
+        KeikoMode::Preview(args) => preview::run(args, pack_root, keep, format),
     }
 }
 

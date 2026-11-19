@@ -1,15 +1,19 @@
-//! The Keiko flags on `unmei-play`: the four mutually exclusive modes, their
+//! The Keiko flags on `unmei-play`: the mutually exclusive testing modes, their
 //! modifiers and the case-id shape (spec §1).
 //!
 //! The grammar lives beside the player's launch grammar and shares its token
 //! loop; this module owns the Keiko half — what each flag may combine with, and
-//! what a complete Keiko request means.
+//! what a complete Keiko request means. The preview is one of the group's modes
+//! and carries its own half in [`PreviewArgs`].
 
 use std::ffi::OsString;
+use std::path::Path;
 
+use super::preview::PreviewArgs;
 use super::UsageError;
 
-/// The four Keiko modes. One per invocation, and each excludes the others.
+/// The modes one invocation may choose: four Keiko testing modes and the
+/// preview. One per invocation, and each excludes the others.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeikoMode {
     /// Run every named case, or every case under `tests/` when none is named.
@@ -20,6 +24,20 @@ pub enum KeikoMode {
     Observe { id: String },
     /// Walk the pack's choices and landing keys within a step budget.
     Explore { budget: u32, from: Option<String> },
+    /// Draw a line or a scene into an output folder (spec §9).
+    Preview(PreviewArgs),
+}
+
+impl KeikoMode {
+    /// The rules that need the canonical pack root rather than the token list:
+    /// a preview never writes into the pack it reads (spec §1). The grammar
+    /// touches no filesystem, so this step runs where the root is resolved.
+    pub fn check_paths(&self, pack_root: &Path) -> Result<(), UsageError> {
+        match self {
+            KeikoMode::Preview(args) => args.refuse_inside_pack(pack_root),
+            _ => Ok(()),
+        }
+    }
 }
 
 /// The output format every mode shares.
@@ -48,6 +66,7 @@ enum Kind {
     Step,
     Observe,
     Explore,
+    Preview,
 }
 
 /// The Keiko half of one launch, accumulated token by token.
@@ -62,6 +81,7 @@ pub struct KeikoArgs {
     live: bool,
     keep: bool,
     format: Format,
+    preview: PreviewArgs,
 }
 
 impl KeikoArgs {
@@ -95,6 +115,9 @@ impl KeikoArgs {
                 Ok(())
             }
             Some(Kind::Explore) => Err(UsageError::new("`--explore` takes no ids")),
+            Some(Kind::Preview) => Err(UsageError::new(
+                "`--preview` takes its folder after the flag",
+            )),
             None => Err(UsageError::new(format!("unexpected argument '{value}'"))),
         }
     }
@@ -102,7 +125,7 @@ impl KeikoArgs {
     fn set_kind(&mut self, kind: Kind) -> Result<(), UsageError> {
         if self.kind.is_some() {
             return Err(UsageError::new(
-                "choose one Keiko mode: --take, --step, --observe or --explore",
+                "choose one mode: --take, --step, --observe, --explore or --preview",
             ));
         }
         self.kind = Some(kind);
@@ -124,6 +147,33 @@ impl KeikoArgs {
 
     pub fn explore(&mut self) -> Result<(), UsageError> {
         self.set_kind(Kind::Explore)
+    }
+
+    /// `--preview DIR`.
+    pub fn preview(&mut self, dir: std::path::PathBuf) -> Result<(), UsageError> {
+        self.set_kind(Kind::Preview)?;
+        self.preview.preview(dir);
+        Ok(())
+    }
+
+    /// `--scene ID`.
+    pub fn set_scene(&mut self, id: &str) -> Result<(), UsageError> {
+        self.preview.set_scene(id)
+    }
+
+    /// `--at SCENE:LINE`.
+    pub fn set_at(&mut self, value: &str) -> Result<(), UsageError> {
+        self.preview.set_at(value)
+    }
+
+    /// `--state FILE`.
+    pub fn set_state(&mut self, path: std::path::PathBuf) {
+        self.preview.set_state(path);
+    }
+
+    /// `--pick N,N,...`.
+    pub fn set_picks(&mut self, value: &str) -> Result<(), UsageError> {
+        self.preview.set_picks(value)
     }
 
     pub fn live(&mut self) -> Result<(), UsageError> {
@@ -175,8 +225,24 @@ impl KeikoArgs {
 
     /// Fold the accumulated flags into one request, or explain why they cannot
     /// be combined. `check` says whether `--check` was also requested, where a
-    /// Keiko-only modifier is a usage error and `--format` alone is valid.
+    /// mode-only modifier is a usage error and `--format` alone is valid.
     pub fn finish(self, dev: bool, check: bool) -> Result<Option<KeikoMode>, UsageError> {
+        // The preview's own flags belong to its mode alone, whether or not some
+        // other mode was named (spec §1).
+        if self.kind != Some(Kind::Preview) {
+            for (given, flag) in [
+                (self.preview.scene.is_some(), "--scene"),
+                (self.preview.at.is_some(), "--at"),
+                (self.preview.state.is_some(), "--state"),
+                (!self.preview.picks.is_empty(), "--pick"),
+            ] {
+                if given {
+                    return Err(UsageError::new(format!(
+                        "{flag} is valid only with --preview"
+                    )));
+                }
+            }
+        }
         let Some(kind) = self.kind else {
             if check {
                 for (given, flag) in [
@@ -209,8 +275,15 @@ impl KeikoArgs {
             return Ok(None);
         };
         if dev {
+            return Err(UsageError::new(if kind == Kind::Preview {
+                "--dev cannot be combined with --preview"
+            } else {
+                "--dev cannot be combined with a Keiko mode; a case sets dev mode itself"
+            }));
+        }
+        if check && kind == Kind::Preview {
             return Err(UsageError::new(
-                "--dev cannot be combined with a Keiko mode; a case sets dev mode itself",
+                "--check cannot be combined with --preview; choose one mode",
             ));
         }
         if self.live && kind != Kind::Take {
@@ -243,6 +316,11 @@ impl KeikoArgs {
                 budget: self.budget.unwrap_or(DEFAULT_BUDGET),
                 from: self.from,
             },
+            Kind::Preview => KeikoMode::Preview(
+                self.preview
+                    .finish()?
+                    .ok_or_else(|| UsageError::new("--preview needs a folder"))?,
+            ),
         };
         Ok(Some(mode))
     }

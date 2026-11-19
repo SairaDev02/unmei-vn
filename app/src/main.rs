@@ -52,13 +52,7 @@ fn main() -> AppExit {
             return AppExit::Success;
         }
         Ok(LaunchRequest::Run(launch)) => launch,
-        Err(error) => {
-            eprintln!("{error}");
-            eprintln!();
-            eprint!("{}", launch::USAGE);
-            let _ = std::io::stderr().flush();
-            return AppExit::from_code(2);
-        }
+        Err(error) => return usage_error(&error),
     };
 
     // The default pack is a separate step from the grammar: it is the one place
@@ -87,6 +81,11 @@ fn main() -> AppExit {
     // the shipping app, never opens a window and never touches the user's
     // settings, saves, read log, session log or credential file (spec §1).
     if let Some(mode) = &cli.keiko {
+        // The preview's output folder rule needs the canonical pack root, so it
+        // runs here rather than in the grammar (check and preview spec §1).
+        if let Err(error) = mode.check_paths(&pack_root) {
+            return usage_error(&error);
+        }
         let code = unmei_app::keiko::run(mode, &pack_root, cli.keep, cli.format);
         return AppExit::from_code(code);
     }
@@ -175,6 +174,16 @@ fn main() -> AppExit {
     // error screen's non-zero code back to the process — the app never calls a
     // hard process exit.
     app.run()
+}
+
+/// Print one usage error with the usage block and exit 2, before any startup
+/// work.
+fn usage_error(error: &launch::UsageError) -> AppExit {
+    eprintln!("{error}");
+    eprintln!();
+    eprint!("{}", launch::USAGE);
+    let _ = std::io::stderr().flush();
+    AppExit::from_code(2)
 }
 
 /// Start the one error screen that exists before any pack is known: no

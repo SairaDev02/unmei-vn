@@ -349,3 +349,108 @@ fn check_is_exclusive_with_every_other_mode_and_with_dev() {
 fn the_help_lists_the_check_mode() {
     assert!(help().contains("--check"));
 }
+
+/// `--preview DIR` is a mode of its own: its folder is the flag's value, a bare
+/// token stays `PACK_DIR`, and `--scene`, `--at`, `--state` and `--pick` are
+/// collected beside it (spec §1, §9.1).
+#[test]
+fn preview_is_a_mode_of_its_own_with_its_selector() {
+    for (args, expected) in [
+        (
+            vec!["--preview", "out", "--at", "reunion:19"],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: None,
+                at: Some(("reunion".to_string(), 19)),
+                state: None,
+                picks: Vec::new(),
+            },
+        ),
+        (
+            vec!["my-pack", "--preview", "out", "--scene", "first_meeting"],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: Some("first_meeting".to_string()),
+                at: None,
+                state: None,
+                picks: Vec::new(),
+            },
+        ),
+        (
+            vec![
+                "--preview",
+                "out",
+                "--state",
+                "high.ron",
+                "--pick",
+                "2,1",
+                "--format",
+                "json",
+            ],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: None,
+                at: None,
+                state: Some(PathBuf::from("high.ron")),
+                picks: vec![2, 1],
+            },
+        ),
+    ] {
+        let launch = run(&args);
+        assert_eq!(launch.keiko, Some(KeikoMode::Preview(expected)), "{args:?}");
+        assert!(!launch.check, "{args:?}");
+    }
+    assert_eq!(
+        run(&["my-pack", "--preview", "out", "--scene", "a"]).pack_dir,
+        Some(PathBuf::from("my-pack")),
+        "the folder is the flag's value, so a bare token stays PACK_DIR"
+    );
+}
+
+#[test]
+fn preview_is_exclusive_and_its_flags_are_rejected_without_it() {
+    for args in [
+        // Two modes together.
+        vec!["--preview", "out", "--take"],
+        vec!["--take", "--preview", "out"],
+        vec!["--preview", "out", "--explore"],
+        vec!["--preview", "out", "--check"],
+        vec!["--check", "--preview", "out"],
+        // `--dev` with the mode.
+        vec!["--dev", "--preview", "out"],
+        vec!["--preview", "out", "--dev"],
+        // A preview-only flag with no mode.
+        vec!["--scene", "a"],
+        vec!["--at", "a:1"],
+        vec!["--state", "high.ron"],
+        vec!["--pick", "2"],
+        // The two selectors exclude each other.
+        vec!["--preview", "out", "--scene", "a", "--at", "a:1"],
+        // A missing or malformed value.
+        vec!["--preview"],
+        vec!["--preview", "out", "--at", "a"],
+        vec!["--preview", "out", "--at", "a:sideways"],
+        vec!["--preview", "out", "--scene", "two words"],
+        vec!["--preview", "out", "--pick", "two"],
+        vec!["--preview", "out", "--pick", "0"],
+        vec!["--preview", "out", "--pick", "2,"],
+        vec!["--preview", "out", "--pick", ""],
+        // A Keiko-only modifier on the preview.
+        vec!["--preview", "out", "--live", "--at", "a:1"],
+        vec!["--preview", "out", "--budget", "5", "--at", "a:1"],
+        vec!["--preview", "out", "--from", "one", "--at", "a:1"],
+    ] {
+        assert!(
+            parse_strs(&args).is_err(),
+            "{args:?} should be a usage error"
+        );
+    }
+}
+
+#[test]
+fn the_help_lists_the_preview() {
+    let help = help();
+    for flag in ["--preview", "--scene", "--at", "--state", "--pick"] {
+        assert!(help.contains(flag), "{flag} missing from help");
+    }
+}

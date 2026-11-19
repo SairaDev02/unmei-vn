@@ -18,8 +18,8 @@ pub fn sort(findings: &mut [Finding]) -> (usize, usize) {
 }
 
 /// Sort the findings, print the chosen form, and return the error and warning
-/// counts.
-pub fn print(findings: &mut [Finding], format: Format) -> (usize, usize) {
+/// counts. `label` names the mode whose summary line this is (§8).
+pub fn print(findings: &mut [Finding], format: Format, label: &str) -> (usize, usize) {
     let (errors, warnings) = sort(findings);
     if matches!(format, Format::Json) {
         println!("{}", document(findings, errors, warnings));
@@ -27,7 +27,7 @@ pub fn print(findings: &mut [Finding], format: Format) -> (usize, usize) {
         for finding in findings.iter() {
             println!("{}", text_line(finding));
         }
-        println!("{}", summary(errors, warnings));
+        println!("{}", summary(errors, warnings, label));
     }
     (errors, warnings)
 }
@@ -43,8 +43,8 @@ pub fn text_line(finding: &Finding) -> String {
 }
 
 /// The text form's closing line.
-pub fn summary(errors: usize, warnings: usize) -> String {
-    format!("check: {errors} errors, {warnings} warnings")
+pub fn summary(errors: usize, warnings: usize, label: &str) -> String {
+    format!("{label}: {errors} errors, {warnings} warnings")
 }
 
 /// The JSON document: findings under the four C3 fields plus `severity`, with
@@ -154,7 +154,7 @@ mod tests {
             "warning: pack.ron: tagline is too long [pack.manifest.tagline-length]"
         );
         assert_eq!(severity_name(warning.severity), "warning");
-        assert_eq!(summary(2, 1), "check: 2 errors, 1 warnings");
+        assert_eq!(summary(2, 1, "check"), "check: 2 errors, 1 warnings");
     }
 
     #[test]
