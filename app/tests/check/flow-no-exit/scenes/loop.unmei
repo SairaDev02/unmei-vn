@@ -1,0 +1,6 @@
+# Rule 15: every option loops back through the choice, so play never leaves.
+label top
+choice
+  "One" -> top
+  "Two" -> top
+end

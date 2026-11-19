@@ -1,0 +1,16 @@
+(
+    id: "ace",
+    name: "Ace",
+    decisions: {
+        "greet": (
+            instructions: "How does Ace greet the player, given the scene?",
+            state_keys: ["met_ace"],
+            criteria: {
+                "warm": "An affectionate, friendly greeting.",
+                "cold": "A distant, guarded greeting.",
+                "none": "Neither fits the moment.",
+            },
+            fallback: "cold",
+        ),
+    },
+)

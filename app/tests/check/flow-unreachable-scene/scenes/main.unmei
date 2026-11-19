@@ -1,0 +1,12 @@
+# Rule 13: a scene entered only from a decision landing is reachable.
+Narrator: The gate again, hours later.
+decide ace.greet -> reply
+
+label reply.warm
+jump greeted_warmly
+
+label reply.cold
+jump greeted_coldly
+
+label reply.none
+jump greeted_coldly

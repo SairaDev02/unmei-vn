@@ -1,0 +1,4 @@
+(
+    name: "check flow unreachable scene",
+    entry: "main",
+)
