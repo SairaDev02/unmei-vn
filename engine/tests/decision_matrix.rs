@@ -16,7 +16,7 @@
 //!   out-of-legend, decode, missing answer, wrong/unknown type, out-of-criteria
 //!   action, typed fallback keys) in `engine/src/decision/mod.rs`;
 //! - absent-client progress to the authored fallback say-line:
-//!   `app/src/tests.rs::decision_without_a_client_takes_the_author_fallback`;
+//!   `app/src/tests/decisions.rs::decision_without_a_client_takes_the_author_fallback`;
 //! - the absent-key selection boundary (no resolver is built; absence is never
 //!   simulated by sending an empty bearer):
 //!   `app/src/credentials.rs::launch_resolution_is_env_then_stored_then_none`;
