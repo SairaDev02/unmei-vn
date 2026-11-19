@@ -1,11 +1,12 @@
 //! Spec rule 6 of the check-and-preview spec: every loader and parser error or
 //! warning site carries the id of its family from §4. One fixture pack per id
-//! asserts the rule and the severity of the list it arrives in.
+//! asserts the id, spelled here as the spec table spells it, and the severity
+//! of the list it arrives in.
 
 use std::fs;
 use std::path::Path;
 
-use unmei_engine::finding::{rules, Severity};
+use unmei_engine::finding::Severity;
 use unmei_engine::load_pack;
 
 const PACK_RON: &str = r#"(
@@ -46,7 +47,6 @@ const BASE: &[(&str, &str)] = &[
 /// its findings point at and the base files it replaces (`None` deletes one).
 struct Fixture {
     id: &'static str,
-    rule: &'static str,
     severity: Severity,
     path: &'static str,
     files: &'static [(&'static str, Option<&'static str>)],
@@ -55,21 +55,18 @@ struct Fixture {
 const FIXTURES: &[Fixture] = &[
     Fixture {
         id: "pack.file.read",
-        rule: rules::PACK_FILE_READ,
         severity: Severity::Error,
         path: "",
         files: &[("pack.ron", None)],
     },
     Fixture {
         id: "pack.file.ron",
-        rule: rules::PACK_FILE_RON,
         severity: Severity::Error,
         path: "",
         files: &[("pack.ron", Some("(name: \"rule ids\", entry: "))],
     },
     Fixture {
         id: "pack.manifest",
-        rule: rules::PACK_MANIFEST,
         severity: Severity::Error,
         path: "",
         files: &[(
@@ -79,7 +76,6 @@ const FIXTURES: &[Fixture] = &[
     },
     Fixture {
         id: "pack.manifest.unlisted",
-        rule: rules::PACK_MANIFEST_UNLISTED,
         severity: Severity::Warning,
         path: "",
         files: &[
@@ -92,7 +88,6 @@ const FIXTURES: &[Fixture] = &[
     },
     Fixture {
         id: "pack.manifest.tagline-length",
-        rule: rules::PACK_MANIFEST_TAGLINE_LENGTH,
         severity: Severity::Warning,
         path: "",
         files: &[(
@@ -104,35 +99,30 @@ const FIXTURES: &[Fixture] = &[
     },
     Fixture {
         id: "pack.scene.syntax",
-        rule: rules::PACK_SCENE_SYNTAX,
         severity: Severity::Error,
         path: "line 1",
         files: &[("scenes/broken.unmei", Some("frobnicate the gate\n"))],
     },
     Fixture {
         id: "pack.scene.target",
-        rule: rules::PACK_SCENE_TARGET,
         severity: Severity::Error,
         path: "line 2",
         files: &[("scenes/main.unmei", Some("Narrator: Hi.\njump nowhere\n"))],
     },
     Fixture {
         id: "pack.scene.cycle",
-        rule: rules::PACK_SCENE_CYCLE,
         severity: Severity::Error,
         path: "line 2",
         files: &[("scenes/main.unmei", Some("label quiet\njump quiet\n"))],
     },
     Fixture {
         id: "pack.state",
-        rule: rules::PACK_STATE,
         severity: Severity::Error,
         path: "line 1",
         files: &[("scenes/main.unmei", Some("set ghost = 1\n"))],
     },
     Fixture {
         id: "pack.npc",
-        rule: rules::PACK_NPC,
         severity: Severity::Error,
         path: "",
         files: &[(
@@ -142,7 +132,6 @@ const FIXTURES: &[Fixture] = &[
     },
     Fixture {
         id: "pack.decision",
-        rule: rules::PACK_DECISION,
         severity: Severity::Error,
         path: "line 1",
         files: &[(
@@ -152,7 +141,6 @@ const FIXTURES: &[Fixture] = &[
     },
     Fixture {
         id: "pack.decision.no-none",
-        rule: rules::PACK_DECISION_NO_NONE,
         severity: Severity::Warning,
         path: "",
         files: &[(
@@ -212,7 +200,7 @@ fn every_loader_and_parser_site_carries_its_family_id() {
             fixture.id
         );
         for finding in &findings {
-            assert_eq!(finding.rule, fixture.rule, "{}: {finding:?}", fixture.id);
+            assert_eq!(finding.rule, fixture.id, "{}: {finding:?}", fixture.id);
             assert_eq!(
                 finding.severity, fixture.severity,
                 "{}: {finding:?}",
