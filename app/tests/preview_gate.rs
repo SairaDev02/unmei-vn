@@ -351,6 +351,33 @@ fn a_state_file_reaches_the_if_arm_the_initial_state_skips() {
 }
 
 // ---------------------------------------------------------------------------
+// Rule 1's `--format` half: the preview reports its finding in the check's
+// JSON shape too
+// ---------------------------------------------------------------------------
+
+#[test]
+fn a_preview_finding_has_the_checks_json_shape() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        demo_pack().to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "reunion:9",
+        "--format",
+        "json",
+    ]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let document: serde_json::Value =
+        serde_json::from_str(stdout(&output).trim()).expect("one JSON document");
+    assert_eq!(document["errors"], 1, "{document}");
+    assert_eq!(document["findings"][0]["rule"], "keiko.case.reference");
+    assert_eq!(document["findings"][0]["severity"], "error");
+    assert!(written(&out).is_empty(), "no frame is written");
+}
+
+// ---------------------------------------------------------------------------
 // Rule 25: a pack that fails to load writes no frame
 // ---------------------------------------------------------------------------
 
