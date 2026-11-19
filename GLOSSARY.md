@@ -364,6 +364,10 @@ _Avoid_: fuzzing, random walk, crawl
 The pack-wide report `unmei-play <pack-dir> --check` prints: every finding the loader, the check's own rules and the pack's Keiko cases produce, in one fixed order, as text or as one JSON document. It runs no take, opens no window and reads or writes no pack sidecar or credential file. Exit `0` means no error finding, `1` an error finding and `2` a usage error.
 _Avoid_: validate (the CLI's write-time validation), lint (flow lint is one rule family the check reports, not the whole report)
 
+**Flow lint**:
+The check's static read of a pack's control-flow graph, which is state-blind: every line flows to the next except a `jump` (to its target only) and a `choice` or `decide` (to each of its targets), and both `if` arms, every choice option and every landing key of every decision point count as reachable whatever the state or the decision would be. It reports three warnings — a scene no path from the entry scene reaches, a label in a reachable scene that no path reaches, and a reachable scene no path leaves for the end of its file or another scene — and never fails the check on its own. The Timeline is not a path.
+_Avoid_: flow checker, reachability analysis, dead-code scan
+
 **Finding**:
 Any problem the loader, the check, the preview or Keiko reports, in one shape: the pack-relative file, the path inside it, one rule id, a severity (`error` or `warning`) and a message. Exploration reports one per problem it finds — a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles — and saves it as a case that reproduces it.
 _Avoid_: failure, bug, error (each means something narrower)

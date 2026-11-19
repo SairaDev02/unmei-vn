@@ -1,0 +1,9 @@
+# Rule 15: one option leaves the scene, so this scene has an exit.
+Narrator: Where to?
+choice
+  "Wander" -> wander
+  "Leave" -> leaving
+end
+
+label wander
+jump loop
