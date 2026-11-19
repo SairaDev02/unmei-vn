@@ -221,6 +221,7 @@ fn run_one(
         take_index,
         keep,
         live,
+        frames: None,
     });
     output::CaseRun {
         case: id.to_string(),
@@ -380,6 +381,7 @@ fn append_step(
         take_index: 1,
         keep,
         live: None,
+        frames: None,
     });
     let run = output::CaseRun {
         case: id.to_string(),

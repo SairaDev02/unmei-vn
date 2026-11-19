@@ -148,3 +148,51 @@ fn a_preview_with_no_selector_reports_the_missing_one() {
     );
     assert!(written(&out).is_empty(), "no frame is written");
 }
+
+// ---------------------------------------------------------------------------
+// Rule 21: `--at` writes the one frame its line's park shows
+// ---------------------------------------------------------------------------
+
+/// `reunion:19` is the say-line the authored fallback lands on, so the frame
+/// also proves the replay walked past the decide point at line 10.
+#[test]
+fn an_at_line_writes_one_1280_by_720_frame_named_for_the_line() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        demo_pack().to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "reunion:19",
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    assert_eq!(written(&out), ["at-reunion-19.png"]);
+    assert_eq!(size(&out.join("at-reunion-19.png")), (1280, 720));
+}
+
+#[test]
+fn an_at_line_that_is_no_park_reports_the_reference_rule_and_writes_nothing() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        demo_pack().to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+        "--at",
+        "reunion:9",
+    ]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("keiko.case.reference"),
+        "{}",
+        stdout(&output)
+    );
+    assert!(written(&out).is_empty(), "no frame is written");
+}

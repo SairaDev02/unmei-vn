@@ -37,6 +37,7 @@ fn request<'a>(case: &'a Case, pack: &'a Pack, root: &'a Path) -> TakeRequest<'a
         take_index: 1,
         keep: false,
         live: None,
+        frames: None,
     }
 }
 

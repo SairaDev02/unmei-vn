@@ -60,6 +60,9 @@ pub fn run(args: &PreviewArgs, pack_root: &Path, keep: bool, format: Format) -> 
         take_index: 1,
         keep,
         live: None,
+        // §9.1: the frames go to the folder the request names, under their
+        // fixed `at-<scene>-<line>` or `scene-<id>-<line>` names.
+        frames: Some(args.dir.clone()),
     });
     match result.outcome {
         Ok(()) => output::PASS,
