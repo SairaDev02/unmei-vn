@@ -87,8 +87,9 @@ impl Finding {
 }
 
 /// The check-and-preview spec §3 order every consumer sees: file, then line with
-/// a finding that has no line first, then rule id, then message. Sorting here
-/// keeps the order deterministic for a list built from unordered maps.
+/// a finding that has no line first, then rule id, then message. The path and the
+/// severity break the remaining ties, so the order is total and two runs over the
+/// same pack report identical bytes.
 pub fn sort_findings(findings: &mut [Finding]) {
     findings.sort_by(|a, b| {
         a.file
@@ -96,7 +97,16 @@ pub fn sort_findings(findings: &mut [Finding]) {
             .then_with(|| a.line_number().cmp(&b.line_number()))
             .then_with(|| a.rule.cmp(&b.rule))
             .then_with(|| a.message.cmp(&b.message))
+            .then_with(|| a.path.cmp(&b.path))
+            .then_with(|| severity_rank(a.severity).cmp(&severity_rank(b.severity)))
     });
+}
+
+fn severity_rank(severity: Severity) -> u8 {
+    match severity {
+        Severity::Error => 0,
+        Severity::Warning => 1,
+    }
 }
 
 /// The text the error screen, the session log and the author CLI already show:
