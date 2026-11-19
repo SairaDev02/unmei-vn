@@ -171,6 +171,7 @@ pub mod rules {
     pub const PACK_NPC: &str = "pack.npc";
     pub const PACK_DECISION: &str = "pack.decision";
     pub const PACK_DECISION_NO_NONE: &str = "pack.decision.no-none";
+    pub const PACK_ASSET_MISSING: &str = "pack.asset.missing";
 
     pub const FLOW_UNREACHABLE_SCENE: &str = "flow.unreachable-scene";
     pub const FLOW_UNREACHABLE_LABEL: &str = "flow.unreachable-label";
@@ -309,6 +310,7 @@ mod tests {
         assert_eq!(rules::PACK_NPC, "pack.npc");
         assert_eq!(rules::PACK_DECISION, "pack.decision");
         assert_eq!(rules::PACK_DECISION_NO_NONE, "pack.decision.no-none");
+        assert_eq!(rules::PACK_ASSET_MISSING, "pack.asset.missing");
         assert_eq!(rules::FLOW_UNREACHABLE_SCENE, "flow.unreachable-scene");
         assert_eq!(rules::FLOW_UNREACHABLE_LABEL, "flow.unreachable-label");
         assert_eq!(rules::FLOW_NO_EXIT, "flow.no-exit");
