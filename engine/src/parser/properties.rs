@@ -87,10 +87,13 @@ fn simple() -> impl Strategy<Value = Stmt> {
     ]
 }
 
-/// A `choice` block. Option text never holds `->`: the parser splits an option
-/// at its first arrow, even inside the quotes, and rejects the line.
+/// A `choice` block. Option text may hold `->`; the separating arrow is the
+/// one after the closing quote.
 fn choice() -> impl Strategy<Value = Stmt> {
-    let text = (pick(&["", " "]), pick(&["Go", "Stay #2", "if", "a > b"]))
+    let text = (
+        pick(&["", " "]),
+        pick(&["Go", "Stay #2", "if", "a > b", "a -> b", "->"]),
+    )
         .prop_map(|(pad, text)| format!("{pad}{text}{pad}"));
     prop::collection::vec((text, pick(&["after", "scene.end"])), 1..=3).prop_map(Stmt::Choice)
 }

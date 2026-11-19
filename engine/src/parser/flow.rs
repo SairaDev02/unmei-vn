@@ -293,6 +293,31 @@ mod tests {
     }
 
     #[test]
+    fn option_text_may_contain_an_arrow() {
+        let scene = parse("choice\n  \"Say a -> b\" -> next\nend\n").unwrap();
+        match &scene.lines[0] {
+            Line::Choice(opts) => assert_eq!(opts[..], [("Say a -> b".into(), "next".into())]),
+            other => panic!("expected choice, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn malformed_option_is_error() {
+        for option in [
+            "\"\" -> go",
+            "\"a\"b\" -> go",
+            "\"a -> go\"",
+            "\"a\" -> ",
+            "\"a\" b -> go",
+            "a -> go",
+        ] {
+            let err = parse(&format!("choice\n  {option}\nend\n")).unwrap_err();
+            assert!(err.message.contains("expected"), "{option}: {err}");
+            assert_eq!(err.line, Some(2), "{option}");
+        }
+    }
+
+    #[test]
     fn choice_block_lines_after_end_parse_normally() {
         let scene = parse("choice\n  \"Go\" -> go\nend\nlabel go\nset x = 1\n").unwrap();
         assert_eq!(scene.lines.len(), 3);
