@@ -468,3 +468,56 @@ fn a_rerun_overwrites_its_files_and_leaves_another_file_alone() {
     );
     assert_eq!(written(&out), ["at-reunion-7.png"]);
 }
+
+/// A preview writes the frames it is asked for and nothing else: the pack's
+/// folder gains no frames folder and no session log, and the user's credential
+/// folder is untouched (spec §1).
+#[test]
+fn a_preview_writes_only_the_frames_it_is_asked_for() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let canary = dir.path().join("config");
+    std::fs::create_dir_all(canary.join("unmei")).expect("the canary folder");
+    let key = canary.join("unmei").join("credential.ron");
+    std::fs::write(&key, "(api_key: \"canary\")").expect("the canary key");
+    let out = dir.path().join("out");
+    let canary_path = canary.to_str().expect("a canary path");
+    let output = run_env(
+        &[
+            demo_pack().to_str().expect("a pack path"),
+            "--preview",
+            out.to_str().expect("a folder path"),
+            "--at",
+            "reunion:7",
+        ],
+        &[
+            ("APPDATA", canary_path),
+            ("XDG_CONFIG_HOME", canary_path),
+            ("HOME", canary_path),
+        ],
+    );
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    assert_eq!(written(&out), ["at-reunion-7.png"]);
+    assert_eq!(
+        std::fs::read_to_string(&key).expect("the canary key"),
+        "(api_key: \"canary\")",
+        "the user's credential file is untouched"
+    );
+    let parent = demo_pack()
+        .parent()
+        .expect("the pack's folder")
+        .to_path_buf();
+    assert!(
+        !parent.join("demo-pack.keiko").exists(),
+        "no frames folder beside the pack"
+    );
+    assert!(
+        !parent.join("demo-pack.log").exists(),
+        "no session log beside the pack"
+    );
+}
