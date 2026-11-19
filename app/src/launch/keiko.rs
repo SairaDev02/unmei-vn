@@ -174,9 +174,25 @@ impl KeikoArgs {
     }
 
     /// Fold the accumulated flags into one request, or explain why they cannot
-    /// be combined.
-    pub fn finish(self, dev: bool) -> Result<Option<KeikoMode>, UsageError> {
+    /// be combined. `check` says whether `--check` was also requested, where a
+    /// Keiko-only modifier is a usage error and `--format` alone is valid.
+    pub fn finish(self, dev: bool, check: bool) -> Result<Option<KeikoMode>, UsageError> {
         let Some(kind) = self.kind else {
+            if check {
+                for (given, flag) in [
+                    (self.live, "--live"),
+                    (self.keep, "--keep"),
+                    (self.budget.is_some(), "--budget"),
+                    (self.from.is_some(), "--from"),
+                ] {
+                    if given {
+                        return Err(UsageError::new(format!(
+                            "{flag} is valid only with a Keiko mode"
+                        )));
+                    }
+                }
+                return Ok(None);
+            }
             for (given, flag) in [
                 (self.live, "--live"),
                 (self.keep, "--keep"),
@@ -308,7 +324,7 @@ mod tests {
         take.take().unwrap();
         take.push_value(OsString::from("a")).unwrap();
         assert_eq!(
-            take.finish(false).unwrap(),
+            take.finish(false, false).unwrap(),
             Some(KeikoMode::Take {
                 ids: vec!["a".into()],
                 live: false
@@ -318,16 +334,22 @@ mod tests {
         let mut live = KeikoArgs::default();
         live.observe().unwrap();
         live.live().unwrap();
-        assert!(live.finish(false).is_err(), "--live needs --take");
+        assert!(live.finish(false, false).is_err(), "--live needs --take");
 
         let mut budget = KeikoArgs::default();
         budget.take().unwrap();
         budget.set_budget("5").unwrap();
-        assert!(budget.finish(false).is_err(), "--budget needs --explore");
+        assert!(
+            budget.finish(false, false).is_err(),
+            "--budget needs --explore"
+        );
 
         let mut dev = KeikoArgs::default();
         dev.take().unwrap();
-        assert!(dev.finish(true).is_err(), "--dev conflicts with a mode");
+        assert!(
+            dev.finish(true, false).is_err(),
+            "--dev conflicts with a mode"
+        );
 
         let mut step = KeikoArgs::default();
         step.step().unwrap();
@@ -335,7 +357,7 @@ mod tests {
         assert_eq!(step.bare_target(), Bare::Value);
         step.push_value(OsString::from("advance 2")).unwrap();
         assert_eq!(
-            step.finish(false).unwrap(),
+            step.finish(false, false).unwrap(),
             Some(KeikoMode::Step {
                 id: "a".into(),
                 step: "advance 2".into()
@@ -345,7 +367,7 @@ mod tests {
         let mut explore = KeikoArgs::default();
         explore.explore().unwrap();
         assert_eq!(
-            explore.finish(false).unwrap(),
+            explore.finish(false, false).unwrap(),
             Some(KeikoMode::Explore {
                 budget: DEFAULT_BUDGET,
                 from: None
@@ -357,6 +379,17 @@ mod tests {
     fn a_modifier_without_a_mode_is_a_usage_error() {
         let mut keep = KeikoArgs::default();
         keep.keep();
-        assert!(keep.finish(false).is_err());
+        assert!(keep.finish(false, false).is_err());
+
+        let mut format_with_check = KeikoArgs::default();
+        format_with_check.set_format("json").unwrap();
+        assert_eq!(format_with_check.finish(false, true).unwrap(), None);
+
+        let mut keep_with_check = KeikoArgs::default();
+        keep_with_check.keep();
+        assert!(
+            keep_with_check.finish(false, true).is_err(),
+            "--keep needs a Keiko mode, even beside --check"
+        );
     }
 }
