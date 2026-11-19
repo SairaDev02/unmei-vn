@@ -285,6 +285,7 @@ fn execute(pack_root: &Path, pack: &Pack, branch: &Branch, keep: bool) -> TakeRe
         take_index: 1,
         keep,
         live: None,
+        frames: None,
     })
 }
 

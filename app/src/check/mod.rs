@@ -13,7 +13,7 @@
 //! its findings into the same list and inherits the one sort and one output.
 
 mod cases;
-mod report;
+pub(crate) mod report;
 
 use std::path::Path;
 
@@ -41,7 +41,7 @@ pub fn run(pack_root: &Path, format: Format) -> u8 {
     }
     findings.extend(cases::findings(pack_root, pack.as_ref()));
 
-    let (errors, _) = report::print(&mut findings, format);
+    let (errors, _) = report::print(&mut findings, format, "check");
     if errors == 0 {
         crate::keiko::output::PASS
     } else {

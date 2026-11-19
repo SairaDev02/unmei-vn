@@ -71,6 +71,13 @@ The check gate is [`app/tests/check_gate.rs`](../app/tests/check_gate.rs). It ru
 fixed order. It runs inside the same existing workspace test step, so `check.yml` gains no job
 ([check and preview spec §11](check-preview-spec.md#11-the-gate-and-the-docs)).
 
+The preview gate is [`app/tests/preview_gate.rs`](../app/tests/preview_gate.rs). It runs the built
+`unmei-play` with `--preview` over the demo pack on the software rasterizer, asserting the usage
+errors, each written frame's name and 1280×720 size, the reference finding for a line no park
+produces, a pack that fails to load, a machine with no fallback adapter, and a rerun that overwrites
+its own files only. It runs inside the same existing workspace test step, so `check.yml` gains no job
+([check and preview spec §11](check-preview-spec.md#11-the-gate-and-the-docs)).
+
 ## External Dependencies
 
 Use deterministic fakes and loopback HTTP servers for provider responses, timeouts, protocol errors, and retry scenarios.

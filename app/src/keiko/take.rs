@@ -45,6 +45,10 @@ pub struct TakeRequest<'a> {
     pub take_index: usize,
     pub keep: bool,
     pub live: Option<Live>,
+    /// The folder a caller chooses for the frames, with each file named by its
+    /// step alone (the preview, spec §9.1). `None` keeps §13's folder beside the
+    /// real pack and its ordinal names.
+    pub frames: Option<PathBuf>,
 }
 
 /// What one take produced.
@@ -210,23 +214,16 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             // A rendered app's plugins are finished before its first frame, as
             // `App::run` does: the renderer's resources are unpacked there.
             app.finish();
-            // Frames land beside the real pack, not in the take folder, so
-            // they outlive the take without `--keep` (spec §13).
-            let pack_name = request
-                .original_pack
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "pack".to_string());
-            let pack_parent = request
-                .original_pack
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new(""));
-            state.render = Some(super::render::Rendered::new(
-                &mut app,
-                pack_parent,
-                &pack_name,
-                &super::render::case_name(&request.case_file),
-            ));
+            // Frames land beside the real pack unless the caller chose a folder,
+            // so they outlive the take without `--keep` (spec §13).
+            let (frames, naming) = match &request.frames {
+                Some(dir) => (dir.clone(), super::render::Naming::Exact),
+                None => (
+                    super::render::frames_beside(request.original_pack, &request.case_file),
+                    super::render::Naming::Ordinal,
+                ),
+            };
+            state.render = Some(super::render::Rendered::new(&mut app, frames, naming));
         }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
