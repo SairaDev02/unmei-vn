@@ -1,8 +1,8 @@
 //! The two crate-visible candidate validators against the staged pack
 //! (author-cli contract §9).
 //!
-//! Both take checked immutable inputs and return the engine's `LoadError`
-//! display text verbatim; they own no provider, prompt, session, correction,
+//! Both take checked immutable inputs and return the engine's finding display
+//! text verbatim; they own no provider, prompt, session, correction,
 //! retry or outer-filter state. The NPC validator keeps a staged-preparation
 //! failure distinct from a loader content rejection
 //! ([`NpcValidationFailure`]), so the command stops terminally instead of

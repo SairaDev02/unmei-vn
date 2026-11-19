@@ -69,7 +69,7 @@ fn a_broken_pack_run_writes_every_error_to_the_session_log() {
     for i in 0..21 {
         assert!(
             bytes.contains(&format!("npcs/npc{i}.ron")),
-            "every LoadError must reach the session log; missing npc{i}: {bytes:?}"
+            "every finding must reach the session log; missing npc{i}: {bytes:?}"
         );
     }
 
@@ -88,7 +88,7 @@ fn a_broken_pack_run_writes_every_error_to_the_session_log() {
     for i in 0..21 {
         assert!(
             captured.contains(&format!("npcs/npc{i}.ron")),
-            "every LoadError must reach Monitor history; missing npc{i}: {captured:?}"
+            "every finding must reach Monitor history; missing npc{i}: {captured:?}"
         );
     }
     assert!(

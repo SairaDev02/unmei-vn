@@ -7,12 +7,12 @@
 
 use std::time::Duration;
 
-use super::finding::{rules, Finding};
 use super::model::{
     Case, DecisionFault, Fault, FixtureKind, Header, HeaderLine, KeyCheckFault, LoadTarget,
     StepLine, WriteTarget,
 };
 use super::parse_step::parse_step;
+use crate::finding::{rules, Finding};
 use crate::save::Slot;
 
 /// The one case-format version this build reads.

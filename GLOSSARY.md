@@ -361,5 +361,5 @@ Keiko walking every choice option and every landing key of a pack, depth first, 
 _Avoid_: fuzzing, random walk, crawl
 
 **Finding**:
-A problem exploration reports: a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles. It is saved as a case that reproduces it.
+Any problem the loader, the check, the preview or Keiko reports, in one shape: the pack-relative file, the path inside it, one rule id, a severity (`error` or `warning`) and a message. Exploration reports one per problem it finds — a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles — and saves it as a case that reproduces it.
 _Avoid_: failure, bug, error (each means something narrower)
