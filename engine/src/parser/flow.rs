@@ -203,6 +203,18 @@ mod tests {
     }
 
     #[test]
+    fn unclosed_nested_if_error_names_the_outermost_open_if() {
+        // The error names the outermost `if` still open (line 2), not the
+        // innermost (line 6). The `if` on line 4 is closed and plays no part.
+        let err = parse(
+            "Ace: Hi.\nif met_ace\nAce: Outer.\nif seen_letter\nendif\nif affinity_level == \"high\"\nAce: Inner.\n",
+        )
+        .unwrap_err();
+        assert!(err.message.contains("no matching `endif`"), "{err}");
+        assert_eq!(err.line, Some(2));
+    }
+
+    #[test]
     fn stray_else_is_error() {
         let err = parse("Ace: Hi.\nelse\n").unwrap_err();
         assert!(err.message.contains("without a matching `if`"), "{err}");
