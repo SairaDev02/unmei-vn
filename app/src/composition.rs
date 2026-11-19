@@ -342,3 +342,32 @@ pub fn schedule_app(config: RuntimeConfig) -> App {
     app.add_plugins(UnmeiPlugin);
     app
 }
+
+/// Build a fresh, unrun check app (check-and-preview spec §5): the pack's
+/// referenced files load through the player's own image and audio loaders and
+/// nothing else runs.
+///
+/// It has no window, no renderer and no audio device, and installs neither the
+/// runtime core nor the play surface, so it reads no sidecar and draws nothing
+/// (§1). Its asset server is rooted at the pack folder rather than play's
+/// `<pack_root>/assets`, so the engine's pack-relative reference
+/// (`assets/backgrounds/<id>.png`) is the asset path verbatim: the one owner of
+/// that spelling hands the loader the file, and the check converts nothing.
+/// Play roots its server one folder down and reads the same bytes.
+pub fn check_app(pack_root: &Path) -> App {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins)
+        .add_plugins(AssetPlugin {
+            file_path: pack_root.to_string_lossy().into_owned(),
+            ..default()
+        })
+        .init_asset::<Image>()
+        // A windowless app never registers the real image loader (`ImagePlugin`
+        // only preregisters it, and a renderer supplies it in play).
+        .register_asset_loader(bevy::image::ImageLoader::new(
+            bevy::image::CompressedImageFormats::NONE,
+        ))
+        .init_resource::<crate::presentation::assets::AssetWatch>();
+    crate::plugins::register_track_decoder(&mut app);
+    app
+}
