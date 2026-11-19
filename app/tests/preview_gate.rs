@@ -27,6 +27,15 @@ fn fixture_pack(name: &str) -> PathBuf {
         .unwrap_or_else(|error| panic!("fixture pack `{name}` exists: {error}"))
 }
 
+/// A fixture pack for the slate's unreachable states.
+fn slate_pack(name: &str) -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("tests/preview")
+        .join(name)
+        .canonicalize()
+        .unwrap_or_else(|error| panic!("fixture pack `{name}` exists: {error}"))
+}
+
 fn run(args: &[&str]) -> Output {
     Command::new(binary())
         .args(args)
@@ -129,10 +138,15 @@ fn preview_usage_errors_exit_two_before_startup() {
     );
 }
 
-/// With no selector the preview reports the missing line or scene and writes
-/// nothing. Ticket #99 replaces this error with the fixture-state slate.
+// ---------------------------------------------------------------------------
+// Spec §13 rule 24: `--preview` alone writes §9.2's fixture states, and a state
+// a pack cannot reach is a warning that leaves the exit code at 0
+// ---------------------------------------------------------------------------
+
+/// With no selector the preview writes §9.2's fixture states without any help,
+/// and a folder it is given is created when missing.
 #[test]
-fn a_preview_with_no_selector_reports_the_missing_one() {
+fn the_preview_alone_writes_the_demo_packs_fixture_states() {
     let dir = tempfile::tempdir().expect("a temp dir");
     let out = dir.path().join("out");
     let output = run(&[
@@ -140,13 +154,108 @@ fn a_preview_with_no_selector_reports_the_missing_one() {
         "--preview",
         out.to_str().expect("a folder path"),
     ]);
-    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
-    assert!(
-        stdout(&output).contains("keiko.case.reference"),
-        "{}",
-        stdout(&output)
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
     );
-    assert!(written(&out).is_empty(), "no frame is written");
+    // Every state the demo pack reaches is one 1280×720 PNG, and no state is
+    // reported unreachable (spec §13 rule 24).
+    assert_eq!(written(&out), expected(&DEMO_STATES));
+    for name in DEMO_STATES {
+        assert_eq!(size(&out.join(name)), (1280, 720), "{name}");
+    }
+    let text = stdout(&output);
+    assert!(!text.contains("preview.state.unreachable"), "{text}");
+    assert!(text.contains("preview: 0 errors, 0 warnings"), "{text}");
+}
+
+/// A pack that reaches only some of the states writes the rest, reports the
+/// others as warnings naming them, and still exits 0 (spec §9.2, §13 rule 24).
+#[test]
+fn a_pack_with_only_unreachable_states_exits_zero() {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let out = dir.path().join("out");
+    let output = run(&[
+        slate_pack("sparse").to_str().expect("a pack path"),
+        "--preview",
+        out.to_str().expect("a folder path"),
+    ]);
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}",
+        stdout(&output),
+        stderr(&output)
+    );
+    const SPARSE_STATES: [&str; 17] = [
+        "title-fresh.png",
+        "title-continue.png",
+        "narration.png",
+        "scene-end.png",
+        "menu-save.png",
+        "menu-load.png",
+        "menu-settings.png",
+        "menu-gallery.png",
+        "menu-timeline.png",
+        "confirm-overwrite.png",
+        "confirm-load.png",
+        "confirm-reset-audio.png",
+        "confirm-reset-play.png",
+        "confirm-new-game.png",
+        "confirm-quit.png",
+        "confirm-exit-to-title.png",
+        "confirm-clear-key.png",
+    ];
+    assert_eq!(written(&out), expected(&SPARSE_STATES));
+    let text = stdout(&output);
+    assert!(text.contains("preview: 0 errors, 4 warnings"), "{text}");
+    for state in ["say", "choice", "decision", "still"] {
+        assert!(
+            text.contains(&format!("preview: {state}: ")),
+            "the warning names `{state}`:\n{text}"
+        );
+        assert!(!out.join(format!("{state}.png")).exists(), "{state}");
+    }
+    assert_eq!(
+        text.matches("[preview.state.unreachable]").count(),
+        4,
+        "{text}"
+    );
+}
+
+/// The slate's states in §9.2's order, as the file names they write.
+const DEMO_STATES: [&str; 21] = [
+    "title-fresh.png",
+    "title-continue.png",
+    "say.png",
+    "narration.png",
+    "choice.png",
+    "decision.png",
+    "scene-end.png",
+    "menu-save.png",
+    "menu-load.png",
+    "menu-settings.png",
+    "menu-gallery.png",
+    "menu-timeline.png",
+    "still.png",
+    "confirm-overwrite.png",
+    "confirm-load.png",
+    "confirm-reset-audio.png",
+    "confirm-reset-play.png",
+    "confirm-new-game.png",
+    "confirm-quit.png",
+    "confirm-exit-to-title.png",
+    "confirm-clear-key.png",
+];
+
+/// A list of names in the order [`written`] returns them.
+fn expected(names: &[&str]) -> Vec<String> {
+    let mut names: Vec<String> = names.iter().map(|name| name.to_string()).collect();
+    names.sort();
+    names
 }
 
 // ---------------------------------------------------------------------------

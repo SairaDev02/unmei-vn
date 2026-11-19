@@ -178,6 +178,8 @@ pub mod rules {
     pub const FLOW_UNREACHABLE_LABEL: &str = "flow.unreachable-label";
     pub const FLOW_NO_EXIT: &str = "flow.no-exit";
 
+    pub const PREVIEW_STATE_UNREACHABLE: &str = "preview.state.unreachable";
+
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
         format!("keiko.log.row-{row}")
@@ -316,5 +318,9 @@ mod tests {
         assert_eq!(rules::FLOW_UNREACHABLE_SCENE, "flow.unreachable-scene");
         assert_eq!(rules::FLOW_UNREACHABLE_LABEL, "flow.unreachable-label");
         assert_eq!(rules::FLOW_NO_EXIT, "flow.no-exit");
+        assert_eq!(
+            rules::PREVIEW_STATE_UNREACHABLE,
+            "preview.state.unreachable"
+        );
     }
 }

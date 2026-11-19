@@ -1,11 +1,14 @@
-//! The shared replay: turn the preview's flags into a case (spec §9.1, §12).
+//! The shared replay: turn the preview's request into cases (spec §9.1, §9.2,
+//! §12).
 //!
-//! `--scene`, `--at`, `--state` and `--pick` map onto `start`/`state` headers,
-//! the `advance`/`pick` steps that reach each park, and one `frame` step per
-//! park the request covers. The preview runs the generated case through the
-//! same take engine a test uses, so there is one replay and it cannot drift.
+//! A selector — `--scene` or `--at` — maps onto `start`/`state` headers, the
+//! `advance`/`pick` steps that reach its parks, and one `frame` step per park.
+//! Without a selector the request covers §9.2's fixture states instead, one
+//! generated case each. The preview runs every generated case through the same
+//! take engine a test uses, so there is one replay and it cannot drift.
 
 mod run;
+mod states;
 
 pub use run::run;
 
@@ -53,7 +56,24 @@ impl Parks {
     }
 }
 
-/// Turn a preview request into an ordinary case.
+/// What one preview request covers.
+pub enum Plan {
+    /// The one case a selector builds (spec §9.1).
+    One(Case),
+    /// Every §9.2 fixture state with its own case, when no selector is named.
+    Slate(Vec<states::Fixture>),
+}
+
+/// Plan a request: a selector builds one case, and its absence asks for
+/// §9.2's fixture states (spec §9.1, §9.2).
+pub fn plan(pack: &Pack, request: &PreviewRequest) -> Result<Plan, Finding> {
+    if request.scene.is_none() && request.at.is_none() {
+        return Ok(Plan::Slate(states::slate(pack, request)));
+    }
+    Ok(Plan::One(build_case(pack, request)?))
+}
+
+/// Turn a request that names one line or scene into an ordinary case.
 pub fn build_case(pack: &Pack, request: &PreviewRequest) -> Result<Case, Finding> {
     let scene = request
         .at

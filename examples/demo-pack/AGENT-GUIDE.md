@@ -112,11 +112,24 @@ the pack.
   unmei-play <pack-dir> --preview preview --at epilogue:10 --state high.ron
   ```
 
+- **Draw every surface.** With no `--scene` and no `--at`, the preview renders today's fixture
+  states, each from a fresh take, as one PNG per state: `title-fresh`, `title-continue`, `say`,
+  `narration`, `choice`, `decision`, `scene-end`, `menu-<section>` for each overlay section, `still`,
+  and `confirm-<kind>` for each confirmation dialog:
+
+  ```sh
+  unmei-play <pack-dir> --preview preview
+  ```
+
+  A state this pack cannot reach, such as `say` when nobody but `Narrator` speaks, writes no file
+  and is reported as a `preview.state.unreachable` warning naming the state.
+
 - The folder is created when missing, and a folder inside the pack is a usage error. A rerun
   overwrites the files it names and leaves every other file in the folder alone.
-- Exit `0` means every frame was written, `1` a finding or a pack that does not load, and `2` a usage
-  error. A machine with no software rasterizer, WARP on Windows and Mesa's llvmpipe on Linux, fails
-  with `keiko.render.unavailable` before any frame.
+- Exit `0` means every frame was written, or only `preview.state.unreachable` warnings occurred, `1`
+  a finding or a pack that does not load, and `2` a usage error. A machine with no software
+  rasterizer, WARP on Windows and Mesa's llvmpipe on Linux, fails with `keiko.render.unavailable`
+  before any frame.
 
 ## Rules of thumb
 
