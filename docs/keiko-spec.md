@@ -450,7 +450,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - [Testing policy](testing.md) and the [smoke checklist](testing-human-smoke.md): the pointer to the layer that will take over the automatable cases. The text itself changes with the build (§14).
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 - **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
-- **2026-11-19:** §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
+- **2026-11-19:** §4.1's take session log holds the version header only, because a take installs no global log subscriber. §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 
