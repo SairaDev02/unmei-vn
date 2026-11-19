@@ -44,6 +44,8 @@ Scene id = scene filename stem. An NPC id = NPC filename stem: `npcs/ace.ron` ho
 
 *(Amended 2026-11-17: a pack may also hold an optional `tests/` folder of Keiko cases, `tests/<id>.keiko`. The player and the CLI never load it; only Keiko reads it ([Keiko spec §2](keiko-spec.md#2-the-case-file-k6k8)).)*
 
+*(Amended 2026-11-19, not built: loading still does not check that asset files exist. `unmei-play <pack> --check` will check that every referenced asset exists and decodes, and will validate the cases in `tests/` ([check and preview spec §5, §7](check-preview-spec.md#5-assets-c2-second-bullet)).)*
+
 `AGENT-GUIDE.md` is optional documentation, like this page is for an author: no loader reads it, so it adds no content and changes no validation. The demo pack ships one for an AI coding agent working on a pack.
 
 **The gallery shows declared references only** *(added 2026-10-05)*: the in-app gallery lists exactly the images the pack's own files reference — each distinct `bg <id>`, each distinct `sprite <npc_id> <pose>`, and the manifest's `title_backdrop` (merged into the background entry of the same id) — and never scans `assets/`. An image present in `assets/` that no pack file references is invisible to the gallery.

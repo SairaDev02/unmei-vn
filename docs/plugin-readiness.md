@@ -111,7 +111,7 @@ These pieces serve more than one kind. Building them once, early, avoids designi
 
 *(Amended 2026-11-17: Keiko is specified before any step below ([Keiko K30](keiko.md#8-relation-to-other-work), [Keiko spec](keiko-spec.md)). Step 1's preview reuses Keiko's replay.)*
 
-1. **Check and preview, with G1 and G2.** It needs no plugin kind, authors and agents can use it at once, and every later kind reports through it (UI R24). The preview's fixture states start with today's surfaces.
+1. **Check and preview, with G1 and G2.** It needs no plugin kind, authors and agents can use it at once, and every later kind reports through it (UI R24). The preview's fixture states start with today's surfaces. *(Amended 2026-11-19: specified in the [check and preview spec](check-preview-spec.md) with G2 only. G1 moves to the first plugin-kind spec, which has a folder to load.)*
 2. **Authoring profile.** It is small, touches only the CLI, and is independent of the player. It can run alongside step 1.
 3. **UI plugin with variant E (R17), including G3 and G6.** This is the largest piece, and it waits for step 1's diagnostics.
 4. **Stage plugin, with G4 and G5.** It doesn't depend on the UI renderer, so it can run alongside step 3. Its motion previews need step 1.
