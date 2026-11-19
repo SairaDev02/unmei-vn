@@ -29,7 +29,7 @@ use unmei_engine::save::{self, SaveFile, Slot, StagingState};
 use unmei_engine::{Pack, ScriptRunner};
 
 use crate::core::{self, AutoDwell, HeldDecision, PendingDecision, SkipState};
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureOutlets, FailureRow, Failures};
 use crate::presentation::play::{
     request_replay, AppliedAudio, AppliedUi, AppliedVisuals, TextReveal,
 };
@@ -104,14 +104,13 @@ pub(crate) struct SessionTransitions<'a> {
     runtime: &'a mut Runtime,
     pending: &'a mut PendingDecision,
     held: &'a mut HeldDecision,
-    hold: &'a mut DefensiveHold,
     audio: &'a mut AppliedAudio,
     visuals: &'a mut AppliedVisuals,
     ui: &'a mut AppliedUi,
     auto: &'a mut AutoDwell,
     skip: &'a mut SkipState,
     read_log: &'a mut ReadLogState,
-    notice: &'a mut Notice,
+    failures: FailureOutlets<'a>,
     autosave: &'a mut PendingAutosave,
     reveal: &'a mut TextReveal,
 }
@@ -154,26 +153,18 @@ impl SessionTransitions<'_> {
                     // reason and stays overwritable. Its surface is the menu
                     // card, so the funnel logs the reason Notice-less; the
                     // machine detail it is followed by is the slot path.
-                    LoadOrigin::DevShortcut => failure::report(
-                        Failure::with_short(
-                            FailureRow::UnreadableSlot,
-                            error.to_string(),
-                            format!("`{}`", path.display()),
-                        ),
-                        self.notice,
-                        self.hold,
-                    ),
+                    LoadOrigin::DevShortcut => self.failures.report(Failure::with_short(
+                        FailureRow::UnreadableSlot,
+                        error.to_string(),
+                        format!("`{}`", path.display()),
+                    )),
                     // Row 17: the overlay's load surface already classified the
                     // card, so a read that fails at activation is the
                     // "slot changed under the overlay" race.
-                    LoadOrigin::Menu => failure::report(
-                        Failure::new(
-                            FailureRow::LoadRefused,
-                            format!("`{}`: {error}", path.display()),
-                        ),
-                        self.notice,
-                        self.hold,
-                    ),
+                    LoadOrigin::Menu => self.failures.report(Failure::new(
+                        FailureRow::LoadRefused,
+                        format!("`{}`: {error}", path.display()),
+                    )),
                 }
                 ReadOutcome::Refused
             }
@@ -198,7 +189,7 @@ impl SessionTransitions<'_> {
                 self.runtime.staging = staging;
                 self.pending.0 = None;
                 self.held.0 = None;
-                self.hold.release();
+                self.failures.hold.release();
                 core::reset_for_replacement(self.auto, self.skip);
                 self.read_log.on_position_replaced();
                 self.read_log.request_flush();
@@ -211,14 +202,10 @@ impl SessionTransitions<'_> {
             // runner, staging and pending/held session are untouched, so much
             // so that the caller can keep going with them.
             Err(error) => {
-                failure::report(
-                    Failure::new(
-                        FailureRow::LoadRefused,
-                        format!("`{}`: {error}", path.display()),
-                    ),
-                    self.notice,
-                    self.hold,
-                );
+                self.failures.report(Failure::new(
+                    FailureRow::LoadRefused,
+                    format!("`{}`: {error}", path.display()),
+                ));
                 LoadOutcome::Refused
             }
         }
@@ -236,14 +223,14 @@ impl SessionTransitions<'_> {
 
         self.pending.0 = None;
         self.held.0 = None;
-        self.hold.release();
+        self.failures.hold.release();
         // A discontinuity and a position replacement: the dwell and both skip
         // modes reset, so a toggle or hold carried from the discarded session
         // cannot skip the new entry park
         // (`docs/runtime-hardening.md` § Text skip §5).
         core::reset_for_replacement(self.auto, self.skip);
         self.reveal.reset();
-        self.notice.clear();
+        self.failures.notice.clear();
         self.autosave.0 = false;
 
         // The arrival status is recomputed even when the entry park is the one
@@ -260,7 +247,7 @@ impl SessionTransitions<'_> {
         // Row 13 — defensive: the entry scene never parks. Reported last, so
         // the reset above cannot release the hold or clear the Notice.
         if let Err(error) = parked {
-            failure::report_runner_call(error, self.notice, self.hold);
+            self.failures.report_runner_call(error);
         }
     }
 
@@ -307,17 +294,18 @@ impl SessionTransitions<'_> {
             // Row 13 — defensive: the restore was refused. The old
             // runner/staging and the pending/held session are untouched, and
             // the funnel's hold freezes the play path until a load recovers.
-            failure::report_runner_call(format!("`{scene_id}`: {error}"), self.notice, self.hold);
+            self.failures
+                .report_runner_call(format!("`{scene_id}`: {error}"));
             return RestartOutcome::Refused;
         }
 
         // Successful replacement cleanup, before the new play path can run.
         self.pending.0 = None;
         self.held.0 = None;
-        self.hold.release();
+        self.failures.hold.release();
         self.autosave.0 = false;
         self.reveal.reset();
-        self.notice.clear();
+        self.failures.notice.clear();
         core::reset_for_replacement(self.auto, self.skip);
         self.read_log.on_position_replaced();
         self.read_log.request_flush();
@@ -342,14 +330,13 @@ pub(crate) struct SessionInput<'w> {
     runtime: ResMut<'w, Runtime>,
     pending: ResMut<'w, PendingDecision>,
     held: ResMut<'w, HeldDecision>,
-    hold: ResMut<'w, DefensiveHold>,
     audio: ResMut<'w, AppliedAudio>,
     visuals: ResMut<'w, AppliedVisuals>,
     ui: ResMut<'w, AppliedUi>,
     auto: ResMut<'w, AutoDwell>,
     skip: ResMut<'w, SkipState>,
     read_log: ResMut<'w, ReadLogState>,
-    notice: ResMut<'w, Notice>,
+    failures: Failures<'w>,
     autosave: ResMut<'w, PendingAutosave>,
     reveal: ResMut<'w, TextReveal>,
 }
@@ -361,14 +348,13 @@ impl SessionInput<'_> {
             runtime: &mut self.runtime,
             pending: &mut self.pending,
             held: &mut self.held,
-            hold: &mut self.hold,
             audio: &mut self.audio,
             visuals: &mut self.visuals,
             ui: &mut self.ui,
             auto: &mut self.auto,
             skip: &mut self.skip,
             read_log: &mut self.read_log,
-            notice: &mut self.notice,
+            failures: self.failures.outlets(),
             autosave: &mut self.autosave,
             reveal: &mut self.reveal,
         }
@@ -400,12 +386,12 @@ impl SessionInput<'_> {
         &self.runtime.staging
     }
 
-    /// Narrowly reborrow the shared failure sink for a dedicated owner's
+    /// Narrowly reborrow the shared failure outlets for a dedicated owner's
     /// existing funnel call — the "shared Notice/hold access is acquired once
     /// and narrowly reborrowed" rule (`docs/runtime-hardening.md`
     /// § Menu and live-session transitions). Not simultaneously aliased:
     /// callers take this borrow, report, and return.
-    pub(crate) fn notice_and_hold(&mut self) -> (&mut Notice, &mut DefensiveHold) {
-        (&mut self.notice, &mut self.hold)
+    pub(crate) fn failures(&mut self) -> FailureOutlets<'_> {
+        self.failures.outlets()
     }
 }

@@ -5,7 +5,7 @@ use unmei_engine::runner::RunnerError;
 use unmei_engine::save::StagingState;
 use unmei_engine::{load_pack, ScriptRunner};
 
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice, StartupFailure};
+use crate::failure::{Failure, FailureRow, Failures, StartupFailure};
 use crate::menu::MenuState;
 use crate::Runtime;
 use crate::RuntimeConfig;
@@ -17,8 +17,7 @@ use crate::RuntimeConfig;
 pub(crate) fn setup_pack(
     mut commands: Commands,
     config: Res<RuntimeConfig>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
     mut menu: ResMut<MenuState>,
     mut read_log: ResMut<crate::read_log::ReadLogState>,
 ) {
@@ -34,14 +33,10 @@ pub(crate) fn setup_pack(
                 .map(ToString::to_string)
                 .collect::<Vec<_>>()
                 .join("\n");
-            failure::report(
-                Failure::new(
-                    FailureRow::PackLoad,
-                    format!("pack `{}`:\n{detail}", pack_root.display()),
-                ),
-                &mut notice,
-                &mut hold,
-            );
+            failures.report(Failure::new(
+                FailureRow::PackLoad,
+                format!("pack `{}`:\n{detail}", pack_root.display()),
+            ));
             commands.insert_resource(StartupFailure::Pack {
                 pack_root,
                 errors,
@@ -52,11 +47,7 @@ pub(crate) fn setup_pack(
     };
     for warning in &loaded.warnings {
         // Row 2: a real but non-fatal pack warning — logged, never shown.
-        failure::report(
-            Failure::new(FailureRow::PackWarning, warning.to_string()),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(FailureRow::PackWarning, warning.to_string()));
     }
 
     let pack_root = loaded.pack.root.clone();
@@ -75,12 +66,16 @@ pub(crate) fn setup_pack(
     if let Err(error) = park_at_entry(&mut runtime) {
         // Row 13 — defensive: the entry scene's first run never parks. The
         // title still shows; the hold keeps play from stepping the runner.
-        failure::report_runner_call(error, &mut notice, &mut hold);
+        failures.report_runner_call(error);
     }
 
     // Read the log exactly once, after the pack is known good. A rejected pack
     // returned above and never reads or writes the file.
-    crate::read_log::load_once(runtime.runner.pack(), &mut read_log, &mut notice, &mut hold);
+    crate::read_log::load_once(
+        runtime.runner.pack(),
+        &mut read_log,
+        &mut failures.outlets(),
+    );
 
     // The first frame after a successful load is the title; it reads the slots
     // once for Continue's line and enablement. Only this boot entry announces

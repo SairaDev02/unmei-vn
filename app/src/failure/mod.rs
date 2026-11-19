@@ -10,10 +10,11 @@
 //! table is the single place that choice lives.
 //!
 //! ```text
-//! call site ──Failure::new(row, detail)──▶ report(failure, &mut Notice, &mut DefensiveHold)
+//! call site ──Failure::new(row, detail)──▶ Failures::report / FailureOutlets::report
 //!                                             │
 //!              one unmei::failure log line ◀─┤──▶ Notice slot, when the row says so
-//!                                             └──▶ DefensiveHold, when the posture is Defensive
+//!                                             ├──▶ DefensiveHold, when the posture is Defensive
+//!                                             └──▶ the app's TapLog, in a take's app only
 //! ```
 //!
 //! Each responsibility owns a module: [`rows`] the inventory table, [`funnel`]
@@ -41,14 +42,14 @@ use crate::RuntimeConfig;
 pub use audio_setup::report_audio_setup_failure;
 pub use audio_setup::{AudioSetupFailure, KIRA_SETUP_MESSAGE, KIRA_SETUP_TARGET};
 pub use error_screen::{default_pack_hint, error_screen_input, StartupFailure, MAX_SCREEN_LINES};
-pub use funnel::{report, report_runner_call, DefensiveHold, Failure};
+pub use funnel::{report, DefensiveHold, Failure, FailureOutlets, Failures};
 pub use notice::{tick_notice, Notice, NOTICE_SECONDS};
 pub use rows::{FailureRow, Posture};
 pub use session_log::{
     file_layer, keiko_file_layer, report_log_open_error, session_log_file_name,
     session_log_path_for, set_keiko_log, LogOpenError, SessionLog, SessionLogResult,
 };
-pub use tap::RecordedLine;
+pub use tap::{RecordedLine, TapLog};
 
 use audio_setup::kira_setup_layer;
 
@@ -169,7 +170,7 @@ pub(crate) mod captures {
         } else {
             Failure::new(row, "detail")
         };
-        report(failure, notice, hold);
+        report(failure, notice, hold, None);
         capture_records()
     }
 }

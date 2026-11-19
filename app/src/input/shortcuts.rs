@@ -7,7 +7,7 @@ use unmei_engine::runner::Wait;
 use unmei_engine::save::{self, Slot};
 
 use crate::core::SkipState;
-use crate::failure::{self, Failure, FailureRow};
+use crate::failure::{Failure, FailureRow};
 use crate::session::{LoadOrigin, SessionInput};
 use crate::settings::SettingsState;
 use crate::slots;
@@ -27,15 +27,10 @@ pub(crate) fn save_load_input(keys: Res<ButtonInput<KeyCode>>, mut session: Sess
         // overlay's Save does.
         // Row 14: a failed write leaves the slot file and its card as they were.
         if let Err(error) = slots::write_manual(session.runner(), session.staging(), slot) {
-            let (notice, hold) = session.notice_and_hold();
-            failure::report(
-                Failure::new(
-                    FailureRow::ManualSave,
-                    format!("`{}`: {error}", path.display()),
-                ),
-                notice,
-                hold,
-            );
+            session.failures().report(Failure::new(
+                FailureRow::ManualSave,
+                format!("`{}`: {error}", path.display()),
+            ));
         }
     }
 

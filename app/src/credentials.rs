@@ -42,7 +42,7 @@ use unmei_engine::decision::client::API_KEY_ENV;
 pub use unmei_engine::decision::is_openrouter_key;
 use unmei_engine::DecisionResolver;
 
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureOutlets, FailureRow, Failures};
 
 /// The environment override for the key. A non-empty value wins over the stored
 /// file (ADR 0010); the `unmei` CLI keeps the env-only contract for 0.1.0.
@@ -628,18 +628,13 @@ where
 pub(crate) fn setup_credentials(
     preloaded: Option<Res<StartupCredentials>>,
     mut state: ResMut<CredentialsState>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
+    mut failures: Failures,
 ) {
     let Some(preloaded) = preloaded else {
         return;
     };
     if let Some(detail) = &preloaded.warning {
-        failure::report(
-            Failure::new(FailureRow::CredentialRead, detail.clone()),
-            &mut notice,
-            &mut hold,
-        );
+        failures.report(Failure::new(FailureRow::CredentialRead, detail.clone()));
     }
     *state = preloaded.state.clone();
 }
@@ -694,29 +689,19 @@ pub fn write(config_dir: &Path, key: &str) -> Result<(), CredentialError> {
 /// Checking… / Invalid) belongs to the commit flow, which reads this result. A
 /// failed write reports row 23 — `error!` and the Notice `Could not save the
 /// key` — and leaves the state exactly as it was. No ping runs here.
-pub fn store(
-    state: &CredentialsState,
-    key: &str,
-    notice: &mut Notice,
-    hold: &mut DefensiveHold,
-) -> bool {
+pub fn store(state: &CredentialsState, key: &str, failures: &mut FailureOutlets) -> bool {
     let Some(config_dir) = state.config_dir.as_deref() else {
-        failure::report(
-            Failure::new(
-                FailureRow::CredentialsWrite,
-                "the credential file's directory could not be resolved",
-            ),
-            notice,
-            hold,
-        );
+        failures.report(Failure::new(
+            FailureRow::CredentialsWrite,
+            "the credential file's directory could not be resolved",
+        ));
         return false;
     };
     if let Err(error) = write(config_dir, key) {
-        failure::report(
-            Failure::new(FailureRow::CredentialsWrite, error.to_string()),
-            notice,
-            hold,
-        );
+        failures.report(Failure::new(
+            FailureRow::CredentialsWrite,
+            error.to_string(),
+        ));
         return false;
     }
     true
@@ -778,6 +763,7 @@ impl std::error::Error for CredentialError {}
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::failure::{DefensiveHold, Notice};
     use std::collections::HashMap;
     use std::future::Future;
     use std::pin::Pin;
@@ -1381,8 +1367,7 @@ mod tests {
         store(
             &state,
             &format!("sk-nano-{}", "h".repeat(60)),
-            &mut notice,
-            &mut hold,
+            &mut FailureOutlets::untapped(&mut notice, &mut hold),
         );
 
         assert!(!path.exists(), "no partial credential file");
@@ -1406,7 +1391,11 @@ mod tests {
         let mut notice = Notice::default();
         let mut hold = DefensiveHold::default();
 
-        store(&state, &key, &mut notice, &mut hold);
+        store(
+            &state,
+            &key,
+            &mut FailureOutlets::untapped(&mut notice, &mut hold),
+        );
 
         assert!(!notice.is_showing(), "a success notices nothing");
         assert_eq!(
@@ -1426,7 +1415,11 @@ mod tests {
         let mut notice = Notice::default();
         let mut hold = DefensiveHold::default();
 
-        store(&state, "sk-nano-0123456789abcdef", &mut notice, &mut hold);
+        store(
+            &state,
+            "sk-nano-0123456789abcdef",
+            &mut FailureOutlets::untapped(&mut notice, &mut hold),
+        );
 
         assert!(notice.is_showing());
         assert_eq!(notice.text.as_deref(), Some("Could not save the key"));

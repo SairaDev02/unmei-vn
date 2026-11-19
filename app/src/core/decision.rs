@@ -9,7 +9,7 @@ use unmei_engine::decision::{resolve_or_fallback, DecisionError, ResolvedDecisio
 use unmei_engine::runner::Wait;
 use unmei_engine::{DecisionResolver, ScriptRunner};
 
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureOutlets, FailureRow, Failures};
 use crate::menu::MenuState;
 use crate::read_log::ReadLogState;
 use crate::slots::PendingAutosave;
@@ -57,8 +57,7 @@ pub(crate) fn poll_decision(
     mut held: ResMut<HeldDecision>,
     mut autosave: ResMut<PendingAutosave>,
     mut read_log: ResMut<ReadLogState>,
-    mut hold: ResMut<DefensiveHold>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
     menu: Res<MenuState>,
 ) {
     let Some(task) = pending.0.as_mut() else {
@@ -81,8 +80,7 @@ pub(crate) fn poll_decision(
         &mut runtime,
         &mut autosave,
         &mut read_log,
-        &mut hold,
-        &mut notice,
+        &mut failures.outlets(),
     );
 }
 
@@ -93,10 +91,9 @@ pub(super) fn apply_resolution(
     runtime: &mut Runtime,
     autosave: &mut PendingAutosave,
     read_log: &mut ReadLogState,
-    hold: &mut DefensiveHold,
-    notice: &mut Notice,
+    failures: &mut FailureOutlets,
 ) {
-    log_resolution(resolved, notice, hold);
+    log_resolution(resolved, failures);
     match runtime.runner.resolve_decision(&resolved.action) {
         Ok(()) => {
             // The decision park is left; a landing back on the same coordinates
@@ -116,11 +113,10 @@ pub(super) fn apply_resolution(
         }
         // Row 12 — defensive: the loader's validation makes it unreachable.
         // `report` engages the hold from the row's posture.
-        Err(error) => failure::report(
-            Failure::new(FailureRow::DecisionLabelMissing, error.to_string()),
-            notice,
-            hold,
-        ),
+        Err(error) => failures.report(Failure::new(
+            FailureRow::DecisionLabelMissing,
+            error.to_string(),
+        )),
     }
 }
 
@@ -177,17 +173,13 @@ pub(super) fn start_decision(
     Some(DecisionStart::Task(task))
 }
 
-fn log_resolution(resolved: &ResolvedDecision, notice: &mut Notice, hold: &mut DefensiveHold) {
+fn log_resolution(resolved: &ResolvedDecision, failures: &mut FailureOutlets) {
     match &resolved.fallback_reason {
         // Rows 8–10: the authored fallback plays; the player is never told.
-        Some(reason) => failure::report(
-            Failure::new(
-                FailureRow::for_decision_reason(reason),
-                format!("`{}`: {reason}", resolved.action),
-            ),
-            notice,
-            hold,
-        ),
+        Some(reason) => failures.report(Failure::new(
+            FailureRow::for_decision_reason(reason),
+            format!("`{}`: {reason}", resolved.action),
+        )),
         None => log::info!(
             target: "unmei::decision",
             "decision -> `{}` via `{}`",

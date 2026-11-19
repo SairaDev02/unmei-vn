@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use unmei_engine::runner::Wait;
 
 use super::SkipState;
-use crate::failure::{self, DefensiveHold, Notice};
+use crate::failure::Failures;
 use crate::presentation::play::TextReveal;
 use crate::read_log::ReadLogState;
 use crate::settings::{self, SettingsState};
@@ -75,8 +75,7 @@ pub(crate) fn auto_dwell(
     mut read_log: ResMut<ReadLogState>,
     mut runtime: ResMut<Runtime>,
     mut auto: ResMut<AutoDwell>,
-    mut hold: ResMut<DefensiveHold>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
 ) {
     if skip.is_on() {
         auto.reset();
@@ -130,6 +129,6 @@ pub(crate) fn auto_dwell(
     read_log.on_park_departure();
     if let Err(error) = runtime.runner.advance_say() {
         // Row 13 — defensive: the wait check above makes it unreachable.
-        failure::report_runner_call(error, &mut notice, &mut hold);
+        failures.report_runner_call(error);
     }
 }

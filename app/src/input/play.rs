@@ -7,7 +7,7 @@ use bevy_kira_audio::{AudioChannel, AudioControl};
 use unmei_engine::runner::Wait;
 
 use crate::core::{ctrl_down, ctrl_just_pressed, SkipState};
-use crate::failure::{self, DefensiveHold, FailureRow, Notice};
+use crate::failure::{DefensiveHold, FailureRow, Failures};
 use crate::presentation::assets::AssetWatch;
 use crate::presentation::play::{ChoiceButton, Sfx, TextReveal};
 use crate::read_log::ReadLogState;
@@ -28,8 +28,7 @@ pub(crate) fn advance_say_input(
     mut reveal: ResMut<TextReveal>,
     mut runtime: ResMut<Runtime>,
     mut read_log: ResMut<ReadLogState>,
-    mut hold: ResMut<DefensiveHold>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
 ) {
     let Some(wait) = runtime.runner.wait().cloned() else {
         return;
@@ -61,7 +60,7 @@ pub(crate) fn advance_say_input(
     if let Err(error) = runtime.runner.advance_say() {
         // Row 13 — defensive: the wait check above makes it unreachable.
         // `report_runner_call` engages the hold from the row's posture.
-        failure::report_runner_call(error, &mut notice, &mut hold);
+        failures.report_runner_call(error);
     }
 }
 
@@ -76,10 +75,9 @@ pub(crate) fn choice_input(
     sfx: Option<Res<AudioChannel<Sfx>>>,
     mut skip: ResMut<SkipState>,
     mut runtime: ResMut<Runtime>,
-    mut hold: ResMut<DefensiveHold>,
     mut autosave: ResMut<PendingAutosave>,
     mut read_log: ResMut<ReadLogState>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
 ) {
     // Only a digit inside the presented options is a pick. A digit past the
     // list is ignored, so the choice wait is never handed an out-of-range index;
@@ -129,7 +127,7 @@ pub(crate) fn choice_input(
     if let Err(error) = runtime.runner.choose(index) {
         // Row 13 — defensive. `report_runner_call` engages the hold from the
         // row's posture.
-        failure::report_runner_call(error, &mut notice, &mut hold);
+        failures.report_runner_call(error);
     } else {
         // A resolved player choice is an autosave write point; the follow-up
         // `run` in `drive_script` parks (and applies staging) before the write.

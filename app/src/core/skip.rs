@@ -5,7 +5,7 @@ use bevy::input::ButtonInput;
 use bevy::prelude::*;
 use unmei_engine::runner::Wait;
 
-use crate::failure::{self, DefensiveHold, Notice};
+use crate::failure::Failures;
 use crate::presentation::play::TextReveal;
 use crate::read_log::ReadLogState;
 use crate::settings::{self, SettingsState};
@@ -200,8 +200,7 @@ pub(crate) fn skip_advance(
     mut skip: ResMut<SkipState>,
     mut reveal: ResMut<TextReveal>,
     mut runtime: ResMut<Runtime>,
-    mut hold: ResMut<DefensiveHold>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
 ) {
     if !skip.is_on() {
         return;
@@ -277,7 +276,7 @@ pub(crate) fn skip_advance(
         }
         // Row 13 — defensive: the wait check above makes it unreachable.
         // `report_runner_call` engages the hold, which pauses skip with it.
-        Err(error) => failure::report_runner_call(error, &mut notice, &mut hold),
+        Err(error) => failures.report_runner_call(error),
     }
 }
 

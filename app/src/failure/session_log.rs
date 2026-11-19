@@ -11,8 +11,7 @@ use bevy::log::tracing_subscriber::fmt::MakeWriter;
 use bevy::log::BoxedLayer;
 use bevy::prelude::*;
 
-use super::funnel::{report, DefensiveHold, Failure};
-use super::notice::Notice;
+use super::funnel::{Failure, Failures};
 use super::rows::FailureRow;
 
 /// The pack's sibling session log path: `<pack-dir>.log`, named after the pack
@@ -92,27 +91,26 @@ pub struct LogOpenError {
 /// `stderr` warning while play continues console-only.
 ///
 /// [`LOG_TARGET`]: super::LOG_TARGET
-pub fn report_log_open_error(
-    error: Option<Res<LogOpenError>>,
-    mut notice: ResMut<Notice>,
-    mut hold: ResMut<DefensiveHold>,
-) {
+pub fn report_log_open_error(error: Option<Res<LogOpenError>>, mut failures: Failures) {
     let Some(error) = error else {
         return;
     };
-    report(
-        Failure::new(
-            FailureRow::LogUnwritable,
-            format!("`{}`: {}", error.path.display(), error.message),
-        ),
-        &mut notice,
-        &mut hold,
-    );
+    failures.report(Failure::new(
+        FailureRow::LogUnwritable,
+        format!("`{}`: {}", error.path.display(), error.message),
+    ));
 }
 
 /// The file a Keiko take's log layer writes to. `LogPlugin` is process-global,
 /// so the layer installed by the first take must follow the *current* take's
 /// file; without a take it discards.
+///
+/// This assumes one take per process, which `unmei-play --take` guarantees.
+/// A tracing event carries no app identity, so any other app running in the
+/// same process (an in-process take test beside other app tests) also lands
+/// its lines in the current take's session log. The funnel's row recorder does
+/// not share this limit: it is per-app (`TapLog`). Making this sink per-app is
+/// a known follow-up recorded on #81.
 static KEIKO_LOG: Mutex<Option<Arc<Mutex<File>>>> = Mutex::new(None);
 
 /// Point the Keiko log layer at one take's session log (or nowhere).
@@ -194,6 +192,7 @@ impl<'a> MakeWriter<'a> for LineFlushedFile {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::failure::{DefensiveHold, Notice};
 
     use super::super::captures::{capture_records, install_capture};
     use super::super::LOG_TARGET;

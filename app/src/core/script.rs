@@ -6,7 +6,7 @@ use unmei_engine::runner::Wait;
 
 use super::decision::{apply_resolution, start_decision, DecisionStart};
 use super::{DecisionChannel, HeldDecision, PendingDecision, SkipState};
-use crate::failure::{self, DefensiveHold, Failure, FailureRow, Notice};
+use crate::failure::{Failure, FailureRow, Failures};
 use crate::read_log::ReadLogState;
 use crate::session_lines;
 use crate::slots::PendingAutosave;
@@ -23,8 +23,7 @@ pub(crate) fn drive_script(
     mut autosave: ResMut<PendingAutosave>,
     mut read_log: ResMut<ReadLogState>,
     mut skip: ResMut<SkipState>,
-    mut hold: ResMut<DefensiveHold>,
-    mut notice: ResMut<Notice>,
+    mut failures: Failures,
 ) {
     // A held answer applies the moment the overlay closes; the runner then
     // continues to its next wait in this same call, before the autosave writes.
@@ -34,10 +33,9 @@ pub(crate) fn drive_script(
             &mut runtime,
             &mut autosave,
             &mut read_log,
-            &mut hold,
-            &mut notice,
+            &mut failures.outlets(),
         );
-        if hold.0 {
+        if failures.hold.0 {
             return;
         }
     }
@@ -52,7 +50,7 @@ pub(crate) fn drive_script(
             // Row 13 — defensive: a wait-free cycle the loader cannot see.
             // `report_runner_call` engages the hold.
             Err(error) => {
-                failure::report_runner_call(error, &mut notice, &mut hold);
+                failures.report_runner_call(error);
                 return;
             }
         };
@@ -77,11 +75,7 @@ pub(crate) fn drive_script(
         }
         if outcome.wait.is_none() {
             // Row 22 is not a failure: no log, no Notice, no hold.
-            failure::report(
-                Failure::new(FailureRow::EndOfScript, ""),
-                &mut notice,
-                &mut hold,
-            );
+            failures.report(Failure::new(FailureRow::EndOfScript, ""));
             return;
         }
     }
@@ -112,17 +106,16 @@ pub(crate) fn drive_script(
                 &mut runtime,
                 &mut autosave,
                 &mut read_log,
-                &mut hold,
-                &mut notice,
+                &mut failures.outlets(),
             );
-            if !hold.0 {
+            if !failures.hold.0 {
                 // Offline fallback lands in the same frame so the UI never
                 // flashes an end-of-scene state between resolve and the park.
                 let outcome = match runtime.runner.run() {
                     Ok(outcome) => outcome,
                     // Row 13 — defensive: the landing runs into a wait-free cycle.
                     Err(error) => {
-                        failure::report_runner_call(error, &mut notice, &mut hold);
+                        failures.report_runner_call(error);
                         return;
                     }
                 };
@@ -139,13 +132,9 @@ pub(crate) fn drive_script(
         Some(DecisionStart::Task(task)) => pending.0 = Some(task),
         // Row 11 — defensive: the loader's validation makes it unreachable.
         // `report` engages the hold from the row's posture.
-        None => failure::report(
-            Failure::new(
-                FailureRow::DecidePointMissing,
-                "decide point has no matching NPC/question in the loaded pack",
-            ),
-            &mut notice,
-            &mut hold,
-        ),
+        None => failures.report(Failure::new(
+            FailureRow::DecidePointMissing,
+            "decide point has no matching NPC/question in the loaded pack",
+        )),
     }
 }

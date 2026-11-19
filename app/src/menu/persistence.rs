@@ -3,7 +3,7 @@
 
 use unmei_engine::save::{self, Slot};
 
-use crate::failure::{self, Failure, FailureRow};
+use crate::failure::{Failure, FailureRow};
 use crate::session::{LoadOrigin, LoadOutcome, ReadOutcome, SessionInput};
 use crate::settings::{self, SettingsState};
 use crate::slots;
@@ -21,15 +21,10 @@ pub(super) fn save_slot(menu: &mut MenuState, session: &mut SessionInput, slot: 
     match slots::write_manual(session.runner(), session.staging(), slot) {
         Ok(()) => menu.refresh(session.pack()),
         Err(error) => {
-            let (notice, hold) = session.notice_and_hold();
-            failure::report(
-                Failure::new(
-                    FailureRow::ManualSave,
-                    format!("`{}`: {error}", path.display()),
-                ),
-                notice,
-                hold,
-            );
+            session.failures().report(Failure::new(
+                FailureRow::ManualSave,
+                format!("`{}`: {error}", path.display()),
+            ));
         }
     }
 }
@@ -99,15 +94,10 @@ pub(super) fn import_legacy(menu: &mut MenuState, session: &mut SessionInput, sl
         }
         Err(error) => {
             let path = save::legacy_save_path_for(session.pack());
-            let (notice, hold) = session.notice_and_hold();
-            failure::report(
-                Failure::new(
-                    FailureRow::LegacyImport,
-                    format!("`{}`: {error}", path.display()),
-                ),
-                notice,
-                hold,
-            );
+            session.failures().report(Failure::new(
+                FailureRow::LegacyImport,
+                format!("`{}`: {error}", path.display()),
+            ));
         }
     }
 }
@@ -116,6 +106,5 @@ pub(super) fn import_legacy(menu: &mut MenuState, session: &mut SessionInput, sl
 /// reborrow, so the settings owner still routes its rows through the one
 /// funnel.
 pub(super) fn flush_settings(settings: &mut SettingsState, session: &mut SessionInput) {
-    let (notice, hold) = session.notice_and_hold();
-    settings::flush(settings, notice, hold);
+    settings::flush(settings, &mut session.failures());
 }

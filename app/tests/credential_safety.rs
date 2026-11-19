@@ -252,6 +252,7 @@ fn report_fallback(resolved: &ResolvedDecision) -> Option<String> {
         ),
         &mut notice,
         &mut hold,
+        None,
     );
     notice.text
 }

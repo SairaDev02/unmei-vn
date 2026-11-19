@@ -196,3 +196,52 @@ new-game
         result.log
     );
 }
+
+/// Another app in the same process that keeps reporting one funnel row until it
+/// is told to stop, the way a concurrently running app test does.
+fn spawn_polluter(stop: Arc<std::sync::atomic::AtomicBool>) -> std::thread::JoinHandle<u32> {
+    std::thread::spawn(move || {
+        let mut app = App::new();
+        app.init_resource::<crate::failure::Notice>()
+            .init_resource::<crate::failure::DefensiveHold>()
+            .add_systems(Update, |mut failures: crate::failure::Failures| {
+                failures.report(crate::failure::Failure::new(
+                    crate::failure::FailureRow::BackgroundAsset,
+                    "polluter: another app's line",
+                ));
+            });
+        let mut updates = 0;
+        while !stop.load(Ordering::Relaxed) {
+            app.update();
+            updates += 1;
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        updates
+    })
+}
+
+#[test]
+fn a_take_records_only_its_own_apps_failure_lines() {
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case("tests/own-lines.keiko", "keiko 1\n\nnew-game\n").expect("parses");
+
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let polluter = spawn_polluter(stop.clone());
+    let result = run(request(&case, &pack, &root));
+    stop.store(true, Ordering::Relaxed);
+    let updates = polluter.join().expect("the polluting app ran");
+
+    assert!(updates > 0, "the other app reported while the take ran");
+    assert!(result.outcome.is_ok(), "{:?}", result.outcome);
+    let leaked: Vec<_> = result
+        .log
+        .iter()
+        .filter(|line| line.text.contains("polluter"))
+        .collect();
+    assert!(
+        leaked.is_empty(),
+        "the take's log holds {} of another app's lines, first {:?}",
+        leaked.len(),
+        leaked.first()
+    );
+}
