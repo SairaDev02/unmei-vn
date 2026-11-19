@@ -92,6 +92,34 @@ impl Finding {
         self.rule = rule.to_string();
         self
     }
+
+    /// The number in a `line <n>` path; `None` for any other path.
+    pub fn line_number(&self) -> Option<usize> {
+        line_digits(&self.path)?.parse().ok()
+    }
+}
+
+/// The check-and-preview spec §3 order every consumer sees: file, then line with
+/// a finding that has no line first, then rule id, then message. The path and the
+/// severity break the remaining ties, so the order is total and two runs over the
+/// same pack report identical bytes.
+pub fn sort_findings(findings: &mut [Finding]) {
+    findings.sort_by(|a, b| {
+        a.file
+            .cmp(&b.file)
+            .then_with(|| a.line_number().cmp(&b.line_number()))
+            .then_with(|| a.rule.cmp(&b.rule))
+            .then_with(|| a.message.cmp(&b.message))
+            .then_with(|| a.path.cmp(&b.path))
+            .then_with(|| severity_rank(a.severity).cmp(&severity_rank(b.severity)))
+    });
+}
+
+fn severity_rank(severity: Severity) -> u8 {
+    match severity {
+        Severity::Error => 0,
+        Severity::Warning => 1,
+    }
 }
 
 /// The text the error screen, the session log and the author CLI already show:
@@ -100,7 +128,7 @@ impl Finding {
 /// printed here.
 impl fmt::Display for Finding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match line_of(&self.path) {
+        match line_digits(&self.path) {
             Some(line) => write!(f, "{}:{}: {}", self.file, line, self.message),
             None if self.path.is_empty() => write!(f, "{}: {}", self.file, self.message),
             None => write!(f, "{}: {}: {}", self.file, self.path, self.message),
@@ -108,8 +136,8 @@ impl fmt::Display for Finding {
     }
 }
 
-/// The number in a `line <n>` path, for the `file:line: message` display form.
-fn line_of(path: &str) -> Option<&str> {
+/// The digits in a `line <n>` path, for the `file:line: message` display form.
+fn line_digits(path: &str) -> Option<&str> {
     let digits = path.strip_prefix("line ")?;
     (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())).then_some(digits)
 }
@@ -219,6 +247,47 @@ mod tests {
     #[test]
     fn the_log_row_rule_keeps_the_row_number() {
         assert_eq!(rules::log_row(7), "keiko.log.row-7");
+    }
+
+    /// The spec §3 order every consumer sees: file, then line with a finding
+    /// that has no line first, then rule id, then message. The no-line-first and
+    /// numeric-line keys matter because the loader's findings reach other
+    /// modules' paths too.
+    #[test]
+    fn sorting_uses_file_then_line_then_rule_then_message() {
+        let mut findings = vec![
+            Finding::at_line("b.unmei", 10, rules::PACK_SCENE_TARGET, "ten"),
+            Finding::new("a.ron", "decisions.greet", rules::PACK_DECISION, "no line"),
+            Finding::at_line("a.ron", 9, rules::PACK_SCENE_SYNTAX, "nine"),
+            Finding::at_line("a.ron", 9, rules::PACK_STATE, "beta"),
+            Finding::at_line("a.ron", 9, rules::PACK_STATE, "alpha"),
+            Finding::new("a.ron", "", rules::PACK_NPC, "file wide"),
+            Finding::at_line("b.unmei", 2, rules::PACK_SCENE_SYNTAX, "two"),
+        ];
+        sort_findings(&mut findings);
+        let order: Vec<(&str, &str, &str, &str)> = findings
+            .iter()
+            .map(|f| {
+                (
+                    f.file.as_str(),
+                    f.path.as_str(),
+                    f.rule.as_str(),
+                    f.message.as_str(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            order,
+            [
+                ("a.ron", "decisions.greet", rules::PACK_DECISION, "no line"),
+                ("a.ron", "", rules::PACK_NPC, "file wide"),
+                ("a.ron", "line 9", rules::PACK_SCENE_SYNTAX, "nine"),
+                ("a.ron", "line 9", rules::PACK_STATE, "alpha"),
+                ("a.ron", "line 9", rules::PACK_STATE, "beta"),
+                ("b.unmei", "line 2", rules::PACK_SCENE_SYNTAX, "two"),
+                ("b.unmei", "line 10", rules::PACK_SCENE_TARGET, "ten"),
+            ]
+        );
     }
 
     /// Every id is the string §4 of the check-and-preview spec lists: a typo in

@@ -5,22 +5,11 @@ use unmei_engine::{Finding, Severity};
 
 use crate::launch::Format;
 
-/// Sort the findings into §3's order — file, then line with a no-line finding
-/// first, then rule id, then message — and return the error and warning counts.
-///
-/// The path and severity are tiebreaks after the four keys the spec fixes, so
-/// the order is total and two runs over the same pack print identical bytes.
+/// Sort the findings into §3's order and return the error and warning counts.
+/// The order itself is the engine's, so the loader, the check and every later
+/// consumer cannot drift apart.
 pub fn sort(findings: &mut [Finding]) -> (usize, usize) {
-    findings.sort_by(|left, right| {
-        left.file
-            .as_bytes()
-            .cmp(right.file.as_bytes())
-            .then(line_of(&left.path).cmp(&line_of(&right.path)))
-            .then(left.rule.as_bytes().cmp(right.rule.as_bytes()))
-            .then(left.message.as_bytes().cmp(right.message.as_bytes()))
-            .then(left.path.as_bytes().cmp(right.path.as_bytes()))
-            .then(severity_rank(left.severity).cmp(&severity_rank(right.severity)))
-    });
+    unmei_engine::finding::sort_findings(findings);
     let errors = findings
         .iter()
         .filter(|finding| finding.severity == Severity::Error)
@@ -89,19 +78,6 @@ pub fn severity_name(severity: Severity) -> &'static str {
     }
 }
 
-/// The number in a `line <n>` path, or `None` for the file as a whole or
-/// another kind of path. `None` sorts before every line.
-fn line_of(path: &str) -> Option<usize> {
-    path.strip_prefix("line ")?.parse().ok()
-}
-
-fn severity_rank(severity: Severity) -> u8 {
-    match severity {
-        Severity::Error => 0,
-        Severity::Warning => 1,
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,7 +88,7 @@ mod tests {
         format!(
             "{}|{}|{}|{}",
             finding.file,
-            line_of(&finding.path).unwrap_or(0),
+            finding.line_number().unwrap_or(0),
             finding.rule,
             finding.message
         )

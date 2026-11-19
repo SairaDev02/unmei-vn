@@ -1624,8 +1624,12 @@ fn unlisted_warnings_are_sorted_by_scene_id() {
     );
 }
 
+/// Spec §3: findings are ordered by file, then line, then rule id, then
+/// message. These four are all `pack.ron`, all without a line and all
+/// `pack.manifest`, so the message decides — and `… is listed in …` sorts before
+/// `… is listed more than once …`.
 #[test]
-fn order_errors_are_sorted_by_scene_id() {
+fn order_errors_come_out_in_spec_order() {
     let (_tmp, root) = order_pack(
         "scene_a",
         Some("[\"zeta\", \"alpha\", \"mid\", \"alpha\"]"),
@@ -1634,34 +1638,29 @@ fn order_errors_are_sorted_by_scene_id() {
     );
     let errs = load_pack(&root).unwrap_err();
     let messages: Vec<&str> = errs.iter().map(|e| e.message.as_str()).collect();
-    let dup = messages
-        .iter()
-        .position(|m| m.contains("`alpha`") && m.contains("more than once"))
-        .expect("alpha is repeated");
-    let alpha_missing = messages
-        .iter()
-        .position(|m| m.contains("`alpha`") && m.contains("not among loaded scenes"))
-        .expect("alpha is missing");
-    let mid = messages
-        .iter()
-        .position(|m| m.contains("`mid`"))
-        .expect("mid is missing");
-    let zeta = messages
-        .iter()
-        .position(|m| m.contains("`zeta`"))
-        .expect("zeta is missing");
+    let position = |id: &str, tail: &str| {
+        messages
+            .iter()
+            .position(|m| m.contains(id) && m.contains(tail))
+            .unwrap_or_else(|| panic!("{id} / {tail} is reported: {messages:?}"))
+    };
+    let alpha_missing = position("`alpha`", "not among loaded scenes");
+    let alpha_dup = position("`alpha`", "more than once");
+    let mid = position("`mid`", "not among loaded scenes");
+    let zeta = position("`zeta`", "not among loaded scenes");
     assert!(
-        dup < alpha_missing && alpha_missing < mid && mid < zeta,
-        "diagnostics sorted by scene id: {messages:?}"
+        alpha_missing < alpha_dup && alpha_dup < mid && mid < zeta,
+        "diagnostics in file, line, rule, message order: {messages:?}"
     );
 }
 
 // --- state RON bridge diagnostics and optional-string consumers -----------
 
 /// Every state read failure is surfaced once, verbatim from the bridge, with
-/// `state.ron` context and no line number, and the loader returns early (its
-/// existing policy). Comparing against `decode_state` keeps this a wiring
-/// witness rather than a second copy of the bridge's message assertions.
+/// `state.ron` context and no line number. The rules that read the vocabulary
+/// are skipped rather than guessed (spec §3), so a pack that is otherwise valid
+/// reports this one finding. Comparing against `decode_state` keeps this a
+/// wiring witness rather than a second copy of the bridge's message assertions.
 #[test]
 fn state_read_failures_carry_state_ron_context_once() {
     let cases = [
@@ -1679,7 +1678,7 @@ fn state_read_failures_carry_state_ron_context_once() {
         assert_eq!(
             errs.len(),
             1,
-            "one early-return error for {state_ron}: {errs:?}"
+            "one finding for a broken state file ({state_ron}): {errs:?}"
         );
         assert_eq!(errs[0].file, "state.ron", "{state_ron}: {errs:?}");
         assert_eq!(errs[0].path, "", "{state_ron}: {errs:?}");
