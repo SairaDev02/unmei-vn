@@ -36,7 +36,7 @@ pub fn print(findings: &mut [Finding], format: Format, label: &str) -> (usize, u
 pub fn text_line(finding: &Finding) -> String {
     format!(
         "{}: {} [{}]",
-        severity_name(finding.severity),
+        finding.severity.as_str(),
         finding,
         finding.rule
     )
@@ -57,7 +57,7 @@ pub fn document(findings: &[Finding], errors: usize, warnings: usize) -> String 
                 "file": &finding.file,
                 "path": &finding.path,
                 "rule": &finding.rule,
-                "severity": severity_name(finding.severity),
+                "severity": finding.severity.as_str(),
                 "message": &finding.message,
             })
         })
@@ -68,14 +68,6 @@ pub fn document(findings: &[Finding], errors: usize, warnings: usize) -> String 
         "warnings": warnings,
     })
     .to_string()
-}
-
-/// The lower-case spelling the check's output uses for a severity.
-pub fn severity_name(severity: Severity) -> &'static str {
-    match severity {
-        Severity::Error => "error",
-        Severity::Warning => "warning",
-    }
 }
 
 #[cfg(test)]
@@ -153,7 +145,7 @@ mod tests {
             text_line(&warning),
             "warning: pack.ron: tagline is too long [pack.manifest.tagline-length]"
         );
-        assert_eq!(severity_name(warning.severity), "warning");
+        assert_eq!(warning.severity.as_str(), "warning");
         assert_eq!(summary(2, 1, "check"), "check: 2 errors, 1 warnings");
     }
 
