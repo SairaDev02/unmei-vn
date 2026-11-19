@@ -1,0 +1,2 @@
+# Rule 13: no jump reaches this scene, so it reports flow.unreachable-scene.
+Narrator: Nobody comes here.

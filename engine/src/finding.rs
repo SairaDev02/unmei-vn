@@ -73,6 +73,19 @@ impl Finding {
         Self::new(file, format!("line {line}"), rule, message)
     }
 
+    /// A warning about one line of a file.
+    pub fn warning_at_line(
+        file: impl Into<String>,
+        line: usize,
+        rule: &str,
+        message: impl Into<String>,
+    ) -> Self {
+        Self {
+            severity: Severity::Warning,
+            ..Self::at_line(file, line, rule, message)
+        }
+    }
+
     /// The same finding re-filed under another rule (a fault's rule id applied
     /// to a case line).
     pub fn with_rule(mut self, rule: &str) -> Self {
@@ -158,6 +171,11 @@ pub mod rules {
     pub const PACK_NPC: &str = "pack.npc";
     pub const PACK_DECISION: &str = "pack.decision";
     pub const PACK_DECISION_NO_NONE: &str = "pack.decision.no-none";
+    pub const PACK_ASSET_MISSING: &str = "pack.asset.missing";
+
+    pub const FLOW_UNREACHABLE_SCENE: &str = "flow.unreachable-scene";
+    pub const FLOW_UNREACHABLE_LABEL: &str = "flow.unreachable-label";
+    pub const FLOW_NO_EXIT: &str = "flow.no-exit";
 
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
@@ -292,5 +310,9 @@ mod tests {
         assert_eq!(rules::PACK_NPC, "pack.npc");
         assert_eq!(rules::PACK_DECISION, "pack.decision");
         assert_eq!(rules::PACK_DECISION_NO_NONE, "pack.decision.no-none");
+        assert_eq!(rules::PACK_ASSET_MISSING, "pack.asset.missing");
+        assert_eq!(rules::FLOW_UNREACHABLE_SCENE, "flow.unreachable-scene");
+        assert_eq!(rules::FLOW_UNREACHABLE_LABEL, "flow.unreachable-label");
+        assert_eq!(rules::FLOW_NO_EXIT, "flow.no-exit");
     }
 }

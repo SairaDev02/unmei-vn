@@ -111,7 +111,9 @@ const EXPECTATIONS: &[Expectation] = &[
         ],
     },
     // The pack does not load, so only the case parser runs: the case that names
-    // a missing scene reports nothing, and the bad version still reports.
+    // a missing scene reports nothing, and the bad version still reports. The
+    // orphan scene's flow finding is not reported either (§8), and neither are
+    // the scene's missing assets (rule 28).
     Expectation {
         pack: "unloaded",
         errors: 2,
@@ -120,6 +122,61 @@ const EXPECTATIONS: &[Expectation] = &[
             ("pack.ron", "pack.manifest"),
             ("tests/bad-version.keiko", "keiko.case.version"),
         ],
+    },
+    // §6's three flow warnings, one fixture each. Rule 13's decision-landing
+    // scenes are reachable beside an orphan; rule 14's skipped label sits beside
+    // a fall-through one; rule 15's looping scene sits beside a leaving option.
+    Expectation {
+        pack: "flow-unreachable-scene",
+        errors: 0,
+        warnings: 1,
+        findings: &[("scenes/orphan.unmei", "flow.unreachable-scene")],
+    },
+    Expectation {
+        pack: "flow-unreachable-label",
+        errors: 0,
+        warnings: 1,
+        findings: &[("scenes/main.unmei", "flow.unreachable-label")],
+    },
+    Expectation {
+        pack: "flow-no-exit",
+        errors: 0,
+        warnings: 1,
+        findings: &[("scenes/loop.unmei", "flow.no-exit")],
+    },
+    // Rule 9: each `bg`, `sprite`, `play` and the manifest's `title_backdrop`
+    // is one reference, including those in both `if` arms and after a `choice`;
+    // each missing file reports once.
+    Expectation {
+        pack: "missing",
+        errors: 9,
+        warnings: 0,
+        findings: &[
+            ("pack.ron", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+            ("scenes/main.unmei", "pack.asset.missing"),
+        ],
+    },
+    // Rule 10: the sprite is referenced in `scenes/b.unmei` and twice in
+    // `scenes/main.unmei`, and reports once, at its first reference.
+    Expectation {
+        pack: "repeated",
+        errors: 1,
+        warnings: 0,
+        findings: &[("scenes/b.unmei", "pack.asset.missing")],
+    },
+    // Rule 12: a file in `assets/` that nothing references reports nothing.
+    Expectation {
+        pack: "unreferenced",
+        errors: 0,
+        warnings: 0,
+        findings: &[],
     },
 ];
 
@@ -226,7 +283,18 @@ fn the_text_form_names_each_finding_and_summarizes() {
 
 #[test]
 fn two_runs_over_the_same_pack_give_byte_identical_json() {
-    for name in ["demo", "cases", "warnings", "unloaded"] {
+    for name in [
+        "demo",
+        "cases",
+        "warnings",
+        "unloaded",
+        "flow-unreachable-scene",
+        "flow-unreachable-label",
+        "flow-no-exit",
+        "missing",
+        "repeated",
+        "unreferenced",
+    ] {
         let pack = pack(name);
         let first = check_json(&pack);
         let second = check_json(&pack);

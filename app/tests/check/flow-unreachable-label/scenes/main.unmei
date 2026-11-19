@@ -1,0 +1,10 @@
+# Rule 14: `jump after` skips `label skipped`. `label opening` is reached by
+# falling through and `label after` by the jump, so neither warns.
+Narrator: Start.
+label opening
+Narrator: The walk falls through to here.
+jump after
+label skipped
+Narrator: Never shown.
+label after
+Narrator: End.
