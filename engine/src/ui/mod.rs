@@ -10,13 +10,15 @@
 //! plays (R14).
 //!
 //! The passes run in one order — the paths a source lists, the folder's caps,
-//! the manifest, the tokens, then each surface tree — and each pass ends the
-//! plugin when it found an error, so a folder that breaks a cap is never read
-//! on and a token table that failed is never resolved in a tree. Slots, fonts
-//! and motion add their passes here (tickets #107–#109).
+//! the manifest, the tokens, the fonts, then each surface tree — and each pass
+//! ends the plugin when it found an error, so a folder that breaks a cap is
+//! never read on, a token table that failed is never resolved in a tree and a
+//! font that no file carries never reaches the renderer. Slots and motion add
+//! their passes here (tickets #107 and #109).
 
 mod caps;
 mod file;
+mod fonts;
 mod manifest;
 mod motion;
 mod node;
@@ -36,6 +38,7 @@ use crate::finding::{rules, sort_findings, Finding, Location};
 pub use self::caps::{
     MAX_DEPTH, MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_NODES, MAX_TOTAL_BYTES,
 };
+pub use self::fonts::{embedded, EmbeddedFace, EMBEDDED_FACES};
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
 pub use self::motion::{Easing, Keyframe, Motion};
 pub use self::node::{
@@ -157,6 +160,11 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
     let Some(tokens) = tokens::check(source, &mut findings) else {
         return PluginOutcome::failed(findings);
     };
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+
+    fonts::check(source, &manifest, &tokens, &mut findings);
     if !findings.is_empty() {
         return PluginOutcome::failed(findings);
     }

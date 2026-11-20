@@ -257,6 +257,8 @@ pub mod rules {
     pub const UI_TOKEN_UNKNOWN: &str = "ui.token.unknown";
     pub const UI_TOKEN_CYCLE: &str = "ui.token.cycle";
     pub const UI_SURFACE_UNKNOWN: &str = "ui.surface.unknown";
+    pub const UI_FONT_LICENSE: &str = "ui.font.license";
+    pub const UI_FONT_UNKNOWN: &str = "ui.font.unknown";
 
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
@@ -487,5 +489,7 @@ mod tests {
         assert_eq!(rules::UI_VERSION, "ui.version");
         assert_eq!(rules::UI_PATH_ESCAPE, "ui.path.escape");
         assert_eq!(rules::UI_CAP, "ui.cap");
+        assert_eq!(rules::UI_FONT_LICENSE, "ui.font.license");
+        assert_eq!(rules::UI_FONT_UNKNOWN, "ui.font.unknown");
     }
 }

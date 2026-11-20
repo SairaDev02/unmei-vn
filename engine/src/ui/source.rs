@@ -69,6 +69,18 @@ pub(super) fn check_relative(path: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The extension after a plugin path's last dot: `PNG` in
+/// `ornament/arch.PNG`, and none for a name without one. A file's kind is read
+/// from its name before anything opens it, which is how the image and font
+/// rules tell a shipped asset from a manifest or a token table.
+pub(super) fn extension(path: &str) -> Option<&str> {
+    let name = match path.rfind('/') {
+        Some(index) => &path[index + 1..],
+        None => path,
+    };
+    name.rsplit_once('.').map(|(_, extension)| extension)
+}
+
 /// Confinement for a source that did not already guarantee it at the
 /// filesystem, so a memory source's file list obeys the same rule.
 pub(super) fn check_paths(source: &dyn Source) -> Vec<Finding> {

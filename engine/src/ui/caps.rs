@@ -12,7 +12,7 @@
 
 use crate::finding::{rules, Finding, Location};
 
-use super::source::Source;
+use super::source::{extension, Source};
 
 /// Files in the plugin folder.
 pub const MAX_FILES: usize = 256;
@@ -112,16 +112,6 @@ fn is_image(path: &str) -> bool {
             .iter()
             .any(|known| known.eq_ignore_ascii_case(extension))
     })
-}
-
-/// The extension after the name's last dot: `arch.PNG` in
-/// `ornament/arch.PNG`, and none for a name without one.
-fn extension(path: &str) -> Option<&str> {
-    let name = match path.rfind('/') {
-        Some(index) => &path[index + 1..],
-        None => path,
-    };
-    name.rsplit_once('.').map(|(_, extension)| extension)
 }
 
 /// An image's pixel dimensions from its header, without a decoder. Only the two
