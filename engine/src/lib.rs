@@ -49,6 +49,7 @@ pub mod read_log;
 pub mod runner;
 pub mod save;
 pub mod sidecar;
+pub mod ui;
 
 pub use content::{
     CondOp, Condition, Criteria, Criterion, DecisionConfig, Fallback, GalleryEntry, Line, Literal,
