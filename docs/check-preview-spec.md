@@ -94,6 +94,13 @@ Every finding the loader, the check and the preview produce carries one id from 
 | `flow.unreachable-label` | warning | §6. |
 | `flow.no-exit` | warning | §6. |
 | `preview.state.unreachable` | warning | A preview fixture state this pack cannot reach (§9.2). |
+| `ui.file.read` | error | A plugin file that cannot be read, including a `ui/` folder with no `plugin.ron` ([UI plugin spec §2](ui-plugin-spec.md#2-the-plugin-folder-r11-r27-g1)). |
+| `ui.parse` | error | Invalid RON, or a file that is not UTF-8, in a plugin file ([UI plugin spec §8](ui-plugin-spec.md#8-findings-and-the-plugin-outcome-r14-r15-r21)). |
+| `ui.version` | error | A plugin `format_version` this build does not read, which is any value but 1 ([UI plugin spec §2](ui-plugin-spec.md#2-the-plugin-folder-r11-r27-g1)). |
+| `ui.path.escape` | error | A path a plugin names that is not relative and confined to `ui/`: it is empty, absolute, names `..`, or is a symlink out of the folder ([UI plugin spec §7](ui-plugin-spec.md#7-confinement-and-caps-r13)). |
+| `ui.cap` | error | A plugin cap exceeded: the files in `ui/`, one file's size, the folder's total or a shipped image's dimensions ([UI plugin spec §7](ui-plugin-spec.md#7-confinement-and-caps-r13)). |
+
+The `ui.*` ids are the UI plugin's, and each plugin ticket adds its family's ids here as it builds them ([UI plugin spec §8](ui-plugin-spec.md#8-findings-and-the-plugin-outcome-r14-r15-r21)).
 
 A `.keiko` case reports Keiko's own ids ([Keiko spec §10.2](keiko-spec.md#102-rule-ids)) as errors (§7).
 
