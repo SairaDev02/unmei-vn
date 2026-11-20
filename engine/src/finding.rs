@@ -70,8 +70,8 @@ impl Location {
     }
 }
 
-/// The wire text. It also orders the last ties in [`sort_findings`], so that
-/// the order stays what it was when a location was a plain string.
+/// The wire text. [`sort_findings`] breaks its last ties on these bytes, so
+/// the order is fixed by what the JSON shows.
 impl fmt::Display for Location {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -170,11 +170,6 @@ impl Finding {
         self.rule = rule.to_string();
         self
     }
-
-    /// The line number; `None` when the finding is not about a line.
-    pub fn line_number(&self) -> Option<usize> {
-        self.path.line()
-    }
 }
 
 /// The check-and-preview spec §3 order every consumer sees: file, then line with
@@ -185,7 +180,7 @@ pub fn sort_findings(findings: &mut [Finding]) {
     findings.sort_by(|a, b| {
         a.file
             .cmp(&b.file)
-            .then_with(|| a.line_number().cmp(&b.line_number()))
+            .then_with(|| a.path.line().cmp(&b.path.line()))
             .then_with(|| a.rule.cmp(&b.rule))
             .then_with(|| a.message.cmp(&b.message))
             .then_with(|| a.path.to_string().cmp(&b.path.to_string()))
@@ -384,7 +379,8 @@ mod tests {
             Finding::new("a", Location::File, "r", "m"),
         ];
         sort_findings(&mut findings);
-        let lines: Vec<Option<usize>> = findings.iter().map(Finding::line_number).collect();
+        let lines: Vec<Option<usize>> =
+            findings.iter().map(|finding| finding.path.line()).collect();
         assert_eq!(lines, [None, Some(9), Some(10)]);
     }
 

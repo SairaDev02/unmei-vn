@@ -81,7 +81,7 @@ mod tests {
         format!(
             "{}|{}|{}|{}",
             finding.file,
-            finding.line_number().unwrap_or(0),
+            finding.path.line().unwrap_or(0),
             finding.rule,
             finding.message
         )
