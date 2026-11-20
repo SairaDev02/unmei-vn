@@ -32,6 +32,7 @@
 //!   players, authors and contributors.
 
 pub mod content;
+pub mod copy;
 // The pure Decisions wire layer is used by the network client (`feature =
 // "network"`) and by this crate's own tests. A loader-only build — the default —
 // therefore compiles part of it unused, so the lint is off for this module in
