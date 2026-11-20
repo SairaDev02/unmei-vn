@@ -330,6 +330,69 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &[],
         text: "Off",
     },
+    // The Decisions group's key row: its state line, the env note under it, the
+    // empty field's placeholder and the stored path. A state line carries the
+    // fingerprint's four-to-six characters, never more of the key.
+    CopyKey {
+        id: "settings.key.not-set",
+        placeholders: &[],
+        text: "Not set",
+    },
+    CopyKey {
+        id: "settings.key.set",
+        placeholders: &["fingerprint"],
+        text: "Set \u{2014} {fingerprint}",
+    },
+    CopyKey {
+        id: "settings.key.set-unchecked",
+        placeholders: &["fingerprint"],
+        text: "Set \u{2014} {fingerprint} \u{00b7} not checked (see the log)",
+    },
+    CopyKey {
+        id: "settings.key.checking",
+        placeholders: &[],
+        text: "Checking\u{2026}",
+    },
+    CopyKey {
+        id: "settings.key.invalid-shape",
+        placeholders: &[],
+        text: "Invalid \u{2014} does not look like a key",
+    },
+    CopyKey {
+        id: "settings.key.invalid-rejected",
+        placeholders: &[],
+        text: "Invalid \u{2014} rejected by NanoGPT",
+    },
+    CopyKey {
+        id: "settings.key.invalid-openrouter",
+        placeholders: &[],
+        text: "Invalid \u{2014} an OpenRouter key; enter a NanoGPT key",
+    },
+    CopyKey {
+        id: "settings.key.from-environment",
+        placeholders: &["fingerprint"],
+        text: "From environment \u{2014} {fingerprint}",
+    },
+    CopyKey {
+        id: "settings.key.from-environment-openrouter",
+        placeholders: &[],
+        text: "From environment \u{2014} Invalid, an OpenRouter key",
+    },
+    CopyKey {
+        id: "settings.key.env-note",
+        placeholders: &[],
+        text: "NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.",
+    },
+    CopyKey {
+        id: "settings.key.placeholder",
+        placeholders: &[],
+        text: "Paste or type a NanoGPT key",
+    },
+    CopyKey {
+        id: "settings.key.path",
+        placeholders: &["path"],
+        text: "Stored in {path}",
+    },
     CopyKey {
         id: "settings.back.slots",
         placeholders: &[],
