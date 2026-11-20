@@ -12,6 +12,7 @@ use bevy::prelude::*;
 use bevy::text::LetterSpacing;
 use bevy::ui::{BackgroundGradient, ColorStop, RadialGradient, RadialGradientShape, UiPosition};
 use bevy::window::{PrimaryWindow, Window};
+use unmei_engine::copy;
 
 /// The title's pack-backdrop image node, sized to cover the window once its
 /// texture is loaded (`docs/title-and-menu.md` § Title layout §2). Distinct from
@@ -125,7 +126,7 @@ pub(super) fn build_title(
                     faces,
                     menu,
                     MenuAction::Continue,
-                    "Continue",
+                    copy::text("title.row.continue"),
                     menu.continue_enabled,
                     None,
                 );
@@ -134,7 +135,7 @@ pub(super) fn build_title(
                     faces,
                     menu,
                     MenuAction::NewGame,
-                    "New Game",
+                    copy::text("title.row.new-game"),
                     true,
                     None,
                 );
@@ -143,7 +144,7 @@ pub(super) fn build_title(
                     faces,
                     menu,
                     MenuAction::OpenSettings,
-                    "Settings",
+                    copy::text("title.row.settings"),
                     true,
                     None,
                 );
@@ -154,7 +155,7 @@ pub(super) fn build_title(
                     faces,
                     menu,
                     MenuAction::Gallery,
-                    menu::GALLERY_HEADING,
+                    copy::text("title.row.gallery"),
                     true,
                     None,
                 );
@@ -168,7 +169,15 @@ pub(super) fn build_title(
                     },
                     BackgroundColor(FAINT),
                 ));
-                title_row(panel, faces, menu, MenuAction::Quit, "Quit", true, None);
+                title_row(
+                    panel,
+                    faces,
+                    menu,
+                    MenuAction::Quit,
+                    copy::text("title.row.quit"),
+                    true,
+                    None,
+                );
             });
 
             // The foot row: Continue's reason line left, the legend right.
