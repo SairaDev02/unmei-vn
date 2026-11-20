@@ -3,8 +3,9 @@
 //!
 //! Every case loads through [`ui::load_from`] with a memory source, so it runs
 //! the pass the check, the boot and the export run. The fixtures are synthetic
-//! and name only the surface and the node a rule is about; slot and control
-//! names are checked by ticket #107, not here.
+//! and name only the surface and the node a rule is about. A fixture whose loop
+//! is legal also places the interface ticket #107 requires, because a tree that
+//! left a required slot out would stop the plugin before its motion is read.
 
 use unmei_engine::ui::{self, NodeKind, PluginOutcome};
 
@@ -15,6 +16,49 @@ const TOKENS: &str = r#"(
         "flourish": (face: "IBM Plex Sans", weight: 400, size_px: 40.0, line_height_px: 40.0),
     },
 )"#;
+
+/// The interface a `play` tree must place: ticket #107's table as root children.
+const PLAY_INTERFACE: &str = r#"
+        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "advance-marker"),
+        (kind: "slot", slot: "deciding-marker"),
+        (kind: "list", list: "choices", item: (kind: "box", children: [
+            (kind: "slot", slot: "choice.number"),
+            (kind: "slot", slot: "choice.text"),
+        ])),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "play.save"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu")"#;
+
+/// The interface a `title` tree must place, in the same form.
+const TITLE_INTERFACE: &str = r#"
+        (kind: "slot", slot: "pack.name"),
+        (kind: "slot", slot: "title.continue-reason"),
+        (kind: "list", list: "title.rows", item: (kind: "box", children: [
+            (kind: "slot", slot: "title.row.label"),
+            (kind: "slot", slot: "title.continue"),
+            (kind: "slot", slot: "title.new-game"),
+            (kind: "slot", slot: "title.settings"),
+            (kind: "slot", slot: "title.gallery"),
+            (kind: "slot", slot: "title.quit"),
+        ]))"#;
+
+/// [`PLAY_INTERFACE`] without the two marker slots, for the one fixture that
+/// places those itself.
+const REST_OF_PLAY: &str = r#"(kind: "slot", slot: "prose"),
+        (kind: "list", list: "choices", item: (kind: "box", children: [
+            (kind: "slot", slot: "choice.number"),
+            (kind: "slot", slot: "choice.text"),
+        ])),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "play.save"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu")"#;
 
 fn load(surfaces: &[(&str, &str)]) -> PluginOutcome {
     let mut files = vec![
@@ -262,7 +306,11 @@ fn a_loop_with_a_300_ms_period_fails() {
 
 #[test]
 fn a_loop_with_a_400_ms_period_passes() {
-    let tree = format!("(kind: \"box\", children: [ {} ])", glyph(&glow(400)));
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&glow(400)),
+        PLAY_INTERFACE
+    );
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), [], "the floor is inclusive");
 }
@@ -293,7 +341,11 @@ fn a_400_ms_loop_that_flashes_three_times_fails() {
 
 #[test]
 fn a_glow_pulse_over_two_seconds_passes() {
-    let tree = format!("(kind: \"box\", children: [ {} ])", glyph(&glow(2000)));
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&glow(2000)),
+        PLAY_INTERFACE
+    );
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), []);
     assert_eq!(
@@ -306,8 +358,9 @@ fn a_glow_pulse_over_two_seconds_passes() {
 #[test]
 fn three_flashes_in_a_second_pass() {
     let tree = format!(
-        "(kind: \"box\", children: [ {} ])",
-        glyph(&loop_ron(1000, &[1.0, 0.0, 1.0, 0.0, 1.0]))
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(1000, &[1.0, 0.0, 1.0, 0.0, 1.0])),
+        PLAY_INTERFACE
     );
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), [], "the cap is above 3 a second");
@@ -336,12 +389,12 @@ fn a_flash_of_exactly_0_2_counts() {
 #[test]
 fn a_loop_on_title_and_play_ornament_passes() {
     let title = format!(
-        "(kind: \"box\", children: [ {}, {} ])",
+        "(kind: \"box\", children: [ {}, {},{TITLE_INTERFACE} ])",
         glyph(&glow(400)),
         image(&glow(400))
     );
     let play = format!(
-        "(kind: \"box\", {cycle}, children: [ {}, {} ])",
+        "(kind: \"box\", {cycle}, children: [ {}, {},{PLAY_INTERFACE} ])",
         glyph(&glow(400)),
         image(&glow(400)),
         cycle = glow(400)
@@ -359,7 +412,7 @@ fn a_loop_on_title_and_play_ornament_passes() {
         panic!("the root is a box");
     };
     assert!(
-        box_node.children.iter().all(|child| {
+        box_node.children[..2].iter().all(|child| {
             child
                 .style
                 .motion
@@ -378,9 +431,11 @@ fn a_loop_on_the_content_of_a_marker_slot_passes() {
             (kind: \"slot\", slot: \"deciding-marker\", children: [
                 (kind: \"image\", file: \"ornament/dots.png\", {}),
             ]),
+            {},
         ])",
         glyph(&glow(400)),
-        glow(400)
+        glow(400),
+        REST_OF_PLAY
     );
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), []);

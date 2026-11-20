@@ -3,6 +3,11 @@
 //! The player's `MenuFocus` enum maps one-to-one onto this table, and the UI
 //! plugin's control names reuse the same strings. The ids live here so the
 //! Bevy-free case validator can check them without depending on the runtime.
+//!
+//! One group is the exception: the play frame's quick row has its ids, because a
+//! plugin places and checks them, and the player builds no control behind them
+//! until the quick row ships. [`CONTROL_IDS_WITHOUT_FOCUS`] names that group, so
+//! the one-to-one map starts at the first id the player does have.
 
 /// The fixed control ids, in the player's walk order where one exists.
 pub const CONTROL_IDS: &[&str] = &[
@@ -12,6 +17,13 @@ pub const CONTROL_IDS: &[&str] = &[
     "title.settings",
     "title.gallery",
     "title.quit",
+    // Play frame quick row. `play.log` stays reserved for the Backlog, which is
+    // not built, so it has no id here.
+    "play.save",
+    "play.load",
+    "play.auto",
+    "play.skip",
+    "play.menu",
     // Pause overlay
     "overlay.save-tab",
     "overlay.load-tab",
@@ -47,6 +59,17 @@ pub const CONTROL_IDS: &[&str] = &[
     // Confirm
     "confirm.yes",
     "confirm.no",
+];
+
+/// The ids the player has no focus target for. The quick row is built with
+/// variant E, and until then the ids exist for the plugin's tables and for Keiko
+/// cases that name the row the reference plugin will draw.
+pub const CONTROL_IDS_WITHOUT_FOCUS: &[&str] = &[
+    "play.save",
+    "play.load",
+    "play.auto",
+    "play.skip",
+    "play.menu",
 ];
 
 /// The families whose ids carry a 1-based index: `gallery.card.<n>` and
@@ -96,6 +119,26 @@ mod tests {
         assert!(!is_control_id("gallery.card.x"));
         assert!(!is_control_id("gallery.card"));
         assert!(!is_control_id("title.nope"));
+    }
+
+    /// The play frame's five quick-row ids are in the table, and `play.log` is
+    /// reserved for the Backlog: no table names it, so a plugin that places it
+    /// is placing a control the format does not have.
+    #[test]
+    fn the_quick_row_has_five_ids_and_a_reserved_log() {
+        for id in CONTROL_IDS_WITHOUT_FOCUS {
+            assert!(is_control_id(id), "`{id}` is a control id");
+            assert!(CONTROL_IDS.contains(id), "`{id}` is in the fixed table");
+        }
+        assert_eq!(
+            CONTROL_IDS_WITHOUT_FOCUS.len(),
+            5,
+            "the quick row is five controls"
+        );
+        assert!(
+            !is_control_id("play.log"),
+            "`play.log` is reserved for the Backlog"
+        );
     }
 
     #[test]

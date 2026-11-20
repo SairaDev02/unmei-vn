@@ -4,9 +4,9 @@
 //! The manifest is the plugin's entry point — the file that says which format
 //! version the folder is written in — so its rules decide whether the rest of
 //! the folder is read at all. Every path it names is confinement-checked here,
-//! before a rule or the renderer opens one. Its fonts, images, numbering and
-//! copy overrides are typed here and judged by the passes that own them
-//! (tickets #107 and #108).
+//! before a rule or the renderer opens one. Its fonts, images and copy overrides
+//! are typed here and judged by the passes that own them; `numbering` is judged
+//! here, because it is a value of this file and not a file of its own.
 
 use std::collections::BTreeMap;
 
@@ -44,7 +44,12 @@ pub struct Manifest {
 }
 
 /// How a choice's number displays (spec §5). The keys stay `1`–`9`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+///
+/// The manifest authors one of [`Numbering::STYLES`] as a kebab-case string,
+/// because no plugin file authors a RON identifier (slice-1 design note, "RON
+/// syntax"), and a style that is not one of the five is reported at the
+/// manifest's own `numbering` field rather than at the file.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Numbering {
     #[default]
     Arabic,
@@ -52,6 +57,39 @@ pub enum Numbering {
     RomanLower,
     AlphaUpper,
     AlphaLower,
+}
+
+impl Numbering {
+    /// The five authored spellings, in the order a message names them.
+    pub const STYLES: [&'static str; 5] = [
+        "arabic",
+        "roman-upper",
+        "roman-lower",
+        "alpha-upper",
+        "alpha-lower",
+    ];
+
+    /// The style `authored` names.
+    pub fn parse(authored: &str) -> Option<Numbering> {
+        match authored {
+            "arabic" => Some(Numbering::Arabic),
+            "roman-upper" => Some(Numbering::RomanUpper),
+            "roman-lower" => Some(Numbering::RomanLower),
+            "alpha-upper" => Some(Numbering::AlphaUpper),
+            "alpha-lower" => Some(Numbering::AlphaLower),
+            _ => None,
+        }
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for Numbering {
+    fn deserialize<D>(deserializer: D) -> Result<Numbering, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let authored: String = serde::Deserialize::deserialize(deserializer)?;
+        Numbering::parse(&authored).ok_or_else(|| serde::de::Error::custom(not_a_style(&authored)))
+    }
 }
 
 /// One shipped face: a family, its weight, its file and the license it comes
@@ -108,7 +146,27 @@ pub(super) fn check(source: &dyn Source, findings: &mut Vec<Finding>) -> Option<
             return None;
         }
     };
-    let manifest: Manifest = match ron::from_str(&text) {
+    let value: ron::Value = match ron::from_str(&text) {
+        Ok(value) => value,
+        Err(error) => {
+            findings.push(Finding::new(
+                file,
+                Location::File,
+                rules::UI_PARSE,
+                format!("invalid RON: {error}"),
+            ));
+            return None;
+        }
+    };
+
+    // `numbering` is one of five authored strings, and the typed parse can only
+    // report a style it does not know at the file. The raw value is read first
+    // so the finding names the field the author wrote.
+    if !check_numbering(&value, &file, findings) {
+        return None;
+    }
+
+    let manifest: Manifest = match value.into_rust() {
         Ok(manifest) => manifest,
         Err(error) => {
             findings.push(Finding::new(
@@ -138,6 +196,42 @@ pub(super) fn check(source: &dyn Source, findings: &mut Vec<Finding>) -> Option<
 
     confine_named_paths(&manifest, &file, findings);
     Some(manifest)
+}
+
+/// Whether the manifest's `numbering`, when it is there at all, names one of
+/// the five styles. A value of another type is the same failure: the format
+/// authors a string.
+fn check_numbering(value: &ron::Value, file: &str, findings: &mut Vec<Finding>) -> bool {
+    let ron::Value::Map(fields) = value else {
+        return true;
+    };
+    let written = fields
+        .iter()
+        .find(|(field, _)| matches!(field, ron::Value::String(name) if name == "numbering"))
+        .map(|(_, value)| value);
+    let message = match written {
+        None => return true,
+        Some(ron::Value::String(authored)) if Numbering::parse(authored).is_some() => return true,
+        Some(ron::Value::String(authored)) => not_a_style(authored),
+        Some(_) => format!(
+            "numbering is not a string; the five styles are `{}`",
+            Numbering::STYLES.join("`, `")
+        ),
+    };
+    findings.push(Finding::new(
+        file,
+        Location::Field("numbering".to_string()),
+        rules::UI_PARSE,
+        message,
+    ));
+    false
+}
+
+fn not_a_style(authored: &str) -> String {
+    format!(
+        "`{authored}` is not a numbering style; the five styles are `{}`",
+        Numbering::STYLES.join("`, `")
+    )
 }
 
 /// Every path the manifest names is checked before anything reads one, so an

@@ -30,6 +30,24 @@ const TOKENS: &str = r#"(
     },
 )"#;
 
+/// The interface a `play` tree must place: ticket #107's table as root children.
+/// A case about a token appends it, so the tree is also one the interface pass
+/// accepts.
+const PLAY_INTERFACE: &str = r#"
+        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "advance-marker"),
+        (kind: "slot", slot: "deciding-marker"),
+        (kind: "list", list: "choices", item: (kind: "box", children: [
+            (kind: "slot", slot: "choice.number"),
+            (kind: "slot", slot: "choice.text"),
+        ])),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "play.save"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu")"#;
+
 /// Load a plugin whose only files are the manifest, `tokens` and `surfaces`.
 fn load(tokens: &str, surfaces: &[(&str, &str)]) -> PluginOutcome {
     let mut files = vec![
@@ -149,14 +167,17 @@ fn a_spacing_chain_resolves_and_a_node_overrides_its_component() {
             "child": (component: "base"),
         },
     )"#;
-    let tree = r#"(
+    let tree = format!(
+        r#"(
         kind: "box",
         component: "child",
-        fill: "{colors.focus}",
-        gap: "{spacing.a}",
-        radius: "{rounded.box}",
-    )"#;
-    let outcome = load(tokens, &[("play", tree)]);
+        fill: "{{colors.focus}}",
+        gap: "{{spacing.a}}",
+        radius: "{{rounded.box}}",
+        children: [{PLAY_INTERFACE}],
+    )"#
+    );
+    let outcome = load(tokens, &[("play", &tree)]);
     let plugin = plugin(&outcome);
     assert_eq!(plugin.tokens.spacing.get("a").copied(), Some(72.0));
     assert_eq!(plugin.tokens.rounded.get("box").copied(), Some(9.0));
@@ -184,10 +205,9 @@ fn a_spacing_chain_resolves_and_a_node_overrides_its_component() {
 
 #[test]
 fn a_radius_may_name_a_spacing_token() {
-    let outcome = load(
-        r#"(spacing: { "inset": 3.0 })"#,
-        &[("play", "(kind: \"box\", radius: \"{spacing.inset}\")")],
-    );
+    let tree =
+        format!("(kind: \"box\", radius: \"{{spacing.inset}}\", children: [{PLAY_INTERFACE}])");
+    let outcome = load(r#"(spacing: { "inset": 3.0 })"#, &[("play", &tree)]);
     let root = &plugin(&outcome).surfaces["play"];
     assert_eq!(root.style.paint.radius, Some(ui::Radius::Uniform(3.0)));
 }

@@ -10,20 +10,25 @@
 //! plays (R14).
 //!
 //! The passes run in one order — the paths a source lists, the folder's caps,
-//! the manifest, the tokens, the fonts, then each surface tree — and each pass
-//! ends the plugin when it found an error, so a folder that breaks a cap is
-//! never read on, a token table that failed is never resolved in a tree and a
-//! font that no file carries never reaches the renderer. A tree's loops are
-//! judged by §6 while its surface parses it, which is where the tree and the
-//! surface id meet. Slots add their pass here (ticket #107).
+//! the manifest and its copy overrides, the tokens, the fonts, then each surface
+//! tree and its interface — and each pass ends the plugin when it found an
+//! error, so a folder that breaks a cap is never read on, a token table that
+//! failed is never resolved in a tree and a font that no file carries never
+//! reaches the renderer. A tree's loops are judged by §6 while its surface
+//! parses it, which is where the tree and the surface id meet; its slots are
+//! judged against the surface's table once every tree has parsed, because a
+//! table speaks about a whole tree.
 
 mod caps;
 mod file;
 mod fonts;
+mod interface;
 mod manifest;
 mod motion;
 mod node;
+mod overrides;
 mod paint;
+mod slots;
 mod source;
 mod style;
 mod surface;
@@ -37,9 +42,11 @@ use std::path::Path;
 use crate::finding::{rules, sort_findings, Finding, Location};
 
 pub use self::caps::{
-    MAX_DEPTH, MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_NODES, MAX_TOTAL_BYTES,
+    MAX_COPY_CHARS, MAX_DEPTH, MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_NODES,
+    MAX_TOTAL_BYTES,
 };
 pub use self::fonts::{embedded, EmbeddedFace, EMBEDDED_FACES};
+pub use self::interface::{surface, ListSpec, SurfaceSpec, SURFACES};
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
 pub use self::motion::{Easing, Keyframe, Motion, MAX_FLASHES_PER_SECOND, MIN_PERIOD_MS};
 pub use self::node::{
@@ -158,6 +165,13 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
         return PluginOutcome::failed(findings);
     }
 
+    // An override is judged as soon as its manifest is read: no other file
+    // decides whether a key or its placeholders are the table's.
+    overrides::check(&manifest, &mut findings);
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+
     let Some(tokens) = tokens::check(source, &mut findings) else {
         return PluginOutcome::failed(findings);
     };
@@ -173,6 +187,11 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
     let Some(surfaces) = surface::check(source, &tokens, &mut findings) else {
         return PluginOutcome::failed(findings);
     };
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+
+    slots::check(&surfaces, &mut findings);
     if !findings.is_empty() {
         return PluginOutcome::failed(findings);
     }

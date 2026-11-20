@@ -257,6 +257,11 @@ pub mod rules {
     pub const UI_TOKEN_UNKNOWN: &str = "ui.token.unknown";
     pub const UI_TOKEN_CYCLE: &str = "ui.token.cycle";
     pub const UI_SURFACE_UNKNOWN: &str = "ui.surface.unknown";
+    pub const UI_SLOT_UNKNOWN: &str = "ui.slot.unknown";
+    pub const UI_SLOT_MISSING: &str = "ui.slot.missing";
+    pub const UI_SLOT_DUPLICATE: &str = "ui.slot.duplicate";
+    pub const UI_COPY_UNKNOWN: &str = "ui.copy.unknown";
+    pub const UI_COPY_PLACEHOLDER: &str = "ui.copy.placeholder";
     pub const UI_FONT_LICENSE: &str = "ui.font.license";
     pub const UI_FONT_UNKNOWN: &str = "ui.font.unknown";
     pub const UI_MOTION_FORBIDDEN: &str = "ui.motion.forbidden";
@@ -494,6 +499,11 @@ mod tests {
         assert_eq!(rules::UI_TOKEN_UNKNOWN, "ui.token.unknown");
         assert_eq!(rules::UI_TOKEN_CYCLE, "ui.token.cycle");
         assert_eq!(rules::UI_SURFACE_UNKNOWN, "ui.surface.unknown");
+        assert_eq!(rules::UI_SLOT_UNKNOWN, "ui.slot.unknown");
+        assert_eq!(rules::UI_SLOT_MISSING, "ui.slot.missing");
+        assert_eq!(rules::UI_SLOT_DUPLICATE, "ui.slot.duplicate");
+        assert_eq!(rules::UI_COPY_UNKNOWN, "ui.copy.unknown");
+        assert_eq!(rules::UI_COPY_PLACEHOLDER, "ui.copy.placeholder");
         assert_eq!(rules::UI_FONT_LICENSE, "ui.font.license");
         assert_eq!(rules::UI_FONT_UNKNOWN, "ui.font.unknown");
         assert_eq!(rules::UI_MOTION_FORBIDDEN, "ui.motion.forbidden");
