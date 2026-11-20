@@ -1,0 +1,4 @@
+(
+    name: "check ui: path escape",
+    entry: "main",
+)

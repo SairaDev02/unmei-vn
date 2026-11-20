@@ -336,9 +336,10 @@ Options:
   -V, --version   Print the version and exit. Repeats are idempotent.
 
 Check:
-  --check         Report every load finding and every Keiko case finding in the
-                  pack without running a take. It opens no window and never
-                  touches the pack's sidecars or the user's credential file.
+  --check         Report every load finding, every UI plugin finding and every
+                  Keiko case finding in the pack without running a take. It
+                  opens no window and never touches the pack's sidecars or the
+                  user's credential file.
   --format F      With --check: `text` (the default) or `json`.
   Exit codes: 0 no error finding, 1 an error finding, 2 usage.
 
