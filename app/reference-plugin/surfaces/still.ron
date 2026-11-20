@@ -1,0 +1,47 @@
+// The Gallery's still view: one entry contain-fit in the frame, with its label
+// under the art and the still legend beneath that, all centred.
+//
+// The still has no Keiko control id (format reference §9), so the plugin cannot
+// place the click that closes it and this tree places none: the click stays the
+// player's own.
+(
+    kind: "box",
+    direction: "column",
+    width: "fill",
+    height: "fill",
+    padding: "{spacing.page-padding}",
+    gap: "{spacing.caption-gap}",
+    align_items: "center",
+    children: [
+        (kind: "list",
+            list: "still.entry",
+            width: "fill",
+            height: "fill",
+            item: (kind: "box",
+                direction: "column",
+                width: "fill",
+                height: "fill",
+                gap: "{spacing.caption-gap}",
+                align_items: "center",
+                children: [
+                    (kind: "slot", slot: "still.art", width: "fill", height: "fill"),
+                    (kind: "box",
+                        direction: "column",
+                        width: "fill",
+                        align_items: "center",
+                        gap: "{spacing.caption-gap}",
+                        padding: (top: 16.0, right: 0.0, bottom: 0.0, left: 0.0),
+                        children: [
+                            (kind: "slot", slot: "still.label"),
+                        ],
+                    ),
+                ],
+            ),
+        ),
+        (kind: "text",
+            text: "still.legend",
+            typography: "{typography.legend}",
+            fill: "{colors.faint}",
+        ),
+    ],
+)

@@ -1,0 +1,222 @@
+// Variant E's design tokens, taken from Default look §1–§6. Every colour is the
+// section's value in its own notation (16/255 = 0.063), so a reader can check one
+// against the other. Faces are the five the player embeds; the plugin ships none.
+//
+// One gap this file cannot close: the format gives a `slot` no `typography` and no
+// text tone, so the values §1, §3 and §6 state for engine content (the 25px prose,
+// the 64px wordmark, the 21px options, the tab's dark speaker) have no token here.
+// They live with the engine's slot binding until the format grows one (R26).
+(
+    colors: {
+        "ink": (r: 0.063, g: 0.071, b: 0.102, a: 0.95),
+        "ink-deep": (r: 0.039, g: 0.043, b: 0.063, a: 0.97),
+        "hairline": (r: 1.0, g: 1.0, b: 1.0, a: 0.14),
+        "focus": (r: 0.902, g: 0.62, b: 0.361, a: 1.0),
+        "text": (r: 0.90, g: 0.90, b: 0.92, a: 1.0),
+        "dim": (r: 0.80, g: 0.80, b: 0.85, a: 0.62),
+        "faint": (r: 0.80, g: 0.80, b: 0.85, a: 0.35),
+        "card": (r: 0.12, g: 0.13, b: 0.17, a: 1.0),
+        "panel": (r: 0.10, g: 0.11, b: 0.15, a: 1.0),
+        "button": (r: 0.16, g: 0.17, b: 0.22, a: 1.0),
+        "page": (r: 0.051, g: 0.055, b: 0.071, a: 1.0),
+        "veil": (r: 0.031, g: 0.035, b: 0.051, a: 0.86),
+        "veil-mid": (r: 0.031, g: 0.035, b: 0.051, a: 0.55),
+        "clear": (r: 0.0, g: 0.0, b: 0.0, a: 0.0),
+        "choice": (r: 0.055, g: 0.063, b: 0.086, a: 0.88),
+        "danger": (r: 0.48, g: 0.16, b: 0.16, a: 1.0),
+        "shade": (r: 0.0, g: 0.0, b: 0.0, a: 0.45),
+    },
+    typography: {
+        "heading": (face: "IBM Plex Sans", weight: 600, size_px: 26.0, line_height_px: 32.0),
+        "subheading": (face: "IBM Plex Sans", weight: 600, size_px: 24.0, line_height_px: 30.0),
+        "group": (face: "Fira Mono", weight: 500, size_px: 18.0, line_height_px: 24.0),
+        "legend": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0),
+        "detail": (face: "IBM Plex Sans", weight: 400, size_px: 15.0, line_height_px: 20.0),
+        "marker": (face: "IBM Plex Sans", weight: 400, size_px: 18.0, line_height_px: 18.0),
+    },
+    rounded: {
+        "box": 14.0,
+        "choice": 10.0,
+        "badge": 4.0,
+        "tab": 5.0,
+    },
+    spacing: {
+        // The play frame and its dialogue box (§1).
+        "gutter": 72.0,
+        "box-bottom": 28.0,
+        "box-height": 178.0,
+        "box-pad-top": 24.0,
+        "box-pad-x": 40.0,
+        "box-pad-bottom": 14.0,
+        "tab-inset": 28.0,
+        "tab-lift": -20.0,
+        "quick-gap": 18.0,
+        // The centred choices (§2).
+        "choice-width": 560.0,
+        "choice-top": 150.0,
+        "choice-gap": 14.0,
+        "choice-half-gap": 7.0,
+        "choice-pad-x": 16.0,
+        "choice-pad-y": 22.0,
+        // The title's left column and legend (§3).
+        "title-left": 104.0,
+        "title-top": 150.0,
+        "title-width": 420.0,
+        "tagline-gap": 14.0,
+        "rows-gap": 46.0,
+        "reason-gap": 26.0,
+        "row-pad-y": 6.0,
+        "row-pad-x": 12.0,
+        "row-gap": 12.0,
+        "legend-right": 40.0,
+        "legend-bottom": 26.0,
+        // The contents page and the sub-views' interiors (§4).
+        "rail-width": 420.0,
+        "page-padding": 32.0,
+        "section-gap": 16.0,
+        "entry-gap": 4.0,
+        "button-pad-x": 14.0,
+        "button-pad-y": 6.0,
+        "settings-width": 440.0,
+        "settings-label": 96.0,
+        "track-width": 220.0,
+        "track-height": 10.0,
+        "card-height": 136.0,
+        "card-padding": 18.0,
+        "caption-gap": 6.0,
+    },
+    components: {
+        // A surface that fills the frame.
+        "page": (position: "absolute", left: 0.0, top: 0.0, width: "fill", height: "fill"),
+        // A full-frame dimmer that centres its one child.
+        "dimmer": (
+            position: "absolute", left: 0.0, top: 0.0, width: "fill", height: "fill",
+            align_items: "center", justify_content: "center",
+        ),
+        // §3's veil: dark at the left edge, through 38%, clear by 62%.
+        "veil": (
+            position: "absolute", left: 0.0, top: 0.0, width: "fill", height: "fill",
+            fill: (linear: (angle_deg: 0.0, stops: [
+                (at: 0.0, color: "{colors.veil}"),
+                (at: 0.38, color: "{colors.veil-mid}"),
+                (at: 0.62, color: "{colors.clear}"),
+            ])),
+        ),
+        // §1's dialogue box: a vertical gradient, a hairline, a 14px radius and a
+        // soft drop shadow.
+        "dialogue": (
+            fill: (linear: (angle_deg: 90.0, stops: [
+                (at: 0.0, color: "{colors.ink}"),
+                (at: 1.0, color: "{colors.ink-deep}"),
+            ])),
+            border: (width: 1.0, color: "{colors.hairline}"),
+            radius: "{rounded.box}",
+            shadow: [ (x: 0.0, y: 8.0, blur: 24.0, spread: 0.0, color: "{colors.shade}") ],
+        ),
+        // §1's name tab: the FOCUS orange behind the speaker.
+        "name-tab": (
+            fill: "{colors.focus}",
+            radius: "{rounded.tab}",
+            padding: (top: 6.0, right: 12.0, bottom: 6.0, left: 12.0),
+        ),
+        // A control's chrome. The 2px border is reserved so a focus ring adds no
+        // width, exactly as the player's own buttons reserve it today.
+        "button": (
+            direction: "row",
+            align_items: "center",
+            gap: 8.0,
+            padding: (top: "{spacing.button-pad-y}", right: "{spacing.button-pad-x}", bottom: "{spacing.button-pad-y}", left: "{spacing.button-pad-x}"),
+            border: (width: 2.0, color: "{colors.clear}"),
+            fill: "{colors.button}",
+        ),
+        "danger": (
+            component: "button",
+            fill: "{colors.danger}",
+            padding: (top: 6.0, right: 16.0, bottom: 6.0, left: 16.0),
+        ),
+        // A Settings row: the label column, the track and the value.
+        "row": (
+            direction: "row",
+            align_items: "center",
+            gap: 12.0,
+            padding: (top: "{spacing.row-pad-y}", right: "{spacing.row-pad-x}", bottom: "{spacing.row-pad-y}", left: "{spacing.row-pad-x}"),
+            border: (width: 2.0, color: "{colors.clear}"),
+            fill: "{colors.button}",
+            width: "{spacing.settings-width}",
+        ),
+        "key-row": (
+            direction: "column",
+            gap: 6.0,
+            padding: (top: "{spacing.row-pad-y}", right: "{spacing.row-pad-x}", bottom: "{spacing.row-pad-y}", left: "{spacing.row-pad-x}"),
+            border: (width: 2.0, color: "{colors.clear}"),
+            fill: "{colors.button}",
+            width: "{spacing.settings-width}",
+        ),
+        "track": (
+            width: "{spacing.track-width}",
+            height: "{spacing.track-height}",
+            fill: "{colors.panel}",
+        ),
+        // A dialog's panel, over the dimmer.
+        "panel": (
+            direction: "column",
+            padding: 20.0,
+            gap: 12.0,
+            border: (width: 2.0, color: "{colors.faint}"),
+            fill: "{colors.panel}",
+        ),
+        // §4's page: a 420px left column, a hairline, and the right column.
+        "rail": (
+            width: "{spacing.rail-width}",
+            height: "fill",
+            direction: "column",
+            padding: "{spacing.page-padding}",
+            gap: "{spacing.section-gap}",
+        ),
+        "column": (
+            width: "fill",
+            height: "fill",
+            direction: "column",
+            padding: "{spacing.page-padding}",
+            gap: "{spacing.section-gap}",
+        ),
+        "divider": (width: 1.0, height: "fill", fill: "{colors.faint}"),
+        "spacer": (width: "fill", height: "fill"),
+        "heading-row": (
+            direction: "row",
+            align_items: "center",
+            gap: 14.0,
+            width: "fill",
+        ),
+        // §2's option button: one hairline, a 10px radius, the choice fill.
+        "choice": (
+            direction: "row",
+            align_items: "center",
+            gap: 12.0,
+            border: (width: 1.0, color: "{colors.hairline}"),
+            radius: "{rounded.choice}",
+            fill: "{colors.choice}",
+        ),
+        // The option's number: a small mono badge outlined in the FOCUS tone.
+        "badge": (
+            border: (width: 1.0, color: "{colors.focus}"),
+            radius: "{rounded.badge}",
+            padding: (top: 2.0, right: 6.0, bottom: 2.0, left: 6.0),
+        ),
+        // A Gallery card and a Timeline card: the card fill, a reserved 2px ring.
+        "card": (
+            direction: "column",
+            gap: 10.0,
+            padding: 10.0,
+            border: (width: 2.0, color: "{colors.clear}"),
+            fill: "{colors.card}",
+        ),
+        "timeline-card": (
+            direction: "column",
+            height: "{spacing.card-height}",
+            padding: "{spacing.card-padding}",
+            border: (width: 2.0, color: "{colors.clear}"),
+            fill: "{colors.card}",
+        ),
+    },
+)

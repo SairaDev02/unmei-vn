@@ -1,0 +1,54 @@
+// The Timeline interior the current view draws: the heading and walk legend over
+// the explanation, then one card per declared scene, with the empty line for a
+// pack that declares none.
+//
+// Two things the format does not carry: the current view lays its cards in two
+// columns, and it marks a locked card's label `???` — the label is an item slot,
+// so the engine decides both its text and its tone, and the list stacks the
+// cards in one column here.
+(
+    kind: "box",
+    direction: "column",
+    width: "fill",
+    height: "fill",
+    padding: "{spacing.page-padding}",
+    gap: "{spacing.section-gap}",
+    children: [
+        (kind: "box",
+            component: "heading-row",
+            children: [
+                (kind: "text",
+                    text: "timeline.heading",
+                    typography: "{typography.subheading}",
+                    fill: "{colors.text}",
+                ),
+                (kind: "box", width: "fill"),
+                (kind: "text",
+                    text: "timeline.legend",
+                    typography: "{typography.legend}",
+                    fill: "{colors.faint}",
+                ),
+            ],
+        ),
+        (kind: "slot", slot: "timeline.explanation"),
+        (kind: "slot", slot: "timeline.empty"),
+        (kind: "list",
+            list: "timeline.cards",
+            width: "fill",
+            item: (kind: "box",
+                component: "timeline-card",
+                width: "fill",
+                children: [
+                    (kind: "slot", slot: "timeline.card.label"),
+                    (kind: "slot", slot: "timeline.card.1",
+                        position: "absolute",
+                        left: 0.0,
+                        top: 0.0,
+                        width: "fill",
+                        height: "fill",
+                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                ],
+            ),
+        ),
+    ],
+)

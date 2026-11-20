@@ -1,0 +1,54 @@
+// The Gallery interior the current view draws, kept as §4 says: a heading and
+// the grid legend over one card per entry, with the empty line for a pack that
+// declares no art.
+//
+// The format has no grid and no wrap, so the cards are a list stacked in one
+// column; the card's auto-fill grid is a slice-2 layout question, not a plugin
+// one. Each card's control covers the whole card, which is what the current view
+// makes clickable, and its focus ring is reserved at 2px.
+(
+    kind: "box",
+    direction: "column",
+    width: "fill",
+    height: "fill",
+    padding: "{spacing.page-padding}",
+    gap: "{spacing.section-gap}",
+    children: [
+        (kind: "box",
+            component: "heading-row",
+            children: [
+                (kind: "text",
+                    text: "gallery.heading",
+                    typography: "{typography.heading}",
+                    fill: "{colors.text}",
+                ),
+                (kind: "box", width: "fill"),
+                (kind: "text",
+                    text: "gallery.legend",
+                    typography: "{typography.legend}",
+                    fill: "{colors.faint}",
+                ),
+            ],
+        ),
+        (kind: "slot", slot: "gallery.empty"),
+        (kind: "list",
+            list: "gallery.cards",
+            width: "fill",
+            item: (kind: "box",
+                component: "card",
+                width: "fill",
+                children: [
+                    (kind: "slot", slot: "gallery.card.art"),
+                    (kind: "slot", slot: "gallery.card.label"),
+                    (kind: "slot", slot: "gallery.card.1",
+                        position: "absolute",
+                        left: 0.0,
+                        top: 0.0,
+                        width: "fill",
+                        height: "fill",
+                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                ],
+            ),
+        ),
+    ],
+)

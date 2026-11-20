@@ -1,0 +1,116 @@
+// Default look §3: the title's left column, the rows and the veil.
+//
+// The rows are text-only, so a row is its label plus the row's own control
+// laid over it: the engine shows the row's own control and hides the other four,
+// and the control paints the focus ring. One item template serves all five rows,
+// which is why it places all five controls (format reference §8).
+//
+// Two values §3 names have no expression here: the 12px x 2px FOCUS bar (only a
+// control or a list can paint on focus, and the control has to stay the whole
+// clickable row) and the focused row's white label (a label's tone is engine
+// content). `Quit`'s 14px separation is the third: one template cannot space its
+// fifth item differently.
+(
+    kind: "box",
+    component: "page",
+    children: [
+        // The pack's backdrop, under the veil.
+        (kind: "slot",
+            slot: "title.backdrop",
+            position: "absolute",
+            left: 0.0,
+            top: 0.0,
+            width: "fill",
+            height: "fill",
+        ),
+        (kind: "box", component: "veil"),
+        (kind: "box",
+            position: "absolute",
+            left: "{spacing.title-left}",
+            top: "{spacing.title-top}",
+            width: "{spacing.title-width}",
+            direction: "column",
+            gap: "{spacing.rows-gap}",
+            children: [
+                // The wordmark, with the tagline 14px under it when the pack has
+                // one.
+                (kind: "box",
+                    direction: "column",
+                    gap: "{spacing.tagline-gap}",
+                    width: "fill",
+                    children: [
+                        (kind: "slot", slot: "pack.name"),
+                        (kind: "slot", slot: "title.tagline"),
+                    ],
+                ),
+                // The five rows, then Continue's reason line 26px below them.
+                (kind: "box",
+                    direction: "column",
+                    gap: "{spacing.reason-gap}",
+                    width: "fill",
+                    children: [
+                        (kind: "list",
+                            list: "title.rows",
+                            width: "fill",
+                            item: (kind: "box",
+                                direction: "row",
+                                align_items: "center",
+                                gap: "{spacing.row-gap}",
+                                width: "fill",
+                                padding: (top: "{spacing.row-pad-y}", right: 0.0, bottom: "{spacing.row-pad-y}", left: 0.0),
+                                children: [
+                                    (kind: "slot", slot: "title.row.label"),
+                                    (kind: "slot", slot: "title.continue",
+                                        position: "absolute",
+                                        left: 0.0,
+                                        top: 0.0,
+                                        width: "fill",
+                                        height: "fill",
+                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                    (kind: "slot", slot: "title.new-game",
+                                        position: "absolute",
+                                        left: 0.0,
+                                        top: 0.0,
+                                        width: "fill",
+                                        height: "fill",
+                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                    (kind: "slot", slot: "title.settings",
+                                        position: "absolute",
+                                        left: 0.0,
+                                        top: 0.0,
+                                        width: "fill",
+                                        height: "fill",
+                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                    (kind: "slot", slot: "title.gallery",
+                                        position: "absolute",
+                                        left: 0.0,
+                                        top: 0.0,
+                                        width: "fill",
+                                        height: "fill",
+                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                    (kind: "slot", slot: "title.quit",
+                                        position: "absolute",
+                                        left: 0.0,
+                                        top: 0.0,
+                                        width: "fill",
+                                        height: "fill",
+                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                ],
+                            ),
+                        ),
+                        (kind: "slot", slot: "title.continue-reason"),
+                    ],
+                ),
+            ],
+        ),
+        // §3's legend: the frame's bottom right, 40px in and 26px up.
+        (kind: "text",
+            text: "title.legend",
+            typography: "{typography.legend}",
+            fill: "{colors.faint}",
+            position: "absolute",
+            right: "{spacing.legend-right}",
+            bottom: "{spacing.legend-bottom}",
+        ),
+    ],
+)

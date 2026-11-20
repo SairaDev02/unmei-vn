@@ -1,0 +1,51 @@
+// One confirm tree for every kind: the kind's prompt, its optional detail line,
+// and the accept and cancel controls. The prompt, the accept label and the
+// buttons are engine content — one tree serves overwrite, load, both resets, new
+// game, quit, exit to title, clear key and the timeline jump — so the tree names
+// no kind.
+//
+// The panel and the dimmer are the current dialog's: 420px wide, 20px padding,
+// 12px gaps, a black 45% dimmer, and the destructive accept in `danger`.
+(
+    kind: "box",
+    component: "dimmer",
+    fill: "{colors.shade}",
+    children: [
+        (kind: "box",
+            component: "panel",
+            width: 420.0,
+            children: [
+                (kind: "slot", slot: "confirm.prompt"),
+                (kind: "slot", slot: "confirm.detail"),
+                (kind: "box",
+                    direction: "row",
+                    width: "fill",
+                    gap: 8.0,
+                    justify_content: "end",
+                    children: [
+                        (kind: "box",
+                            component: "danger",
+                            children: [
+                                (kind: "slot", slot: "confirm.accept-label"),
+                                (kind: "slot", slot: "confirm.yes",
+                                    position: "absolute",
+                                    left: 0.0,
+                                    top: 0.0,
+                                    width: "fill",
+                                    height: "fill",
+                                    focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            ],
+                        ),
+                        (kind: "box",
+                            component: "button",
+                            children: [
+                                (kind: "slot", slot: "confirm.no",
+                                    focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
