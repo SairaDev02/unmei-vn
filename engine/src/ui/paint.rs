@@ -33,9 +33,9 @@ pub struct GradientStop {
     pub color: Color,
 }
 
-/// A border's width and colour. Its optional authored radius is folded into
-/// [`Paint::radius`], because one radius rounds the node and there is no second
-/// corner shape for a border to have.
+/// A border's width and colour. The corner radius is [`Paint::radius`]'s,
+/// because one radius rounds the node and there is no second corner shape for a
+/// border to have.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Border {
     pub width: f32,
@@ -89,6 +89,8 @@ impl Default for Transform {
 pub struct Paint {
     pub fill: Option<Fill>,
     pub border: Option<Border>,
+    /// The corner radius, which rounds the node and not only its border: a
+    /// filled box that draws no border rounds the same way.
     pub radius: Option<Radius>,
     pub shadows: Vec<Shadow>,
     pub opacity: f32,
@@ -137,34 +139,21 @@ pub(super) fn parse(
         }
     }
 
-    let mut border_radius = None;
     if let Some(value) = fields.take("border") {
         let property = fields.path("border");
         match border(value, &property, tokens, report) {
-            Some((border, radius)) => {
-                paint.border = Some(border);
-                border_radius = radius;
-            }
+            Some(value) => paint.border = Some(value),
             None => ok = false,
         }
     }
 
-    let mut top_radius = None;
     if let Some(value) = fields.take("radius") {
         let property = fields.path("radius");
         match radius(value, &property, tokens, report) {
-            Some(value) => top_radius = Some(value),
+            Some(value) => paint.radius = Some(value),
             None => ok = false,
         }
     }
-    if top_radius.is_some() && border_radius.is_some() {
-        report.claim(
-            &fields.path("radius"),
-            "the radius is set twice, as `radius` and as `border.radius`; use one",
-        );
-        ok = false;
-    }
-    paint.radius = top_radius.or(border_radius);
 
     if let Some(value) = fields.take("shadow") {
         let property = fields.path("shadow");
@@ -323,25 +312,16 @@ fn stop(
     })
 }
 
-fn border(
-    value: ron::Value,
-    path: &str,
-    tokens: &Tokens,
-    report: &mut Report,
-) -> Option<(Border, Option<Radius>)> {
+fn border(value: ron::Value, path: &str, tokens: &Tokens, report: &mut Report) -> Option<Border> {
     let mut fields = Fields::new(value, path, report)?;
     let width = value::require(fields.take("width"), fields.path("width"), "width", report)?;
     let width = length(width, &fields.path("width"), tokens, report)?;
     let color = value::require(fields.take("color"), fields.path("color"), "color", report)?;
     let color = tokens::color(color, &fields.path("color"), tokens, report)?;
-    let radius = match fields.take("radius") {
-        Some(value) => Some(radius(value, &fields.path("radius"), tokens, report)?),
-        None => None,
-    };
     if !fields.finish(report, " in a border") {
         return None;
     }
-    Some((Border { width, color }, radius))
+    Some(Border { width, color })
 }
 
 /// A radius: a number, a `{rounded.name}` reference, or a map with one value
