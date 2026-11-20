@@ -41,6 +41,7 @@ fn a_launch_without_a_pack_sends_every_mode_to_the_usage_exit() {
         run(&["--preview", "out", "--scene", "a"]).no_pack_exit(),
         NoPackExit::Usage
     );
+    assert_eq!(run(&["--export-ui"]).no_pack_exit(), NoPackExit::Usage);
     assert_eq!(run(&["--take"]).no_pack_exit(), NoPackExit::Usage);
     assert_eq!(
         run(&["--step", "a", "advance"]).no_pack_exit(),
@@ -480,5 +481,89 @@ fn the_help_lists_the_preview() {
     let help = help();
     for flag in ["--preview", "--scene", "--at", "--state", "--pick"] {
         assert!(help.contains(flag), "{flag} missing from help");
+    }
+}
+
+/// `--export-ui` is a mode of its own: it takes no operand, repeats are
+/// idempotent, and a bare token stays `PACK_DIR` (ui-plugin spec §1).
+#[test]
+fn export_ui_is_a_mode_of_its_own() {
+    for args in [
+        vec!["--export-ui"],
+        vec!["my-pack", "--export-ui"],
+        vec!["--export-ui", "my-pack"],
+        vec!["--export-ui", "--export-ui"],
+    ] {
+        let launch = run(&args);
+        assert!(launch.export_ui, "{args:?}");
+        assert!(!launch.check, "{args:?}");
+        assert_eq!(launch.keiko, None, "{args:?}");
+    }
+    assert_eq!(
+        run(&["my-pack", "--export-ui"]).pack_dir,
+        Some(PathBuf::from("my-pack"))
+    );
+}
+
+#[test]
+fn export_ui_is_exclusive_with_every_other_mode_and_with_dev() {
+    for args in [
+        vec!["--export-ui", "--check"],
+        vec!["--check", "--export-ui"],
+        vec!["--export-ui", "--preview", "out"],
+        vec!["--preview", "out", "--export-ui"],
+        vec!["--export-ui", "--take"],
+        vec!["--take", "--export-ui"],
+        vec!["--export-ui", "--step", "one", "advance 2"],
+        vec!["--observe", "one", "--export-ui"],
+        vec!["--explore", "--export-ui"],
+        vec!["--dev", "--export-ui"],
+        vec!["--export-ui", "--dev"],
+        // A modifier that belongs to another mode, like `--keep` or `--format`,
+        // still needs that mode rather than the export.
+        vec!["--export-ui", "--keep"],
+        vec!["--export-ui", "--format", "json"],
+    ] {
+        assert!(
+            parse_strs(&args).is_err(),
+            "{args:?} should be a usage error"
+        );
+    }
+
+    for (args, message) in [
+        (
+            vec!["--export-ui", "--check"],
+            "unmei-play: --export-ui cannot be combined with --check; choose one mode",
+        ),
+        (
+            vec!["--dev", "--export-ui"],
+            "unmei-play: --dev cannot be combined with --export-ui",
+        ),
+        (
+            vec!["--take", "--export-ui"],
+            "unmei-play: --export-ui cannot be combined with --take; choose one mode",
+        ),
+        (
+            vec!["--preview", "out", "--export-ui"],
+            "unmei-play: --export-ui cannot be combined with --preview; choose one mode",
+        ),
+    ] {
+        assert_eq!(
+            parse_strs(&args).unwrap_err().to_string(),
+            message,
+            "{args:?}"
+        );
+    }
+}
+
+#[test]
+fn the_help_lists_the_export() {
+    let help = help();
+    for needle in [
+        "Export:",
+        "--export-ui",
+        "unmei-play [PACK_DIR] --export-ui",
+    ] {
+        assert!(help.contains(needle), "{needle:?} missing from help");
     }
 }

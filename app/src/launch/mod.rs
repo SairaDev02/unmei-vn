@@ -20,11 +20,14 @@ use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
 mod check;
+mod export;
 mod keiko;
 mod pack;
 mod preview;
 
 use check::CheckArgs;
+pub use export::export_target;
+use export::ExportArgs;
 pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
@@ -61,6 +64,9 @@ pub struct Launch {
     pub keiko: Option<KeikoMode>,
     /// Whether `--check` was asked for: report the pack's findings and exit.
     pub check: bool,
+    /// Whether `--export-ui` was asked for: write the embedded reference plugin
+    /// into the pack's `ui/` and exit.
+    pub export_ui: bool,
     /// Keep every take's sandbox instead of deleting it.
     pub keep: bool,
     /// The Keiko output format. Text is the default for every mode.
@@ -78,10 +84,11 @@ impl Launch {
 
     /// The exit this launch takes when no `PACK_DIR` was given and the
     /// executable's folder is unknown, so the default pack cannot be derived.
-    /// Only play may fall back to the error screen: `--check`, `--preview` and
-    /// the Keiko modes build no app, so they never open a window.
+    /// Only play may fall back to the error screen: `--check`, `--export-ui`,
+    /// `--preview` and the Keiko modes build no app, so they never open a
+    /// window.
     pub fn no_pack_exit(&self) -> NoPackExit {
-        if self.check || self.keiko.is_some() {
+        if self.check || self.export_ui || self.keiko.is_some() {
             NoPackExit::Usage
         } else {
             NoPackExit::ErrorScreen
@@ -95,7 +102,7 @@ impl Launch {
 pub enum NoPackExit {
     /// Play: the one error screen that exists before any pack is known.
     ErrorScreen,
-    /// A mode — `--check`, `--preview` or a Keiko mode: print
+    /// A mode — `--check`, `--export-ui`, `--preview` or a Keiko mode: print
     /// [`NO_EXECUTABLE_MESSAGE`] and exit 2, because a mode builds no app.
     Usage,
 }
@@ -151,6 +158,7 @@ where
     let mut options_ended = false;
     let mut keiko = keiko::KeikoArgs::default();
     let mut check = CheckArgs::default();
+    let mut export = ExportArgs::default();
 
     let mut index = 0;
     while index < tokens.len() {
@@ -181,6 +189,10 @@ where
                 }
                 "--check" => {
                     check.request();
+                    continue;
+                }
+                "--export-ui" => {
+                    export.request();
                     continue;
                 }
                 "--take" => {
@@ -295,11 +307,13 @@ where
 
     let keiko_mode = keiko.clone().finish(dev, check.requested())?;
     let check = check.finish(dev, keiko_mode.is_some())?;
+    let export_ui = export.finish(dev, check, keiko_mode.as_ref())?;
     Ok(LaunchRequest::Run(Launch {
         pack_dir: positional.map(PathBuf::from),
         force_dev: dev,
         keiko: keiko_mode,
         check,
+        export_ui,
         keep: keiko.keeping(),
         format: keiko.output_format(),
     }))
@@ -311,6 +325,7 @@ Usage: unmei-play [--dev] [PACK_DIR]
        unmei-play [PACK_DIR] --check [--format text|json]
        unmei-play [PACK_DIR] --preview DIR [--scene ID | --at SCENE:LINE]
                           [--state FILE] [--pick N,N,...] [--format text|json]
+       unmei-play [PACK_DIR] --export-ui
        unmei-play --help
        unmei-play --version
 ";
@@ -358,6 +373,14 @@ Preview:
                   pack's initial state.
   --pick N,N,...  With --preview: the 1-based option to take at each successive
                   choice; past the end of the list, option 1.
+
+Export:
+  --export-ui     Write the embedded reference plugin into PACK_DIR/ui/ as a
+                  starting point for your own plugin, then exit. A ui/ that
+                  exists and is not empty is left exactly as it is; the mode
+                  opens no window and never touches the pack's sidecars or the
+                  user's credential file. Exit codes: 0 written, 1 a file
+                  could not be written, 2 usage.
 
 Testing (Keiko):
   --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case
