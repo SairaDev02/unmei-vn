@@ -56,6 +56,7 @@ Generated discovery index. Edit a document's frontmatter, then run
   - [Type system](title-and-menu.md#type-system)
   - [Gallery](title-and-menu.md#gallery)
   - [Timeline](title-and-menu.md#timeline)
+- [UI plugin format reference](ui-plugin-format.md) — The UI plugin format and every surface's interface — the slots, controls, lists and copy keys a tree places, with the placeholders an override keeps. (`presentation-surface`, `content-pack`, `pack-validation`)
 - [UI plugins — build-ready spec](ui-plugin-spec.md) — The build-ready spec for UI plugins and variant E as the reference plugin, covering the plugin folder, node kinds, surfaces, motion, caps, rules and preview. (`presentation-surface`, `content-pack`, `pack-validation`, `failure-posture`, `diagnostics`, `agent-tooling`)
 - [UI plugins — requirements for a pack's own look](ui-plugins.md) — The accepted requirements for UI plugins — declarative per-pack looks an author's agent writes, checks and previews, with variant E as the reference plugin. (`presentation-surface`, `content-pack`, `pack-validation`, `failure-posture`, `prototype`)
 
