@@ -17,6 +17,7 @@ use crate::credentials::CredentialsState;
 use crate::menu::{self, MenuAction, MenuState, MenuView};
 use crate::settings::SettingsState;
 use crate::Runtime;
+use unmei_engine::copy;
 
 const OVERLAY_BG: Color = Color::srgba(0.03, 0.035, 0.05, 0.86);
 const RAIL_BG: Color = Color::srgba(0.07, 0.08, 0.11, 0.96);
@@ -72,7 +73,7 @@ pub(in crate::presentation) fn build_overlay(
                     TextColor::from(TEXT),
                 ));
                 rail.spawn((
-                    Text::new(format!("scene: {scene_id}")),
+                    Text::new(copy::render("contents.rail.scene", &[("scene", &scene_id)])),
                     faces.mono(14.0),
                     TextColor::from(DIM),
                 ));
@@ -87,7 +88,7 @@ pub(in crate::presentation) fn build_overlay(
                     },
                     BackgroundColor(BUTTON_BG),
                     BorderColor::all(focus_border(menu, MenuAction::Resume)),
-                    Text::new("\u{25b6} Resume  (Esc)"),
+                    Text::new(copy::text("contents.rail.resume")),
                     faces.sans(16.0),
                     TextColor::from(TEXT),
                 ));
@@ -107,7 +108,7 @@ pub(in crate::presentation) fn build_overlay(
                         },
                         BackgroundColor(BUTTON_BG),
                         BorderColor::all(focus_border(menu, MenuAction::ExitToTitle)),
-                        Text::new("Exit to title"),
+                        Text::new(copy::text("contents.rail.exit-to-title")),
                         faces.sans(16.0),
                         TextColor::from(TEXT),
                     ));
@@ -135,7 +136,7 @@ pub(in crate::presentation) fn build_overlay(
                         faces,
                         menu,
                         MenuAction::SetMode(menu::MenuMode::Save),
-                        "Save",
+                        copy::text("contents.tab.save"),
                         menu.mode == menu::MenuMode::Save,
                     );
                     segment(
@@ -143,7 +144,7 @@ pub(in crate::presentation) fn build_overlay(
                         faces,
                         menu,
                         MenuAction::SetMode(menu::MenuMode::Load),
-                        "Load",
+                        copy::text("contents.tab.load"),
                         menu.mode == menu::MenuMode::Load,
                     );
                     bar.spawn(Node {
@@ -159,7 +160,7 @@ pub(in crate::presentation) fn build_overlay(
                             faces,
                             menu,
                             MenuAction::OpenTimeline,
-                            menu::TIMELINE_HEADING,
+                            copy::text("contents.tab.timeline"),
                             false,
                         );
                         segment(
@@ -167,7 +168,7 @@ pub(in crate::presentation) fn build_overlay(
                             faces,
                             menu,
                             MenuAction::OpenGallery,
-                            menu::GALLERY_HEADING,
+                            copy::text("contents.tab.gallery"),
                             false,
                         );
                         segment(
@@ -175,7 +176,7 @@ pub(in crate::presentation) fn build_overlay(
                             faces,
                             menu,
                             MenuAction::OpenSettings,
-                            "\u{2699} Settings",
+                            copy::text("contents.tab.settings"),
                             false,
                         );
                     }
@@ -249,7 +250,7 @@ pub(in crate::presentation) fn build_overlay(
                             },
                             BackgroundColor(PANEL_BG),
                             BorderColor::all(focus_border(menu, MenuAction::LegacyImport)),
-                            Text::new("Legacy save \u{2014} Import\u{2026}"),
+                            Text::new(copy::text("contents.card.legacy-import")),
                             faces.sans(15.0),
                             TextColor::from(DIM),
                         ));
@@ -285,7 +286,7 @@ pub(in crate::presentation) fn build_overlay(
                             menu,
                             settings,
                             credentials,
-                            "\u{2190} Back to slots",
+                            copy::text("settings.back.slots"),
                         );
                     });
                 }

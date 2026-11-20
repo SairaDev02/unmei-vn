@@ -2,6 +2,7 @@
 //! legacy picker's own state.
 
 use bevy::prelude::*;
+use unmei_engine::copy;
 use unmei_engine::save::{legacy_save, list_slots, Slot, SlotInfo, SlotStatus};
 use unmei_engine::Pack;
 
@@ -273,8 +274,11 @@ impl MenuState {
         match self.slots.get(slot_index(Slot::Autosave)) {
             Some(info) => match &info.status {
                 SlotStatus::Ok { scene_id, saved_at } => {
-                    self.continue_line =
-                        format!("{} \u{00b7} {}", scene_id, format_saved_at(*saved_at));
+                    let saved_at = format_saved_at(*saved_at);
+                    self.continue_line = copy::render(
+                        "title.continue.autosave",
+                        &[("scene", scene_id), ("saved_at", &saved_at)],
+                    );
                     self.continue_enabled = true;
                 }
                 SlotStatus::Unreadable { reason } => {
@@ -284,12 +288,12 @@ impl MenuState {
                     self.continue_enabled = false;
                 }
                 SlotStatus::Empty => {
-                    self.continue_line = "No autosave yet".to_string();
+                    self.continue_line = copy::text("title.continue.empty").to_string();
                     self.continue_enabled = false;
                 }
             },
             None => {
-                self.continue_line = "No autosave yet".to_string();
+                self.continue_line = copy::text("title.continue.empty").to_string();
                 self.continue_enabled = false;
             }
         }

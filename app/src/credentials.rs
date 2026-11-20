@@ -38,6 +38,7 @@ use std::sync::Arc;
 use bevy::clipboard::Clipboard;
 use bevy::prelude::*;
 use bevy::text::TextEdit;
+use unmei_engine::copy;
 use unmei_engine::decision::client::API_KEY_ENV;
 pub use unmei_engine::decision::is_openrouter_key;
 use unmei_engine::DecisionResolver;
@@ -53,8 +54,7 @@ const CREDENTIALS_FILE: &str = "credentials";
 
 /// The env note the key row shows while `NANOGPT_API_KEY` is set
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
-pub const ENV_NOTE: &str =
-    "NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.";
+pub const ENV_NOTE: &str = copy::text("settings.key.env-note");
 
 /// The shortest value the local shape check accepts; the ping, not this check,
 /// decides whether a key works.
@@ -67,7 +67,7 @@ pub const FINGERPRINT_SUFFIX: usize = 4;
 
 /// The placeholder the empty Not-set field shows
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
-pub const KEY_PLACEHOLDER: &str = "Paste or type a NanoGPT key";
+pub const KEY_PLACEHOLDER: &str = copy::text("settings.key.placeholder");
 
 /// How long `Copy path` reads `Copied` after an activation.
 pub const COPIED_LABEL_SECONDS: f32 = 1.5;
@@ -360,22 +360,20 @@ impl KeyRow {
     /// The state line `docs/title-and-menu.md` § Decisions settings §4.1 fixes.
     pub fn state_line(&self) -> String {
         match self {
-            KeyRow::NotSet => "Not set".to_string(),
-            KeyRow::Set { fingerprint } => format!("Set \u{2014} {fingerprint}"),
+            KeyRow::NotSet => copy::text("settings.key.not-set").to_string(),
+            KeyRow::Set { fingerprint } => render_fingerprint("settings.key.set", fingerprint),
             KeyRow::SetUnchecked { fingerprint } => {
-                format!("Set \u{2014} {fingerprint} \u{00b7} not checked (see the log)")
+                render_fingerprint("settings.key.set-unchecked", fingerprint)
             }
-            KeyRow::Checking => "Checking\u{2026}".to_string(),
-            KeyRow::Invalid => "Invalid \u{2014} does not look like a key".to_string(),
-            KeyRow::Rejected { .. } => "Invalid \u{2014} rejected by NanoGPT".to_string(),
-            KeyRow::OpenRouterKey => {
-                "Invalid \u{2014} an OpenRouter key; enter a NanoGPT key".to_string()
-            }
+            KeyRow::Checking => copy::text("settings.key.checking").to_string(),
+            KeyRow::Invalid => copy::text("settings.key.invalid-shape").to_string(),
+            KeyRow::Rejected { .. } => copy::text("settings.key.invalid-rejected").to_string(),
+            KeyRow::OpenRouterKey => copy::text("settings.key.invalid-openrouter").to_string(),
             KeyRow::FromEnvironmentOpenRouter => {
-                "From environment \u{2014} Invalid, an OpenRouter key".to_string()
+                copy::text("settings.key.from-environment-openrouter").to_string()
             }
             KeyRow::FromEnvironment { fingerprint } => {
-                format!("From environment \u{2014} {fingerprint}")
+                render_fingerprint("settings.key.from-environment", fingerprint)
             }
         }
     }
@@ -414,9 +412,17 @@ pub struct CredentialsState {
 /// derived.
 pub fn path_line(path: Option<&Path>) -> String {
     match path {
-        Some(path) => format!("Stored in {}", path.display()),
-        None => "Stored in \u{2014}".to_string(),
+        Some(path) => copy::render(
+            "settings.key.path",
+            &[("path", &path.display().to_string())],
+        ),
+        None => copy::render("settings.key.path", &[("path", "\u{2014}")]),
     }
+}
+
+/// A key row's state line with its fingerprint filled in.
+fn render_fingerprint(id: &str, fingerprint: &str) -> String {
+    copy::render(id, &[("fingerprint", fingerprint)])
 }
 
 /// The launch read, preloaded by `main` before the app exists so the warning can

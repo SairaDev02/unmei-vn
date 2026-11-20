@@ -1,6 +1,7 @@
 //! The contextual card model: what `list_slots` implies for one slot, in the
 //! player's words, and the legacy picker's target rows.
 
+use unmei_engine::copy;
 use unmei_engine::save::{Slot, SlotInfo, SlotStatus};
 
 use super::state::{MenuMode, MenuState};
@@ -49,34 +50,34 @@ pub struct CardModel {
 /// The canonical label for a slot.
 pub fn slot_label(slot: Slot) -> &'static str {
     match slot {
-        Slot::Manual(1) => "Slot 1",
-        Slot::Manual(2) => "Slot 2",
-        Slot::Manual(3) => "Slot 3",
-        Slot::Autosave => "Autosave",
-        Slot::Manual(_) => "Slot",
+        Slot::Manual(1) => copy::text("contents.slot.1"),
+        Slot::Manual(2) => copy::text("contents.slot.2"),
+        Slot::Manual(3) => copy::text("contents.slot.3"),
+        Slot::Autosave => copy::text("contents.slot.autosave"),
+        Slot::Manual(_) => copy::text("contents.slot.manual"),
     }
 }
 
 fn slot_kind(slot: Slot) -> &'static str {
     match slot {
-        Slot::Manual(_) => "manual",
-        Slot::Autosave => "game-written",
+        Slot::Manual(_) => copy::text("contents.slot.kind.manual"),
+        Slot::Autosave => copy::text("contents.slot.kind.autosave"),
     }
 }
 
 fn status_label(status: &SlotStatus) -> &'static str {
     match status {
-        SlotStatus::Empty => "Empty",
-        SlotStatus::Ok { .. } => "Ok",
-        SlotStatus::Unreadable { .. } => "Unreadable",
+        SlotStatus::Empty => copy::text("contents.slot.status.empty"),
+        SlotStatus::Ok { .. } => copy::text("contents.slot.status.ok"),
+        SlotStatus::Unreadable { .. } => copy::text("contents.slot.status.unreadable"),
     }
 }
 
-/// The scene id, the refusal reason, or `—` for an empty slot: the one detail
-/// line a card and a legacy target both render.
+/// The scene id, the refusal reason, or the no-value dash for an empty slot: the
+/// one detail line a card and a legacy target both render.
 fn status_detail(status: &SlotStatus) -> String {
     match status {
-        SlotStatus::Empty => "—".to_string(),
+        SlotStatus::Empty => copy::text("contents.slot.none").to_string(),
         SlotStatus::Ok { scene_id, .. } => scene_id.clone(),
         SlotStatus::Unreadable { reason } => reason.clone(),
     }
@@ -93,12 +94,12 @@ pub fn slot_index(slot: Slot) -> usize {
     }
 }
 
-/// Format an app-stamped epoch as local time. `None` renders as `—`; a value the
-/// clock cannot represent falls back to the raw epoch rather than a fabricated
-/// date.
+/// Format an app-stamped epoch as local time. `None` renders as the no-value
+/// dash; a value the clock cannot represent falls back to the raw epoch rather
+/// than a fabricated date.
 pub fn format_saved_at(saved_at: Option<u64>) -> String {
     let Some(seconds) = saved_at else {
-        return "—".to_string();
+        return copy::text("contents.slot.none").to_string();
     };
     let formatted = jiff::Timestamp::from_second(seconds as i64)
         .ok()
@@ -117,27 +118,30 @@ pub fn format_saved_at(saved_at: Option<u64>) -> String {
 ///
 /// The autosave is never a write target, so it offers no save action at all.
 pub fn card_action(info: &SlotInfo, mode: MenuMode) -> CardAction {
+    let save_here = copy::text("contents.action.save-here");
+    let overwrite = copy::text("contents.action.overwrite");
+    let load = copy::text("contents.action.load");
     match (info.slot, &info.status, mode) {
         (Slot::Manual(_), SlotStatus::Empty, _) => {
-            CardAction::new("Save here", true, false, Some(SlotAction::Write))
+            CardAction::new(save_here, true, false, Some(SlotAction::Write))
         }
         (Slot::Manual(_), SlotStatus::Ok { .. }, MenuMode::Save) => {
-            CardAction::new("Overwrite", true, true, Some(SlotAction::Write))
+            CardAction::new(overwrite, true, true, Some(SlotAction::Write))
         }
         (Slot::Manual(_), SlotStatus::Ok { .. }, MenuMode::Load) => {
-            CardAction::new("Load", true, false, Some(SlotAction::Load))
+            CardAction::new(load, true, false, Some(SlotAction::Load))
         }
         (Slot::Manual(_), SlotStatus::Unreadable { .. }, _) => {
-            CardAction::new("Overwrite", true, true, Some(SlotAction::Write))
+            CardAction::new(overwrite, true, true, Some(SlotAction::Write))
         }
         (Slot::Autosave, SlotStatus::Ok { .. }, MenuMode::Load) => {
-            CardAction::new("Load", true, false, Some(SlotAction::Load))
+            CardAction::new(load, true, false, Some(SlotAction::Load))
         }
         (Slot::Autosave, _, _) => {
             let label = if mode == MenuMode::Save {
-                "Load-only"
+                copy::text("contents.action.load-only")
             } else {
-                "Load"
+                load
             };
             CardAction::new(label, false, false, None)
         }
@@ -147,9 +151,9 @@ pub fn card_action(info: &SlotInfo, mode: MenuMode) -> CardAction {
 /// Build the card model `list_slots` implies, in the current mode.
 pub fn card_model(info: &SlotInfo, mode: MenuMode) -> CardModel {
     let saved_at = match &info.status {
-        SlotStatus::Empty => "no save yet".to_string(),
+        SlotStatus::Empty => copy::text("contents.slot.saved-at.none").to_string(),
         SlotStatus::Ok { saved_at, .. } => format_saved_at(*saved_at),
-        SlotStatus::Unreadable { .. } => "—".to_string(),
+        SlotStatus::Unreadable { .. } => copy::text("contents.slot.none").to_string(),
     };
     CardModel {
         slot: info.slot,
@@ -186,7 +190,7 @@ impl LegacyTargetModel {
     /// The picker row's rendered label, e.g. `Slot 2  (overwrite)`.
     pub fn display(&self) -> String {
         if self.overwrite {
-            format!("{}  (overwrite)", self.label)
+            copy::render("legacy-picker.target.overwrite", &[("slot", self.label)])
         } else {
             self.label.to_string()
         }

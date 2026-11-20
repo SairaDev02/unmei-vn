@@ -12,6 +12,7 @@ use super::decisions::decisions_group;
 use crate::credentials::CredentialsState;
 use crate::menu::{MenuAction, MenuState};
 use crate::settings::{AudioControl, SettingsState, TrackControl};
+use unmei_engine::copy;
 
 /// The one Settings body both doors mount inside their scroll container: the
 /// heading, the three groups in walk order and the door-aware back control. The
@@ -27,7 +28,7 @@ pub(in crate::presentation) fn settings_body(
     back_label: &str,
 ) {
     parent.spawn((
-        Text::new("Settings"),
+        Text::new(copy::text("settings.heading")),
         faces.sans_semibold(26.0),
         TextColor::from(TEXT),
     ));
@@ -60,7 +61,11 @@ pub(in crate::presentation) fn settings_group(
     menu: &MenuState,
     settings: Option<&SettingsState>,
 ) {
-    parent.spawn((Text::new("Audio"), faces.mono(18.0), TextColor::from(DIM)));
+    parent.spawn((
+        Text::new(copy::text("settings.group.audio")),
+        faces.mono(18.0),
+        TextColor::from(DIM),
+    ));
 
     for control in AudioControl::ALL {
         let percent = settings.map(|s| s.percent(control)).unwrap_or(100);
@@ -137,7 +142,13 @@ pub(in crate::presentation) fn settings_group(
         muted,
     );
 
-    reset_button(parent, faces, menu, MenuAction::AudioReset, "Reset audio");
+    reset_button(
+        parent,
+        faces,
+        menu,
+        MenuAction::AudioReset,
+        copy::text("settings.control.reset-audio"),
+    );
 }
 
 /// Render the Play group: the stepped Text-speed control, the Auto and
@@ -149,7 +160,11 @@ pub(in crate::presentation) fn play_group(
     menu: &MenuState,
     settings: Option<&SettingsState>,
 ) {
-    parent.spawn((Text::new("Play"), faces.mono(18.0), TextColor::from(DIM)));
+    parent.spawn((
+        Text::new(copy::text("settings.group.play")),
+        faces.mono(18.0),
+        TextColor::from(DIM),
+    ));
     text_speed_row(parent, faces, menu, settings);
 
     let auto_action = MenuAction::PlayAuto;
@@ -174,5 +189,11 @@ pub(in crate::presentation) fn play_group(
         fullscreen,
     );
 
-    reset_button(parent, faces, menu, MenuAction::PlayReset, "Reset play");
+    reset_button(
+        parent,
+        faces,
+        menu,
+        MenuAction::PlayReset,
+        copy::text("settings.control.reset-play"),
+    );
 }

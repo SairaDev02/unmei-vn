@@ -16,6 +16,7 @@ use crate::credentials::CredentialsState;
 use crate::menu::MenuState;
 use crate::settings::SettingsState;
 use crate::Runtime;
+use unmei_engine::copy;
 
 /// The title door's Settings view: the same groups as the overlay's, in a
 /// top-anchored panel, with `← Back to title` and no rail, Resume or
@@ -96,7 +97,7 @@ pub(in crate::presentation) fn build_title_settings(
                             menu,
                             settings,
                             credentials,
-                            "\u{2190} Back to title",
+                            copy::text("settings.back.title"),
                         );
                     });
             });

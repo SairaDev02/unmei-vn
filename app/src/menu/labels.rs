@@ -1,5 +1,12 @@
-//! The overlay's copy: the walk orders, the headings, the legends and the
-//! door-aware labels the owner pins.
+//! The overlay's copy: the walk orders, and the app's names for the interface
+//! strings the engine's copy table owns.
+//!
+//! The text itself lives in [`unmei_engine::copy`], the one owner of every
+//! interface string. These constants keep the paths the menu and the app's tests
+//! already name, so a surface reads the table through the name its caller
+//! already uses.
+
+use unmei_engine::copy;
 
 use crate::settings::{AudioControl, TrackControl};
 
@@ -17,55 +24,50 @@ pub const TITLE_ORDER: [MenuFocus; 5] = [
 ];
 
 /// The title's fixed foot-row legend (`docs/title-and-menu.md` § Title §6).
-pub const TITLE_LEGEND: &str =
-    "\u{2191}/\u{2193} move \u{00b7} Enter select \u{00b7} click to choose";
+pub const TITLE_LEGEND: &str = copy::text("title.legend");
 
 /// The gallery's heading (`docs/title-and-menu.md` § Gallery `### Behavior`
 /// §7).
-pub const GALLERY_HEADING: &str = "Gallery";
+pub const GALLERY_HEADING: &str = copy::text("gallery.heading");
 
 /// The line an empty pack draws in place of the grid
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §6).
-pub const GALLERY_EMPTY: &str = "No images in this pack";
+pub const GALLERY_EMPTY: &str = copy::text("gallery.empty");
 
 /// The gallery grid's legend, right-aligned in the header
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §7).
-pub const GALLERY_GRID_LEGEND: &str =
-    "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter view \u{00b7} click to open";
+pub const GALLERY_GRID_LEGEND: &str = copy::text("gallery.legend");
 
 /// The still view's legend, under the caption in the faint tone
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §7).
-pub const GALLERY_STILL_LEGEND: &str =
-    "\u{2190}/\u{2192} browse \u{00b7} \u{2191}/\u{2193} or Esc or click to close";
+pub const GALLERY_STILL_LEGEND: &str = copy::text("still.legend");
 
 /// The gallery's door-aware back label (`docs/title-and-menu.md` § Gallery
 /// `### Behavior` §3/§7).
 pub fn gallery_back_label(origin: MenuOrigin) -> &'static str {
     match origin {
-        MenuOrigin::Slots => "\u{2190} Back to slots",
-        MenuOrigin::Title => "\u{2190} Back to title",
+        MenuOrigin::Slots => copy::text("gallery.back.slots"),
+        MenuOrigin::Title => copy::text("gallery.back.title"),
     }
 }
 
 /// The Timeline's heading (`docs/title-and-menu.md` § Timeline §3).
-pub const TIMELINE_HEADING: &str = "Timeline";
+pub const TIMELINE_HEADING: &str = copy::text("timeline.heading");
 /// The Timeline's door-aware back label. Timeline's only door is the overlay's
 /// slot grid, so the label is fixed (`docs/title-and-menu.md` § Timeline §1).
-pub const TIMELINE_BACK: &str = "\u{2190} Back to slots";
+pub const TIMELINE_BACK: &str = copy::text("timeline.back");
 /// The Timeline's explanatory line, under the heading in every non-card state.
-pub const TIMELINE_EXPLANATION: &str =
-    "Choose a visited scene to start it from the beginning with your current state.";
+pub const TIMELINE_EXPLANATION: &str = copy::text("timeline.explanation");
 /// The Timeline's empty state (`docs/title-and-menu.md` § Timeline §3).
-pub const TIMELINE_EMPTY: &str = "This pack has no Timeline.";
+pub const TIMELINE_EMPTY: &str = copy::text("timeline.empty");
 /// The label an unvisited card exposes in place of the scene id.
-pub const TIMELINE_LOCKED: &str = "???";
+pub const TIMELINE_LOCKED: &str = copy::text("timeline.locked");
 /// The Timeline's walk legend, right-aligned in the header (`docs/title-and-menu.md`
 /// § Timeline §3).
-pub const TIMELINE_LEGEND: &str =
-    "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter/Space select \u{00b7} Esc back \u{00b7} click to choose";
+pub const TIMELINE_LEGEND: &str = copy::text("timeline.legend");
 /// The Timeline confirm's detail sentence, verbatim (`docs/title-and-menu.md`
 /// § Timeline §3).
-pub const TIMELINE_CONFIRM_DETAIL: &str = "Unsaved progress is lost and any decision in flight is cancelled. The scene restarts from the beginning. Current game state is retained.";
+pub const TIMELINE_CONFIRM_DETAIL: &str = copy::text("confirm.timeline-jump.detail");
 
 /// The Settings view's controls, top to bottom. The keyboard walks this order
 /// with `↑`/`↓`; the card grid's `←`/`→` focus rule deliberately does not apply

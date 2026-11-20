@@ -9,6 +9,7 @@ use super::super::style::{TextFaces, BUTTON_BG, DIM, FAINT, PANEL_BG, TEXT};
 use crate::credentials::CredentialsState;
 use crate::menu::{self, MenuAction, MenuState};
 use crate::Runtime;
+use unmei_engine::copy;
 
 const DANGER: Color = Color::srgb(0.48, 0.16, 0.16);
 
@@ -22,60 +23,52 @@ pub(in crate::presentation) fn confirm_dialog(
 ) {
     let (title, detail, accept): (String, String, &str) = match confirm {
         menu::ConfirmKind::Overwrite(slot) => (
-            "Overwrite".to_string(),
-            format!(
-                "Overwrite {}? Its current save is replaced.",
-                menu::slot_label(slot)
+            copy::text("confirm.overwrite.title").to_string(),
+            copy::render(
+                "confirm.overwrite.prompt",
+                &[("slot", menu::slot_label(slot))],
             ),
-            "Yes",
+            copy::text("confirm.button.yes"),
         ),
         menu::ConfirmKind::Load(slot) => (
-            "Load".to_string(),
-            format!(
-                "Load {}? Unsaved progress is lost and any decision in flight is cancelled.",
-                menu::slot_label(slot)
-            ),
-            "Yes",
+            copy::text("confirm.load.title").to_string(),
+            copy::render("confirm.load.prompt", &[("slot", menu::slot_label(slot))]),
+            copy::text("confirm.button.yes"),
         ),
         menu::ConfirmKind::ResetAudio => (
-            "Reset audio".to_string(),
-            "Reset Master, Music and SFX to 100% and turn mute off? The file is not deleted."
-                .to_string(),
-            "Yes",
+            copy::text("confirm.reset-audio.title").to_string(),
+            copy::text("confirm.reset-audio.prompt").to_string(),
+            copy::text("confirm.button.yes"),
         ),
         menu::ConfirmKind::ResetPlay => (
-            "Reset play".to_string(),
-            "Reset text speed to Instant, turn auto off and return to windowed? The audio mix is untouched and the file is not deleted."
-                .to_string(),
-            "Yes",
+            copy::text("confirm.reset-play.title").to_string(),
+            copy::text("confirm.reset-play.prompt").to_string(),
+            copy::text("confirm.button.yes"),
         ),
         menu::ConfirmKind::NewGame => (
-            "Start a new game?".to_string(),
-            "The session in progress is discarded. Your saved slots and the autosave are untouched."
-                .to_string(),
-            "Start",
+            copy::text("confirm.new-game.title").to_string(),
+            copy::text("confirm.new-game.prompt").to_string(),
+            copy::text("confirm.button.start"),
         ),
         menu::ConfirmKind::Quit => (
-            "Quit?".to_string(),
-            "Unsaved progress is lost and any decision in flight is cancelled.".to_string(),
-            "Quit",
+            copy::text("confirm.quit.title").to_string(),
+            copy::text("confirm.quit.prompt").to_string(),
+            copy::text("confirm.button.quit"),
         ),
         menu::ConfirmKind::ExitToTitle => (
-            "Exit to the title?".to_string(),
-            "Your session is kept \u{2014} Continue resumes it where you left off.".to_string(),
-            "Exit",
+            copy::text("confirm.exit-to-title.title").to_string(),
+            copy::text("confirm.exit-to-title.prompt").to_string(),
+            copy::text("confirm.button.exit"),
         ),
         menu::ConfirmKind::ClearKey => {
             let path = credentials
                 .and_then(|state| state.path.as_deref())
                 .map(|path| path.display().to_string())
-                .unwrap_or_else(|| "\u{2014}".to_string());
+                .unwrap_or_else(|| copy::text("confirm.clear-key.none").to_string());
             (
-                "Clear key?".to_string(),
-                format!(
-                    "The stored key is deleted from {path}. You can paste it again at any time."
-                ),
-                "Yes",
+                copy::text("confirm.clear-key.title").to_string(),
+                copy::render("confirm.clear-key.prompt", &[("path", &path)]),
+                copy::text("confirm.button.yes"),
             )
         }
         menu::ConfirmKind::TimelineJump(index) => {
@@ -87,9 +80,9 @@ pub(in crate::presentation) fn confirm_dialog(
                 .cloned()
                 .unwrap_or_default();
             (
-                format!("Jump to {scene_id}?"),
+                copy::render("confirm.timeline-jump.title", &[("scene", &scene_id)]),
                 menu::TIMELINE_CONFIRM_DETAIL.to_string(),
-                "Jump",
+                copy::text("confirm.button.jump"),
             )
         }
     };
@@ -169,7 +162,7 @@ pub(in crate::presentation) fn confirm_dialog(
                                 },
                                 BackgroundColor(BUTTON_BG),
                                 BorderColor::all(focus_border(menu, MenuAction::ConfirmCancel)),
-                                Text::new("Cancel"),
+                                Text::new(copy::text("confirm.button.cancel")),
                                 faces.sans(16.0),
                                 TextColor::from(TEXT),
                             ));
@@ -216,12 +209,12 @@ pub(super) fn legacy_picker(
                 ))
                 .with_children(|panel| {
                     panel.spawn((
-                        Text::new("Import legacy save"),
+                        Text::new(copy::text("legacy-picker.heading")),
                         faces.sans_semibold(22.0),
                         TextColor::from(TEXT),
                     ));
                     panel.spawn((
-                        Text::new("Choose a slot. Occupied slots are overwritten."),
+                        Text::new(copy::text("legacy-picker.prompt")),
                         faces.sans(15.0),
                         TextColor::from(DIM),
                     ));
@@ -270,7 +263,7 @@ pub(super) fn legacy_picker(
                         },
                         BackgroundColor(BUTTON_BG),
                         BorderColor::all(focus_border(menu, MenuAction::LegacyCancel)),
-                        Text::new("Cancel"),
+                        Text::new(copy::text("legacy-picker.cancel")),
                         faces.sans(16.0),
                         TextColor::from(TEXT),
                     ));

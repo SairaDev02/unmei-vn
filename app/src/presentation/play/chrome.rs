@@ -10,6 +10,7 @@ use crate::core::SkipState;
 use crate::failure::Notice;
 use crate::menu::MenuState;
 use crate::settings::SettingsState;
+use unmei_engine::copy;
 
 /// Spawn the dialogue band's one text node: the mono speaker prefix as the root
 /// text, with the sans prose as a [`TextSpan`] child. Shared by [`setup_ui`] and
@@ -87,7 +88,7 @@ pub(crate) fn setup_ui(mut commands: Commands, faces: Res<TextFaces>) {
             left: Val::Px(16.0),
             ..default()
         },
-        Text::new(HELP_LINE),
+        Text::new(copy::text("play.help")),
         faces.mono(14.0),
         TextColor::from(Color::srgba(1.0, 1.0, 1.0, 0.5)),
     ));
@@ -133,7 +134,7 @@ pub(crate) fn sync_auto_cue(
         && !skip.as_deref().is_some_and(SkipState::is_on)
         && !menu.as_deref().is_some_and(MenuState::title_surface_up)
     {
-        "AUTO"
+        copy::text("play.cue.auto")
     } else {
         ""
     };
@@ -156,7 +157,7 @@ pub(crate) fn sync_skip_cue(
     let want = if skip.as_deref().is_some_and(SkipState::is_on)
         && !menu.as_deref().is_some_and(MenuState::title_surface_up)
     {
-        "SKIP"
+        copy::text("play.cue.skip")
     } else {
         ""
     };
@@ -167,11 +168,10 @@ pub(crate) fn sync_skip_cue(
     }
 }
 
-/// The in-play help line's fixed text; cleared while the title is up. Names both
-/// skip controls — the `Tab` seen toggle and the held `Ctrl` force skip
+/// The in-play help line's key; cleared while the title is up. Names both skip
+/// controls — the `Tab` seen toggle and the held `Ctrl` force skip
 /// (`docs/runtime-hardening.md` § Text skip §7).
-pub(super) const HELP_LINE: &str =
-    "Space/Enter/click advance \u{00b7} Tab skip \u{00b7} Ctrl skip all \u{00b7} 1-9 or click choose \u{00b7} A auto \u{00b7} F11 fullscreen \u{00b7} Esc menu";
+pub(super) const HELP_LINE: &str = copy::text("play.help");
 
 /// The cue slot's shared geometry, at the 1280x720 reference
 /// (`docs/runtime-hardening.md` § Text skip §7).

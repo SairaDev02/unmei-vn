@@ -16,6 +16,7 @@ use crate::credentials::{
 };
 use crate::input::InputOwnership;
 use crate::menu::{MenuAction, MenuState};
+use unmei_engine::copy;
 
 /// The key row's live state line, repainted in place so a row-state change
 /// never rebuilds the tree (which would drop the field's typed text).
@@ -46,7 +47,7 @@ pub(super) fn decisions_group(
     credentials: Option<&CredentialsState>,
 ) {
     parent.spawn((
-        Text::new("Decisions"),
+        Text::new(copy::text("settings.group.decisions")),
         faces.mono(18.0),
         TextColor::from(DIM),
     ));
@@ -145,7 +146,7 @@ pub(super) fn decisions_group(
         BackgroundColor(BUTTON_BG),
         BorderColor::all(focus_border(menu, MenuAction::CopyKeyPath)),
         CopyPathLabelText,
-        Text::new("Copy path"),
+        Text::new(copy::text("settings.control.copy-path")),
         faces.sans(16.0),
         TextColor::from(TEXT),
     ));
@@ -161,7 +162,7 @@ pub(super) fn decisions_group(
         },
         BackgroundColor(BUTTON_BG),
         BorderColor::all(focus_border(menu, MenuAction::ClearKey)),
-        Text::new("Clear key"),
+        Text::new(copy::text("settings.control.clear-key")),
         faces.sans(16.0),
         TextColor::from(if from_environment { FAINT } else { TEXT }),
     ));
@@ -328,9 +329,9 @@ pub(crate) fn sync_copy_path_label(
         label.remaining = (label.remaining - time.delta_secs()).max(0.0);
     }
     let want = if label.remaining > 0.0 {
-        "Copied"
+        copy::text("settings.control.copy-path.copied")
     } else {
-        "Copy path"
+        copy::text("settings.control.copy-path")
     };
     for mut text in &mut texts {
         if text.as_str() != want {
