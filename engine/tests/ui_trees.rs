@@ -108,22 +108,47 @@ fn color_of(fill: Option<&Fill>) -> Color {
     }
 }
 
-/// `depth` nodes on the longest chain, each a box nested in the one before.
+/// `depth` nodes on the longest chain, each a box nested in the one before. The
+/// `play` interface stands beside the chain, at depth 2, so the tree is also one
+/// the interface pass accepts.
 fn nested(depth: usize) -> String {
     let mut tree = "(kind: \"box\")".to_string();
-    for _ in 1..depth {
+    for _ in 2..depth {
         tree = format!("(kind: \"box\", children: [{tree}])");
     }
-    tree
+    format!("(kind: \"box\", children: [{tree},{PLAY_INTERFACE}])")
 }
 
-/// A root box with `nodes - 1` empty-box children: `nodes` nodes in all.
+/// A root box with [`PLAY_INTERFACE`] and enough empty-box children to hold
+/// `nodes` nodes in all.
 fn wide(nodes: usize) -> String {
-    let children = std::iter::repeat_n("(kind: \"box\")", nodes - 1)
+    let filler = nodes - 1 - PLAY_INTERFACE_NODES;
+    let children = std::iter::repeat_n("(kind: \"box\")", filler)
         .collect::<Vec<_>>()
         .join(",");
-    format!("(kind: \"box\", children: [{children}])")
+    format!("(kind: \"box\", children: [{children},{PLAY_INTERFACE}])")
 }
+
+/// The interface a `play` tree must place: ticket #107's table as root children.
+/// A fixture about one node or one property appends it, so the tree is also one
+/// the interface pass accepts.
+const PLAY_INTERFACE: &str = r#"
+        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "advance-marker"),
+        (kind: "slot", slot: "deciding-marker"),
+        (kind: "list", list: "choices", item: (kind: "box", children: [
+            (kind: "slot", slot: "choice.number"),
+            (kind: "slot", slot: "choice.text"),
+        ])),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "play.save"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu")"#;
+
+/// The nodes [`PLAY_INTERFACE`] adds, its ten root children included.
+const PLAY_INTERFACE_NODES: usize = 13;
 
 // --- The six node kinds -----------------------------------------------------
 
@@ -150,15 +175,24 @@ const ALL_KINDS: &str = r#"(
         (kind: "glyph", glyph: "❧", typography: "{typography.flourish}",
          fill: "{colors.ink}"),
         (kind: "text", text: "play.deciding", typography: "{typography.body}"),
-        (kind: "slot", slot: "confirm.yes",
+        (kind: "slot", slot: "play.save",
          focused: (fill: "{colors.focus}"),
          disabled: (opacity: 0.5),
          lit: (border: (width: 1.0, color: "{colors.ink}")),
          current: (radius: "{rounded.box}")),
-        (kind: "list", list: "title.rows", focused: (opacity: 0.8),
+        (kind: "list", list: "choices", focused: (opacity: 0.8),
          item: (kind: "box", direction: "row", children: [
-             (kind: "slot", slot: "title.row.label"),
+             (kind: "slot", slot: "choice.number"),
+             (kind: "slot", slot: "choice.text"),
          ])),
+        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "advance-marker"),
+        (kind: "slot", slot: "deciding-marker"),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu"),
     ],
 )"#;
 
@@ -210,7 +244,7 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     );
     assert_eq!(root_box.align_items, AlignItems::Center);
     assert_eq!(root_box.justify_content, JustifyContent::SpaceBetween);
-    assert_eq!(root_box.children.len(), 5);
+    assert_eq!(root_box.children.len(), 13);
 
     let NodeKind::Image(ref image) = root_box.children[0].kind else {
         panic!("an image: {:?}", root_box.children[0].kind);
@@ -245,7 +279,7 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     let NodeKind::Slot(ref slot) = root_box.children[3].kind else {
         panic!("a slot: {:?}", root_box.children[3].kind);
     };
-    assert_eq!(slot.slot, "confirm.yes");
+    assert_eq!(slot.slot, "play.save");
     let focused = slot.states.focused.as_ref().expect("the focused state");
     assert_eq!(color_of(focused.fill.as_ref()), focus());
     let disabled = slot.states.disabled.as_ref().expect("the disabled state");
@@ -258,7 +292,7 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     let NodeKind::List(ref list) = root_box.children[4].kind else {
         panic!("a list: {:?}", root_box.children[4].kind);
     };
-    assert_eq!(list.list, "title.rows");
+    assert_eq!(list.list, "choices");
     close(
         list.states
             .focused
@@ -275,7 +309,7 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     let NodeKind::Slot(ref label) = item.children[0].kind else {
         panic!("the item's slot: {:?}", item.children[0].kind);
     };
-    assert_eq!(label.slot, "title.row.label");
+    assert_eq!(label.slot, "choice.number");
 }
 
 // --- Node findings carry the node path -------------------------------------
@@ -330,7 +364,11 @@ fn glyph(text: &str) -> String {
 
 #[test]
 fn a_glyph_of_eight_characters_passes() {
-    let outcome = load(TOKENS, &[("play", &glyph("❧❧❧❧❧❧❧❧"))]);
+    let tree = format!(
+        "(kind: \"box\", children: [ (kind: \"glyph\", glyph: \"❧❧❧❧❧❧❧❧\", \
+         typography: \"{{typography.flourish}}\"),{PLAY_INTERFACE}])"
+    );
+    let outcome = load(TOKENS, &[("play", &tree)]);
     assert_eq!(reported(&outcome), []);
     let root = &plugin(&outcome).surfaces["play"];
     let NodeKind::Box(ref root_box) = root.kind else {
@@ -442,7 +480,8 @@ fn a_tree_whose_root_is_not_a_box_fails() {
 
 #[test]
 fn a_surface_with_no_tree_file_is_not_a_failure() {
-    let outcome = load(TOKENS, &[("play", "(kind: \"box\")")]);
+    let tree = format!("(kind: \"box\", children: [{PLAY_INTERFACE}])");
+    let outcome = load(TOKENS, &[("play", &tree)]);
     let plugin = plugin(&outcome);
     assert_eq!(reported(&outcome), []);
     assert_eq!(plugin.surfaces.len(), 1);

@@ -32,6 +32,9 @@ pub const MAX_NODES: usize = 2_000;
 /// Depth of one surface tree, the root counted as 1.
 pub const MAX_DEPTH: usize = 32;
 
+/// Characters in one copy override, the smallest of the caps.
+pub const MAX_COPY_CHARS: usize = 512;
+
 const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 
 /// The image files a plugin may ship, by extension (spec §2's "any other file",
