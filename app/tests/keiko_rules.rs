@@ -1795,6 +1795,58 @@ frame titled
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// Rule 35, and the multi-frame capture the preview's rule 22 exposed: every
+/// `frame` a take is given writes its own PNG. A readback that redrew the
+/// composition into the target image while the previous copy was still queued
+/// fell one frame further behind each time and failed on the fourth.
+#[test]
+fn every_frame_step_a_take_is_given_writes_its_png() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "many-frames",
+            "keiko 1
+setting play.text_speed 0
+
+new-game
+expect line contains \"Morning light\"
+frame
+frame one
+frame two
+frame three
+",
+        )],
+    );
+    let output = run(&pack, &["--take", "many-frames"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let paths = frame_paths(&output);
+    assert_eq!(
+        paths.len(),
+        4,
+        "one path per frame step:\n{}",
+        stderr(&output)
+    );
+    for (path, name) in paths
+        .iter()
+        .zip(["1.png", "2-one.png", "3-two.png", "4-three.png"])
+    {
+        assert!(path.exists(), "{} exists", path.display());
+        assert_eq!(
+            path.file_name().unwrap(),
+            name,
+            "the frame's ordinal and name"
+        );
+        let image = image::open(path).expect("the frame decodes as an image");
+        assert_eq!(
+            (image.width(), image.height()),
+            (1280, 720),
+            "the frame is the reference size"
+        );
+    }
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Rule 36: a control click goes through the player's own hit test — it starts
 /// play, and a click on a control the confirm surface covers does nothing.
 #[test]
