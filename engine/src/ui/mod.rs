@@ -12,8 +12,9 @@
 //! The passes run in one order — the paths a source lists, the folder's caps,
 //! the manifest, the tokens, then each surface tree — and each pass ends the
 //! plugin when it found an error, so a folder that breaks a cap is never read
-//! on and a token table that failed is never resolved in a tree. Slots, fonts
-//! and motion add their passes here (tickets #107–#109).
+//! on and a token table that failed is never resolved in a tree. A tree's loops
+//! are judged by §6 while its surface parses it, which is where the tree and the
+//! surface id meet. Slots and fonts add their passes here (tickets #107, #108).
 
 mod caps;
 mod file;
@@ -37,7 +38,7 @@ pub use self::caps::{
     MAX_DEPTH, MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_NODES, MAX_TOTAL_BYTES,
 };
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
-pub use self::motion::{Easing, Keyframe, Motion};
+pub use self::motion::{Easing, Keyframe, Motion, MAX_FLASHES_PER_SECOND, MIN_PERIOD_MS};
 pub use self::node::{
     BoxNode, ControlStates, Fit, GlyphNode, ImageNode, ListNode, Node, NodeKind, SlotNode,
     TextNode, MAX_GLYPH_CHARS,
@@ -49,7 +50,7 @@ pub use self::source::{DirSource, MemorySource, Source};
 pub use self::style::{
     AlignItems, Component, Dimension, Direction, JustifyContent, Offsets, Padding, Position, Style,
 };
-pub use self::surface::SURFACE_IDS;
+pub use self::surface::{ORNAMENT_SLOTS, SURFACE_IDS};
 pub use self::tokens::{Color, Tokens, Typography};
 
 use self::source::display;
