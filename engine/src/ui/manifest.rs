@@ -12,6 +12,7 @@ use std::collections::BTreeMap;
 
 use crate::finding::{rules, Finding, Location};
 
+use super::file::read_ron;
 use super::source::{check_relative, Source};
 
 /// The manifest's file, relative to the plugin folder.
@@ -60,25 +61,32 @@ pub enum Numbering {
 }
 
 impl Numbering {
+    /// Each style with the spelling a manifest authors, in the order a message
+    /// names them. This is the one list: [`Self::STYLES`] and [`Self::parse`]
+    /// both derive from it.
+    const ALL: [(Numbering, &'static str); 5] = [
+        (Numbering::Arabic, "arabic"),
+        (Numbering::RomanUpper, "roman-upper"),
+        (Numbering::RomanLower, "roman-lower"),
+        (Numbering::AlphaUpper, "alpha-upper"),
+        (Numbering::AlphaLower, "alpha-lower"),
+    ];
+
     /// The five authored spellings, in the order a message names them.
     pub const STYLES: [&'static str; 5] = [
-        "arabic",
-        "roman-upper",
-        "roman-lower",
-        "alpha-upper",
-        "alpha-lower",
+        Numbering::ALL[0].1,
+        Numbering::ALL[1].1,
+        Numbering::ALL[2].1,
+        Numbering::ALL[3].1,
+        Numbering::ALL[4].1,
     ];
 
     /// The style `authored` names.
     pub fn parse(authored: &str) -> Option<Numbering> {
-        match authored {
-            "arabic" => Some(Numbering::Arabic),
-            "roman-upper" => Some(Numbering::RomanUpper),
-            "roman-lower" => Some(Numbering::RomanLower),
-            "alpha-upper" => Some(Numbering::AlphaUpper),
-            "alpha-lower" => Some(Numbering::AlphaLower),
-            _ => None,
-        }
+        let index = Numbering::ALL
+            .iter()
+            .position(|(_, style)| *style == authored)?;
+        Some(Numbering::ALL[index].0)
     }
 }
 
@@ -122,42 +130,9 @@ pub(super) fn check(source: &dyn Source, findings: &mut Vec<Finding>) -> Option<
         ));
         return None;
     }
-    let bytes = match source.read(FILE) {
-        Ok(bytes) => bytes,
-        Err(reason) => {
-            findings.push(Finding::new(
-                file,
-                Location::File,
-                rules::UI_FILE_READ,
-                format!("cannot read the plugin manifest: {reason}"),
-            ));
-            return None;
-        }
-    };
-    let text = match String::from_utf8(bytes) {
-        Ok(text) => text,
-        Err(_) => {
-            findings.push(Finding::new(
-                file,
-                Location::File,
-                rules::UI_PARSE,
-                "the plugin manifest is not UTF-8",
-            ));
-            return None;
-        }
-    };
-    let value: ron::Value = match ron::from_str(&text) {
-        Ok(value) => value,
-        Err(error) => {
-            findings.push(Finding::new(
-                file,
-                Location::File,
-                rules::UI_PARSE,
-                format!("invalid RON: {error}"),
-            ));
-            return None;
-        }
-    };
+    // A missing file is the folder's own message above; every other read or
+    // parse failure is the reader's, exactly as it is for the other files.
+    let value = read_ron(source, FILE, "plugin manifest", findings)?;
 
     // `numbering` is one of five authored strings, and the typed parse can only
     // report a style it does not know at the file. The raw value is read first
