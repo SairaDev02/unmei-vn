@@ -33,47 +33,47 @@
 //! - When the manifest's optional `scenes` list is non-empty it is the declared
 //!   order: every id must match a loaded scene exactly and appear once, and
 //!   every loaded scene not listed warns once (the entry scene's warning is
-//!   dedicated). Diagnostics accumulate and are sorted by scene id.
+//!   dedicated). Diagnostics accumulate from every rule rather than stopping at
+//!   the first, and `load_pack` sorts them.
 //!
-//! Asset files are **not** checked for existence: packs validate structurally
-//! (see `examples/demo-pack/assets/README.md`).
+//! A `pack.ron` or `state.ron` that will not read or decode contributes its one
+//! finding and skips only the rules that read it (check-and-preview spec §3):
+//! without a manifest the entry-scene, `scenes`, tagline and backdrop rules do
+//! not run, and without a state vocabulary so do the declared-key, kind,
+//! `{var}`, condition and `state_keys` rules. Every other rule still runs.
+//!
+//! Loading validates the pack structurally and checks no asset file: play
+//! degrades silently on a missing one. The author-facing check reports the
+//! referenced files that do not exist, through the loaded pack's separate asset
+//! rule ([`Pack::missing_asset_findings`], check-and-preview spec §5).
 //!
 //! This root owns the directory read and the per-file decode; `validate` is the
-//! semantic pass they hand their result to, and `entries` holds the read-only
-//! views a loaded pack derives for the title, gallery and Timeline surfaces.
+//! semantic pass they hand their result to, `state_rules` holds the rules that
+//! need the state vocabulary, and `entries` holds the read-only views a loaded
+//! pack derives for the title, gallery and Timeline surfaces.
 
+mod assets;
 mod entries;
+mod state_rules;
 mod validate;
 
 use std::collections::HashMap;
-use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::content::{Manifest, Npc, Pack, Scene, StateValue};
-use crate::error::LoadError;
+use crate::finding::{rules, sort_findings, Finding, Location};
 use crate::parser::Parser;
 
 use self::validate::validate;
 
-/// A validation warning: real but non-fatal (the pack still loads).
-#[derive(Debug, Clone, PartialEq)]
-pub struct Warning {
-    pub file: String,
-    pub message: String,
-}
-
-impl fmt::Display for Warning {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}: {}", self.file, self.message)
-    }
-}
+pub use self::assets::{AssetKind, AssetReference};
 
 /// A loaded pack plus its warnings.
 #[derive(Debug)]
 pub struct LoadedPack {
     pub pack: Pack,
-    pub warnings: Vec<Warning>,
+    pub warnings: Vec<Finding>,
 }
 
 /// The tagline length the 1280x720 title column fits; past it the loader warns
@@ -117,31 +117,78 @@ pub fn read_pack_text(path: &Path) -> std::io::Result<String> {
 }
 
 /// Load and validate a content pack from a directory.
-pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
-    let mut errors: Vec<LoadError> = Vec::new();
-    let mut warnings: Vec<Warning> = Vec::new();
+///
+/// Every file is read and parsed before the result is decided, so one broken
+/// file never hides the problems in the others (spec §3).
+pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<Finding>> {
+    let mut errors: Vec<Finding> = Vec::new();
+    let mut warnings: Vec<Finding> = Vec::new();
 
-    // --- manifest -----------------------------------------------------------
-    let manifest_path = root.join("pack.ron");
-    let manifest_src = match read_pack_text(&manifest_path) {
+    let manifest = read_manifest(root, &mut errors, &mut warnings);
+    let state = read_state(root, &mut errors);
+    let scenes = read_scenes(root, &mut errors);
+    let npcs = read_npcs(root, &mut errors);
+
+    validate(
+        manifest.as_ref(),
+        state.as_ref(),
+        &scenes,
+        &npcs,
+        &mut errors,
+        &mut warnings,
+    );
+    sort_findings(&mut errors);
+    sort_findings(&mut warnings);
+
+    // A file that did not read or decode recorded its finding above, so the
+    // pack is returned only when both decoded and no rule objected.
+    let (Some(manifest), Some(state)) = (manifest, state) else {
+        return Err(errors);
+    };
+    if !errors.is_empty() {
+        return Err(errors);
+    }
+    Ok(LoadedPack {
+        pack: Pack {
+            manifest,
+            state,
+            scenes,
+            npcs,
+            root: root.to_path_buf(),
+        },
+        warnings,
+    })
+}
+
+/// Read and decode `pack.ron` with its optional tagline and backdrop id; `None`
+/// when a finding was recorded instead, which skips the manifest rules.
+fn read_manifest(
+    root: &Path,
+    errors: &mut Vec<Finding>,
+    warnings: &mut Vec<Finding>,
+) -> Option<Manifest> {
+    let src = match read_pack_text(&root.join("pack.ron")) {
         Ok(s) => s,
         Err(e) => {
-            return Err(vec![LoadError::new(
+            errors.push(Finding::new(
                 "pack.ron",
-                None,
+                Location::File,
+                rules::PACK_FILE_READ,
                 format!("cannot read pack manifest: {e}"),
-            )]);
+            ));
+            return None;
         }
     };
-    let mut manifest: Manifest = match ron::from_str(&manifest_src) {
+    let mut manifest: Manifest = match ron::from_str(&src) {
         Ok(m) => m,
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "pack.ron",
-                None,
+                Location::File,
+                rules::PACK_FILE_RON,
                 format!("invalid RON: {e}"),
             ));
-            return Err(errors);
+            return None;
         }
     };
     // Normalise the optional tagline before validation: the raw value is
@@ -151,53 +198,78 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             Ok(Some(tagline)) => {
                 let len = tagline.chars().count();
                 if len > TAGLINE_WARN_LEN {
-                    warnings.push(Warning {
-                        file: "pack.ron".to_string(),
-                        message: format!(
+                    warnings.push(Finding::warning(
+                        "pack.ron", Location::File,
+                        rules::PACK_MANIFEST_TAGLINE_LENGTH,
+                        format!(
                             "tagline is {len} characters long; the 1280x720 title column fits {TAGLINE_WARN_LEN}"
                         ),
-                    });
+                    ));
                 }
                 manifest.tagline = Some(tagline);
             }
             Ok(None) => {}
-            Err(message) => errors.push(LoadError::new("pack.ron", None, message)),
+            Err(message) => errors.push(Finding::new(
+                "pack.ron",
+                Location::File,
+                rules::PACK_MANIFEST,
+                message,
+            )),
         }
     }
     // The optional title backdrop names an asset resolved exactly like
     // `bg`, so it shares the ids' `[a-z0-9_]+` rule: a malformed id is a load
-    // error. The file's existence is not checked here (assets are not), so a
-    // declared-but-missing file stays a runtime silent degradation.
+    // error. Loading checks no asset file, so a declared-but-missing file stays
+    // a runtime silent degradation; the check's asset rule reports it.
     if let Some(id) = &manifest.title_backdrop {
         if let Err(message) = crate::parser::check_id(id, "title_backdrop id") {
-            errors.push(LoadError::new("pack.ron", None, message));
+            errors.push(Finding::new(
+                "pack.ron",
+                Location::File,
+                rules::PACK_MANIFEST,
+                message,
+            ));
         }
     }
+    Some(manifest)
+}
 
-    // --- state vocabulary ---------------------------------------------------
-    let state_path = root.join("state.ron");
-    let state_src = match read_pack_text(&state_path) {
+/// Read and decode the declared state vocabulary; `None` when a finding was
+/// recorded instead, which skips the rules that read it.
+fn read_state(root: &Path, errors: &mut Vec<Finding>) -> Option<HashMap<String, StateValue>> {
+    let src = match read_pack_text(&root.join("state.ron")) {
         Ok(s) => s,
         Err(e) => {
-            return Err(vec![LoadError::new(
+            errors.push(Finding::new(
                 "state.ron",
-                None,
+                Location::File,
+                rules::PACK_FILE_READ,
                 format!("cannot read state file: {e}"),
-            )]);
+            ));
+            return None;
         }
     };
-    let state: HashMap<String, StateValue> = match crate::pack_ron::decode_state(&state_src) {
-        // `state.ron` uses RON struct syntax with pack-defined keys, so the
-        // pack RON bridge reads it as a generic `ron::Value` (struct syntax ==
-        // map there) and converts it to the typed state map.
-        Ok(s) => s,
+    // `state.ron` uses RON struct syntax with pack-defined keys, so the pack RON
+    // bridge reads it as a generic `ron::Value` (struct syntax == map there) and
+    // converts it to the typed state map.
+    match crate::pack_ron::decode_state(&src) {
+        Ok(state) => Some(state),
         Err(e) => {
-            errors.push(LoadError::new("state.ron", None, e));
-            return Err(errors);
+            errors.push(Finding::new(
+                "state.ron",
+                Location::File,
+                rules::PACK_FILE_RON,
+                e,
+            ));
+            None
         }
-    };
+    }
+}
 
-    // --- scenes -------------------------------------------------------------
+/// Read and parse every `scenes/*.unmei`. A file reports at most one finding,
+/// because the parser stops at its first syntax error; a scene that does not
+/// parse stays out of the semantic pass.
+fn read_scenes(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Scene> {
     let mut scenes: HashMap<String, Scene> = HashMap::new();
     let scenes_dir = root.join("scenes");
     let scene_files = match fs::read_dir(&scenes_dir) {
@@ -211,9 +283,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             files
         }
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "scenes/",
-                None,
+                Location::File,
+                rules::PACK_FILE_READ,
                 format!("cannot read scenes directory: {e}"),
             ));
             Vec::new()
@@ -229,9 +302,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         let src = match read_pack_text(&path) {
             Ok(s) => s,
             Err(e) => {
-                errors.push(LoadError::new(
+                errors.push(Finding::new(
                     &rel,
-                    None,
+                    Location::File,
+                    rules::PACK_FILE_READ,
                     format!("cannot read scene: {e}"),
                 ));
                 continue;
@@ -244,8 +318,11 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             Err(e) => errors.push(e),
         }
     }
+    scenes
+}
 
-    // --- npcs ---------------------------------------------------------------
+/// Read and decode every `npcs/*.ron`.
+fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
     let mut npcs: HashMap<String, Npc> = HashMap::new();
     let npcs_dir = root.join("npcs");
     let npc_files = match fs::read_dir(&npcs_dir) {
@@ -259,9 +336,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
             files
         }
         Err(e) => {
-            errors.push(LoadError::new(
+            errors.push(Finding::new(
                 "npcs/",
-                None,
+                Location::File,
+                rules::PACK_FILE_READ,
                 format!("cannot read npcs directory: {e}"),
             ));
             Vec::new()
@@ -277,9 +355,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         let src = match read_pack_text(&path) {
             Ok(s) => s,
             Err(e) => {
-                errors.push(LoadError::new(
+                errors.push(Finding::new(
                     &rel,
-                    None,
+                    Location::File,
+                    rules::PACK_FILE_READ,
                     format!("cannot read NPC file: {e}"),
                 ));
                 continue;
@@ -288,9 +367,10 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
         match ron::from_str::<Npc>(&src) {
             Ok(npc) => {
                 if npc.id != stem {
-                    errors.push(LoadError::new(
+                    errors.push(Finding::new(
                         &rel,
-                        None,
+                        Location::File,
+                        rules::PACK_NPC,
                         format!("npc id `{}` does not match filename stem `{stem}`", npc.id),
                     ));
                     continue;
@@ -298,33 +378,14 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<LoadError>> {
                 npcs.insert(stem, npc);
             }
             Err(e) => {
-                errors.push(LoadError::new(&rel, None, format!("invalid NPC RON: {e}")));
+                errors.push(Finding::new(
+                    &rel,
+                    Location::File,
+                    rules::PACK_FILE_RON,
+                    format!("invalid NPC RON: {e}"),
+                ));
             }
         }
     }
-
-    // --- semantic validation -------------------------------------------------
-    validate(
-        &manifest,
-        &state,
-        &scenes,
-        &npcs,
-        &mut errors,
-        &mut warnings,
-    );
-
-    if errors.is_empty() {
-        Ok(LoadedPack {
-            pack: Pack {
-                manifest,
-                state,
-                scenes,
-                npcs,
-                root: root.to_path_buf(),
-            },
-            warnings,
-        })
-    } else {
-        Err(errors)
-    }
+    npcs
 }

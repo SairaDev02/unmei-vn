@@ -242,6 +242,78 @@ reached is not expanded again.
   and the scenes never entered, and a spent budget ends the walk with `budget spent`.
 - `--explore` exits 1 when it saved at least one finding, so a script can gate on it.
 
+## 7. Draw a line or a scene without a case
+
+A preview draws the pack on the software rasterizer and writes each frame as a 1280×720 PNG, so you
+can look at a line or a whole scene without playing to it. It opens no window, needs no key, and reads
+and writes none of your saves, settings, reading progress, session log or API key
+([`docs/check-preview-spec.md` § 9](../check-preview-spec.md#9-the-preview-c4-c5-c7--slice-2)). Write the
+frames to a folder outside the pack.
+
+1. Draw one line. `--at SCENE:LINE` writes `at-<scene>-<line>.png` at the park that line produces:
+
+   ```powershell
+   .\unmei-play my-pack --preview preview --at reunion:19
+   ```
+
+   ```sh
+   ./unmei-play my-pack --preview preview --at reunion:19
+   ```
+
+   The line must be a say-line, a `choice` or a `decide`. Any other line, and a line the picks cannot
+   reach, reports `keiko.case.reference` and writes nothing.
+
+2. Draw a scene. `--scene` writes one PNG at every park the default picks meet, from the scene's first
+   line until it leaves the scene:
+
+   ```sh
+   ./unmei-play my-pack --preview preview --scene first_meeting
+   ```
+
+   The files are `preview/scene-first_meeting-7.png`, `preview/scene-first_meeting-10.png` and so on,
+   one per park, including a `choice` and a `decide`.
+
+3. Reach the branch you mean. `--pick 2` takes the second option at the first choice and `--pick 2,1`
+   the second and then the first; a choice past the end of the list takes option 1. `--state FILE`
+   merges a RON map over `state.ron`, so a line only one state reaches can be drawn:
+
+   ```ron
+   (affinity_level: "high",)
+   ```
+
+   ```sh
+   ./unmei-play my-pack --preview preview --at epilogue:10 --state high.ron
+   ```
+
+4. Draw every surface. With no `--scene` and no `--at`, the preview renders today's fixture
+   states, each from a fresh take, as one PNG per state:
+
+   ```powershell
+   .\unmei-play my-pack --preview preview
+   ```
+
+   ```sh
+   ./unmei-play my-pack --preview preview
+   ```
+
+   The files are `preview/title-fresh.png`, `preview/title-continue.png`, `preview/say.png`,
+   `preview/narration.png`, `preview/choice.png`, `preview/decision.png`, `preview/scene-end.png`,
+   `preview/menu-save.png`, `preview/menu-load.png`, `preview/menu-settings.png`,
+   `preview/menu-gallery.png`, `preview/menu-timeline.png`, `preview/still.png` and one
+   `preview/confirm-<kind>.png` for each confirmation dialog. A state this pack cannot reach writes no
+   file and is reported as a `preview.state.unreachable` warning naming the state. The Timeline's
+   one confirm needs a `scenes` order in `pack.ron`, so it is the state a pack that declares none
+   reports unreachable.
+
+5. Read the result. The folder is created when missing, and a folder inside the pack is a usage
+   error. A rerun overwrites the files it names and leaves every other file in the folder alone. Exit
+   `0` means every frame was written, or only `preview.state.unreachable` warnings occurred, `1` a
+   finding or a pack that does not load, and `2` a usage error.
+
+A preview needs a software rasterizer, WARP on Windows and Mesa's llvmpipe on Linux. A machine
+without one fails with `keiko.render.unavailable` before any frame, as the `frame` step does
+([`docs/keiko-spec.md` § 13](../keiko-spec.md#13-slice-2-frames-and-position-clicks-k14-k9)).
+
 ## Next
 
 - [`write-your-first-pack.md`](write-your-first-pack.md): the pack this page tests.

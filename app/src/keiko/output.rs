@@ -5,7 +5,7 @@
 
 use serde_json::{json, Value};
 
-use super::finding::Finding;
+use super::finding::{Finding, Location};
 use super::observe::Observation;
 use crate::launch::Format;
 
@@ -69,16 +69,7 @@ pub fn print_case(run: &CaseRun) {
         }
         Err(finding) => {
             println!("FAIL {}", run.case);
-            println!(
-                "  {} {}: {}",
-                finding.rule,
-                if finding.path.is_empty() {
-                    String::new()
-                } else {
-                    finding.path.clone()
-                },
-                finding.message
-            );
+            println!("  {} {}: {}", finding.rule, finding.path, finding.message);
             print!("  observed: {}", indent(&run.observation.to_text()));
         }
     }
@@ -86,10 +77,9 @@ pub fn print_case(run: &CaseRun) {
 
 /// Print one finding in the text form.
 pub fn print_finding(finding: &Finding) {
-    let path = if finding.path.is_empty() {
-        String::new()
-    } else {
-        format!(" {}", finding.path)
+    let path = match &finding.path {
+        Location::File => String::new(),
+        other => format!(" {other}"),
     };
     println!(
         "{}:{} {}: {}",
@@ -104,4 +94,28 @@ fn indent(text: &str) -> String {
 /// Whether a format is JSON.
 pub fn is_json(format: Format) -> bool {
     matches!(format, Format::Json)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::keiko::finding::rules;
+
+    /// The check's own output adds a severity (§8); Keiko's keeps the four C3
+    /// fields it has always printed.
+    #[test]
+    fn a_keiko_finding_json_has_the_four_fields_and_no_severity() {
+        let finding = Finding::new(
+            "tests/a.keiko",
+            Location::Line(2),
+            rules::EXPECT,
+            "expected 1",
+        );
+        assert_eq!(finding.severity, unmei_engine::Severity::Error);
+        let value = finding_json(&finding);
+        let object = value.as_object().expect("one JSON object");
+        let mut keys: Vec<&str> = object.keys().map(String::as_str).collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["file", "message", "path", "rule"]);
+    }
 }

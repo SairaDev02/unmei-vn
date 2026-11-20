@@ -1,0 +1,4 @@
+# Nothing reaches this scene, so a flow lint over this pack would report
+# flow.unreachable-scene. The pack fails to load, so it must report nothing
+# (spec rule 28).
+Narrator: Nobody comes here.

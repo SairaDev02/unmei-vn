@@ -19,7 +19,7 @@ use unmei_engine::Pack;
 
 use super::assert::evaluate;
 use super::decide::KeikoResolver;
-use super::finding::{rules, Finding};
+use super::finding::{rules, Finding, Location};
 use super::observe::{observe, LogLine, Observation};
 use super::sandbox::Sandbox;
 use super::steps::{apply, Applied, FRAME};
@@ -45,6 +45,10 @@ pub struct TakeRequest<'a> {
     pub take_index: usize,
     pub keep: bool,
     pub live: Option<Live>,
+    /// The folder a caller chooses for the frames, with each file named by its
+    /// step alone (the preview, spec §9.1). `None` keeps §13's folder beside the
+    /// real pack and its ordinal names.
+    pub frames: Option<PathBuf>,
 }
 
 /// What one take produced.
@@ -79,7 +83,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             return TakeResult {
                 outcome: Err(Finding::new(
                     request.case_file,
-                    String::new(),
+                    Location::File,
                     rules::CASE_REFERENCE,
                     format!("cannot create the take sandbox: {error}"),
                 )),
@@ -210,23 +214,16 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             // A rendered app's plugins are finished before its first frame, as
             // `App::run` does: the renderer's resources are unpacked there.
             app.finish();
-            // Frames land beside the real pack, not in the take folder, so
-            // they outlive the take without `--keep` (spec §13).
-            let pack_name = request
-                .original_pack
-                .file_name()
-                .map(|name| name.to_string_lossy().into_owned())
-                .unwrap_or_else(|| "pack".to_string());
-            let pack_parent = request
-                .original_pack
-                .parent()
-                .unwrap_or_else(|| std::path::Path::new(""));
-            state.render = Some(super::render::Rendered::new(
-                &mut app,
-                pack_parent,
-                &pack_name,
-                &super::render::case_name(&request.case_file),
-            ));
+            // Frames land beside the real pack unless the caller chose a folder,
+            // so they outlive the take without `--keep` (spec §13).
+            let (frames, naming) = match &request.frames {
+                Some(dir) => (dir.clone(), super::render::Naming::Exact),
+                None => (
+                    super::render::frames_beside(request.original_pack, &request.case_file),
+                    super::render::Naming::Ordinal,
+                ),
+            };
+            state.render = Some(super::render::Rendered::new(&mut app, frames, naming));
         }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
@@ -245,7 +242,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
                 .unwrap_or_else(|| "a panic with no message".to_string());
             Err(Finding::new(
                 request.case_file.clone(),
-                String::new(),
+                Location::File,
                 rules::PANIC,
                 message,
             ))
@@ -305,7 +302,7 @@ fn start_at_scene(
     let fail = |message: String| {
         Finding::new(
             request.case_file.clone(),
-            String::new(),
+            Location::File,
             rules::CASE_REFERENCE,
             message,
         )
@@ -375,7 +372,7 @@ fn step_once(
         apply(app, step, &mut frame_run, &resolver, state.render.as_mut()).map_err(|finding| {
             let mut finding = finding;
             finding.file = request.case_file.clone();
-            finding.path = format!("line {line}");
+            finding.path = Location::Line(line);
             finding
         })?;
     match applied {
@@ -391,7 +388,7 @@ fn step_once(
             evaluate(&expect, &state.observation, &state.all_log, app).map_err(|finding| {
                 let mut finding = finding;
                 finding.file = request.case_file.clone();
-                finding.path = format!("line {line}");
+                finding.path = Location::Line(line);
                 finding
             })?;
         }
@@ -438,7 +435,7 @@ pub(super) fn settle(
             if std::time::Instant::now() >= live_deadline {
                 return Err(Finding::new(
                     request.case_file.clone(),
-                    String::new(),
+                    Location::File,
                     rules::UNSETTLED,
                     "the live decision did not answer within 60 s",
                 ));
@@ -463,7 +460,7 @@ pub(super) fn settle(
     }
     Err(Finding::new(
         request.case_file.clone(),
-        String::new(),
+        Location::File,
         rules::UNSETTLED,
         "the world did not become quiet within 600 frames",
     ))

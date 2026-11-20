@@ -11,7 +11,7 @@ use unmei_engine::keiko::{Case, Fault, FixtureKind, KeyCheckFault};
 use bevy::prelude::*;
 
 use super::super::decide::{self as decide, KeikoResolver};
-use super::super::finding::{rules, Finding};
+use super::super::finding::{rules, Finding, Location};
 use super::super::observe::{log_lines_from, observe};
 use super::Sandbox;
 use super::{settle, TakeRequest, TakeState};
@@ -198,7 +198,7 @@ pub(super) fn settle_with_step(
 ) -> Result<(), Finding> {
     let mut settled = settle(app, state, request);
     if let Err(finding) = &mut settled {
-        finding.path = format!("line {line}");
+        finding.path = Location::Line(line);
     }
     settled
 }
@@ -223,7 +223,7 @@ pub(super) fn blocked_write_temp(path: PathBuf, target: WriteTarget) -> PathBuf 
 pub(super) fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), Finding> {
     let tests_dir = original_pack.join("tests");
     let fail =
-        |message: String| Finding::new("case", String::new(), rules::CASE_REFERENCE, message);
+        |message: String| Finding::new("case", Location::File, rules::CASE_REFERENCE, message);
 
     for line in &case.headers {
         if let unmei_engine::keiko::Header::Fixture { kind, path } = &line.header {

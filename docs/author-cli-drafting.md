@@ -99,7 +99,7 @@ Every candidate run must pass a **two-layer** gate. The CLI reuses the loader's 
 
 **Missing-pin note (2026-11-16).** The gate here, as in [`author-cli.md`](author-cli.md) §3, and `--list` write one stderr note per NPC that has decision configs but no model pin, once per NPC sorted by id, never failing the command: ``note: npc `<id>` has decision configs but no model pin, so its decision points always take the fallback`` ([`nanogpt.md`](nanogpt.md) N26).
 
-**Diagnostics** are the loader's existing `LoadError` — pack-relative file, 1-based line, message — fed back as corrections. There is **no column** and no change to the loader; the drafting layer adds no new diagnostic type. (The drafting research pointed at Yarn Spinner's file+line+column `Diagnostic`; file+line is what the shipped engine carries, and a column is a possible later refinement, not part of this contract.)
+**Diagnostics** are the loader's existing `Finding` — pack-relative file, 1-based line where it has one, message — fed back as corrections. There is **no column** and no change to the loader; the drafting layer adds no new diagnostic type. (The drafting research pointed at Yarn Spinner's file+line+column `Diagnostic`; file+line is what the shipped engine carries, and a column is a possible later refinement, not part of this contract.)
 
 **Retry:** validation failure runs [`author-cli.md`](author-cli.md) §5's loop — up to **3 attempts**, feeding the errors back as corrections. Provider errors (an unreachable endpoint, or an unsupported `response_format`) surface immediately rather than being retried as content problems (see §7).
 
@@ -188,7 +188,7 @@ Best model output printed above. Nothing was written.
 - **New scenes and hand-authoring by the model** — drafting fills a run in an existing, parsing scene; it never creates a scene or a label.
 - **Story-so-far / prior-scene context** — out of v1 (§3); revisit with demand.
 - **A separate drafting-model setting** — provider is §4, unchanged (§7).
-- **Column-precise diagnostics** — corrections are the loader's file+line `LoadError` (§4).
+- **Column-precise diagnostics** — corrections are the loader's file+line `Finding` (§4).
 - **In-editor or runtime generation** — authoring is offline CLI only (standing decision).
 - **Multi-run batch generation in one invocation, and interactive multi-run sessions** — one run per invocation, one run per interactive session, by design.
 

@@ -1,0 +1,5 @@
+(
+    name: "check warnings",
+    entry: "main",
+    tagline: "This tagline is deliberately longer than the title column fits",
+)

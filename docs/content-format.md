@@ -44,7 +44,7 @@ Scene id = scene filename stem. An NPC id = NPC filename stem: `npcs/ace.ron` ho
 
 *(Amended 2026-11-17: a pack may also hold an optional `tests/` folder of Keiko cases, `tests/<id>.keiko`. The player and the CLI never load it; only Keiko reads it ([Keiko spec §2](keiko-spec.md#2-the-case-file-k6k8)).)*
 
-*(Amended 2026-11-19, not built: loading still does not check that asset files exist. `unmei-play <pack> --check` will check that every referenced asset exists and decodes, and will validate the cases in `tests/` ([check and preview spec §5, §7](check-preview-spec.md#5-assets-c2-second-bullet)).)*
+*(Amended 2026-11-19: loading still does not check that asset files exist, so play keeps its silent degradation. `unmei-play <pack> --check` reports every referenced asset that is missing or that the player cannot decode, and validates the cases in `tests/` ([check and preview spec §5, §7](check-preview-spec.md#5-assets-c2-second-bullet)).)*
 
 `AGENT-GUIDE.md` is optional documentation, like this page is for an author: no loader reads it, so it adds no content and changes no validation. The demo pack ships one for an AI coding agent working on a pack.
 
@@ -284,7 +284,7 @@ It also exposes narrow, named optional-string Serde adapters: a content adapter 
 
 Behind the interface sit the generic `ron::Value` parsing, state-map shape and string-key checks, one scalar conversion, and the single type-name table. Raw-value conversion helpers and that table are **not public**. `StateValue::Deserialize` delegates to the internal scalar conversion rather than retaining its own three-variant match. `StateValue::Serialize` remains the scalar writer, used by `encode_state` through ordinary RON serialization of the typed map; no second hand-renderer is introduced.
 
-`load_pack` routes its whole-state decode through `decode_state`, removing its separate scalar decode and type-name copy. File reads/writes, pack-relative `LoadError` context, error accumulation/early-return behavior, and full pack validation remain with their existing callers. The bridge performs **no filesystem IO and no whole-pack validation**. It is not a new persistence abstraction for save slots or read logs.
+`load_pack` routes its whole-state decode through `decode_state`, removing its separate scalar decode and type-name copy. File reads/writes, pack-relative `Finding` context, error accumulation/early-return behavior, and full pack validation remain with their existing callers. The bridge performs **no filesystem IO and no whole-pack validation**. It is not a new persistence abstraction for save slots or read logs.
 
 #### Compatibility and quoting
 

@@ -607,12 +607,12 @@ A single transient line for the rows whose **Surface** column says Notice — th
 
 A pack that does not load is the only failure with nothing to recover, so its message has to be readable where the player is: the window, not a console a file-manager launch never shows.
 
-- `setup_pack` **no longer exits**. It records the failed load (the canonicalised `pack_root` plus the whole `Vec<LoadError>`) instead of printing to `stderr` and calling `std::process::exit`, and a startup system draws the screen.
-- **Contents**: the pack path, then up to **20** error lines — `LoadError`'s `Display` already carries the pack-relative `file:line: message` — then `… and N more — see <pack-dir>.log`. A 1280×720 window with no scrolling UI is why the list is capped; the complete list is on disk.
+- `setup_pack` **no longer exits**. It records the failed load (the canonicalised `pack_root` plus the whole `Vec<Finding>`) instead of printing to `stderr` and calling `std::process::exit`, and a startup system draws the screen.
+- **Contents**: the pack path, then up to **20** error lines — `Finding`'s `Display` already carries the pack-relative `file:line: message` — then `… and N more — see <pack-dir>.log`. A 1280×720 window with no scrolling UI is why the list is capped; the complete list is on disk.
 - **Quit**: `Esc`, `Enter`/`Space` or a click quits, with a non-zero exit code so terminal invocations keep their current semantics. **Exception while Monitor owns input/transition frames or held input is quarantined**: these inputs must not quit; Esc only dismisses Monitor, and a subsequent release/fresh quit input restores this behavior ([Interaction](#interaction); amended 2026-10-11). There is no pack-selection UI and no retry: a broken pack is fixed, not picked around.
 - **Ordering**: `<pack-dir>.log` is opened (and truncated) **before** the pack load, so the screen's pointer is always valid and a broken pack's full error list is recoverable even though the screen shows at most 20.
 - **Warnings are not errors**: `LoadedPack.warnings` never reaches the screen (row 2).
-- **Unchanged**: the `unmei` CLI keeps printing every load error and exiting non-zero. The runtime's screen is a second surface over the same `Vec<LoadError>`, not a replacement for the CLI's.
+- **Unchanged**: the `unmei` CLI keeps printing every load error and exiting non-zero. The runtime's screen is a second surface over the same `Vec<Finding>`, not a replacement for the CLI's.
 
 ### 5. The failure funnel
 
@@ -637,7 +637,7 @@ Settled while this failure posture was designed: the engine is already typed and
 | 23 (credential write) | `Could not save the key` |
 
   The log line is that string followed by the machine detail — the path, the IO error, the engine error's `Display` — so the notice text is a prefix of every log entry for the same failure.
-- **Boundary discipline.** Every fallible engine operation keeps returning `Result<_, typed error>`, and `engine/` stays Bevy-free: `LoadError` (with its pack-relative location), `Warning`, `RunnerError`, `SaveError` and `DecisionError` are the seam as they stand. **No unified engine error enum is introduced** — `load_pack`'s `Vec<LoadError>` does not fit one, and the four types already say what the app needs. App play paths contain **no `unwrap`, `expect`, `panic!` or `std::process::exit`**; the only exit is the error screen's quit. The engine's two static-config `expect`s (`reqwest::Client` construction and the shared Tokio runtime build, both in `engine/src/decision/client.rs`) are named exceptions that stay: neither can fail.
+- **Boundary discipline.** Every fallible engine operation keeps returning `Result<_, typed error>`, and `engine/` stays Bevy-free: `Finding` (with its pack-relative file and path), `RunnerError`, `SaveError` and `DecisionError` are the seam as they stand. **No unified engine error enum is introduced** — a `Finding` is a value carrying a severity, not a sum of the engine's failures, and the three typed errors already say what the app needs. App play paths contain **no `unwrap`, `expect`, `panic!` or `std::process::exit`**; the only exit is the error screen's quit. The engine's two static-config `expect`s (`reqwest::Client` construction and the shared Tokio runtime build, both in `engine/src/decision/client.rs`) are named exceptions that stay: neither can fail. *(Amended 2026-11-20: `LoadError` and `Warning` are replaced by one `Finding` with a severity, so the check can list a load error, an asset finding, a flow warning and a Keiko case finding in one order ([check and preview spec](../check-preview-spec.md) §2). The loader's seam is the wider list; the posture, the rows and the routing do not change.)*
 
 ### 6. Logging and `<pack-dir>.log`
 
@@ -664,7 +664,7 @@ Settled while this failure posture was designed: the engine is already typed and
 - Rows 2–10, 19, 21, 24, 25 and 26 (the silent degradations) write **no** Notice — asserted, so the rule cannot drift.
 - A missing or undecodable background, sprite or track logs one `warn!` (rows 3–5), shows no Notice, and leaves the sibling assets in the staging snapshot alone; a valid sibling still loads beside a failed one; the runner still reaches its next wait. A missing `sfx_select.ogg` logs row 6 once; a captured kira setup failure logs row 7 once and never notices.
 - Notice: one slot, replacing; the timer expires after the ~5 s of unpaused time; it does not expire while the [menu overlay](#menu-overlay) is open and resumes on close; it consumes no key or click; `Esc` still performs exactly [menu overlay](#menu-overlay) §6's four moments.
-- `<pack-dir>.log` is truncated and reopened per launch, receives the lines the console (stderr) receives under the same filter, and a bad-pack run writes every `LoadError` even though the screen shows at most 20.
+- `<pack-dir>.log` is truncated and reopened per launch, receives the lines the console (stderr) receives under the same filter, and a bad-pack run writes every `Finding` even though the screen shows at most 20.
 - An unwritable `<pack-dir>.log` warns once on `stderr`, writes no Notice, and the pack still plays.
 - A broken pack no longer exits `setup_pack`: the window opens, the screen shows the pack path and the error lines, and `Esc` or a click quits non-zero. Assert both sides of §4's cap: a pack with 20 or fewer errors shows every one and no `… and N more` line, and a pack with more shows 20 plus the pointer — while `<pack-dir>.log` holds them all.
 - Inducing a defensive failure (a `resolve_decision` that cannot land) leaves the runner parked, shows the hold Notice, and `Esc` opens the overlay.

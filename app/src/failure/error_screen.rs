@@ -3,7 +3,7 @@
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
-use unmei_engine::LoadError;
+use unmei_engine::Finding;
 
 use super::session_log::session_log_file_name;
 use crate::launch::NO_EXECUTABLE_MESSAGE;
@@ -28,7 +28,7 @@ pub enum StartupFailure {
     /// and whether the default rule chose that path.
     Pack {
         pack_root: PathBuf,
-        errors: Vec<LoadError>,
+        errors: Vec<Finding>,
         /// `true` when no `PACK_DIR` was given and the default rule supplied the
         /// path, which is the only case that shows [`default_pack_hint`].
         defaulted: bool,
@@ -114,6 +114,9 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use unmei_engine::Location;
+
+    use unmei_engine::finding::rules;
 
     use super::super::captures::{capture_records, install_capture};
     use super::super::funnel::{report, DefensiveHold, Failure};
@@ -122,7 +125,14 @@ mod tests {
     #[test]
     fn the_error_screen_shows_twenty_lines_and_then_a_pointer() {
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), Some(i), "boom"))
+            .map(|i| {
+                Finding::at_line(
+                    format!("scenes/s{i}.unmei"),
+                    i,
+                    rules::PACK_SCENE_SYNTAX,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/pack"),
@@ -137,7 +147,14 @@ mod tests {
     #[test]
     fn the_error_screen_pointer_names_the_pack_sibling_log() {
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), Some(i), "boom"))
+            .map(|i| {
+                Finding::at_line(
+                    format!("scenes/s{i}.unmei"),
+                    i,
+                    rules::PACK_SCENE_SYNTAX,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/demo-pack"),
@@ -153,7 +170,12 @@ mod tests {
     #[test]
     fn the_default_pack_hint_shows_only_when_the_default_was_used() {
         const HINT: &str = "No PACK_DIR given — expected demo-pack beside unmei-play.";
-        let errors = vec![LoadError::new("pack.ron", None, "missing")];
+        let errors = vec![Finding::new(
+            "pack.ron",
+            Location::File,
+            rules::PACK_FILE_READ,
+            "missing",
+        )];
 
         let defaulted = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/demo-pack"),
@@ -212,7 +234,14 @@ mod tests {
     #[test]
     fn twenty_errors_show_without_a_pointer() {
         let errors = (0..MAX_SCREEN_LINES)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), None, "boom"))
+            .map(|i| {
+                Finding::new(
+                    format!("scenes/s{i}.unmei"),
+                    Location::File,
+                    rules::PACK_FILE_READ,
+                    "boom",
+                )
+            })
             .collect();
         let failure = StartupFailure::Pack {
             pack_root: PathBuf::from("/games/pack"),
@@ -230,7 +259,14 @@ mod tests {
     fn a_pack_load_failure_carries_every_error_into_one_log_line() {
         install_capture();
         let errors = (0..25)
-            .map(|i| LoadError::new(format!("scenes/s{i}.unmei"), None, "boom"))
+            .map(|i| {
+                Finding::new(
+                    format!("scenes/s{i}.unmei"),
+                    Location::File,
+                    rules::PACK_FILE_READ,
+                    "boom",
+                )
+            })
             .collect::<Vec<_>>();
         let detail = errors
             .iter()
@@ -252,11 +288,63 @@ mod tests {
         for i in 0..25 {
             assert!(
                 records[0].2.contains(&format!("scenes/s{i}.unmei")),
-                "every LoadError must reach the log line"
+                "every finding must reach the log line"
             );
         }
         assert!(!notice.is_showing());
     }
+    /// Spec rule 20: boot uses the same loader as the check, so a pack that
+    /// fails to load shows every error the loader reports — not only the
+    /// manifest or state error that used to end the load.
+    #[test]
+    fn the_error_screen_lists_every_error_the_loader_reports() {
+        use bevy::prelude::{ButtonInput, KeyCode, MouseButton};
+        use bevy::MinimalPlugins;
+
+        let dir = tempfile::tempdir().expect("temp dir");
+        let pack_root = dir.path().join("broken-pack");
+        std::fs::create_dir_all(pack_root.join("scenes")).expect("scenes dir");
+        std::fs::create_dir_all(pack_root.join("npcs")).expect("npcs dir");
+        std::fs::write(pack_root.join("pack.ron"), "(name: \"broken\", entry: ").expect("manifest");
+        std::fs::write(pack_root.join("state.ron"), "(met_ace: false,)").expect("state");
+        std::fs::write(
+            pack_root.join("scenes/broken.unmei"),
+            "frobnicate the gate\n",
+        )
+        .expect("scene");
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .init_resource::<ButtonInput<KeyCode>>()
+            .init_resource::<ButtonInput<MouseButton>>()
+            .insert_resource(crate::RuntimeConfig::new(pack_root, None))
+            .add_plugins(crate::RuntimeCorePlugin);
+        app.update();
+
+        let failure = app
+            .world()
+            .get_resource::<StartupFailure>()
+            .expect("the failed load is recorded");
+        let lines = failure.screen_lines();
+        assert_eq!(
+            lines.len(),
+            2,
+            "the manifest error and the scene error, both drawn: {lines:?}"
+        );
+        assert!(
+            lines[0].starts_with("pack.ron: invalid RON"),
+            "the broken manifest comes first in file order: {lines:?}"
+        );
+        assert!(
+            lines[1].starts_with("scenes/broken.unmei:1: "),
+            "the scene behind it is not hidden: {lines:?}"
+        );
+        assert!(
+            app.world().get_resource::<crate::Runtime>().is_none(),
+            "play stays shut behind the screen"
+        );
+    }
+
     /// F49: a real bad-pack run keeps the whole error list for the screen cap.
     #[test]
     fn a_broken_pack_run_keeps_every_error_and_caps_the_screen() {

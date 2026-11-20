@@ -22,6 +22,34 @@ fn no_positional_stays_absent_and_the_dev_value_follows_the_build() {
     assert_eq!(launch.dev_mode(), cfg!(debug_assertions));
 }
 
+/// No `PACK_DIR` and an unknown executable folder leaves nothing to play. Only
+/// play falls back to the error screen; every mode builds no app, so it prints
+/// the message and exits 2 rather than opening a window (check and preview spec
+/// §1). One condition covers the check, the preview and every Keiko mode.
+#[test]
+fn a_launch_without_a_pack_sends_every_mode_to_the_usage_exit() {
+    assert_eq!(run(&[]).no_pack_exit(), NoPackExit::ErrorScreen);
+    assert_eq!(run(&["--dev"]).no_pack_exit(), NoPackExit::ErrorScreen);
+
+    assert_eq!(run(&["--check"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--check", "--format", "json"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--preview", "out"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--preview", "out", "--scene", "a"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--take"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(
+        run(&["--step", "a", "advance"]).no_pack_exit(),
+        NoPackExit::Usage
+    );
+    assert_eq!(run(&["--observe", "a"]).no_pack_exit(), NoPackExit::Usage);
+    assert_eq!(run(&["--explore"]).no_pack_exit(), NoPackExit::Usage);
+}
+
 #[test]
 fn dev_alone_forces_on_and_still_has_no_pack_dir() {
     let launch = run(&["--dev"]);
@@ -307,4 +335,150 @@ fn a_non_unicode_path_is_not_invalid_for_its_encoding() {
     };
     assert_eq!(launch.pack_dir, Some(PathBuf::from(path)));
     assert!(!launch.force_dev);
+}
+
+#[test]
+fn check_is_a_mode_of_its_own_with_an_optional_format() {
+    for (args, format) in [
+        (vec!["--check"], Format::Text),
+        (vec!["my-pack", "--check"], Format::Text),
+        (vec!["--check", "--format", "json"], Format::Json),
+        (vec!["--format", "json", "my-pack", "--check"], Format::Json),
+    ] {
+        let launch = run(&args);
+        assert!(launch.check, "{args:?}");
+        assert_eq!(launch.keiko, None, "{args:?}");
+        assert_eq!(launch.format, format, "{args:?}");
+    }
+}
+
+#[test]
+fn check_is_exclusive_with_every_other_mode_and_with_dev() {
+    for args in [
+        vec!["--check", "--take"],
+        vec!["--take", "--check"],
+        vec!["--check", "--step", "one", "advance 2"],
+        vec!["--check", "--observe", "one"],
+        vec!["--check", "--explore"],
+        vec!["--dev", "--check"],
+        vec!["--check", "--dev"],
+        vec!["--check", "--keep"],
+        vec!["--check", "--live"],
+        vec!["--check", "--format", "yaml"],
+    ] {
+        assert!(
+            parse_strs(&args).is_err(),
+            "{args:?} should be a usage error"
+        );
+    }
+}
+
+#[test]
+fn the_help_lists_the_check_mode() {
+    assert!(help().contains("--check"));
+}
+
+/// `--preview DIR` is a mode of its own: its folder is the flag's value, a bare
+/// token stays `PACK_DIR`, and `--scene`, `--at`, `--state` and `--pick` are
+/// collected beside it (spec §1, §9.1).
+#[test]
+fn preview_is_a_mode_of_its_own_with_its_selector() {
+    for (args, expected) in [
+        (
+            vec!["--preview", "out", "--at", "reunion:19"],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: None,
+                at: Some(("reunion".to_string(), 19)),
+                state: None,
+                picks: Vec::new(),
+            },
+        ),
+        (
+            vec!["my-pack", "--preview", "out", "--scene", "first_meeting"],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: Some("first_meeting".to_string()),
+                at: None,
+                state: None,
+                picks: Vec::new(),
+            },
+        ),
+        (
+            vec![
+                "--preview",
+                "out",
+                "--state",
+                "high.ron",
+                "--pick",
+                "2,1",
+                "--format",
+                "json",
+            ],
+            PreviewArgs {
+                dir: PathBuf::from("out"),
+                scene: None,
+                at: None,
+                state: Some(PathBuf::from("high.ron")),
+                picks: vec![2, 1],
+            },
+        ),
+    ] {
+        let launch = run(&args);
+        assert_eq!(launch.keiko, Some(KeikoMode::Preview(expected)), "{args:?}");
+        assert!(!launch.check, "{args:?}");
+    }
+    assert_eq!(
+        run(&["my-pack", "--preview", "out", "--scene", "a"]).pack_dir,
+        Some(PathBuf::from("my-pack")),
+        "the folder is the flag's value, so a bare token stays PACK_DIR"
+    );
+}
+
+#[test]
+fn preview_is_exclusive_and_its_flags_are_rejected_without_it() {
+    for args in [
+        // Two modes together.
+        vec!["--preview", "out", "--take"],
+        vec!["--take", "--preview", "out"],
+        vec!["--preview", "out", "--explore"],
+        vec!["--preview", "out", "--check"],
+        vec!["--check", "--preview", "out"],
+        // `--dev` with the mode.
+        vec!["--dev", "--preview", "out"],
+        vec!["--preview", "out", "--dev"],
+        // A preview-only flag with no mode.
+        vec!["--scene", "a"],
+        vec!["--at", "a:1"],
+        vec!["--state", "high.ron"],
+        vec!["--pick", "2"],
+        // The two selectors exclude each other.
+        vec!["--preview", "out", "--scene", "a", "--at", "a:1"],
+        // A missing or malformed value.
+        vec!["--preview"],
+        vec!["--preview", "out", "--at", "a"],
+        vec!["--preview", "out", "--at", "a:sideways"],
+        vec!["--preview", "out", "--scene", "two words"],
+        vec!["--preview", "out", "--pick", "two"],
+        vec!["--preview", "out", "--pick", "0"],
+        vec!["--preview", "out", "--pick", "2,"],
+        vec!["--preview", "out", "--pick", ""],
+        // A Keiko-only modifier on the preview.
+        vec!["--preview", "out", "--live", "--at", "a:1"],
+        vec!["--preview", "out", "--budget", "5", "--at", "a:1"],
+        vec!["--preview", "out", "--from", "one", "--at", "a:1"],
+    ] {
+        assert!(
+            parse_strs(&args).is_err(),
+            "{args:?} should be a usage error"
+        );
+    }
+}
+
+#[test]
+fn the_help_lists_the_preview() {
+    let help = help();
+    for flag in ["--preview", "--scene", "--at", "--state", "--pick"] {
+        assert!(help.contains(flag), "{flag} missing from help");
+    }
 }

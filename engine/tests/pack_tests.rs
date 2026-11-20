@@ -5,7 +5,7 @@
 use std::fs;
 use std::path::Path;
 
-use unmei_engine::{load_pack, Criteria, Fallback, Line};
+use unmei_engine::{load_pack, Criteria, Fallback, Line, Location};
 
 fn demo_pack() -> std::path::PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/demo-pack")
@@ -801,7 +801,7 @@ fn if_without_endif_is_a_load_error_naming_file_and_line() {
         .find(|e| e.message.contains("no matching `endif`"))
         .expect("unclosed-if error");
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(2));
+    assert_eq!(err.path, Location::Line(2));
 }
 
 #[test]
@@ -815,7 +815,7 @@ fn stray_else_is_a_load_error_naming_the_line() {
         .iter()
         .find(|e| e.message.contains("without a matching `if`"))
         .expect("stray-else error");
-    assert_eq!(err.line, Some(2));
+    assert_eq!(err.path, Location::Line(2));
 }
 
 #[test]
@@ -832,7 +832,7 @@ fn doubled_else_is_a_load_error_naming_the_line() {
         .iter()
         .find(|e| e.message.contains("duplicate `else`"))
         .expect("doubled-else error");
-    assert_eq!(err.line, Some(3));
+    assert_eq!(err.path, Location::Line(3));
 }
 
 #[test]
@@ -847,7 +847,7 @@ fn stray_endif_is_a_load_error_naming_the_line() {
         .find(|e| e.message.contains("without a matching `if`"))
         .expect("stray-endif error");
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(1));
+    assert_eq!(err.path, Location::Line(1));
 }
 
 #[test]
@@ -864,7 +864,7 @@ fn label_inside_arm_is_a_load_error() {
         .iter()
         .find(|e| e.message.contains("`label` is not allowed"))
         .expect("label-in-arm error");
-    assert_eq!(err.line, Some(2));
+    assert_eq!(err.path, Location::Line(2));
 }
 
 #[test]
@@ -882,7 +882,7 @@ fn undeclared_condition_key_is_a_load_error() {
         .find(|e| e.message.contains("condition key `letters_found`"))
         .expect("undeclared condition key error");
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(2));
+    assert_eq!(err.path, Location::Line(2));
 }
 
 #[test]
@@ -940,7 +940,7 @@ fn conditional_inside_a_choice_block_is_a_load_error() {
         .find(|e| e.message.contains("not allowed inside a `choice` block"))
         .expect("choice-block conditional error");
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(3));
+    assert_eq!(err.path, Location::Line(3));
 }
 
 #[test]
@@ -958,7 +958,7 @@ fn label_nested_in_an_arm_is_a_load_error() {
         .iter()
         .find(|e| e.message.contains("`label` is not allowed"))
         .expect("nested label error");
-    assert_eq!(err.line, Some(3));
+    assert_eq!(err.path, Location::Line(3));
 }
 
 // --- fixed state kinds and numeric ordering ------------------------------
@@ -996,7 +996,7 @@ fn condition_literal_of_the_wrong_kind_is_a_load_error() {
         .find(|e| e.message.contains("condition literal is a number"))
         .unwrap_or_else(|| panic!("condition literal kind-mismatch error, got {errs:?}"));
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(1));
+    assert_eq!(err.path, Location::Line(1));
     assert!(
         err.message
             .contains("`affinity_level` is declared as a string"),
@@ -1019,7 +1019,7 @@ fn bare_non_bool_key_is_a_load_error() {
         .find(|e| e.message.contains("bare condition key `affinity_level`"))
         .unwrap_or_else(|| panic!("bare non-bool error, got {errs:?}"));
     assert!(err.message.contains("must be a bool"), "{err}");
-    assert_eq!(err.line, Some(1));
+    assert_eq!(err.path, Location::Line(1));
 }
 
 #[test]
@@ -1054,7 +1054,7 @@ fn ordering_on_a_non_number_key_is_a_load_error() {
         .find(|e| e.message.contains("uses an ordering operator"))
         .unwrap_or_else(|| panic!("ordering-on-non-number error, got {errs:?}"));
     assert_eq!(err.file, "scenes/scene_a.unmei");
-    assert_eq!(err.line, Some(1));
+    assert_eq!(err.path, Location::Line(1));
     assert!(
         err.message.contains("ordering applies to numbers only"),
         "{err}"
@@ -1415,7 +1415,11 @@ fn listed_missing_id_is_a_load_error_naming_it_and_the_available_ids() {
     assert_eq!(errs.len(), 1, "{errs:?}");
     let e = &errs[0];
     assert_eq!(e.file, "pack.ron");
-    assert_eq!(e.line, None, "manifest diagnostics carry no line number");
+    assert_eq!(
+        e.path,
+        Location::File,
+        "manifest diagnostics carry no line number"
+    );
     assert!(e.message.contains("`ghost`"), "{e:?}");
     assert!(e.message.contains("not among loaded scenes"), "{e:?}");
     assert!(e.message.contains("scene_a"), "{e:?}");
@@ -1433,7 +1437,7 @@ fn repeated_id_reports_one_error_per_distinct_repeated_id() {
     assert_eq!(errs.len(), 2, "one error per repeated id: {errs:?}");
     assert!(
         errs.iter()
-            .all(|e| e.file == "pack.ron" && e.line.is_none()),
+            .all(|e| e.file == "pack.ron" && e.path == Location::File),
         "{errs:?}"
     );
     assert!(
@@ -1624,8 +1628,12 @@ fn unlisted_warnings_are_sorted_by_scene_id() {
     );
 }
 
+/// Spec §3: findings are ordered by file, then line, then rule id, then
+/// message. These four are all `pack.ron`, all without a line and all
+/// `pack.manifest`, so the message decides — and `… is listed in …` sorts before
+/// `… is listed more than once …`.
 #[test]
-fn order_errors_are_sorted_by_scene_id() {
+fn order_errors_come_out_in_spec_order() {
     let (_tmp, root) = order_pack(
         "scene_a",
         Some("[\"zeta\", \"alpha\", \"mid\", \"alpha\"]"),
@@ -1634,34 +1642,29 @@ fn order_errors_are_sorted_by_scene_id() {
     );
     let errs = load_pack(&root).unwrap_err();
     let messages: Vec<&str> = errs.iter().map(|e| e.message.as_str()).collect();
-    let dup = messages
-        .iter()
-        .position(|m| m.contains("`alpha`") && m.contains("more than once"))
-        .expect("alpha is repeated");
-    let alpha_missing = messages
-        .iter()
-        .position(|m| m.contains("`alpha`") && m.contains("not among loaded scenes"))
-        .expect("alpha is missing");
-    let mid = messages
-        .iter()
-        .position(|m| m.contains("`mid`"))
-        .expect("mid is missing");
-    let zeta = messages
-        .iter()
-        .position(|m| m.contains("`zeta`"))
-        .expect("zeta is missing");
+    let position = |id: &str, tail: &str| {
+        messages
+            .iter()
+            .position(|m| m.contains(id) && m.contains(tail))
+            .unwrap_or_else(|| panic!("{id} / {tail} is reported: {messages:?}"))
+    };
+    let alpha_missing = position("`alpha`", "not among loaded scenes");
+    let alpha_dup = position("`alpha`", "more than once");
+    let mid = position("`mid`", "not among loaded scenes");
+    let zeta = position("`zeta`", "not among loaded scenes");
     assert!(
-        dup < alpha_missing && alpha_missing < mid && mid < zeta,
-        "diagnostics sorted by scene id: {messages:?}"
+        alpha_missing < alpha_dup && alpha_dup < mid && mid < zeta,
+        "diagnostics in file, line, rule, message order: {messages:?}"
     );
 }
 
 // --- state RON bridge diagnostics and optional-string consumers -----------
 
 /// Every state read failure is surfaced once, verbatim from the bridge, with
-/// `state.ron` context and no line number, and the loader returns early (its
-/// existing policy). Comparing against `decode_state` keeps this a wiring
-/// witness rather than a second copy of the bridge's message assertions.
+/// `state.ron` context and no line number. The rules that read the vocabulary
+/// are skipped rather than guessed (spec §3), so a pack that is otherwise valid
+/// reports this one finding. Comparing against `decode_state` keeps this a
+/// wiring witness rather than a second copy of the bridge's message assertions.
 #[test]
 fn state_read_failures_carry_state_ron_context_once() {
     let cases = [
@@ -1679,10 +1682,10 @@ fn state_read_failures_carry_state_ron_context_once() {
         assert_eq!(
             errs.len(),
             1,
-            "one early-return error for {state_ron}: {errs:?}"
+            "one finding for a broken state file ({state_ron}): {errs:?}"
         );
         assert_eq!(errs[0].file, "state.ron", "{state_ron}: {errs:?}");
-        assert_eq!(errs[0].line, None, "{state_ron}: {errs:?}");
+        assert_eq!(errs[0].path, Location::File, "{state_ron}: {errs:?}");
         assert_eq!(
             errs[0].message,
             unmei_engine::pack_ron::decode_state(state_ron).unwrap_err(),
@@ -1817,7 +1820,7 @@ fn a_byte_order_mark_inside_the_text_is_kept() {
 /// of `scene_a`.
 fn load_with_scenes(
     scenes: &[(&'static str, &str)],
-) -> Result<unmei_engine::LoadedPack, Vec<unmei_engine::LoadError>> {
+) -> Result<unmei_engine::LoadedPack, Vec<unmei_engine::Finding>> {
     let tmp = tempfile::tempdir().unwrap();
     let mut files: Vec<(&str, String)> = valid_pack_files()
         .into_iter()
@@ -1828,10 +1831,10 @@ fn load_with_scenes(
     load_pack(&root)
 }
 
-fn cycle_errors(errs: &[unmei_engine::LoadError]) -> Vec<(String, Option<usize>)> {
+fn cycle_errors(errs: &[unmei_engine::Finding]) -> Vec<(String, String)> {
     errs.iter()
         .filter(|e| e.message.contains("reaches no say-line, choice or decide"))
-        .map(|e| (e.file.clone(), e.line))
+        .map(|e| (e.file.clone(), e.path.to_string()))
         .collect()
 }
 
@@ -1841,7 +1844,7 @@ fn a_label_jump_cycle_with_no_wait_is_an_error_at_the_jump() {
         load_with_scenes(&[("scenes/scene_a.unmei", "label quiet\njump quiet\n")]).unwrap_err();
     assert_eq!(
         cycle_errors(&errs),
-        vec![("scenes/scene_a.unmei".to_string(), Some(2))],
+        vec![("scenes/scene_a.unmei".to_string(), "line 2".to_string())],
         "{errs:?}"
     );
     assert!(errs[0].message.contains("`jump quiet`"), "{errs:?}");
@@ -1856,7 +1859,7 @@ fn a_cycle_across_scene_files_is_one_error() {
     .unwrap_err();
     assert_eq!(
         cycle_errors(&errs),
-        vec![("scenes/scene_a.unmei".to_string(), Some(2))],
+        vec![("scenes/scene_a.unmei".to_string(), "line 2".to_string())],
         "{errs:?}"
     );
 }
@@ -1932,7 +1935,7 @@ fn non_finite_set_literal_is_a_load_error() {
             .find(|e| e.message.contains("number literal must be finite"))
             .unwrap_or_else(|| panic!("{spelling}: non-finite set error, got {errs:?}"));
         assert_eq!(err.file, "scenes/scene_a.unmei", "{spelling}");
-        assert_eq!(err.line, Some(1), "{spelling}");
+        assert_eq!(err.path, Location::Line(1), "{spelling}");
         assert!(err.message.contains(spelling), "{spelling}: {err}");
     }
 }
@@ -1949,7 +1952,7 @@ fn non_finite_condition_literal_is_a_load_error() {
                 .find(|e| e.message.contains("number literal must be finite"))
                 .unwrap_or_else(|| panic!("{scene}: non-finite condition error, got {errs:?}"));
             assert_eq!(err.file, "scenes/scene_a.unmei", "{scene}");
-            assert_eq!(err.line, Some(1), "{scene}");
+            assert_eq!(err.path, Location::Line(1), "{scene}");
         }
     }
 }

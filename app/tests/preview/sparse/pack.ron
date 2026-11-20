@@ -1,0 +1,7 @@
+(
+    name: "preview sparse",
+    entry: "main",
+    // The one card the Timeline confirm needs: the entry scene, which every
+    // take has read by the time the overlay opens.
+    scenes: ["main"],
+)

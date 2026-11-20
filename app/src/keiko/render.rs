@@ -28,6 +28,29 @@ pub const WIDTH: u32 = 1280;
 /// The reference frame height (spec §13).
 pub const HEIGHT: u32 = 720;
 
+/// How a frame's PNG is named (spec §13, preview §9.1).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Naming {
+    /// The frame's 1-based ordinal, then the step's own name: `2-titled.png`.
+    Ordinal,
+    /// The step's own name alone: `at-reunion-19.png`, the preview's fixed form.
+    Exact,
+}
+
+/// The folder frames land in when no caller names one: beside the real pack,
+/// so they outlive the take without `--keep` (spec §13).
+pub fn frames_beside(original_pack: &Path, case_file: &str) -> PathBuf {
+    let pack_name = original_pack
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "pack".to_string());
+    let pack_parent = original_pack.parent().unwrap_or_else(|| Path::new(""));
+    pack_parent
+        .join(format!("{pack_name}.keiko"))
+        .join("frames")
+        .join(case_name(case_file))
+}
+
 /// Whether this machine has the software rasterizer the slice needs, probed
 /// once per process. Bevy's renderer panics when no adapter matches, so a take
 /// asks this before it builds a rendered app at all.
@@ -61,14 +84,14 @@ pub struct Rendered {
     window: Entity,
     camera: Option<Entity>,
     frames: PathBuf,
+    naming: Naming,
     count: u32,
 }
 
 impl Rendered {
     /// Set up the take's render target, the stand-in window the pointer moves
-    /// on, and the frames folder `<pack-parent>/<pack-name>.keiko/frames/<case>/`
-    /// beside the real pack (spec §13).
-    pub fn new(app: &mut App, pack_parent: &Path, pack_name: &str, case: &str) -> Self {
+    /// on, the frames folder and the rule that names each PNG (spec §13).
+    pub fn new(app: &mut App, frames: PathBuf, naming: Naming) -> Self {
         // A window entity with no raw handle is never presented: the renderer
         // creates no surface for it, so it exists only to give the pointer and
         // the UI focus path a cursor (spec §13).
@@ -91,10 +114,8 @@ impl Rendered {
             image,
             window,
             camera: None,
-            frames: pack_parent
-                .join(format!("{pack_name}.keiko"))
-                .join("frames")
-                .join(sanitize(case)),
+            frames,
+            naming,
             count: 0,
         }
     }
@@ -112,6 +133,12 @@ impl Rendered {
         self.point_at(app, camera, true);
         run(app);
         run(app);
+        // The composition is in the image now. The copy reads the image rather
+        // than the camera, so the camera goes back to the window before the
+        // copy is asked for: a frame that also redraws the image keeps the
+        // software rasterizer a whole frame behind, and its queue only ever
+        // grows (spec §13).
+        self.point_at(app, camera, false);
 
         let landed: Arc<Mutex<Option<Vec<u8>>>> = Arc::new(Mutex::new(None));
         let sink = landed.clone();
@@ -122,20 +149,22 @@ impl Rendered {
                 *sink.lock().unwrap() = Some(event.data.clone());
             })
             .id();
+        // A live `Readback` asks for another copy every frame; one copy is all
+        // this step wants, so the component goes as soon as it was extracted.
+        run(app);
+        app.world_mut().entity_mut(entity).remove::<Readback>();
         for _ in 0..READBACK_FRAMES {
-            run(app);
             if landed.lock().unwrap().is_some() {
                 break;
             }
+            run(app);
         }
         app.world_mut().entity_mut(entity).despawn();
-        // The copies requested on the frames before the first one came back are
-        // still in flight; two more frames let them land, so a take that ends
+        // Two more frames let the last submissions land, so a take that ends
         // right after this step leaves no readback pending at teardown.
         for _ in 0..2 {
             run(app);
         }
-        self.point_at(app, camera, false);
 
         let data = landed
             .lock()
@@ -150,7 +179,7 @@ impl Rendered {
             ));
         }
         self.count += 1;
-        let path = self.frames.join(self.file_name(name));
+        let path = self.frames.join(self.file_name(name)?);
         write_png(&path, &data)?;
         eprintln!("frame {}: {}", self.count, path.display());
         Ok(path)
@@ -253,11 +282,24 @@ impl Rendered {
         app.world_mut().entity_mut(camera).insert(target);
     }
 
-    /// The PNG's name: the frame's 1-based ordinal, plus the step's own name.
-    fn file_name(&self, name: Option<&str>) -> String {
-        match name {
-            Some(name) => format!("{}-{}.png", self.count, sanitize(name)),
-            None => format!("{}.png", self.count),
+    /// The PNG's name under this take's naming rule. The step's name is
+    /// sanitized, so neither rule can leave the frames folder.
+    fn file_name(&self, name: Option<&str>) -> Result<String, String> {
+        match self.naming {
+            Naming::Ordinal => Ok(match name {
+                Some(name) => format!("{}-{}.png", self.count, sanitize(name)),
+                None => format!("{}.png", self.count),
+            }),
+            Naming::Exact => {
+                let name = name.ok_or("a frame with an exact name needs one")?;
+                let name = sanitize(name);
+                // `sanitize` keeps `.`, so the names that would name the folder
+                // itself or its parent are refused.
+                if name.trim_matches('.').is_empty() {
+                    return Err(format!("`{name}` is not a frame name"));
+                }
+                Ok(format!("{name}.png"))
+            }
         }
     }
 }
@@ -285,8 +327,9 @@ fn write_png(path: &Path, data: &[u8]) -> Result<(), String> {
         .map_err(|error| format!("cannot write {}: {error}", path.display()))
 }
 
-/// A path component that cannot leave the frames folder.
-fn sanitize(name: &str) -> String {
+/// A path component that cannot leave the frames folder. The preview names its
+/// frames from the pack's own scene ids, so this is its one character rule too.
+pub(super) fn sanitize(name: &str) -> String {
     name.chars()
         .map(|character| match character {
             'a'..='z' | 'A'..='Z' | '0'..='9' | '-' | '_' | '.' => character,
@@ -325,6 +368,7 @@ mod tests {
             window: Entity::PLACEHOLDER,
             camera: None,
             frames: PathBuf::new(),
+            naming: Naming::Ordinal,
             count: 0,
         }
     }
@@ -335,13 +379,41 @@ mod tests {
     fn a_frames_name_is_its_ordinal_and_a_plain_name() {
         let mut rendered = rendered();
         rendered.count = 1;
-        assert_eq!(rendered.file_name(None), "1.png");
+        assert_eq!(rendered.file_name(None).expect("a name"), "1.png");
         rendered.count = 2;
-        assert_eq!(rendered.file_name(Some("titled")), "2-titled.png");
         assert_eq!(
-            rendered.file_name(Some("../escape/here")),
+            rendered.file_name(Some("titled")).expect("a name"),
+            "2-titled.png"
+        );
+        assert_eq!(
+            rendered.file_name(Some("../escape/here")).expect("a name"),
             "2-..-escape-here.png"
         );
-        assert_eq!(rendered.file_name(Some("a b")), "2-a-b.png");
+        assert_eq!(
+            rendered.file_name(Some("a b")).expect("a name"),
+            "2-a-b.png"
+        );
+    }
+
+    /// The preview's names carry no ordinal, and a name that would address the
+    /// folder itself or its parent is refused (spec §9.1).
+    #[test]
+    fn an_exact_name_is_the_step_name_alone_and_stays_in_the_folder() {
+        let mut rendered = rendered();
+        rendered.naming = Naming::Exact;
+        rendered.count = 4;
+        assert_eq!(
+            rendered.file_name(Some("at-reunion-19")).expect("a name"),
+            "at-reunion-19.png"
+        );
+        assert!(rendered.file_name(None).is_err(), "a name is required");
+        for bad in ["", ".", "..", "..."] {
+            assert!(rendered.file_name(Some(bad)).is_err(), "{bad:?}");
+        }
+        // A path cannot escape: the separator becomes part of the name.
+        assert_eq!(
+            rendered.file_name(Some("../escape")).expect("a plain name"),
+            "..-escape.png"
+        );
     }
 }

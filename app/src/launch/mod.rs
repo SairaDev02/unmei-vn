@@ -19,13 +19,17 @@
 use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
 
+mod check;
 mod keiko;
 mod pack;
+mod preview;
 
+use check::CheckArgs;
 pub use keiko::{validate_id, Format, KeikoMode, DEFAULT_BUDGET};
 pub use pack::{
     executable_dir, resolve_pack, ExecutableUnknown, PackOrigin, ResolvedPack, DEFAULT_PACK_NAME,
 };
+pub use preview::PreviewArgs;
 
 /// The release version, from the crate's manifest (`[workspace.package]`).
 /// Read, never restated, so a release bump touches `Cargo.toml` only.
@@ -55,6 +59,8 @@ pub struct Launch {
     /// The Keiko testing mode, when one was asked for. `None` is the ordinary
     /// player launch.
     pub keiko: Option<KeikoMode>,
+    /// Whether `--check` was asked for: report the pack's findings and exit.
+    pub check: bool,
     /// Keep every take's sandbox instead of deleting it.
     pub keep: bool,
     /// The Keiko output format. Text is the default for every mode.
@@ -69,6 +75,29 @@ impl Launch {
     pub fn dev_mode(&self) -> bool {
         self.force_dev || cfg!(debug_assertions)
     }
+
+    /// The exit this launch takes when no `PACK_DIR` was given and the
+    /// executable's folder is unknown, so the default pack cannot be derived.
+    /// Only play may fall back to the error screen: `--check`, `--preview` and
+    /// the Keiko modes build no app, so they never open a window.
+    pub fn no_pack_exit(&self) -> NoPackExit {
+        if self.check || self.keiko.is_some() {
+            NoPackExit::Usage
+        } else {
+            NoPackExit::ErrorScreen
+        }
+    }
+}
+
+/// Which exit a launch takes when there is no pack at all: no `PACK_DIR` was
+/// given and the executable cannot find its own folder.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoPackExit {
+    /// Play: the one error screen that exists before any pack is known.
+    ErrorScreen,
+    /// A mode — `--check`, `--preview` or a Keiko mode: print
+    /// [`NO_EXECUTABLE_MESSAGE`] and exit 2, because a mode builds no app.
+    Usage,
 }
 
 /// What the binary should do with the parsed arguments.
@@ -121,6 +150,7 @@ where
     let mut positional: Option<OsString> = None;
     let mut options_ended = false;
     let mut keiko = keiko::KeikoArgs::default();
+    let mut check = CheckArgs::default();
 
     let mut index = 0;
     while index < tokens.len() {
@@ -147,6 +177,10 @@ where
                 }
                 "-V" | "--version" => {
                     version = true;
+                    continue;
+                }
+                "--check" => {
+                    check.request();
                     continue;
                 }
                 "--take" => {
@@ -183,6 +217,33 @@ where
                         "--format" => keiko.set_format(&value)?,
                         "--budget" => keiko.set_budget(&value)?,
                         _ => keiko.set_from(&value)?,
+                    }
+                    continue;
+                }
+                // The preview's folder and state file are paths, so they keep
+                // the operating system's own encoding.
+                "--preview" | "--state" => {
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
+                    index += 1;
+                    let path = PathBuf::from(value);
+                    match text.as_ref() {
+                        "--preview" => keiko.preview(path)?,
+                        _ => keiko.set_state(path),
+                    }
+                    continue;
+                }
+                "--scene" | "--at" | "--pick" => {
+                    let value = tokens
+                        .get(index)
+                        .ok_or_else(|| UsageError::new(format!("{text} needs a value after it")))?;
+                    index += 1;
+                    let value = value.to_string_lossy();
+                    match text.as_ref() {
+                        "--scene" => keiko.set_scene(&value)?,
+                        "--at" => keiko.set_at(&value)?,
+                        _ => keiko.set_picks(&value)?,
                     }
                     continue;
                 }
@@ -232,11 +293,13 @@ where
         return Ok(LaunchRequest::Version);
     }
 
-    let keiko_mode = keiko.clone().finish(dev)?;
+    let keiko_mode = keiko.clone().finish(dev, check.requested())?;
+    let check = check.finish(dev, keiko_mode.is_some())?;
     Ok(LaunchRequest::Run(Launch {
         pack_dir: positional.map(PathBuf::from),
         force_dev: dev,
         keiko: keiko_mode,
+        check,
         keep: keiko.keeping(),
         format: keiko.output_format(),
     }))
@@ -245,6 +308,9 @@ where
 /// The concise usage block the binary prints to stderr alongside a diagnostic.
 pub const USAGE: &str = "\
 Usage: unmei-play [--dev] [PACK_DIR]
+       unmei-play [PACK_DIR] --check [--format text|json]
+       unmei-play [PACK_DIR] --preview DIR [--scene ID | --at SCENE:LINE]
+                          [--state FILE] [--pick N,N,...] [--format text|json]
        unmei-play --help
        unmei-play --version
 ";
@@ -268,6 +334,29 @@ Options:
   --dev           Force developer affordances on, even in a release build.
   -h, --help      Print this help and exit. Repeats are idempotent.
   -V, --version   Print the version and exit. Repeats are idempotent.
+
+Check:
+  --check         Report every load finding and every Keiko case finding in the
+                  pack without running a take. It opens no window and never
+                  touches the pack's sidecars or the user's credential file.
+  --format F      With --check: `text` (the default) or `json`.
+  Exit codes: 0 no error finding, 1 an error finding, 2 usage.
+
+Preview:
+  --preview DIR   Draw the pack on the software rasterizer, one 1280x720 PNG per
+                  frame, into DIR. It opens no window, needs no GPU or key, and
+                  never reads or writes the pack's sidecars or the user's
+                  credential file. DIR is created when missing; a DIR inside the
+                  pack folder is a usage error. Exit codes: 0 frames written,
+                  1 a finding or no rasterizer, 2 usage.
+  --scene ID      With --preview: one frame at every park the scene meets from
+                  its first line until it leaves the scene.
+  --at SCENE:LINE With --preview: one frame at the park that line produces. The
+                  line must be a say-line, a choice or a decide.
+  --state FILE    With --preview: a RON map in state.ron's form, merged over the
+                  pack's initial state.
+  --pick N,N,...  With --preview: the 1-based option to take at each successive
+                  choice; past the end of the list, option 1.
 
 Testing (Keiko):
   --take [ID...]  Run the pack's cases (`tests/<id>.keiko`), or every case

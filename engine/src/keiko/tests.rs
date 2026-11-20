@@ -40,7 +40,7 @@ fn a_missing_version_line_fails_alone() {
     ] {
         let finding = parse(text).expect_err("must fail");
         assert_eq!(finding.rule, rules::CASE_VERSION, "{text:?}");
-        assert_eq!(finding.path, "line 1");
+        assert_eq!(finding.path, Location::Line(1));
     }
 }
 
@@ -175,7 +175,7 @@ fn a_header_after_a_step_is_a_header_order_finding() {
         let text = format!("keiko 1\nnew-game\n{header}\n");
         let finding = parse(&text).expect_err("must fail");
         assert_eq!(finding.rule, rules::CASE_HEADER_ORDER, "{header}");
-        assert_eq!(finding.path, "line 3");
+        assert_eq!(finding.path, Location::Line(3));
     }
 }
 

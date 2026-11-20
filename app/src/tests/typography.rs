@@ -383,7 +383,12 @@ fn the_error_screen_splits_its_sans_intro_and_mono_machine_lines() {
     attach_text_faces(&mut app);
     app.insert_resource(StartupFailure::Pack {
         pack_root: PathBuf::from("/games/pack"),
-        errors: vec![unmei_engine::LoadError::new("pack.ron", Some(3), "boom")],
+        errors: vec![unmei_engine::Finding::at_line(
+            "pack.ron",
+            3,
+            unmei_engine::finding::rules::PACK_MANIFEST,
+            "boom",
+        )],
         defaulted: false,
     });
     app.world_mut()

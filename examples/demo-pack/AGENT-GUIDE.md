@@ -1,7 +1,7 @@
 # Agent guide: working on an Unmei content pack
 
 This file is for an AI coding agent helping an author edit this pack. It points at the files that
-matter and the two ways to check a change. It does not replace the format documentation: the Guide
+matter and the ways to check a change. It does not replace the format documentation: the Guide
 carries [Write your first pack](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/write-your-first-pack.md) and the content format
 overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/README.md) links.
 
@@ -36,6 +36,12 @@ overview, which [the Guide's home page](https://github.com/SairaDev02/unmei-vn/b
   unmei author draft <scene> --list --pack <pack-dir>
   ```
 
+- **Check the whole pack.** `unmei-play <pack-dir> --check` reports every load finding and every
+  Keiko case finding in one run, one `<severity>: file:line: message [rule]` line each, then a
+  summary. It runs no take, opens no window and never reads or writes the pack's sidecars or the
+  user's key. Exit `0` means no error finding, `1` an error finding and `2` a usage error. Add
+  `--format json` for one machine-readable document with each finding's severity and rule id.
+
 - **Play the pack.** `unmei-play <pack-dir>` lists every load error on screen and in
   `<pack-dir>.log`, so a broken file is reported with its own `file:line`. A pack that loads plays,
   and without a key every `decide` point takes the author's fallback.
@@ -69,6 +75,63 @@ assertion. The player ignores `tests/` during play.
 The worked case in this pack is `tests/opening.keiko`, and the Guide page is
 [Test your pack with Keiko](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/guide/test-your-pack.md).
 The rules are in [the Keiko spec](https://github.com/SairaDev02/unmei-vn/blob/v0.2.0/docs/keiko-spec.md).
+
+## Preview the pack
+
+A preview draws the pack on the software rasterizer and writes the frames as 1280×720 PNGs, so you
+can see a line or a whole scene without playing to it. It opens no window, needs no key, and reads
+and writes none of the pack's sidecars or the user's own key. Write the frames to a folder outside
+the pack.
+
+- **Draw one line.** `--at SCENE:LINE` writes `<dir>/at-<scene>-<line>.png` at the park that line
+  produces:
+
+  ```sh
+  unmei-play <pack-dir> --preview preview --at reunion:19
+  ```
+
+  The line must be a say-line, a `choice` or a `decide`. Any other line, or a line the picks cannot
+  reach, reports `keiko.case.reference` and writes nothing.
+
+- **Draw a scene.** `--scene ID` writes one PNG at every park the default picks meet, from the
+  scene's first line until it leaves the scene, named `<dir>/scene-<id>-<line>.png`:
+
+  ```sh
+  unmei-play <pack-dir> --preview preview --scene first_meeting
+  ```
+
+- **Reach the branch you mean.** `--pick 2` takes the second option at the first choice, and
+  `--pick 2,1` the second and then the first. A choice past the end of the list takes option 1.
+  `--state FILE` merges a RON map over `state.ron`, so a line only one state reaches can be drawn:
+
+  ```ron
+  (affinity_level: "high",)
+  ```
+
+  ```sh
+  unmei-play <pack-dir> --preview preview --at epilogue:10 --state high.ron
+  ```
+
+- **Draw every surface.** With no `--scene` and no `--at`, the preview renders today's fixture
+  states, each from a fresh take, as one PNG per state: `title-fresh`, `title-continue`, `say`,
+  `narration`, `choice`, `decision`, `scene-end`, `menu-<section>` for each overlay section, `still`,
+  and `confirm-<kind>` for each confirmation dialog:
+
+  ```sh
+  unmei-play <pack-dir> --preview preview
+  ```
+
+  A state this pack cannot reach, such as `say` when nobody but `Narrator` speaks, writes no file
+  and is reported as a `preview.state.unreachable` warning naming the state. The Timeline's one
+  confirm needs a `scenes` order in `pack.ron`, so it is the state a pack that declares none reports
+  unreachable.
+
+- The folder is created when missing, and a folder inside the pack is a usage error. A rerun
+  overwrites the files it names and leaves every other file in the folder alone.
+- Exit `0` means every frame was written, or only `preview.state.unreachable` warnings occurred, `1`
+  a finding or a pack that does not load, and `2` a usage error. A machine with no software
+  rasterizer, WARP on Windows and Mesa's llvmpipe on Linux, fails with `keiko.render.unavailable`
+  before any frame.
 
 ## Rules of thumb
 

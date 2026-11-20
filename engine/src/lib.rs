@@ -39,7 +39,8 @@ pub mod content;
 // `cargo build -p unmei-engine` is warning-free.
 #[cfg_attr(not(feature = "network"), allow(dead_code))]
 pub mod decision;
-pub mod error;
+pub mod finding;
+pub mod flow;
 pub mod keiko;
 pub mod pack;
 pub mod pack_ron;
@@ -58,8 +59,8 @@ pub use decision::{
     KeyVerdict, ResolvedDecision, DEFAULT_ENDPOINT, KEY_CHECK_TIMEOUT, KEY_ENDPOINT,
     UNVERIFIED_MODEL,
 };
-pub use error::LoadError;
-pub use pack::{load_pack, read_pack_text, LoadedPack, Warning};
+pub use finding::{Finding, Location, Severity};
+pub use pack::{load_pack, read_pack_text, AssetKind, AssetReference, LoadedPack};
 pub use parser::{check_id, is_keyword, split_say_line, Parser, KEYWORDS};
 pub use read_log::{
     load_read_log, read_log_path_for, write_read_log, ReadLog, ReadLogError, READ_LOG_VERSION,

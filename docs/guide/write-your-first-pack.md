@@ -8,14 +8,14 @@ keywords:
 ---
 # Write your first Unmei pack
 
-This page takes you from a copy of the demo pack to a changed pack that passes validation and plays in the player. You rewrite one line, add a choice option with its label, validate the pack with the CLI and play it.
+This page takes you from a copy of the demo pack to a changed pack that passes validation and plays in the player. You rewrite one line, add a choice option with its label, validate the pack with the CLI, check the whole pack with the player and play it.
 
 ## Before you start
 
 - The CLI archive, extracted as in [`install-the-cli.md`](install-the-cli.md). Its folder holds `unmei` and `demo-pack/`, the pack you copy in step 1.
 - A terminal open in that folder. Where a command shows `unmei`, type `.\unmei` in PowerShell or `./unmei` in `sh`.
 - Any plain-text editor.
-- For step 6, the player archive, extracted as in [`play-the-demo.md`](play-the-demo.md).
+- For steps 6 and 7, the player archive, extracted as in [`play-the-demo.md`](play-the-demo.md).
 
 Both archives exist for Windows x64 and Linux x64 only. macOS has neither
 ([`install-the-cli.md` § Two ways to get `unmei`](install-the-cli.md#two-ways-to-get-unmei);
@@ -119,7 +119,30 @@ $ unmei author draft first_meeting --list --pack my-pack
 
 Change `letter_found` back to `letters_found` before step 6.
 
-## 6. Play it
+## 6. Check the whole pack
+
+The player's `--check` mode reports every problem it finds in the pack in one run, without opening a window: every load finding and every Keiko case finding, each with its file, its line where it has one and a rule id, then a summary line. It writes nothing, and it reads no saved game, settings or key.
+
+Open a terminal in the player's folder and pass the path to `my-pack`. With `my-pack` beside the player executable:
+
+```powershell
+.\unmei-play my-pack --check
+```
+
+```sh
+./unmei-play my-pack --check
+```
+
+Otherwise pass the full path to `my-pack`, as in step 7. A pack with no error prints only the summary:
+
+```console
+$ unmei-play my-pack --check
+check: 0 errors, 0 warnings
+```
+
+Exit `0` means no error finding, `1` means at least one error and `2` means the command line was wrong. Warnings alone still exit `0`. Add `--format json` for one machine-readable document.
+
+## 7. Play it
 
 The player takes the pack folder as its one argument. With no argument it runs the `demo-pack` beside the player executable, so the path is what selects your pack
 ([`docs/runtime-hardening.md` § Dev mode](../runtime-hardening.md#dev-mode), under Launch grammar).

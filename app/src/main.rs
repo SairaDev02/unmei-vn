@@ -52,13 +52,7 @@ fn main() -> AppExit {
             return AppExit::Success;
         }
         Ok(LaunchRequest::Run(launch)) => launch,
-        Err(error) => {
-            eprintln!("{error}");
-            eprintln!();
-            eprint!("{}", launch::USAGE);
-            let _ = std::io::stderr().flush();
-            return AppExit::from_code(2);
-        }
+        Err(error) => return usage_error(&error),
     };
 
     // The default pack is a separate step from the grammar: it is the one place
@@ -66,9 +60,21 @@ fn main() -> AppExit {
     // beside it in every build with no working-directory fallback. An explicit
     // PACK_DIR never takes this step.
     let dev_mode = cli.dev_mode();
+    // Decided before `resolve_pack` takes the positional by value; the rule
+    // itself is `Launch::no_pack_exit`.
+    let no_pack_exit = cli.no_pack_exit();
     let resolved = match launch::resolve_pack(cli.pack_dir, launch::executable_dir()) {
         Ok(resolved) => resolved,
-        Err(launch::ExecutableUnknown) => return startup_without_pack(dev_mode),
+        Err(launch::ExecutableUnknown) => {
+            eprintln!("{}", launch::NO_EXECUTABLE_MESSAGE);
+            let _ = std::io::stderr().flush();
+            return match no_pack_exit {
+                launch::NoPackExit::ErrorScreen => startup_without_pack(dev_mode),
+                // A mode builds no app, so it must never fall back to a window
+                // (check and preview spec §1).
+                launch::NoPackExit::Usage => AppExit::from_code(2),
+            };
+        }
     };
 
     // One optional positional PACK_DIR, best-effort canonicalized with the
@@ -76,10 +82,22 @@ fn main() -> AppExit {
     // not a usage error).
     let pack_root = resolved.canonical_pack_root();
 
+    // `--check` reports findings and exits: no shipping app, no window, no
+    // settings, saves, read log, session log or credential file (spec §1).
+    if cli.check {
+        let code = unmei_app::check::run(&pack_root, cli.format);
+        return AppExit::from_code(code);
+    }
+
     // A Keiko mode is a testing entry point, not a play session: it never builds
     // the shipping app, never opens a window and never touches the user's
     // settings, saves, read log, session log or credential file (spec §1).
     if let Some(mode) = &cli.keiko {
+        // The preview's output folder rule needs the canonical pack root, so it
+        // runs here rather than in the grammar (check and preview spec §1).
+        if let Err(error) = mode.check_paths(&pack_root) {
+            return usage_error(&error);
+        }
         let code = unmei_app::keiko::run(mode, &pack_root, cli.keep, cli.format);
         return AppExit::from_code(code);
     }
@@ -170,15 +188,21 @@ fn main() -> AppExit {
     app.run()
 }
 
-/// Start the one error screen that exists before any pack is known: no
-/// `PACK_DIR` was given and this executable cannot find its own folder, so
-/// `demo-pack` beside it cannot be derived. The same text goes to `stderr`, no
-/// session log is attempted (there is no pack for one to sit beside), and no
-/// settings or Decisions work happens — nothing can be played from here.
-fn startup_without_pack(dev_mode: bool) -> AppExit {
-    eprintln!("{}", launch::NO_EXECUTABLE_MESSAGE);
+/// Print one usage error with the usage block and exit 2, before any startup
+/// work.
+fn usage_error(error: &launch::UsageError) -> AppExit {
+    eprintln!("{error}");
+    eprintln!();
+    eprint!("{}", launch::USAGE);
     let _ = std::io::stderr().flush();
+    AppExit::from_code(2)
+}
 
+/// Start the one error screen that exists before any pack is known, after the
+/// caller printed [`launch::NO_EXECUTABLE_MESSAGE`]. No session log is attempted
+/// (there is no pack for one to sit beside), and no settings or Decisions work
+/// happens — nothing can be played from here.
+fn startup_without_pack(dev_mode: bool) -> AppExit {
     // Inert: the pack load is skipped because the failure is already recorded,
     // so this path is never read. Settings are preloaded as defaults for the
     // same reason — there is no pack directory to read a file from.

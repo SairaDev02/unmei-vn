@@ -9,9 +9,9 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use super::controls::is_control_id;
-use super::finding::{rules, Finding};
 use super::model::{Case, Expect, Fault, Header, LoadTarget, Pick, Step, WriteTarget};
 use crate::content::StateValue;
+use crate::finding::{rules, Finding};
 use crate::{Pack, Slot};
 
 /// The pack facts and app-owned tables a case is validated against.

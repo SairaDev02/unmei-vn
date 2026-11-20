@@ -24,13 +24,44 @@ pub mod take;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
-use unmei_engine::keiko::{parse_case, validate, Case, Facts, Finding, StepLine};
+use unmei_engine::keiko::{parse_case, validate, Case, Facts, Finding, Location, StepLine};
 use unmei_engine::Pack;
 
 use crate::launch::{Format, KeikoMode};
 
 /// Run one Keiko mode. Returns the process exit code (spec §10.3).
 pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8 {
+    match mode {
+        // The preview loads the pack itself: §9.3 wants the loader's own
+        // findings in the check's shape, not Keiko's one summary of them.
+        KeikoMode::Preview(args) => preview::run(args, pack_root, keep, format),
+        KeikoMode::Take { ids, live } => with_pack(pack_root, format, |pack| {
+            let live = match live_client(*live) {
+                Ok(live) => live,
+                Err(message) => {
+                    eprintln!("unmei-play: {message}");
+                    return output::USAGE;
+                }
+            };
+            take(pack_root, pack, ids, keep, format, None, live)
+        }),
+        KeikoMode::Step { id, step } => with_pack(pack_root, format, |pack| {
+            append_step(pack_root, pack, id, step, keep, format)
+        }),
+        // `--observe` reports one case with the same document as `--step`
+        // (spec §10.1), not under "takes".
+        KeikoMode::Observe { id } => with_pack(pack_root, format, |pack| {
+            observe_one(pack_root, pack, id, keep, format)
+        }),
+        KeikoMode::Explore { budget, from } => with_pack(pack_root, format, |pack| {
+            explore(pack_root, pack, *budget, from.as_deref(), keep, format)
+        }),
+    }
+}
+
+/// Run one mode on the shared load, or report a pack that will not load as one
+/// finding and fail. Every mode but the preview runs here.
+fn with_pack(pack_root: &Path, format: Format, run: impl FnOnce(&Pack) -> u8) -> u8 {
     let loaded = match unmei_engine::load_pack(pack_root) {
         Ok(loaded) => loaded,
         Err(errors) => {
@@ -41,7 +72,7 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
                 .join("; ");
             let finding = Finding::new(
                 pack_root.display().to_string(),
-                String::new(),
+                Location::File,
                 unmei_engine::keiko::rules::CASE_REFERENCE,
                 format!("pack: {detail}"),
             );
@@ -56,27 +87,7 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
             return output::FAIL;
         }
     };
-    let pack = loaded.pack;
-
-    match mode {
-        KeikoMode::Take { ids, live } => {
-            let live = match live_client(*live) {
-                Ok(live) => live,
-                Err(message) => {
-                    eprintln!("unmei-play: {message}");
-                    return output::USAGE;
-                }
-            };
-            take(pack_root, &pack, ids, keep, format, None, live)
-        }
-        KeikoMode::Step { id, step } => append_step(pack_root, &pack, id, step, keep, format),
-        // `--observe` reports one case with the same document as `--step`
-        // (spec §10.1), not under "takes".
-        KeikoMode::Observe { id } => observe_one(pack_root, &pack, id, keep, format),
-        KeikoMode::Explore { budget, from } => {
-            explore(pack_root, &pack, *budget, from.as_deref(), keep, format)
-        }
-    }
+    run(&loaded.pack)
 }
 
 /// The `--observe` run: one case, reported as one document.
@@ -219,6 +230,7 @@ fn run_one(
         take_index,
         keep,
         live,
+        frames: None,
     });
     output::CaseRun {
         case: id.to_string(),
@@ -234,7 +246,7 @@ fn invalid(id: &str, message: String) -> output::CaseRun {
         case: id.to_string(),
         result: Err(Finding::new(
             format!("tests/{id}.keiko"),
-            String::new(),
+            Location::File,
             unmei_engine::keiko::rules::CASE_SYNTAX,
             message,
         )),
@@ -259,8 +271,11 @@ pub fn validate_case(pack_root: &Path, pack: &Pack, case: &Case, case_file: &str
 }
 
 /// The case files a run names, as `(id, path)` pairs in byte order of their
-/// relative paths (spec §1).
-fn case_files(pack_root: &Path, ids: &[String]) -> Result<Vec<(String, PathBuf)>, String> {
+/// relative paths (spec §1). The check asks for every case with no ids.
+pub(crate) fn case_files(
+    pack_root: &Path,
+    ids: &[String],
+) -> Result<Vec<(String, PathBuf)>, String> {
     let tests = pack_root.join("tests");
     if ids.is_empty() {
         let mut files = Vec::new();
@@ -354,7 +369,7 @@ fn append_step(
     if is_header_line(step) && existing_has_steps(&existing) {
         let finding = Finding::new(
             &case_file,
-            String::new(),
+            Location::File,
             unmei_engine::keiko::rules::CASE_HEADER_ORDER,
             "a header line must come before the first step",
         );
@@ -375,6 +390,7 @@ fn append_step(
         take_index: 1,
         keep,
         live: None,
+        frames: None,
     });
     let run = output::CaseRun {
         case: id.to_string(),
