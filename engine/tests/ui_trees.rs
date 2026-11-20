@@ -20,7 +20,7 @@ const TOKENS: &str = r#"(
     },
     typography: {
         "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
-        "flourish": (face: "IBM Plex Serif", weight: 600, size_px: 40.0, line_height_px: 40.0),
+        "flourish": (face: "IBM Plex Sans", weight: 600, size_px: 40.0, line_height_px: 40.0),
     },
     rounded: { "box": 14.0 },
     spacing: { "gap": 12.0 },
@@ -229,7 +229,7 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
         panic!("a glyph: {:?}", root_box.children[1].kind);
     };
     assert_eq!(glyph.glyph, "❧");
-    assert_eq!(glyph.typography.face, "IBM Plex Serif");
+    assert_eq!(glyph.typography.face, "IBM Plex Sans");
     assert_eq!(glyph.typography.weight, 600);
     assert_eq!(
         color_of(root_box.children[1].style.paint.fill.as_ref()),
