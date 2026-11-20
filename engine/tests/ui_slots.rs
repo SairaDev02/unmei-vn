@@ -452,6 +452,51 @@ fn an_item_template_that_omits_an_item_slot_fails() {
     );
 }
 
+/// A list's item control is as required as its item slots: a gallery item that
+/// places both of its slots and no card control fails.
+#[test]
+fn an_item_template_that_omits_an_item_control_fails() {
+    let gallery = spec("gallery");
+    let list = &gallery.lists[0];
+    let tree = root(&[format!(
+        "(kind: \"list\", list: \"{}\", item: {})",
+        list.slot,
+        root(&[slot("gallery.card.label"), slot("gallery.card.art")])
+    )]);
+    let outcome = load_one(MANIFEST, "gallery", &tree);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/gallery.ron".to_string(),
+            String::new(),
+            "ui.slot.missing".to_string()
+        )]
+    );
+    assert!(
+        messages(&outcome).contains("gallery.card.<n>"),
+        "the message names the item control: {}",
+        messages(&outcome)
+    );
+}
+
+/// A list the surface does not have fails with `ui.slot.unknown`.
+#[test]
+fn an_unknown_list_fails() {
+    let (tree, index) = tree_with(
+        "play",
+        &[r#"(kind: "list", list: "title.rows", item: (kind: "box"))"#.to_string()],
+    );
+    let outcome = load_one(MANIFEST, "play", &tree);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            format!("root.children[{index}].list"),
+            "ui.slot.unknown".to_string()
+        )]
+    );
+}
+
 /// An item slot the list does not declare fails with `ui.slot.unknown`, at the
 /// node inside the item template.
 #[test]
