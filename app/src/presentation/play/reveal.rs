@@ -2,6 +2,7 @@
 //! dialogue text node it renders.
 
 use bevy::prelude::*;
+use unmei_engine::copy;
 use unmei_engine::runner::Wait;
 
 /// The typewriter reveal for the parked say-line: which line it belongs to and
@@ -132,7 +133,7 @@ pub(crate) fn rendered_line_parts(
     speed: f32,
 ) -> (String, String) {
     let Some(wait) = wait else {
-        return ("— end of scene —".to_string(), String::new());
+        return (copy::text("play.end-of-scene").to_string(), String::new());
     };
     match wait {
         Wait::Say { speaker, text } => {
@@ -145,7 +146,10 @@ pub(crate) fn rendered_line_parts(
             (format!("{speaker}: "), revealed)
         }
         Wait::Choice { .. } => (String::new(), String::new()),
-        Wait::Decision { npc_id, .. } => (format!("{npc_id} is deciding…"), String::new()),
+        Wait::Decision { npc_id, .. } => (
+            copy::render("play.deciding", &[("npc", npc_id)]),
+            String::new(),
+        ),
     }
 }
 
