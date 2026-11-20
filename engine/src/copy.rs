@@ -39,37 +39,13 @@ pub struct CopyKey {
 }
 
 /// The keyed copy of every surface a player can read, grouped by the surface
-/// that draws it: `play`, `title`, `contents`, `legacy-picker`, `confirm`,
-/// `settings`, `gallery`, `still` and `timeline`, in the spec's surface order.
-/// The engine owns the ids and the placeholders; a plugin's `copy` overrides
-/// only replace a value, so this list stays the reference text.
+/// that draws it and listed in the spec's §5 surface order: `title`, `play`,
+/// `contents`, `settings`, `gallery`, `still`, `timeline`, `legacy-picker`,
+/// `confirm`. `title-settings` draws the `settings` body from its own door, so
+/// it shares those keys. The engine owns the ids and the placeholders; a
+/// plugin's `copy` overrides only replace a value, so this list stays the
+/// reference text.
 pub const KEYS: &[CopyKey] = &[
-    // The play surface: the dialogue band, the cues and the two non-say parks.
-    CopyKey {
-        id: "play.help",
-        placeholders: &[],
-        text: "Space/Enter/click advance \u{00b7} Tab skip \u{00b7} Ctrl skip all \u{00b7} 1-9 or click choose \u{00b7} A auto \u{00b7} F11 fullscreen \u{00b7} Esc menu",
-    },
-    CopyKey {
-        id: "play.cue.auto",
-        placeholders: &[],
-        text: "AUTO",
-    },
-    CopyKey {
-        id: "play.cue.skip",
-        placeholders: &[],
-        text: "SKIP",
-    },
-    CopyKey {
-        id: "play.deciding",
-        placeholders: &["npc"],
-        text: "{npc} is deciding…",
-    },
-    CopyKey {
-        id: "play.end-of-scene",
-        placeholders: &[],
-        text: "— end of scene —",
-    },
     // The title surface: the five rows, the legend and Continue's reason line.
     CopyKey {
         id: "title.row.continue",
@@ -110,6 +86,32 @@ pub const KEYS: &[CopyKey] = &[
         id: "title.continue.autosave",
         placeholders: &["scene", "saved_at"],
         text: "{scene} \u{00b7} {saved_at}",
+    },
+    // The play surface: the dialogue band, the cues and the two non-say parks.
+    CopyKey {
+        id: "play.help",
+        placeholders: &[],
+        text: "Space/Enter/click advance \u{00b7} Tab skip \u{00b7} Ctrl skip all \u{00b7} 1-9 or click choose \u{00b7} A auto \u{00b7} F11 fullscreen \u{00b7} Esc menu",
+    },
+    CopyKey {
+        id: "play.cue.auto",
+        placeholders: &[],
+        text: "AUTO",
+    },
+    CopyKey {
+        id: "play.cue.skip",
+        placeholders: &[],
+        text: "SKIP",
+    },
+    CopyKey {
+        id: "play.deciding",
+        placeholders: &["npc"],
+        text: "{npc} is deciding…",
+    },
+    CopyKey {
+        id: "play.end-of-scene",
+        placeholders: &[],
+        text: "— end of scene —",
     },
     // The contents surface: the Esc overlay's rail, tabs and slot cards.
     CopyKey {
@@ -236,6 +238,196 @@ pub const KEYS: &[CopyKey] = &[
         id: "contents.action.load-only",
         placeholders: &[],
         text: "Load-only",
+    },
+    // The settings surface, and the title's door onto the same body.
+    CopyKey {
+        id: "settings.heading",
+        placeholders: &[],
+        text: "Settings",
+    },
+    CopyKey {
+        id: "settings.group.audio",
+        placeholders: &[],
+        text: "Audio",
+    },
+    CopyKey {
+        id: "settings.group.play",
+        placeholders: &[],
+        text: "Play",
+    },
+    CopyKey {
+        id: "settings.group.decisions",
+        placeholders: &[],
+        text: "Decisions",
+    },
+    CopyKey {
+        id: "settings.control.master",
+        placeholders: &[],
+        text: "Master",
+    },
+    CopyKey {
+        id: "settings.control.music",
+        placeholders: &[],
+        text: "Music",
+    },
+    CopyKey {
+        id: "settings.control.sfx",
+        placeholders: &[],
+        text: "SFX",
+    },
+    CopyKey {
+        id: "settings.control.mute",
+        placeholders: &[],
+        text: "Mute",
+    },
+    CopyKey {
+        id: "settings.control.reset-audio",
+        placeholders: &[],
+        text: "Reset audio",
+    },
+    CopyKey {
+        id: "settings.control.text-speed",
+        placeholders: &[],
+        text: "Text speed",
+    },
+    CopyKey {
+        id: "settings.control.auto",
+        placeholders: &[],
+        text: "Auto",
+    },
+    CopyKey {
+        id: "settings.control.fullscreen",
+        placeholders: &[],
+        text: "Fullscreen",
+    },
+    CopyKey {
+        id: "settings.control.reset-play",
+        placeholders: &[],
+        text: "Reset play",
+    },
+    CopyKey {
+        id: "settings.control.copy-path",
+        placeholders: &[],
+        text: "Copy path",
+    },
+    CopyKey {
+        id: "settings.control.copy-path.copied",
+        placeholders: &[],
+        text: "Copied",
+    },
+    CopyKey {
+        id: "settings.control.clear-key",
+        placeholders: &[],
+        text: "Clear key",
+    },
+    CopyKey {
+        id: "settings.value.on",
+        placeholders: &[],
+        text: "On",
+    },
+    CopyKey {
+        id: "settings.value.off",
+        placeholders: &[],
+        text: "Off",
+    },
+    CopyKey {
+        id: "settings.back.slots",
+        placeholders: &[],
+        text: "\u{2190} Back to slots",
+    },
+    CopyKey {
+        id: "settings.back.title",
+        placeholders: &[],
+        text: "\u{2190} Back to title",
+    },
+    CopyKey {
+        id: "settings.text-speed.instant",
+        placeholders: &[],
+        text: "Instant",
+    },
+    CopyKey {
+        id: "settings.text-speed.fast",
+        placeholders: &[],
+        text: "Fast",
+    },
+    CopyKey {
+        id: "settings.text-speed.normal",
+        placeholders: &[],
+        text: "Normal",
+    },
+    CopyKey {
+        id: "settings.text-speed.slow",
+        placeholders: &[],
+        text: "Slow",
+    },
+    CopyKey {
+        id: "settings.text-speed.slowest",
+        placeholders: &[],
+        text: "Slowest",
+    },
+    // The gallery grid, from the title's door and the overlay's alike.
+    CopyKey {
+        id: "gallery.heading",
+        placeholders: &[],
+        text: "Gallery",
+    },
+    CopyKey {
+        id: "gallery.empty",
+        placeholders: &[],
+        text: "No images in this pack",
+    },
+    CopyKey {
+        id: "gallery.legend",
+        placeholders: &[],
+        text: "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter view \u{00b7} click to open",
+    },
+    CopyKey {
+        id: "gallery.back.slots",
+        placeholders: &[],
+        text: "\u{2190} Back to slots",
+    },
+    CopyKey {
+        id: "gallery.back.title",
+        placeholders: &[],
+        text: "\u{2190} Back to title",
+    },
+    // The gallery's still view, which replaces the grid inside the same surface.
+    CopyKey {
+        id: "still.legend",
+        placeholders: &[],
+        text: "\u{2190}/\u{2192} browse \u{00b7} \u{2191}/\u{2193} or Esc or click to close",
+    },
+    // The Timeline surface: its header, its explanation, its empty state and its
+    // cards.
+    CopyKey {
+        id: "timeline.heading",
+        placeholders: &[],
+        text: "Timeline",
+    },
+    CopyKey {
+        id: "timeline.back",
+        placeholders: &[],
+        text: "\u{2190} Back to slots",
+    },
+    CopyKey {
+        id: "timeline.explanation",
+        placeholders: &[],
+        text: "Choose a visited scene to start it from the beginning with your current state.",
+    },
+    CopyKey {
+        id: "timeline.empty",
+        placeholders: &[],
+        text: "This pack has no Timeline.",
+    },
+    CopyKey {
+        id: "timeline.locked",
+        placeholders: &[],
+        text: "???",
+    },
+    CopyKey {
+        id: "timeline.legend",
+        placeholders: &[],
+        text: "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter/Space select \u{00b7} Esc back \u{00b7} click to choose",
     },
     // The legacy-save target picker.
     CopyKey {
@@ -383,193 +575,6 @@ pub const KEYS: &[CopyKey] = &[
         id: "confirm.button.cancel",
         placeholders: &[],
         text: "Cancel",
-    },
-    // The settings surface, and the title's door onto the same body.
-    CopyKey {
-        id: "settings.heading",
-        placeholders: &[],
-        text: "Settings",
-    },
-    CopyKey {
-        id: "settings.group.audio",
-        placeholders: &[],
-        text: "Audio",
-    },
-    CopyKey {
-        id: "settings.group.play",
-        placeholders: &[],
-        text: "Play",
-    },
-    CopyKey {
-        id: "settings.group.decisions",
-        placeholders: &[],
-        text: "Decisions",
-    },
-    CopyKey {
-        id: "settings.control.master",
-        placeholders: &[],
-        text: "Master",
-    },
-    CopyKey {
-        id: "settings.control.music",
-        placeholders: &[],
-        text: "Music",
-    },
-    CopyKey {
-        id: "settings.control.sfx",
-        placeholders: &[],
-        text: "SFX",
-    },
-    CopyKey {
-        id: "settings.control.mute",
-        placeholders: &[],
-        text: "Mute",
-    },
-    CopyKey {
-        id: "settings.control.reset-audio",
-        placeholders: &[],
-        text: "Reset audio",
-    },
-    CopyKey {
-        id: "settings.control.text-speed",
-        placeholders: &[],
-        text: "Text speed",
-    },
-    CopyKey {
-        id: "settings.control.auto",
-        placeholders: &[],
-        text: "Auto",
-    },
-    CopyKey {
-        id: "settings.control.fullscreen",
-        placeholders: &[],
-        text: "Fullscreen",
-    },
-    CopyKey {
-        id: "settings.control.reset-play",
-        placeholders: &[],
-        text: "Reset play",
-    },
-    CopyKey {
-        id: "settings.control.copy-path",
-        placeholders: &[],
-        text: "Copy path",
-    },
-    CopyKey {
-        id: "settings.control.copy-path.copied",
-        placeholders: &[],
-        text: "Copied",
-    },
-    CopyKey {
-        id: "settings.control.clear-key",
-        placeholders: &[],
-        text: "Clear key",
-    },
-    CopyKey {
-        id: "settings.value.on",
-        placeholders: &[],
-        text: "On",
-    },
-    CopyKey {
-        id: "settings.value.off",
-        placeholders: &[],
-        text: "Off",
-    },
-    CopyKey {
-        id: "settings.back.slots",
-        placeholders: &[],
-        text: "\u{2190} Back to slots",
-    },
-    CopyKey {
-        id: "settings.back.title",
-        placeholders: &[],
-        text: "\u{2190} Back to title",
-    },
-    CopyKey {
-        id: "settings.text-speed.instant",
-        placeholders: &[],
-        text: "Instant",
-    },
-    CopyKey {
-        id: "settings.text-speed.fast",
-        placeholders: &[],
-        text: "Fast",
-    },
-    CopyKey {
-        id: "settings.text-speed.normal",
-        placeholders: &[],
-        text: "Normal",
-    },
-    CopyKey {
-        id: "settings.text-speed.slow",
-        placeholders: &[],
-        text: "Slow",
-    },
-    CopyKey {
-        id: "settings.text-speed.slowest",
-        placeholders: &[],
-        text: "Slowest",
-    },
-    // The gallery, its still view and the Timeline, each from both doors.
-    CopyKey {
-        id: "gallery.heading",
-        placeholders: &[],
-        text: "Gallery",
-    },
-    CopyKey {
-        id: "gallery.empty",
-        placeholders: &[],
-        text: "No images in this pack",
-    },
-    CopyKey {
-        id: "gallery.legend",
-        placeholders: &[],
-        text: "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter view \u{00b7} click to open",
-    },
-    CopyKey {
-        id: "gallery.back.slots",
-        placeholders: &[],
-        text: "\u{2190} Back to slots",
-    },
-    CopyKey {
-        id: "gallery.back.title",
-        placeholders: &[],
-        text: "\u{2190} Back to title",
-    },
-    CopyKey {
-        id: "still.legend",
-        placeholders: &[],
-        text: "\u{2190}/\u{2192} browse \u{00b7} \u{2191}/\u{2193} or Esc or click to close",
-    },
-    CopyKey {
-        id: "timeline.heading",
-        placeholders: &[],
-        text: "Timeline",
-    },
-    CopyKey {
-        id: "timeline.back",
-        placeholders: &[],
-        text: "\u{2190} Back to slots",
-    },
-    CopyKey {
-        id: "timeline.explanation",
-        placeholders: &[],
-        text: "Choose a visited scene to start it from the beginning with your current state.",
-    },
-    CopyKey {
-        id: "timeline.empty",
-        placeholders: &[],
-        text: "This pack has no Timeline.",
-    },
-    CopyKey {
-        id: "timeline.locked",
-        placeholders: &[],
-        text: "???",
-    },
-    CopyKey {
-        id: "timeline.legend",
-        placeholders: &[],
-        text: "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter/Space select \u{00b7} Esc back \u{00b7} click to choose",
     },
 ];
 
