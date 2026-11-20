@@ -145,24 +145,10 @@ const LEGACY_TARGETS: ListSpec = ListSpec {
     item_controls: &["legacy.target.1", "legacy.target.2", "legacy.target.3"],
 };
 
-/// The twelve `SETTINGS_ORDER` stops, which every Settings body places.
-const SETTINGS_STOPS: &[&str] = &[
-    "settings.master",
-    "settings.music",
-    "settings.sfx",
-    "settings.mute",
-    "settings.reset-audio",
-    "settings.text-speed",
-    "settings.auto",
-    "settings.fullscreen",
-    "settings.reset-play",
-    "settings.key",
-    "settings.copy-path",
-    "settings.clear-key",
-];
-
-/// The Settings body plus the door's one back control.
-const TITLE_SETTINGS_CONTROLS: &[&str] = &[
+/// The Settings body plus its back control. Both doors draw the way out
+/// (`← Back to slots` from the contents page, `← Back to title` from the
+/// title), so the surface that lays the body out can reach it.
+const SETTINGS_CONTROLS: &[&str] = &[
     "settings.back",
     "settings.master",
     "settings.music",
@@ -257,7 +243,7 @@ pub const SURFACES: &[SurfaceSpec] = &[
             "settings.key-path",
         ],
         optional_slots: &["settings.key-placeholder", "settings.copy-path-label"],
-        controls: TITLE_SETTINGS_CONTROLS,
+        controls: SETTINGS_CONTROLS,
         lists: &[AUDIO_ROWS],
         copy_keys: SETTINGS_KEYS,
     },
@@ -338,7 +324,7 @@ pub const SURFACES: &[SurfaceSpec] = &[
             "settings.key-path",
         ],
         optional_slots: &["settings.key-placeholder", "settings.copy-path-label"],
-        controls: SETTINGS_STOPS,
+        controls: SETTINGS_CONTROLS,
         lists: &[AUDIO_ROWS],
         copy_keys: SETTINGS_KEYS,
     },

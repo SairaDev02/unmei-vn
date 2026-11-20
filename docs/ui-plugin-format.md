@@ -400,6 +400,7 @@ Settings opened from the contents page: the shared Settings body.
 | required slot | `settings.key-path` | — | — | Where the credential file is stored. |
 | optional slot | `settings.key-placeholder` | — | — | The key field's placeholder, shown while the field is empty and no key is stored. |
 | optional slot | `settings.copy-path-label` | — | — | The Copy path control's label, which becomes its copied confirmation for a moment. |
+| required control | `settings.back` | — | — | The way out of the view, back to the contents page. |
 | required control | `settings.master` | — | — | The master volume slider. |
 | required control | `settings.music` | — | — | The music volume slider. |
 | required control | `settings.sfx` | — | — | The sound-effect volume slider. |
