@@ -128,12 +128,26 @@ fn place(
         );
         return;
     }
+    stage(placed, name, path, spec.id, file, findings);
+}
+
+/// Record `name` as placed on the surface, reporting it when it was placed
+/// before. A control is one control whichever node places it, so a list's item
+/// template and the surface's own tree share this bookkeeping.
+fn stage(
+    placed: &mut Placed,
+    name: &str,
+    path: &str,
+    surface: &str,
+    file: &str,
+    findings: &mut Vec<Finding>,
+) {
     if placed.names.iter().any(|(placed, _)| placed == name) {
         report(
             file,
             &format!("{path}.slot"),
             rules::UI_SLOT_DUPLICATE,
-            format!("the `{}` surface places `{name}` twice", spec.id),
+            format!("the `{surface}` surface places `{name}` twice"),
             findings,
         );
         return;
@@ -162,28 +176,14 @@ fn place_list(
         );
         return;
     };
-    if placed.names.iter().any(|(name, _)| name == list_spec.slot) {
-        report(
-            file,
-            &format!("{path}.list"),
-            rules::UI_SLOT_DUPLICATE,
-            format!(
-                "the `{}` surface places `{}` twice",
-                spec.id, list_spec.slot
-            ),
-            findings,
-        );
-    } else {
-        placed
-            .names
-            .push((list_spec.slot.to_string(), path.to_string()));
-    }
+    stage(placed, list_spec.slot, path, spec.id, file, findings);
     placed.lists.push(list_spec);
     check_item(
         list_spec,
         spec,
         &list.item,
         &format!("{path}.item"),
+        placed,
         file,
         findings,
     );
@@ -195,11 +195,12 @@ fn check_item(
     spec: &SurfaceSpec,
     item: &Node,
     path: &str,
+    surface: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
     let mut placed: Vec<String> = Vec::new();
-    walk_item(list, spec, item, path, &mut placed, file, findings);
+    walk_item(list, spec, item, path, &mut placed, surface, file, findings);
     for name in list.item_slots {
         if !placed.iter().any(|identity| identity == name) {
             report(
@@ -227,19 +228,28 @@ fn check_item(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn walk_item(
     list: &'static ListSpec,
     spec: &SurfaceSpec,
     node: &Node,
     path: &str,
     placed: &mut Vec<String>,
+    surface: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
     match &node.kind {
-        NodeKind::Box(box_node) => {
-            item_children(list, spec, &box_node.children, path, placed, file, findings)
-        }
+        NodeKind::Box(box_node) => item_children(
+            list,
+            spec,
+            &box_node.children,
+            path,
+            placed,
+            surface,
+            file,
+            findings,
+        ),
         NodeKind::Image(_) | NodeKind::Glyph(_) => {}
         NodeKind::Text(text) => check_text(spec, &text.text, path, file, findings),
         NodeKind::Slot(slot) => {
@@ -257,6 +267,12 @@ fn walk_item(
                             findings,
                         );
                     } else {
+                        if !is_item_slot(list, &identity) {
+                            // A control is one control on the surface: the item
+                            // template places the item's own, and the surface may
+                            // not place the same one again.
+                            stage(surface, &identity, path, spec.id, file, findings);
+                        }
                         placed.push(identity);
                     }
                 }
@@ -271,7 +287,16 @@ fn walk_item(
                     findings,
                 ),
             }
-            item_children(list, spec, &slot.children, path, placed, file, findings);
+            item_children(
+                list,
+                spec,
+                &slot.children,
+                path,
+                placed,
+                surface,
+                file,
+                findings,
+            );
         }
         NodeKind::List(inner) => report(
             file,
@@ -286,12 +311,14 @@ fn walk_item(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn item_children(
     list: &'static ListSpec,
     spec: &SurfaceSpec,
     nodes: &[Node],
     path: &str,
     placed: &mut Vec<String>,
+    surface: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
@@ -302,10 +329,17 @@ fn item_children(
             node,
             &format!("{path}.children[{index}]"),
             placed,
+            surface,
             file,
             findings,
         );
     }
+}
+
+/// Whether an item identity is one of the list's item slots rather than one of
+/// its controls.
+fn is_item_slot(list: &ListSpec, identity: &str) -> bool {
+    list.item_slots.contains(&identity) || list.optional_item_slots.contains(&identity)
 }
 
 /// The identity a name has inside `list`'s item template. A family member

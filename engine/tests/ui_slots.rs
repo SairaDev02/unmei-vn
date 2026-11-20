@@ -497,6 +497,26 @@ fn an_unknown_list_fails() {
     );
 }
 
+/// A control a list's item template places is one control on the surface, so a
+/// tree that also places it at the top level places it twice.
+#[test]
+fn a_control_placed_at_the_top_level_and_in_a_list_fails() {
+    let mut children = spec_children(spec("title"), false);
+    let index = children.len();
+    children.push(slot("title.continue"));
+    let outcome = load_one(MANIFEST, "title", &root(&children));
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/title.ron".to_string(),
+            format!("root.children[{index}].slot"),
+            "ui.slot.duplicate".to_string()
+        )],
+        "{}",
+        messages(&outcome)
+    );
+}
+
 /// An item slot the list does not declare fails with `ui.slot.unknown`, at the
 /// node inside the item template.
 #[test]
