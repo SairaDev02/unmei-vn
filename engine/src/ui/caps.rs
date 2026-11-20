@@ -7,7 +7,8 @@
 //! its dimensions sit in its header. The other three caps count what a file
 //! holds — 2,000 nodes and depth 32 in one surface tree, 512 characters in one
 //! copy override — so they belong to the passes that parse those files
-//! (tickets #106 and #107).
+//! (tickets #106 and #107). Their values live here so the format's one cap
+//! table has one home; the node pass reads the tree's two.
 
 use crate::finding::{rules, Finding, Location};
 
@@ -24,6 +25,12 @@ pub const MAX_TOTAL_BYTES: u64 = 64 * 1024 * 1024;
 
 /// One side of a shipped image.
 pub const MAX_IMAGE_SIDE: u32 = 4096;
+
+/// Nodes in one surface tree, the root included.
+pub const MAX_NODES: usize = 2_000;
+
+/// Depth of one surface tree, the root counted as 1.
+pub const MAX_DEPTH: usize = 32;
 
 const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
 

@@ -1,0 +1,499 @@
+//! Slice-1 rules of the UI plugin spec (§4, §15): a surface tree parses into
+//! the six node kinds with their paint, components and control states, findings
+//! name the node's path, and the node-count and depth caps hold.
+//!
+//! Every case loads through [`ui::load_from`] with a memory source, so the test
+//! runs the same pass the check, the boot and the export run. The fixtures are
+//! synthetic: no case depends on the demo pack or on a shipped plugin.
+
+use unmei_engine::ui::{
+    self, AlignItems, Color, Dimension, Direction, Easing, Fill, Fit, JustifyContent, NodeKind,
+    Padding, PluginOutcome, Position, Radius,
+};
+
+const MANIFEST: &str = "(format_version: 1, name: \"Test\")";
+
+const TOKENS: &str = r#"(
+    colors: {
+        "ink": (r: 0.06, g: 0.06, b: 0.08, a: 1.0),
+        "focus": (r: 0.9, g: 0.8, b: 0.5, a: 1.0),
+    },
+    typography: {
+        "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        "flourish": (face: "IBM Plex Serif", weight: 600, size_px: 40.0, line_height_px: 40.0),
+    },
+    rounded: { "box": 14.0 },
+    spacing: { "gap": 12.0 },
+    components: {
+        "panel": (
+            fill: "{colors.ink}",
+            border: (width: 1.0, color: "{colors.ink}"),
+            radius: "{rounded.box}",
+            shadow: [ (x: 0.0, y: 8.0, blur: 24.0, spread: 0.0,
+                       color: (r: 0.0, g: 0.0, b: 0.0, a: 0.45)) ],
+            opacity: 1.0,
+        ),
+    },
+)"#;
+
+fn load(tokens: &str, surfaces: &[(&str, &str)]) -> PluginOutcome {
+    let mut files = vec![
+        ("plugin.ron".to_string(), MANIFEST.as_bytes().to_vec()),
+        ("tokens.ron".to_string(), tokens.as_bytes().to_vec()),
+    ];
+    for (id, text) in surfaces {
+        files.push((format!("surfaces/{id}.ron"), text.as_bytes().to_vec()));
+    }
+    ui::load_from(&ui::MemorySource::new(files))
+}
+
+fn reported(outcome: &PluginOutcome) -> Vec<(String, String, String)> {
+    outcome
+        .findings()
+        .iter()
+        .map(|finding| {
+            (
+                finding.file.clone(),
+                finding.path.to_string(),
+                finding.rule.clone(),
+            )
+        })
+        .collect()
+}
+
+fn messages(outcome: &PluginOutcome) -> String {
+    outcome
+        .findings()
+        .iter()
+        .map(|finding| finding.message.as_str())
+        .collect::<Vec<_>>()
+        .join(" | ")
+}
+
+fn plugin(outcome: &PluginOutcome) -> &ui::UiPlugin {
+    outcome
+        .plugin()
+        .unwrap_or_else(|| panic!("the plugin loads: {}", messages(outcome)))
+}
+
+fn close(actual: f32, expected: f32) {
+    assert!(
+        (actual - expected).abs() < 1e-5,
+        "{actual} is not {expected}"
+    );
+}
+
+fn ink() -> Color {
+    Color {
+        r: 0.06,
+        g: 0.06,
+        b: 0.08,
+        a: 1.0,
+    }
+}
+
+fn focus() -> Color {
+    Color {
+        r: 0.9,
+        g: 0.8,
+        b: 0.5,
+        a: 1.0,
+    }
+}
+
+fn color_of(fill: Option<&Fill>) -> Color {
+    match fill {
+        Some(Fill::Color(color)) => *color,
+        other => panic!("expected a colour fill: {other:?}"),
+    }
+}
+
+/// `depth` nodes on the longest chain, each a box nested in the one before.
+fn nested(depth: usize) -> String {
+    let mut tree = "(kind: \"box\")".to_string();
+    for _ in 1..depth {
+        tree = format!("(kind: \"box\", children: [{tree}])");
+    }
+    tree
+}
+
+/// A root box with `nodes - 1` empty-box children: `nodes` nodes in all.
+fn wide(nodes: usize) -> String {
+    let children = std::iter::repeat_n("(kind: \"box\")", nodes - 1)
+        .collect::<Vec<_>>()
+        .join(",");
+    format!("(kind: \"box\", children: [{children}])")
+}
+
+// --- The six node kinds -----------------------------------------------------
+
+const ALL_KINDS: &str = r#"(
+    kind: "box",
+    component: "panel",
+    direction: "column",
+    gap: "{spacing.gap}",
+    padding: (top: 1.0, right: 2.0, bottom: 3.0, left: 4.0),
+    align_items: "center",
+    justify_content: "space-between",
+    width: 560.0,
+    height: "fill",
+    position: "absolute",
+    left: 10.0, top: 20.0, right: 30.0, bottom: 40.0,
+    z_index: 2,
+    opacity: 0.9,
+    transform: (x: 1.0, y: 2.0, scale: 1.5, rotation_deg: 5.0),
+    loop: (period_ms: 2400, easing: "ease-in-out",
+           keyframes: [ (opacity: 1.0), (opacity: 0.55) ]),
+    children: [
+        (kind: "image", file: "ornament/pin.png", fit: "cover",
+         fill: (radial: (stops: [ (at: 0.0, color: "{colors.ink}") ]))),
+        (kind: "glyph", glyph: "❧", typography: "{typography.flourish}",
+         fill: "{colors.ink}"),
+        (kind: "text", text: "play.deciding", typography: "{typography.body}"),
+        (kind: "slot", slot: "confirm.yes",
+         focused: (fill: "{colors.focus}"),
+         disabled: (opacity: 0.5),
+         lit: (border: (width: 1.0, color: "{colors.ink}")),
+         current: (radius: "{rounded.box}")),
+        (kind: "list", list: "title.rows", focused: (opacity: 0.8),
+         item: (kind: "box", direction: "row", children: [
+             (kind: "slot", slot: "title.row.label"),
+         ])),
+    ],
+)"#;
+
+#[test]
+fn the_six_node_kinds_round_trip_through_the_tree() {
+    let outcome = load(TOKENS, &[("play", ALL_KINDS)]);
+    let plugin = plugin(&outcome);
+    let root = &plugin.surfaces["play"];
+
+    // The root's own properties, and the component it named underneath them.
+    assert_eq!(root.style.width, Dimension::Px(560.0));
+    assert_eq!(root.style.height, Dimension::Fill);
+    assert_eq!(root.style.position, Position::Absolute);
+    assert_eq!(root.style.offsets.left, Some(10.0));
+    assert_eq!(root.style.offsets.top, Some(20.0));
+    assert_eq!(root.style.offsets.right, Some(30.0));
+    assert_eq!(root.style.offsets.bottom, Some(40.0));
+    assert_eq!(root.style.z_index, 2);
+    close(root.style.paint.opacity, 0.9);
+    close(root.style.paint.transform.x, 1.0);
+    close(root.style.paint.transform.scale, 1.5);
+    close(root.style.paint.transform.rotation_deg, 5.0);
+    assert_eq!(color_of(root.style.paint.fill.as_ref()), ink());
+    let border = root.style.paint.border.as_ref().expect("the panel border");
+    close(border.width, 1.0);
+    assert_eq!(border.color, ink());
+    assert_eq!(root.style.paint.radius, Some(Radius::Uniform(14.0)));
+    assert_eq!(root.style.paint.shadows.len(), 1);
+    close(root.style.paint.shadows[0].blur, 24.0);
+    let motion = root.style.motion.as_ref().expect("the root loop");
+    assert_eq!(motion.period_ms, 2400);
+    assert_eq!(motion.easing, Easing::EaseInOut);
+    assert_eq!(motion.keyframes.len(), 2);
+    close(motion.keyframes[1].opacity, 0.55);
+
+    let NodeKind::Box(ref root_box) = root.kind else {
+        panic!("the root is a box: {:?}", root.kind);
+    };
+    assert_eq!(root_box.direction, Direction::Column);
+    close(root_box.gap, 12.0);
+    assert_eq!(
+        root_box.padding,
+        Padding::Sides {
+            top: 1.0,
+            right: 2.0,
+            bottom: 3.0,
+            left: 4.0,
+        }
+    );
+    assert_eq!(root_box.align_items, AlignItems::Center);
+    assert_eq!(root_box.justify_content, JustifyContent::SpaceBetween);
+    assert_eq!(root_box.children.len(), 5);
+
+    let NodeKind::Image(ref image) = root_box.children[0].kind else {
+        panic!("an image: {:?}", root_box.children[0].kind);
+    };
+    assert_eq!(image.file, "ornament/pin.png");
+    assert_eq!(image.fit, Fit::Cover);
+    match root_box.children[0].style.paint.fill.as_ref() {
+        Some(Fill::Radial { stops }) => {
+            assert_eq!(stops.len(), 1);
+            assert_eq!(stops[0].color, ink());
+        }
+        other => panic!("a radial gradient: {other:?}"),
+    }
+
+    let NodeKind::Glyph(ref glyph) = root_box.children[1].kind else {
+        panic!("a glyph: {:?}", root_box.children[1].kind);
+    };
+    assert_eq!(glyph.glyph, "❧");
+    assert_eq!(glyph.typography.face, "IBM Plex Serif");
+    assert_eq!(glyph.typography.weight, 600);
+    assert_eq!(
+        color_of(root_box.children[1].style.paint.fill.as_ref()),
+        ink()
+    );
+
+    let NodeKind::Text(ref text) = root_box.children[2].kind else {
+        panic!("text: {:?}", root_box.children[2].kind);
+    };
+    assert_eq!(text.text, "play.deciding");
+    close(text.typography.size_px, 25.0);
+
+    let NodeKind::Slot(ref slot) = root_box.children[3].kind else {
+        panic!("a slot: {:?}", root_box.children[3].kind);
+    };
+    assert_eq!(slot.slot, "confirm.yes");
+    let focused = slot.states.focused.as_ref().expect("the focused state");
+    assert_eq!(color_of(focused.fill.as_ref()), focus());
+    let disabled = slot.states.disabled.as_ref().expect("the disabled state");
+    close(disabled.opacity.expect("a disabled opacity"), 0.5);
+    let lit = slot.states.lit.as_ref().expect("the lit state");
+    assert_eq!(lit.border.as_ref().expect("a lit border").color, ink());
+    let current = slot.states.current.as_ref().expect("the current state");
+    assert_eq!(current.radius, Some(Radius::Uniform(14.0)));
+
+    let NodeKind::List(ref list) = root_box.children[4].kind else {
+        panic!("a list: {:?}", root_box.children[4].kind);
+    };
+    assert_eq!(list.list, "title.rows");
+    close(
+        list.states
+            .focused
+            .as_ref()
+            .expect("the list's focused state")
+            .opacity
+            .expect("an opacity"),
+        0.8,
+    );
+    let NodeKind::Box(ref item) = list.item.kind else {
+        panic!("the item template is a box: {:?}", list.item.kind);
+    };
+    assert_eq!(item.direction, Direction::Row);
+    let NodeKind::Slot(ref label) = item.children[0].kind else {
+        panic!("the item's slot: {:?}", item.children[0].kind);
+    };
+    assert_eq!(label.slot, "title.row.label");
+}
+
+// --- Node findings carry the node path -------------------------------------
+
+#[test]
+fn a_finding_inside_a_tree_names_the_node_path() {
+    let tree = r#"(
+        kind: "box",
+        children: [
+            (kind: "box"),
+            (kind: "box", children: [
+                (kind: "text", text: "a.b", typography: "{typography.body}",
+                 colour: "{colors.ink}"),
+            ]),
+        ],
+    )"#;
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.children[1].children[0].colour".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+}
+
+#[test]
+fn a_list_item_path_stays_under_item() {
+    let tree = r#"(kind: "box", children: [
+        (kind: "list", list: "title.rows", item: (kind: "box", bad: 1.0)),
+    ])"#;
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.children[0].item.bad".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+}
+
+// --- The glyph limit -------------------------------------------------------
+
+fn glyph(text: &str) -> String {
+    format!(
+        "(kind: \"box\", children: [ (kind: \"glyph\", glyph: \"{text}\", \
+         typography: \"{{typography.flourish}}\") ])"
+    )
+}
+
+#[test]
+fn a_glyph_of_eight_characters_passes() {
+    let outcome = load(TOKENS, &[("play", &glyph("❧❧❧❧❧❧❧❧"))]);
+    assert_eq!(reported(&outcome), []);
+    let root = &plugin(&outcome).surfaces["play"];
+    let NodeKind::Box(ref root_box) = root.kind else {
+        panic!("the root is a box");
+    };
+    let NodeKind::Glyph(ref node) = root_box.children[0].kind else {
+        panic!("a glyph");
+    };
+    assert_eq!(node.glyph.chars().count(), 8);
+}
+
+#[test]
+fn a_glyph_of_nine_characters_fails() {
+    let outcome = load(TOKENS, &[("play", &glyph("❧❧❧❧❧❧❧❧❧"))]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.children[0].glyph".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+    let message = messages(&outcome);
+    assert!(
+        message.contains('9') && message.contains('8'),
+        "the message names the length found and the limit: {message}"
+    );
+}
+
+#[test]
+fn a_property_the_node_kind_does_not_take_fails() {
+    let tree = r#"(kind: "box", children: [
+        (kind: "text", text: "play.deciding", typography: "{typography.body}",
+         direction: "row"),
+    ])"#;
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.children[0].direction".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+    assert!(
+        messages(&outcome).contains("text"),
+        "the message names the kind: {}",
+        messages(&outcome)
+    );
+}
+
+#[test]
+fn an_image_path_outside_the_folder_escapes() {
+    let outcome = load(
+        TOKENS,
+        &[(
+            "play",
+            "(kind: \"box\", children: [ (kind: \"image\", file: \"../art.png\") ])",
+        )],
+    );
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.children[0].file".to_string(),
+            "ui.path.escape".to_string(),
+        )]
+    );
+}
+
+// --- Surfaces --------------------------------------------------------------
+
+#[test]
+fn a_tree_for_an_unknown_surface_fails() {
+    let outcome = load("()", &[("hero", "(kind: \"box\")")]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/hero.ron".to_string(),
+            String::new(),
+            "ui.surface.unknown".to_string(),
+        )]
+    );
+    assert!(
+        messages(&outcome).contains("hero"),
+        "the message names the surface: {}",
+        messages(&outcome)
+    );
+}
+
+#[test]
+fn a_tree_whose_root_is_not_a_box_fails() {
+    let outcome = load(
+        TOKENS,
+        &[(
+            "play",
+            "(kind: \"text\", text: \"play.deciding\", typography: \"{typography.body}\")",
+        )],
+    );
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.kind".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+}
+
+#[test]
+fn a_surface_with_no_tree_file_is_not_a_failure() {
+    let outcome = load(TOKENS, &[("play", "(kind: \"box\")")]);
+    let plugin = plugin(&outcome);
+    assert_eq!(reported(&outcome), []);
+    assert_eq!(plugin.surfaces.len(), 1);
+    assert!(plugin.surfaces.contains_key("play"));
+    assert!(!plugin.surfaces.contains_key("title"));
+}
+
+// --- The tree caps ---------------------------------------------------------
+
+#[test]
+fn the_node_count_cap_passes_at_the_limit_and_fails_one_over() {
+    let at_the_cap = load(TOKENS, &[("play", &wide(ui::MAX_NODES))]);
+    assert_eq!(reported(&at_the_cap), [], "the cap is inclusive");
+
+    let over = load(TOKENS, &[("play", &wide(ui::MAX_NODES + 1))]);
+    assert_eq!(
+        reported(&over),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            String::new(),
+            "ui.cap".to_string(),
+        )]
+    );
+    let message = messages(&over);
+    assert!(
+        message.contains(&ui::MAX_NODES.to_string())
+            && message.contains(&(ui::MAX_NODES + 1).to_string()),
+        "the message names the cap and the count found: {message}"
+    );
+}
+
+#[test]
+fn the_depth_cap_passes_at_the_limit_and_fails_one_over() {
+    let at_the_cap = load(TOKENS, &[("play", &nested(ui::MAX_DEPTH))]);
+    assert_eq!(reported(&at_the_cap), [], "the cap is inclusive");
+
+    let over = load(TOKENS, &[("play", &nested(ui::MAX_DEPTH + 1))]);
+    assert_eq!(
+        reported(&over),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            String::new(),
+            "ui.cap".to_string(),
+        )],
+        "{}",
+        messages(&over)
+    );
+    let message = messages(&over);
+    assert!(
+        message.contains(&ui::MAX_DEPTH.to_string())
+            && message.contains(&(ui::MAX_DEPTH + 1).to_string()),
+        "the message names the cap and the depth found: {message}"
+    );
+}
