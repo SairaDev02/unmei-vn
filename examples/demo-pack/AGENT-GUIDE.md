@@ -122,7 +122,9 @@ the pack.
   ```
 
   A state this pack cannot reach, such as `say` when nobody but `Narrator` speaks, writes no file
-  and is reported as a `preview.state.unreachable` warning naming the state.
+  and is reported as a `preview.state.unreachable` warning naming the state. The Timeline's one
+  confirm needs a `scenes` order in `pack.ron`, so it is the state a pack that declares none reports
+  unreachable.
 
 - The folder is created when missing, and a folder inside the pack is a usage error. A rerun
   overwrites the files it names and leaves every other file in the folder alone.

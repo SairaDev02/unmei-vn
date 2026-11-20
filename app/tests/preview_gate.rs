@@ -161,15 +161,29 @@ fn the_preview_alone_writes_the_demo_packs_fixture_states() {
         stdout(&output),
         stderr(&output)
     );
-    // Every state the demo pack reaches is one 1280×720 PNG, and no state is
-    // reported unreachable (spec §13 rule 24).
-    assert_eq!(written(&out), expected(&DEMO_STATES));
-    for name in DEMO_STATES {
+    // Every state this pack reaches is one 1280×720 PNG. The demo pack declares
+    // no scene order, so the Timeline has no card and its one confirm is the
+    // state it cannot reach (spec §9.2).
+    let states: Vec<&str> = SLATE_STATES
+        .iter()
+        .copied()
+        .filter(|name| *name != TIMELINE_CONFIRM)
+        .collect();
+    assert_eq!(written(&out), expected(&states));
+    for name in states {
         assert_eq!(size(&out.join(name)), (1280, 720), "{name}");
     }
     let text = stdout(&output);
-    assert!(!text.contains("preview.state.unreachable"), "{text}");
-    assert!(text.contains("preview: 0 errors, 0 warnings"), "{text}");
+    assert!(text.contains("preview: 0 errors, 1 warnings"), "{text}");
+    assert!(
+        text.contains("preview: confirm-timeline-jump: "),
+        "the warning names the state:\n{text}"
+    );
+    assert_eq!(
+        text.matches("[preview.state.unreachable]").count(),
+        1,
+        "{text}"
+    );
 }
 
 /// A pack that reaches only some of the states writes the rest, reports the
@@ -190,7 +204,7 @@ fn a_pack_with_only_unreachable_states_exits_zero() {
         stdout(&output),
         stderr(&output)
     );
-    const SPARSE_STATES: [&str; 17] = [
+    const SPARSE_STATES: [&str; 18] = [
         "title-fresh.png",
         "title-continue.png",
         "narration.png",
@@ -208,6 +222,7 @@ fn a_pack_with_only_unreachable_states_exits_zero() {
         "confirm-quit.png",
         "confirm-exit-to-title.png",
         "confirm-clear-key.png",
+        "confirm-timeline-jump.png",
     ];
     assert_eq!(written(&out), expected(&SPARSE_STATES));
     let text = stdout(&output);
@@ -227,7 +242,7 @@ fn a_pack_with_only_unreachable_states_exits_zero() {
 }
 
 /// The slate's states in §9.2's order, as the file names they write.
-const DEMO_STATES: [&str; 21] = [
+const SLATE_STATES: [&str; 22] = [
     "title-fresh.png",
     "title-continue.png",
     "say.png",
@@ -249,7 +264,12 @@ const DEMO_STATES: [&str; 21] = [
     "confirm-quit.png",
     "confirm-exit-to-title.png",
     "confirm-clear-key.png",
+    "confirm-timeline-jump.png",
 ];
+
+/// The one state the demo pack cannot reach: the Timeline confirm needs a
+/// declared scene order and the demo pack has none.
+const TIMELINE_CONFIRM: &str = "confirm-timeline-jump.png";
 
 /// A list of names in the order [`written`] returns them.
 fn expected(names: &[&str]) -> Vec<String> {

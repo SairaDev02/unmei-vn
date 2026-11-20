@@ -188,6 +188,7 @@ pub fn slate(pack: &Pack, request: &PreviewRequest) -> Vec<Fixture> {
                 "confirm-clear-key",
             ),
         ),
+        fixture("confirm-timeline-jump", slate.confirm_timeline_jump()),
     ]
 }
 
@@ -310,6 +311,32 @@ impl Slate<'_> {
         builder.step(Step::Expect(Expect::Speaker(None)));
         builder.step(frame("scene-end"));
         Outcome::Case(builder.finish())
+    }
+
+    /// `confirm-timeline-jump`: the Timeline's one confirm, raised by
+    /// activating a visited scene's card (`docs/title-and-menu.md` § Timeline
+    /// §2/§3). A fresh take has read only the entry scene, so the card is the
+    /// entry's place in the declared order; with no order, or an order that
+    /// omits the entry, the take has no card it can activate.
+    fn confirm_timeline_jump(&self) -> Outcome {
+        let entries = self.pack.timeline_entries();
+        let Some(index) = entries
+            .iter()
+            .position(|id| *id == self.pack.manifest.entry)
+        else {
+            let reason = if entries.is_empty() {
+                "the pack declares no scene order, so the Timeline has no card".to_string()
+            } else {
+                format!(
+                    "the pack's scene order does not list the entry scene `{}`, the only scene a fresh take has read",
+                    self.pack.manifest.entry
+                )
+            };
+            return Outcome::Unreachable(reason);
+        };
+        let mut steps = rail(TIMELINE_TABS);
+        steps.push(activate(&format!("timeline.card.{}", index + 1)));
+        self.reached(&steps, &[surface("confirm")], "confirm-timeline-jump")
     }
 
     /// A state reached from play by the commands given, asserted, then framed.

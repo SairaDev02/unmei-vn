@@ -36,9 +36,10 @@ fn find<'a>(slate: &'a [Fixture], name: &str) -> &'a Fixture {
         .unwrap_or_else(|| panic!("the slate holds `{name}`"))
 }
 
-/// §9.2's table in its order, each state a case the demo pack reaches.
+/// §9.2's table in its order. The demo pack reaches every state but the
+/// Timeline's confirm, which needs a declared scene order it does not have.
 #[test]
-fn the_demo_pack_reaches_every_fixture_state() {
+fn the_demo_pack_reaches_every_fixture_state_it_has_a_park_for() {
     let slate = slate(&demo(), &PreviewRequest::default());
     let names: Vec<&str> = slate.iter().map(|fixture| fixture.name).collect();
     assert_eq!(
@@ -65,9 +66,17 @@ fn the_demo_pack_reaches_every_fixture_state() {
             "confirm-quit",
             "confirm-exit-to-title",
             "confirm-clear-key",
+            "confirm-timeline-jump",
         ]
     );
     for fixture in &slate {
+        if fixture.name == "confirm-timeline-jump" {
+            let Outcome::Unreachable(reason) = &fixture.outcome else {
+                panic!("the demo pack declares no scene order")
+            };
+            assert!(reason.contains("no scene order"), "{reason}");
+            continue;
+        }
         let Outcome::Case(case) = &fixture.outcome else {
             let Outcome::Unreachable(reason) = &fixture.outcome else {
                 unreachable!()
@@ -250,6 +259,33 @@ fn a_state_override_seeds_the_take_through_the_start_header() {
         },
     );
     assert_eq!(advances(&second), advances(&default) - 1);
+}
+
+/// The Timeline's one confirm needs a declared scene order and a card the take
+/// has read. The sparse pack declares its entry, so the first card raises it;
+/// the demo pack declares none, so it is reported instead.
+#[test]
+fn a_declared_scene_order_gives_the_timeline_confirm_a_card() {
+    let planned = slate(&sparse(), &PreviewRequest::default());
+    assert_eq!(
+        steps(&planned, "confirm-timeline-jump"),
+        [
+            Step::NewGame,
+            Step::Menu,
+            Step::Press("Tab".to_string()),
+            Step::Press("Tab".to_string()),
+            Step::Press("Tab".to_string()),
+            Step::Press("Enter".to_string()),
+            activate("timeline.card.1"),
+            Step::Expect(surface("confirm")),
+            frame("confirm-timeline-jump"),
+        ]
+    );
+    let demo_states = slate(&demo(), &PreviewRequest::default());
+    let Outcome::Unreachable(reason) = &find(&demo_states, "confirm-timeline-jump").outcome else {
+        panic!("the demo pack declares no scene order")
+    };
+    assert!(reason.contains("no scene order"), "{reason}");
 }
 
 /// A pack with no character say-line, no choice, no decide point and no
