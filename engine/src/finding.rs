@@ -46,7 +46,8 @@ pub struct Finding {
 }
 
 impl Finding {
-    /// An error finding, the severity every Keiko finding carries.
+    /// An error finding: what the load rules, the check, the preview and Keiko
+    /// report unless the rule is a warning.
     pub fn new(
         file: impl Into<String>,
         path: impl Into<String>,

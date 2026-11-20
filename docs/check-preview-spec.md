@@ -67,8 +67,8 @@ The author CLI keeps its write-time validation and gains no check command (C1).
 - **No early return.** `load_pack` no longer returns when `pack.ron` or `state.ron` cannot be read or decoded ([`engine/src/pack/mod.rs`](../engine/src/pack/mod.rs)). It records the finding and goes on to read and parse every scene and NPC file.
 - **Rules that need a missing input are skipped, not guessed.** Without a decoded `state.ron`, the rules that read the state vocabulary do not run: declared keys, kinds, `{var}` references, conditions and `state_keys`. Without a decoded `pack.ron`, the manifest rules do not run: the entry scene, the `scenes` list, the tagline and the backdrop id. Every other rule runs.
 - **One syntax error per scene file.** The parser still stops at a file's first syntax error, because a broken block (`if`, `choice`) makes later errors in the same file unreliable. A scene that fails to parse is absent from the semantic pass, so a jump to it reports nothing more.
-- **Deterministic order.** Findings are sorted by file, then by line (a finding with no line first), then by rule id, then by message.
-- **Boot uses the same function.** The player's boot calls the same `load_pack`, so its error screen now lists every error the check reports, instead of only the manifest or state error when one of those fails. This is the one visible change to normal play in slice 1.
+- **Deterministic order.** Findings are sorted by file, then by line (a finding with no line first), then by rule id, then by message. *(Amended 2026-11-20: path and severity are tie-breakers after those four keys, so a pack whose findings agree on all four still has one order.)*
+- **Boot uses the same function.** The player's boot calls the same `load_pack`, so its error screen now lists every load error the check reports, instead of only the manifest or state error when one of those fails. It does not read a Keiko case, so a case finding appears only in the check. This is the one visible change to normal play in slice 1. *(Amended 2026-11-20.)*
 
 ## 4. Rule ids (C3)
 
@@ -102,7 +102,7 @@ A `.keiko` case reports Keiko's own ids ([Keiko spec §10.2](keiko-spec.md#102-r
 *Decided 2026-11-19: split like [UI R21](ui-plugins.md#7-developing-and-checking-a-plugin): the engine lists and checks existence, the player decodes. Normal boot keeps today's silent degradation.*
 
 - **The engine lists every reference.** A new read-only accessor on a loaded pack yields every asset the pack's files reference, with the file and line of each reference: each `bg <id>` and the manifest's `title_backdrop` (`assets/backgrounds/<id>.png`), each `sprite <npc> <pose>` (`assets/sprites/<npc>/<pose>.png`) and each `play <id>` (`assets/audio/<id>.ogg`). It covers every line of every scene, including branches and arms no playthrough takes ([content format §3](content-format.md#3-dialogue-dsl-unmei)). `stop <id>` names a sound `play` already names, so it adds no reference.
-- **Missing files are an engine rule.** The check reports one `pack.asset.missing` finding per distinct missing path, at its first reference in finding order (§3), and the message counts the other references. It needs no new engine dependency.
+- **Missing files are an engine rule.** The check reports one `pack.asset.missing` finding per distinct missing path, at its first reference in finding order (§3), and the message counts every reference. It needs no new engine dependency. *(Amended 2026-11-20: the message reports the total, as rule 10 states.)*
 - **Decoding is a player rule.** For each path that exists, the check loads the file through the player's own asset loaders, the same image and audio loaders play uses ([`app/src/presentation/assets.rs`](../app/src/presentation/assets.rs)), in a headless app with no window and no audio device. A load that fails is one `pack.asset.decode` finding at the path's first reference. What passes the check therefore decodes in play.
 - **Unreferenced files are ignored.** A file in `assets/` that no pack file names is not checked, matching the gallery's rule that declared references are the only ones ([content format §2](content-format.md#2-pack-layout)). The optional `sfx_select` sound is not referenced by any pack file, so it is not checked.
 - **Boot does not change.** Play still loads assets lazily, and a missing or broken file stays the silent degradation of the [failure inventory](runtime-hardening.md#runtime-failure-posture) rows 3–5. Only `--check` runs §5.
@@ -129,7 +129,7 @@ When the pack fails to load, the check runs only the case parser: the version li
 
 - **Text** is the default: one line per finding, `<severity>: <display> [<rule>]`, using §2's display form, then a summary line, `check: <e> errors, <w> warnings`.
 - **JSON.** `--format json` prints one document to stdout: `{ "findings": [{ "file", "path", "rule", "severity", "message" }], "errors": <e>, "warnings": <w> }`, findings in §3's order.
-- **When the pack fails to load.** If `load_pack` fails, the check reports its findings and the case-parser findings of §7. It runs no asset rule (§5) and no flow lint (§6), because each needs the loaded pack, which a failed load does not return. *(Amended 2026-11-19: this bullet first said the existence rule and every case rule still run. Neither can: `load_pack` returns no partial pack, and Keiko's reference checks need the loaded one.)*
+- **When the pack fails to load.** If `load_pack` fails, the check reports its findings and the case-parser findings of §7. It runs no asset rule (§5) and no flow lint (§6), because each needs the loaded pack, which a failed load does not return. *(Amended 2026-11-19: this bullet first said the existence rule and every case rule still run. Neither can: `load_pack` returns no partial pack, and Keiko's reference checks need the loaded one.)* *(Amended 2026-11-20: `load_pack`'s warnings are not reported either. A failed load's warnings describe files a broken pack happens to agree on, and the error screen has never shown them, so the check keeps them out and reports only the errors.)*
 - **Exit codes.**
 
   | Code | Meaning |
@@ -147,9 +147,11 @@ The preview is a generated Keiko case run through Keiko's take engine, the one r
 - **`--at SCENE:LINE`** writes one frame, `DIR/at-<scene>-<line>.png`, at the park that line produces. The line must be a say-line, a `choice` or a `decide`. Any other line is a `keiko.case.reference` finding, and so is a line the default picks cannot reach.
 - **`--scene ID`** writes a frame at every park the replay meets from the scene's first line until it leaves the scene, `DIR/scene-<id>-<line>.png`, taking the default picks and fallbacks (C5).
 - **`--preview DIR` alone** writes the fixture states of §9.2.
-- **`--state FILE`** and **`--pick N,N,...`** override the initial state and the picks, in the formats the Keiko spec §12 defines. They apply to every mode above.
+- **`--state FILE`** and **`--pick N,N,...`** override the initial state and the picks, in the formats the Keiko spec §12 defines. They apply to every mode above. *(Amended 2026-11-20: a `--state` file that cannot be read or decoded is a `keiko.case.reference` finding naming the file, because it is the request's own argument rather than part of the pack.)*
 
 A rerun overwrites the files it names and leaves every other file in `DIR` alone.
+
+*(Amended 2026-11-20.)* A scene id, whether `--scene`'s or the one in `--at SCENE:LINE`, is written as one bare token in the generated case, so an id containing whitespace is a usage error: exit 2, no frame. A `--scene` walk stops after 10,000 parks and reports `keiko.defensive`, because a scene that never ends is an authoring defect and a preview cannot render that many frames.
 
 ### 9.2 Fixture states (C4)
 
@@ -160,7 +162,7 @@ Each state is reached by Keiko steps over the pack under preview, from a fresh t
 | State | Reached by |
 |---|---|
 | `title-fresh` | Boot, with no slots. |
-| `title-continue` | Boot with a save in slot 1, so `Continue` is enabled. |
+| `title-continue` | Boot with a save in slot 1, so `Continue` is enabled. *(Amended 2026-11-20: `Continue` is enabled by the autosave or a live session, never by a manual slot, so a fresh take reaches this state by playing to a park, pressing `Esc`, then `Tab`×5 and `Exit to title`, and confirming `Yes`.)* |
 | `say` | `new-game`, then advancing to the first say-line with a speaker, fully revealed. |
 | `narration` | The first say-line spoken by `Narrator`. |
 | `choice` | The first `choice` park. |
@@ -168,7 +170,7 @@ Each state is reached by Keiko steps over the pack under preview, from a fresh t
 | `scene-end` | The first scene end the default picks reach. |
 | `menu-<section>` | `menu` at the first say-line, then each overlay section: `save`, `load`, `settings`, `gallery`, `timeline`. |
 | `still` | The gallery's first card opened in the still view. |
-| `confirm-<kind>` | Each confirmation dialog: `overwrite`, `load`, `reset-audio`, `reset-play`, `new-game`, `quit`, `exit-to-title`, `clear-key`. |
+| `confirm-<kind>` | Each confirmation dialog: `overwrite`, `load`, `reset-audio`, `reset-play`, `new-game`, `quit`, `exit-to-title`, `clear-key`, `timeline-jump`. The Timeline's one confirm is raised by activating a card of a scene this take has read, so it needs a pack whose manifest declares a scene order. *(Amended 2026-11-20: the first list named eight kinds and `ConfirmKind` has nine.)* |
 
 A state the pack cannot reach, such as `narration` in a pack with no narrator, or a confirm whose precondition a take cannot set up, writes no file. It is reported as a `preview.state.unreachable` warning naming the state. The preview exits 0 when only such warnings occur.
 
@@ -235,7 +237,7 @@ Each of these is amended in place on 2026-11-19, with a dated pointer to the sec
 17. Findings come out in §3's order, and the same pack gives byte-identical JSON twice.
 18. A pack with only warnings exits 0. A pack with an error exits 1.
 19. The demo pack passes `--check` with no finding.
-20. The boot's error screen lists every error `--check` reports for a pack that fails to load.
+20. The boot's error screen lists every load error `--check` reports for a pack that fails to load. *(Amended 2026-11-20: `--check` also reports the case-parser findings of §7 there, and the boot reads no case.)*
 
 **Slice 2**
 
