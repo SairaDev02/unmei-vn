@@ -93,6 +93,51 @@ fn png_header(side: u32) -> Vec<u8> {
     bytes
 }
 
+/// A JPEG header whose start-of-frame segment states `side`x`side`. The
+/// dimensions are 16-bit, so every side the cap cares about fits.
+fn jpeg_header(side: u32) -> Vec<u8> {
+    let mut bytes = vec![0xFF, 0xD8];
+    bytes.extend_from_slice(&[0xFF, 0xC0, 0x00, 0x11, 8]);
+    bytes.extend_from_slice(&(side as u16).to_be_bytes());
+    bytes.extend_from_slice(&(side as u16).to_be_bytes());
+    bytes.extend_from_slice(&[0; 8]);
+    bytes
+}
+
+/// A lossless WEBP header whose canvas is `side`x`side`.
+fn webp_header(side: u32) -> Vec<u8> {
+    let mut bytes = b"RIFF".to_vec();
+    bytes.extend_from_slice(&0u32.to_le_bytes());
+    bytes.extend_from_slice(b"WEBPVP8L");
+    bytes.extend_from_slice(&5u32.to_le_bytes());
+    bytes.push(0x2F);
+    let bits = (side - 1) | ((side - 1) << 14);
+    bytes.extend_from_slice(&bits.to_le_bytes());
+    bytes
+}
+
+/// A BMP header whose 40-byte DIB header states `side`x`side`.
+fn bmp_header(side: u32) -> Vec<u8> {
+    let mut bytes = b"BM".to_vec();
+    bytes.extend_from_slice(&[0; 12]);
+    bytes.extend_from_slice(&40u32.to_le_bytes());
+    bytes.extend_from_slice(&side.to_le_bytes());
+    bytes.extend_from_slice(&side.to_le_bytes());
+    bytes.extend_from_slice(&[0; 24]);
+    bytes
+}
+
+/// One image header per format the source recognises, each claiming
+/// `side`x`side` with no pixel data.
+fn image_headers(side: u32) -> [(&'static str, Vec<u8>); 4] {
+    [
+        ("big.png", png_header(side)),
+        ("big.jpg", jpeg_header(side)),
+        ("big.webp", webp_header(side)),
+        ("big.bmp", bmp_header(side)),
+    ]
+}
+
 fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
     #[cfg(unix)]
     {
@@ -351,31 +396,35 @@ fn the_total_size_cap_passes_at_the_limit_and_fails_one_byte_over() {
 }
 
 /// A shipped image over the image cap fails it; the same header at the cap
-/// passes. The cap reads the header, so no pixel data is needed here.
+/// passes. Every format the source recognises is measured, and the cap reads
+/// the header, so no pixel data is needed here.
 #[test]
 fn the_image_cap_passes_at_the_limit_and_fails_one_pixel_over() {
-    let at_the_cap = png_header(ui::MAX_IMAGE_SIDE);
-    let dir = pack(&[
-        ("ui/plugin.ron", MANIFEST.as_bytes()),
-        ("ui/big.png", &at_the_cap),
-    ]);
-    assert_eq!(reported(&ui::load(dir.path())), [], "the cap is inclusive");
+    let one_over = image_headers(ui::MAX_IMAGE_SIDE + 1);
+    for ((name, at_the_cap), (_, over)) in
+        image_headers(ui::MAX_IMAGE_SIDE).into_iter().zip(one_over)
+    {
+        let path = format!("ui/{name}");
+        let dir = pack(&[("ui/plugin.ron", MANIFEST.as_bytes()), (&path, &at_the_cap)]);
+        assert_eq!(
+            reported(&ui::load(dir.path())),
+            [],
+            "{name} at the cap passes"
+        );
 
-    write(
-        dir.path(),
-        "ui/big.png",
-        &png_header(ui::MAX_IMAGE_SIDE + 1),
-    );
-    let outcome = ui::load(dir.path());
-    assert_eq!(
-        reported(&outcome),
-        [("ui/big.png", String::new(), "ui.cap")]
-    );
-    let message = messages(&outcome);
-    assert!(
-        message.contains(&ui::MAX_IMAGE_SIDE.to_string()),
-        "the message names the cap: {message}"
-    );
+        write(dir.path(), &path, &over);
+        let outcome = ui::load(dir.path());
+        assert_eq!(
+            reported(&outcome),
+            [(&*path, String::new(), "ui.cap")],
+            "{name} one pixel over fails"
+        );
+        let message = messages(&outcome);
+        assert!(
+            message.contains(&ui::MAX_IMAGE_SIDE.to_string()),
+            "the message names the cap: {message}"
+        );
+    }
 }
 
 // --- One rule path for every source ----------------------------------------

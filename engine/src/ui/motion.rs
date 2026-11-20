@@ -292,18 +292,18 @@ fn short_period(motion: &Motion) -> Option<String> {
 /// Why the loop flashes too fast, or `None` when it stays under the cap.
 ///
 /// A flash is two opposing opacity changes of at least [`MIN_FLASH_STEP`] in a
-/// row, so it takes three consecutive keyframes. The rate compares as integers:
-/// that keeps the cap exact at its boundary and leaves a sub-floor period to
-/// [`short_period`], which already reported it.
+/// row, so it takes three consecutive keyframes. The list is a ring: a loop
+/// repeats forever, so the step from the last keyframe back to the first ends
+/// the period and the turn that step completes sits at `keyframes[0]`. Each
+/// keyframe is a turn's centre once, so the count is turns per period and not
+/// triples visited. The rate compares as integers: that keeps the cap exact at
+/// its boundary and leaves a sub-floor period to [`short_period`], which
+/// already reported it.
 fn fast_flash(motion: &Motion) -> Option<String> {
     if motion.period_ms < MIN_PERIOD_MS {
         return None;
     }
-    let flashes = motion
-        .keyframes
-        .windows(3)
-        .filter(|window| is_flash(window[0], window[1], window[2]))
-        .count() as u64;
+    let flashes = turns_in_one_period(&motion.keyframes) as u64;
     if flashes * 1000 <= MAX_FLASHES_PER_SECOND * u64::from(motion.period_ms) {
         return None;
     }
@@ -313,6 +313,24 @@ fn fast_flash(motion: &Motion) -> Option<String> {
          the cap is {MAX_FLASHES_PER_SECOND}",
         motion.period_ms
     ))
+}
+
+/// The turns in one period of `keyframes`, walked as a ring. A loop of fewer
+/// than two keyframes has no step, and so no turn.
+fn turns_in_one_period(keyframes: &[Keyframe]) -> usize {
+    let count = keyframes.len();
+    if count < 2 {
+        return 0;
+    }
+    (0..count)
+        .filter(|&index| {
+            is_flash(
+                keyframes[(index + count - 1) % count],
+                keyframes[index],
+                keyframes[(index + 1) % count],
+            )
+        })
+        .count()
 }
 
 fn is_flash(a: Keyframe, b: Keyframe, c: Keyframe) -> bool {

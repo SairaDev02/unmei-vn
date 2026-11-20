@@ -141,7 +141,7 @@ A `box` lays its children out: `direction` (`row` or `column`), `gap`, `padding`
 
 Any node takes `width`, `height` (a length, `auto` or `fill`), `position` (`relative` or `absolute`), `left`, `top`, `right` and `bottom` for an absolute node, `z_index`, `opacity`, `transform` (`x`, `y`, `scale`, `rotation_deg`) and `loop`.
 
-A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width`, `color`, an optional `radius`), `radius` (a length, or one per corner), and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `text` or `glyph` takes `typography` and `fill`.
+A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width` and `color`), `radius` (a number of pixels, a `{rounded.key}` or `{spacing.key}` token, or one per corner) and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `radius` rounds the node, so a filled box that draws no border rounds the same way. A `text` or `glyph` takes `typography` and `fill`.
 
 A length is a number of pixels or a `{spacing.key}` token. A colour is `(r: 0.0, g: 0.0, b: 0.0, a: 1.0)` with channels from 0 to 1, or a `{colors.key}` token. A number may be written as an integer or a float. A name the format knows is a lowercase kebab-case string, for example `"ease-in-out"`; never a RON identifier.
 

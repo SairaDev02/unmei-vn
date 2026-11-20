@@ -212,6 +212,24 @@ fn a_radius_may_name_a_spacing_token() {
     assert_eq!(root.style.paint.radius, Some(ui::Radius::Uniform(3.0)));
 }
 
+/// The corner radius has one spelling, beside the border rather than inside it:
+/// a filled box that draws no border still rounds, so the radius is the node's
+/// own property.
+#[test]
+fn a_radius_inside_a_border_is_an_unknown_property() {
+    let tree = "(kind: \"box\", border: (width: 1.0, color: \"{colors.ink}\", radius: 4.0), \
+                children: [])";
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.border.radius".to_string(),
+            "ui.parse".to_string(),
+        )]
+    );
+}
+
 #[test]
 fn a_component_value_reference_is_an_unknown_token() {
     let outcome = load(

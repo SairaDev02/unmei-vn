@@ -1,10 +1,10 @@
 //! Reading one plugin file for the hand-walked passes: its bytes, its UTF-8
 //! text and its RON value.
 //!
-//! The manifest keeps its own reader because it predates the token and tree
-//! passes and reports the same two ids; this one is shared by the files that
-//! arrived with them, so a read or syntax failure reads the same whichever file
-//! it came from. Both are file-level findings, never a field path.
+//! Every plugin file that is read as RON — the manifest, the tokens and each
+//! surface tree — comes through here, so a read or syntax failure reads the same
+//! whichever file it came from. All three are file-level findings, never a field
+//! path.
 
 use crate::finding::{rules, Finding, Location};
 

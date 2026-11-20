@@ -195,12 +195,21 @@ fn check_item(
     spec: &SurfaceSpec,
     item: &Node,
     path: &str,
-    surface: &mut Placed,
+    surface_placed: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
     let mut placed: Vec<String> = Vec::new();
-    walk_item(list, spec, item, path, &mut placed, surface, file, findings);
+    walk_item(
+        list,
+        spec,
+        item,
+        path,
+        &mut placed,
+        surface_placed,
+        file,
+        findings,
+    );
     for name in list.item_slots {
         if !placed.iter().any(|identity| identity == name) {
             report(
@@ -228,14 +237,17 @@ fn check_item(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one walk, one fact per argument: the surface's table, the list's, the node, its path, the item's placements, the surface's, the file and the sink; they are all distinct facts the walk needs, so a context struct would move the count rather than the coupling"
+)]
 fn walk_item(
     list: &'static ListSpec,
     spec: &SurfaceSpec,
     node: &Node,
     path: &str,
     placed: &mut Vec<String>,
-    surface: &mut Placed,
+    surface_placed: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
@@ -246,7 +258,7 @@ fn walk_item(
             &box_node.children,
             path,
             placed,
-            surface,
+            surface_placed,
             file,
             findings,
         ),
@@ -271,7 +283,7 @@ fn walk_item(
                             // A control is one control on the surface: the item
                             // template places the item's own, and the surface may
                             // not place the same one again.
-                            stage(surface, &identity, path, spec.id, file, findings);
+                            stage(surface_placed, &identity, path, spec.id, file, findings);
                         }
                         placed.push(identity);
                     }
@@ -293,7 +305,7 @@ fn walk_item(
                 &slot.children,
                 path,
                 placed,
-                surface,
+                surface_placed,
                 file,
                 findings,
             );
@@ -311,14 +323,17 @@ fn walk_item(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
+#[allow(
+    clippy::too_many_arguments,
+    reason = "the item walk's recursion passes the same distinct facts straight through, and the two placement ledgers have to stay separate because an item's identity and the surface's are counted apart"
+)]
 fn item_children(
     list: &'static ListSpec,
     spec: &SurfaceSpec,
     nodes: &[Node],
     path: &str,
     placed: &mut Vec<String>,
-    surface: &mut Placed,
+    surface_placed: &mut Placed,
     file: &str,
     findings: &mut Vec<Finding>,
 ) {
@@ -329,7 +344,7 @@ fn item_children(
             node,
             &format!("{path}.children[{index}]"),
             placed,
-            surface,
+            surface_placed,
             file,
             findings,
         );

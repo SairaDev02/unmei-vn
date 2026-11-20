@@ -384,6 +384,44 @@ fn a_flash_of_exactly_0_2_counts() {
     );
 }
 
+/// A loop repeats forever, so the step from its last keyframe back to its first
+/// is a step of the period like any other. A two-keyframe loop turns twice in
+/// one period, and two turns in 400 ms is five flashes a second.
+#[test]
+fn a_two_keyframe_loop_at_400_ms_fails() {
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(400, &[1.0, 0.0])),
+        PLAY_INTERFACE
+    );
+    let outcome = load(&[("play", &tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [finding(
+            "ui/surfaces/play.ron",
+            "root.children[0]",
+            "ui.motion.flash"
+        )]
+    );
+    let message = messages(&outcome);
+    assert!(
+        message.contains("400") && message.contains("5.0"),
+        "the message names the period and the rate: {message}"
+    );
+}
+
+/// The same two-keyframe loop over two seconds is one flash a second.
+#[test]
+fn a_two_keyframe_loop_at_two_seconds_passes() {
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(2000, &[1.0, 0.0])),
+        PLAY_INTERFACE
+    );
+    let outcome = load(&[("play", &tree)]);
+    assert_eq!(reported(&outcome), []);
+}
+
 // --- Where a loop is allowed ------------------------------------------------
 
 #[test]
