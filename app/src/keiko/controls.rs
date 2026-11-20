@@ -3,7 +3,7 @@
 //! observation of the controls currently on screen.
 
 use bevy::prelude::*;
-use unmei_engine::keiko::CONTROL_IDS;
+use unmei_engine::keiko::{CONTROL_IDS, CONTROL_IDS_WITHOUT_FOCUS};
 use unmei_engine::save::Slot;
 
 use super::observe::Control;
@@ -434,7 +434,10 @@ fn collect_label(world: &World, entity: Entity, out: &mut String, depth: usize) 
     }
 }
 
-/// Every id in the engine's table maps to a focus target and back.
+/// Every id in the engine's table that the player has a control for maps to a
+/// focus target and back. The play frame's quick row has ids and no control yet,
+/// so it is the one group the map skips (ticket #107; the row arrives with
+/// variant E).
 pub fn the_table_is_one_to_one() -> Result<(), String> {
     let mut fixed: Vec<&str> = Vec::new();
     for (focus, id) in focus_ids() {
@@ -445,6 +448,9 @@ pub fn the_table_is_one_to_one() -> Result<(), String> {
     }
     for id in CONTROL_IDS {
         if id.starts_with("gallery.card.") || id.starts_with("timeline.card.") {
+            continue;
+        }
+        if CONTROL_IDS_WITHOUT_FOCUS.contains(id) {
             continue;
         }
         if !fixed.contains(id) {

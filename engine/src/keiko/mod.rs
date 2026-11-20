@@ -18,7 +18,9 @@ mod validate;
 mod tests;
 
 pub use crate::finding::{rules, Finding, Location};
-pub use controls::{is_control_id, slot_control, CONTROL_IDS, INDEXED_CONTROL_FAMILIES};
+pub use controls::{
+    is_control_id, slot_control, CONTROL_IDS, CONTROL_IDS_WITHOUT_FOCUS, INDEXED_CONTROL_FAMILIES,
+};
 pub use model::{
     Case, Click, ControlCondition, DecisionFault, DecisionState, Expect, Fault, FixtureKind,
     Header, HeaderLine, KeyCheckFault, LoadTarget, LogLevel, Pick, SkipMode, SlotExpect, Step,
