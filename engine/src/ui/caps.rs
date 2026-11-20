@@ -117,15 +117,19 @@ fn is_image(path: &str) -> bool {
     })
 }
 
-/// An image's pixel dimensions from its header, without a decoder. Only the two
-/// formats the reference plugin and DESIGN.md's art use are measured; a `webp`
-/// or `bmp` file is recognised but carries no header reader here.
+/// An image's pixel dimensions from its header, without a decoder. Every
+/// extension [`is_image`] recognises is measured, because §7 caps an image's
+/// size whichever format it ships in.
 fn image_size(path: &str, bytes: &[u8]) -> Option<(u32, u32)> {
     let extension = extension(path)?;
     if extension.eq_ignore_ascii_case("png") {
         png_size(bytes)
     } else if extension.eq_ignore_ascii_case("jpg") || extension.eq_ignore_ascii_case("jpeg") {
         jpeg_size(bytes)
+    } else if extension.eq_ignore_ascii_case("webp") {
+        webp_size(bytes)
+    } else if extension.eq_ignore_ascii_case("bmp") {
+        bmp_size(bytes)
     } else {
         None
     }
@@ -185,6 +189,75 @@ fn jpeg_size(bytes: &[u8]) -> Option<(u32, u32)> {
     }
 }
 
+/// A WEBP's canvas is in its first chunk, in one of three forms: `VP8 ` for a
+/// lossy image, `VP8L` for a lossless one, and `VP8X` for an extended file,
+/// which states the canvas in its own payload.
+fn webp_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    let riff = bytes.get(..12)?;
+    if &riff[..4] != b"RIFF" || &riff[8..12] != b"WEBP" {
+        return None;
+    }
+    // The chunk's fourCC sits after the RIFF size and `WEBP`; its payload
+    // follows the chunk's own four-byte length.
+    match bytes.get(12..16)? {
+        b"VP8 " => {
+            let payload = bytes.get(20..30)?;
+            // A key frame's start code follows its three-byte frame tag.
+            if payload[3..6] != [0x9D, 0x01, 0x2A] {
+                return None;
+            }
+            let width = u16::from_le_bytes([payload[6], payload[7]]) & 0x3FFF;
+            let height = u16::from_le_bytes([payload[8], payload[9]]) & 0x3FFF;
+            Some((u32::from(width), u32::from(height)))
+        }
+        b"VP8L" => {
+            let payload = bytes.get(20..25)?;
+            if payload[0] != 0x2F {
+                return None;
+            }
+            // Four bytes hold the width less one and the height less one, 14
+            // bits each.
+            let bits = u32::from_le_bytes([payload[1], payload[2], payload[3], payload[4]]);
+            Some(((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1))
+        }
+        b"VP8X" => {
+            // Flags, three reserved bytes, then the canvas less one in a 24-bit
+            // little-endian width and height.
+            let payload = bytes.get(20..30)?;
+            let width = u32::from_le_bytes([payload[4], payload[5], payload[6], 0]) + 1;
+            let height = u32::from_le_bytes([payload[7], payload[8], payload[9], 0]) + 1;
+            Some((width, height))
+        }
+        _ => None,
+    }
+}
+
+/// A BMP's dimensions are in its DIB header, whose size is the first field
+/// after the 14-byte file header. A 12-byte core header states them as 16-bit
+/// values; every later header states them as 32-bit ones, where a negative
+/// height only means the rows run top-down. The OS/2 form that calls the 32-bit
+/// pair unsigned reads the same here: a value past the cap is past it either
+/// way.
+fn bmp_size(bytes: &[u8]) -> Option<(u32, u32)> {
+    if bytes.get(..2)? != b"BM" {
+        return None;
+    }
+    let header_size = u32::from_le_bytes(bytes.get(14..18)?.try_into().ok()?);
+    match header_size {
+        12 => {
+            let width = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
+            let height = u16::from_le_bytes(bytes.get(20..22)?.try_into().ok()?);
+            Some((u32::from(width), u32::from(height)))
+        }
+        size if size >= 40 => {
+            let width = i32::from_le_bytes(bytes.get(18..22)?.try_into().ok()?);
+            let height = i32::from_le_bytes(bytes.get(22..26)?.try_into().ok()?);
+            Some((width.unsigned_abs(), height.unsigned_abs()))
+        }
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -231,14 +304,79 @@ mod tests {
         assert_eq!(jpeg_size(&bytes), None);
     }
 
-    /// `webp` and `bmp` are recognised image files with no header reader here,
-    /// and an extension alone does not make a file an image.
+    /// `webp` and `bmp` are recognised image files, and an extension alone does
+    /// not make a file an image.
     #[test]
-    fn only_the_measured_formats_answer_a_size() {
+    fn an_extension_alone_does_not_make_a_file_an_image() {
         assert_eq!(image_size("a/b.webp", &[0; 32]), None);
         assert_eq!(image_size("a/b.bmp", &[0; 32]), None);
         assert_eq!(image_size("plugin.ron", &[0; 32]), None);
         assert!(is_image("ornament/arch.png"));
         assert!(!is_image("fonts/plex.ttf"));
+    }
+
+    /// A lossy WEBP states the 14-bit pair after its start code.
+    #[test]
+    fn a_lossy_webp_header_gives_its_dimensions() {
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(b"WEBPVP8 ");
+        bytes.extend_from_slice(&10u32.to_le_bytes());
+        bytes.extend_from_slice(&[0, 0, 0, 0x9D, 0x01, 0x2A]);
+        bytes.extend_from_slice(&(4096u16 | 0xC000).to_le_bytes());
+        bytes.extend_from_slice(&(2048u16 | 0xC000).to_le_bytes());
+        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
+    }
+
+    /// A lossless WEBP packs the pair, each less one, into four bytes.
+    #[test]
+    fn a_lossless_webp_header_gives_its_dimensions() {
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(b"WEBPVP8L");
+        bytes.extend_from_slice(&5u32.to_le_bytes());
+        bytes.push(0x2F);
+        bytes.extend_from_slice(&(4095u32 | (2047 << 14)).to_le_bytes());
+        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
+    }
+
+    /// An extended WEBP states its canvas less one in two 24-bit fields.
+    #[test]
+    fn an_extended_webp_header_gives_its_dimensions() {
+        let mut bytes = b"RIFF".to_vec();
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(b"WEBPVP8X");
+        bytes.extend_from_slice(&10u32.to_le_bytes());
+        bytes.push(0);
+        bytes.extend_from_slice(&[0; 3]);
+        bytes.extend_from_slice(&4095u32.to_le_bytes()[..3]);
+        bytes.extend_from_slice(&2047u32.to_le_bytes()[..3]);
+        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
+        assert_eq!(webp_size(b"not a webp, not even close"), None);
+    }
+
+    /// A 32-bit DIB header states the pair as signed values, and a negative
+    /// height only means the rows run top-down.
+    #[test]
+    fn a_bmp_header_gives_its_dimensions() {
+        let mut bytes = b"BM".to_vec();
+        bytes.extend_from_slice(&[0; 12]);
+        bytes.extend_from_slice(&40u32.to_le_bytes());
+        bytes.extend_from_slice(&4096i32.to_le_bytes());
+        bytes.extend_from_slice(&(-2048i32).to_le_bytes());
+        bytes.extend_from_slice(&[0; 24]);
+        assert_eq!(bmp_size(&bytes), Some((4096, 2048)));
+        assert_eq!(bmp_size(b"not a bmp, not even close"), None);
+    }
+
+    /// A 12-byte core header states the pair as 16-bit values.
+    #[test]
+    fn a_bmp_core_header_gives_its_dimensions() {
+        let mut bytes = b"BM".to_vec();
+        bytes.extend_from_slice(&[0; 12]);
+        bytes.extend_from_slice(&12u32.to_le_bytes());
+        bytes.extend_from_slice(&1280u16.to_le_bytes());
+        bytes.extend_from_slice(&720u16.to_le_bytes());
+        assert_eq!(bmp_size(&bytes), Some((1280, 720)));
     }
 }
