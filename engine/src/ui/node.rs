@@ -82,9 +82,16 @@ pub struct TextNode {
 }
 
 /// One named piece of engine content, or one control.
+///
+/// A slot takes children because the two ornament slots are carriers: the
+/// plugin authors the `advance-marker` and `deciding-marker` nodes itself and
+/// the engine only decides when they show (spec §5). Which slots may hold
+/// content is ticket #107's interface rule, so the parser accepts it on any
+/// slot and reads it the way a box's children are read.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SlotNode {
     pub slot: String,
+    pub children: Vec<Node>,
     pub states: ControlStates,
 }
 
@@ -224,16 +231,7 @@ fn parse_node(
 
     let kind = match shape {
         Shape::Box => {
-            let mut children = Vec::new();
-            if let Some(value) = fields.take("children") {
-                let property = fields.path("children");
-                let items = value::seq(value, &property, report)?;
-                for (index, item) in items.into_iter().enumerate() {
-                    let child_path = format!("{property}[{index}]");
-                    let child = parse_node(item, &child_path, depth + 1, budget, tokens, report)?;
-                    children.push(child);
-                }
-            }
+            let children = parse_children(&mut fields, depth, budget, tokens, report)?;
             NodeKind::Box(BoxNode {
                 direction: merged.direction.unwrap_or_default(),
                 gap: merged.gap.unwrap_or_default(),
@@ -285,8 +283,13 @@ fn parse_node(
         }
         Shape::Slot => {
             let slot = take_string(&mut fields, "slot", report)?;
+            let children = parse_children(&mut fields, depth, budget, tokens, report)?;
             let states = parse_states(&mut fields, path, tokens, report)?;
-            NodeKind::Slot(SlotNode { slot, states })
+            NodeKind::Slot(SlotNode {
+                slot,
+                children,
+                states,
+            })
         }
         Shape::List => {
             let list = take_string(&mut fields, "list", report)?;
@@ -318,6 +321,26 @@ fn parse_node(
         style: Style::resolve(&merged),
         kind,
     })
+}
+
+fn parse_children(
+    fields: &mut Fields,
+    depth: usize,
+    budget: &mut Budget,
+    tokens: &Tokens,
+    report: &mut Report,
+) -> Option<Vec<Node>> {
+    let mut children = Vec::new();
+    if let Some(value) = fields.take("children") {
+        let property = fields.path("children");
+        let items = value::seq(value, &property, report)?;
+        for (index, item) in items.into_iter().enumerate() {
+            let child_path = format!("{property}[{index}]");
+            let child = parse_node(item, &child_path, depth + 1, budget, tokens, report)?;
+            children.push(child);
+        }
+    }
+    Some(children)
 }
 
 fn take_string(fields: &mut Fields, name: &str, report: &mut Report) -> Option<String> {

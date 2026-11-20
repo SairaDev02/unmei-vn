@@ -259,6 +259,8 @@ pub mod rules {
     pub const UI_SURFACE_UNKNOWN: &str = "ui.surface.unknown";
     pub const UI_FONT_LICENSE: &str = "ui.font.license";
     pub const UI_FONT_UNKNOWN: &str = "ui.font.unknown";
+    pub const UI_MOTION_FORBIDDEN: &str = "ui.motion.forbidden";
+    pub const UI_MOTION_FLASH: &str = "ui.motion.flash";
 
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
@@ -489,7 +491,12 @@ mod tests {
         assert_eq!(rules::UI_VERSION, "ui.version");
         assert_eq!(rules::UI_PATH_ESCAPE, "ui.path.escape");
         assert_eq!(rules::UI_CAP, "ui.cap");
+        assert_eq!(rules::UI_TOKEN_UNKNOWN, "ui.token.unknown");
+        assert_eq!(rules::UI_TOKEN_CYCLE, "ui.token.cycle");
+        assert_eq!(rules::UI_SURFACE_UNKNOWN, "ui.surface.unknown");
         assert_eq!(rules::UI_FONT_LICENSE, "ui.font.license");
         assert_eq!(rules::UI_FONT_UNKNOWN, "ui.font.unknown");
+        assert_eq!(rules::UI_MOTION_FORBIDDEN, "ui.motion.forbidden");
+        assert_eq!(rules::UI_MOTION_FLASH, "ui.motion.flash");
     }
 }

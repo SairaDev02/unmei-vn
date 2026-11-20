@@ -13,8 +13,9 @@
 //! the manifest, the tokens, the fonts, then each surface tree — and each pass
 //! ends the plugin when it found an error, so a folder that breaks a cap is
 //! never read on, a token table that failed is never resolved in a tree and a
-//! font that no file carries never reaches the renderer. Slots and motion add
-//! their passes here (tickets #107 and #109).
+//! font that no file carries never reaches the renderer. A tree's loops are
+//! judged by §6 while its surface parses it, which is where the tree and the
+//! surface id meet. Slots add their pass here (ticket #107).
 
 mod caps;
 mod file;
@@ -40,7 +41,7 @@ pub use self::caps::{
 };
 pub use self::fonts::{embedded, EmbeddedFace, EMBEDDED_FACES};
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
-pub use self::motion::{Easing, Keyframe, Motion};
+pub use self::motion::{Easing, Keyframe, Motion, MAX_FLASHES_PER_SECOND, MIN_PERIOD_MS};
 pub use self::node::{
     BoxNode, ControlStates, Fit, GlyphNode, ImageNode, ListNode, Node, NodeKind, SlotNode,
     TextNode, MAX_GLYPH_CHARS,
@@ -52,7 +53,7 @@ pub use self::source::{DirSource, MemorySource, Source};
 pub use self::style::{
     AlignItems, Component, Dimension, Direction, JustifyContent, Offsets, Padding, Position, Style,
 };
-pub use self::surface::SURFACE_IDS;
+pub use self::surface::{ORNAMENT_SLOTS, SURFACE_IDS};
 pub use self::tokens::{Color, Tokens, Typography};
 
 use self::source::display;

@@ -104,6 +104,8 @@ Every finding the loader, the check and the preview produce carries one id from 
 | `ui.surface.unknown` | error | A tree file for a surface format version 1 does not have ([UI plugin spec §5](ui-plugin-spec.md#5-surfaces-slots-controls-and-copy-keys-r6r9-r25)). |
 | `ui.font.license` | error | A font file in `ui/` that no manifest declaration names, a declaration that names no license, and a license-text file that is missing or cannot be read ([UI plugin spec §11](ui-plugin-spec.md#11-the-renderer-and-the-reference-plugin-r16r20-r24-g6)). |
 | `ui.font.unknown` | error | A typography token whose family and weight are neither one of the five embedded faces nor a face the manifest declares ([UI plugin spec §11](ui-plugin-spec.md#11-the-renderer-and-the-reference-plugin-r16r20-r24-g6)). |
+| `ui.motion.forbidden` | error | A loop where [UI plugin spec §6](ui-plugin-spec.md#6-motion-r10) forbids one: on a slot, a control, a list item or a node inside a list's item template, on any node of the eight menu surfaces, on a node inside a slot that holds engine content, on a node kind other than `box`, `image` and `glyph`, or with a period under 400 ms. |
+| `ui.motion.flash` | error | A loop of more than 3 flashes a second, where a flash is two opposing opacity changes of at least 0.2 between consecutive keyframes ([UI plugin spec §6](ui-plugin-spec.md#6-motion-r10)). |
 
 The `ui.*` ids are the UI plugin's, and each plugin ticket adds its family's ids here as it builds them ([UI plugin spec §8](ui-plugin-spec.md#8-findings-and-the-plugin-outcome-r14-r15-r21)).
 

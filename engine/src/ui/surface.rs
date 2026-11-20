@@ -6,13 +6,15 @@
 //! file is not a failure. A tree file whose name is not one of the ten is: the
 //! author asked to restyle a surface this format version does not have, and
 //! silently ignoring the file would hide the typo. The tree itself is parsed by
-//! [`super::node`], which owns its node paths and caps.
+//! [`super::node`], which owns its node paths and caps, and judged for §6's loop
+//! rules here, where the tree meets its surface id.
 
 use std::collections::BTreeMap;
 
 use crate::finding::{rules, Finding, Location};
 
 use super::file;
+use super::motion;
 use super::node::{self, Node};
 use super::source::Source;
 use super::tokens::Tokens;
@@ -32,6 +34,11 @@ pub const SURFACE_IDS: [&str; 10] = [
 ];
 
 const FOLDER: &str = "surfaces/";
+
+/// The slots that carry a plugin's own ornament rather than engine content
+/// (spec §5). Loops are allowed inside these two and refused on the slots
+/// themselves (spec §6).
+pub const ORNAMENT_SLOTS: [&str; 2] = ["advance-marker", "deciding-marker"];
 
 /// Read every surface tree the source holds. `None` means at least one tree
 /// failed; the plugin keeps none of them, because the player draws the
@@ -60,6 +67,7 @@ pub(super) fn check(
         }
         match read(source, path, &file, tokens, findings) {
             Some(tree) => {
+                ok &= motion::check(id, &tree, &file, findings);
                 surfaces.insert(id.to_string(), tree);
             }
             None => ok = false,
