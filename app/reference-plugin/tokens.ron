@@ -54,7 +54,8 @@
         // The centred choices (§2).
         "choice-width": 560.0,
         "choice-top": 150.0,
-        "choice-gap": 14.0,
+        // Half of §2's 14px gap: the item's own top and bottom padding, because
+        // a list has no gap of its own.
         "choice-half-gap": 7.0,
         "choice-pad-x": 16.0,
         "choice-pad-y": 22.0,
@@ -138,7 +139,7 @@
         "row": (
             direction: "row",
             align_items: "center",
-            gap: 12.0,
+            gap: "{spacing.row-gap}",
             padding: (top: "{spacing.row-pad-y}", right: "{spacing.row-pad-x}", bottom: "{spacing.row-pad-y}", left: "{spacing.row-pad-x}"),
             border: (width: 2.0, color: "{colors.clear}"),
             fill: "{colors.button}",

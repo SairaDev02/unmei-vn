@@ -55,7 +55,6 @@
                             item: (kind: "box",
                                 direction: "row",
                                 align_items: "center",
-                                gap: "{spacing.row-gap}",
                                 width: "fill",
                                 padding: (top: "{spacing.row-pad-y}", right: 0.0, bottom: "{spacing.row-pad-y}", left: 0.0),
                                 children: [
