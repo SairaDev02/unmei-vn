@@ -1,0 +1,103 @@
+// Default look §4: the contents page. One opaque full-frame page, a 420px left
+// column of section entries with Resume and Exit to title at its foot, a
+// hairline, and the Save/Load ledger in the right column.
+//
+// Two pieces of the section's text have no copy key, so this tree leaves them
+// out rather than restating a string the copy table does not own: the mono
+// `CONTENTS` label at the column's head, and the ledger's heading line. Both are
+// additive copy keys for a later change (R26).
+//
+// The five section controls and the five ledger controls are placed in their
+// lists' item templates, where the engine shows the row's own.
+(
+    kind: "box",
+    component: "page",
+    fill: "{colors.page}",
+    direction: "row",
+    children: [
+        (kind: "box",
+            component: "rail",
+            children: [
+                (kind: "list",
+                    list: "contents.sections",
+                    width: "fill",
+                    item: (kind: "box",
+                        direction: "column",
+                        width: "fill",
+                        gap: "{spacing.entry-gap}",
+                        padding: (top: 4.0, right: 0.0, bottom: 4.0, left: 0.0),
+                        children: [
+                            (kind: "slot", slot: "contents.section.label"),
+                            (kind: "slot", slot: "overlay.save-tab",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.load-tab",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.timeline",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.gallery",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.settings",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                        ],
+                    ),
+                ),
+                (kind: "box", component: "spacer"),
+                (kind: "slot", slot: "overlay.resume",
+                    focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                (kind: "slot", slot: "overlay.exit-to-title",
+                    focused: (border: (width: 2.0, color: "{colors.focus}"))),
+            ],
+        ),
+        (kind: "box", component: "divider"),
+        (kind: "box",
+            component: "column",
+            children: [
+                // "The pack name and the current scene move into the right
+                // column's heading" (§4).
+                (kind: "box",
+                    component: "heading-row",
+                    children: [
+                        (kind: "slot", slot: "pack.name"),
+                        (kind: "slot", slot: "contents.scene"),
+                    ],
+                ),
+                // One ledger row: the slot label, the scene over its saved-at
+                // line, and the action at the row's right.
+                (kind: "list",
+                    list: "contents.ledger",
+                    width: "fill",
+                    item: (kind: "box",
+                        direction: "row",
+                        align_items: "center",
+                        width: "fill",
+                        gap: 12.0,
+                        padding: (top: "{spacing.button-pad-y}", right: 0.0, bottom: "{spacing.button-pad-y}", left: 0.0),
+                        children: [
+                            (kind: "slot", slot: "contents.ledger.label"),
+                            (kind: "box",
+                                direction: "column",
+                                width: "fill",
+                                gap: 2.0,
+                                children: [
+                                    (kind: "slot", slot: "contents.ledger.detail"),
+                                    (kind: "slot", slot: "contents.ledger.saved-at"),
+                                ],
+                            ),
+                            (kind: "slot", slot: "contents.ledger.action"),
+                            (kind: "slot", slot: "overlay.slot.1",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.slot.2",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.slot.3",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.slot.autosave",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                            (kind: "slot", slot: "overlay.legacy",
+                                focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                        ],
+                    ),
+                ),
+            ],
+        ),
+    ],
+)

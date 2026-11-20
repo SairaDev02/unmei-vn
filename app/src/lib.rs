@@ -44,6 +44,7 @@ pub mod panic_log;
 mod plugins;
 mod presentation;
 pub mod read_log;
+pub mod reference_plugin;
 mod session;
 mod session_lines;
 pub mod settings;

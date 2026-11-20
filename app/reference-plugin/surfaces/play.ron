@@ -1,0 +1,139 @@
+// Default look §1 (the play frame) and §2 (the options).
+//
+// The box, the tab and the quick row are the engine's surfaces; this tree says
+// where they sit and what the plugin adds. The two ornament slots carry that
+// addition: `advance-marker` holds variant E's `▼` and `deciding-marker` its
+// three dots, and the loops are the two the section allows. Both sit at a
+// 1600 ms or 2000 ms period, above the 400 ms floor, and a period holds one
+// fade out and back — well inside the three-flashes-a-second cap.
+//
+// The quick row places the five controls and no `Log`: the Backlog is not built
+// and `play.log` is reserved (format reference §9). The labels are the engine's,
+// so `lit` is the only mode state this tree can paint — a `lit` label's tone is
+// engine content, which the format gives a slot no property for.
+(
+    kind: "box",
+    component: "page",
+    children: [
+        (kind: "box",
+            component: "dialogue",
+            position: "absolute",
+            left: "{spacing.gutter}",
+            right: "{spacing.gutter}",
+            bottom: "{spacing.box-bottom}",
+            height: "{spacing.box-height}",
+            direction: "column",
+            justify_content: "space-between",
+            padding: (top: "{spacing.box-pad-top}", right: "{spacing.box-pad-x}", bottom: "{spacing.box-pad-bottom}", left: "{spacing.box-pad-x}"),
+            children: [
+                // The name tab overlaps the box's top edge, 28px in and 20px up.
+                // Narration has no tab, so the engine shows none for it.
+                (kind: "box",
+                    component: "name-tab",
+                    position: "absolute",
+                    left: "{spacing.tab-inset}",
+                    top: "{spacing.tab-lift}",
+                    children: [
+                        (kind: "slot", slot: "speaker"),
+                    ],
+                ),
+                // The prose, with the advance mark at the box's right, level with
+                // its last line. The engine hides the mark until the line is
+                // fully revealed and while a choice waits.
+                (kind: "box",
+                    direction: "row",
+                    width: "fill",
+                    align_items: "end",
+                    children: [
+                        (kind: "slot", slot: "prose", width: "fill"),
+                        (kind: "slot", slot: "advance-marker", children: [
+                            (kind: "glyph",
+                                glyph: "▼",
+                                typography: "{typography.marker}",
+                                fill: "{colors.dim}",
+                                loop: (period_ms: 2000, easing: "ease-in-out",
+                                       keyframes: [ (opacity: 1.0), (opacity: 0.3), (opacity: 1.0) ]),
+                            ),
+                        ]),
+                    ],
+                ),
+                // A decision-wait's line, with the three-dot marker beside it.
+                (kind: "box",
+                    direction: "row",
+                    width: "fill",
+                    align_items: "center",
+                    children: [
+                        (kind: "slot", slot: "deciding", width: "fill"),
+                        (kind: "slot", slot: "deciding-marker", children: [
+                            (kind: "glyph",
+                                glyph: "•••",
+                                typography: "{typography.marker}",
+                                fill: "{colors.focus}",
+                                loop: (period_ms: 1600, easing: "ease-in-out",
+                                       keyframes: [ (opacity: 1.0), (opacity: 0.45), (opacity: 1.0) ]),
+                            ),
+                        ]),
+                    ],
+                ),
+                (kind: "slot", slot: "scene-end"),
+                // The quick row runs along the box's foot, with Menu at the right.
+                (kind: "box",
+                    direction: "row",
+                    width: "fill",
+                    align_items: "center",
+                    justify_content: "space-between",
+                    children: [
+                        (kind: "box",
+                            direction: "row",
+                            align_items: "center",
+                            gap: "{spacing.quick-gap}",
+                            children: [
+                                (kind: "slot", slot: "quick-row"),
+                                (kind: "slot", slot: "play.save"),
+                                (kind: "slot", slot: "play.load"),
+                                (kind: "slot", slot: "play.auto",
+                                    lit: (border: (width: 1.0, color: "{colors.focus}"))),
+                                (kind: "slot", slot: "play.skip",
+                                    lit: (border: (width: 1.0, color: "{colors.focus}"))),
+                            ],
+                        ),
+                        (kind: "slot", slot: "play.menu"),
+                    ],
+                ),
+            ],
+        ),
+        // §2: the options stack in the centre of the frame, 560px wide from 150px
+        // down, 14px apart — the item's own 7px top and bottom padding.
+        (kind: "box",
+            position: "absolute",
+            left: 0.0,
+            top: "{spacing.choice-top}",
+            width: "fill",
+            direction: "column",
+            align_items: "center",
+            children: [
+                (kind: "list",
+                    list: "choices",
+                    width: "{spacing.choice-width}",
+                    item: (kind: "box",
+                        width: "fill",
+                        padding: (top: "{spacing.choice-half-gap}", right: 0.0, bottom: "{spacing.choice-half-gap}", left: 0.0),
+                        children: [
+                            (kind: "box",
+                                component: "choice",
+                                width: "fill",
+                                padding: (top: "{spacing.choice-pad-y}", right: "{spacing.choice-pad-x}", bottom: "{spacing.choice-pad-y}", left: "{spacing.choice-pad-x}"),
+                                children: [
+                                    (kind: "box", component: "badge", children: [
+                                        (kind: "slot", slot: "choice.number"),
+                                    ]),
+                                    (kind: "slot", slot: "choice.text", width: "fill"),
+                                ],
+                            ),
+                        ],
+                    ),
+                ),
+            ],
+        ),
+    ],
+)

@@ -1,0 +1,14 @@
+// The reference plugin's manifest. It declares no fonts, images or copy
+// overrides, and that is the whole decision:
+//
+// - the five faces the player embeds are addressed by family and weight, so a
+//   font declaration here would ship a second copy of a face the binary holds;
+// - the reference look draws no shipped art (the title backdrop is the pack's);
+// - every string these trees show is the copy table's (`engine/src/copy.rs`).
+//   Restating one here would make two owners of one string, so variant E changes
+//   layout, not words (slice-1 design note, "The engine's copy table (#104)").
+(
+    format_version: 1,
+    name: "Reference",
+    numbering: "arabic",
+)
