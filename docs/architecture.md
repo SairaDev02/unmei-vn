@@ -132,6 +132,7 @@ In the Presented in column, each name is a file path in a code span, not a link.
 | [`testing-human-smoke.md`](testing-human-smoke.md) | the retired human smoke checklist, where its cases went and the residuals it leaves | — |
 | [`keiko-spec.md`](keiko-spec.md) | the Keiko modes, the case format and steps, takes, observations, decisions, fixtures and faults, stepping, exploration, output and the release run | `docs/guide/test-your-pack.md` |
 | [`check-preview-spec.md`](check-preview-spec.md) | `--check` and `--preview`: the finding and its rule ids, all-at-once loading, the asset and flow rules, the case rules, the output and exit codes, and the preview's frames | `docs/guide/write-your-first-pack.md`, `docs/guide/test-your-pack.md` |
+| [`ui-plugin-spec.md`](ui-plugin-spec.md) | UI plugins (not built): the `ui/` folder, tokens, node kinds, surfaces and copy keys, motion, caps, the `ui.*` rules, the plugin outcome, the boot fallback, `--export-ui` and variant E as the reference plugin | — |
 | [ADR 0001 — RON for the pack's structured content](adr/0001-ron-for-structured-content.md) | RON is the pack format; LLM-facing JSON is converted at the CLI boundary | — |
 | [ADR 0002 — Line-oriented dialogue DSL without conditionals](adr/0002-line-oriented-dsl-without-conditionals.md) | no indent stack; conditionals excluded there and added by ADR 0004 | — |
 | [ADR 0003 — Decision points: judgment in data, flow in script](adr/0003-decision-points-judgment-in-data-flow-in-script.md) | the config in the NPC file, one `decide` line in the scene | — |

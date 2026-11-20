@@ -10,7 +10,7 @@ keywords:
 ---
 # UI plugins — requirements
 
-**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** The build-ready spec is the next phase. *(Amended 2026-11-15: the [Plugin family](plugin-family.md) requirements override R4, R9, R10, R12, R13, R19, R22, R23 and §12; each carries a dated pointer.)* Nothing here changes a contract yet: where a requirement will amend an existing contract, [Contracts this will amend](#9-contracts-this-will-amend) names it.
+**Status (2026-11-15).** Requirements accepted 2026-11-15, after one requirements review. **Not specified, not built.** The build-ready spec is the next phase. *(Amended 2026-11-20: specified in the [UI plugin spec](ui-plugin-spec.md); not built.)* *(Amended 2026-11-15: the [Plugin family](plugin-family.md) requirements override R4, R9, R10, R12, R13, R19, R22, R23 and §12; each carries a dated pointer.)* Nothing here changes a contract yet: where a requirement will amend an existing contract, [Contracts this will amend](#9-contracts-this-will-amend) names it.
 
 **What this is.** A **UI plugin** gives a content pack its own look on the title, the play frame, the Esc menu and every other player-facing surface. An author's coding agent writes it as data, checks it and previews it with the player, then installs it by copying it into the pack. Variant E, the settled [Default look](title-and-menu.md#default-look), becomes the **reference plugin**: the look a pack gets with no plugin, and the fallback when its plugin fails.
 
@@ -124,7 +124,7 @@ These are not amended yet. The spec phase amends each one in place, with a dated
 
 ## 11. Left to the spec
 
-These details follow from the requirements and are settled in the spec, not here:
+These details follow from the requirements and are settled in the spec, not here: *(Amended 2026-11-20: all settled in the [UI plugin spec](ui-plugin-spec.md).)*
 
 - the node kinds and their properties; the slot, control and copy-key lists per surface, and each key's required placeholders;
 - the cap values, the minimum text size, and how "covered by an opaque node" is measured;
