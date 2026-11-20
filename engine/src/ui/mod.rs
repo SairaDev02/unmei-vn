@@ -10,38 +10,73 @@
 //! plays (R14).
 //!
 //! The passes run in one order — the paths a source lists, the folder's caps,
-//! then each file's own rules — and each pass ends the plugin when it found an
-//! error, so a folder that breaks a cap is never read on. Tokens, node trees,
-//! slots, fonts and motion add their passes here (tickets #106–#109).
+//! the manifest, the tokens, then each surface tree — and each pass ends the
+//! plugin when it found an error, so a folder that breaks a cap is never read
+//! on and a token table that failed is never resolved in a tree. Slots, fonts
+//! and motion add their passes here (tickets #107–#109).
 
 mod caps;
+mod file;
 mod manifest;
+mod motion;
+mod node;
+mod paint;
 mod source;
+mod style;
+mod surface;
+mod tokens;
+mod value;
 
+use std::collections::BTreeMap;
 use std::io;
 use std::path::Path;
 
 use crate::finding::{rules, sort_findings, Finding, Location};
 
-pub use self::caps::{MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_TOTAL_BYTES};
+pub use self::caps::{
+    MAX_DEPTH, MAX_FILES, MAX_FILE_BYTES, MAX_IMAGE_SIDE, MAX_NODES, MAX_TOTAL_BYTES,
+};
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
+pub use self::motion::{Easing, Keyframe, Motion};
+pub use self::node::{
+    BoxNode, ControlStates, Fit, GlyphNode, ImageNode, ListNode, Node, NodeKind, SlotNode,
+    TextNode, MAX_GLYPH_CHARS,
+};
+pub use self::paint::{
+    Border, Fill, GradientStop, Paint, PaintOverrides, Radius, Shadow, Transform,
+};
 pub use self::source::{DirSource, MemorySource, Source};
+pub use self::style::{
+    AlignItems, Component, Dimension, Direction, JustifyContent, Offsets, Padding, Position, Style,
+};
+pub use self::surface::SURFACE_IDS;
+pub use self::tokens::{Color, Tokens, Typography};
 
 use self::source::display;
 
 /// The folder a plugin lives in, relative to the pack root.
 const FOLDER: &str = "ui";
 
-/// A plugin that passed every static rule: the manifest this build reads. The
-/// tokens and the surface trees join it as their tickets add them.
+/// A plugin that passed every static rule: the manifest this build reads, its
+/// resolved tokens and the surface trees it restyles. A surface the plugin has
+/// no tree for keeps the reference plugin's, so the map is the plugin's own
+/// restyling and not a complete set of ten.
 #[derive(Clone, Debug, PartialEq)]
 pub struct UiPlugin {
     pub manifest: Manifest,
+    pub tokens: Tokens,
+    pub surfaces: BTreeMap<String, Node>,
 }
 
 /// What a pack's `ui/` folder gives the player (spec §8): no folder at all, a
 /// plugin this build reads, or the findings that stopped it. A failure is the
 /// plugin's alone; the pack still plays.
+///
+/// A loaded plugin owns its manifest, resolved tokens and trees, which makes it
+/// the large variant. The outcome lives once per pack rather than in a
+/// collection, so boxing it would add an indirection to every read and change
+/// the shape ticket #105 published.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum PluginOutcome {
     /// The pack has no `ui/` folder, which is not a failure.
@@ -118,5 +153,23 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
     if !findings.is_empty() {
         return PluginOutcome::failed(findings);
     }
-    PluginOutcome::Loaded(UiPlugin { manifest })
+
+    let Some(tokens) = tokens::check(source, &mut findings) else {
+        return PluginOutcome::failed(findings);
+    };
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+
+    let Some(surfaces) = surface::check(source, &tokens, &mut findings) else {
+        return PluginOutcome::failed(findings);
+    };
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+    PluginOutcome::Loaded(UiPlugin {
+        manifest,
+        tokens,
+        surfaces,
+    })
 }
