@@ -7,6 +7,7 @@ use super::super::focus_border;
 use super::super::style::{TextFaces, BUTTON_BG, FOCUS, PANEL_BG, TEXT};
 use crate::menu::{MenuAction, MenuState};
 use crate::settings::{AudioControl, SettingsState, TrackControl};
+use unmei_engine::copy;
 
 /// The fixed width of a Settings row's label column, so every track in the view
 /// starts at the same x.
@@ -36,9 +37,9 @@ impl SettingsLabelKind {
     fn switch_label(self) -> Option<&'static str> {
         match self {
             SettingsLabelKind::Percent(_) | SettingsLabelKind::TextSpeed => None,
-            SettingsLabelKind::Mute => Some("Mute"),
-            SettingsLabelKind::Auto => Some("Auto"),
-            SettingsLabelKind::Fullscreen => Some("Fullscreen"),
+            SettingsLabelKind::Mute => Some(copy::text("settings.control.mute")),
+            SettingsLabelKind::Auto => Some(copy::text("settings.control.auto")),
+            SettingsLabelKind::Fullscreen => Some(copy::text("settings.control.fullscreen")),
         }
     }
 }
@@ -59,18 +60,18 @@ pub(crate) struct SettingsTrack {
 
 pub(super) fn audio_control_label(control: AudioControl) -> &'static str {
     match control {
-        AudioControl::Master => "Master",
-        AudioControl::Music => "Music",
-        AudioControl::Sfx => "SFX",
+        AudioControl::Master => copy::text("settings.control.master"),
+        AudioControl::Music => copy::text("settings.control.music"),
+        AudioControl::Sfx => copy::text("settings.control.sfx"),
     }
 }
 
 /// `On` / `Off`, the shared rendering of every boolean Settings switch.
 fn on_off(value: bool) -> &'static str {
     if value {
-        "On"
+        copy::text("settings.value.on")
     } else {
-        "Off"
+        copy::text("settings.value.off")
     }
 }
 
@@ -167,7 +168,9 @@ pub(super) fn text_speed_row(
     settings: Option<&SettingsState>,
 ) {
     let action = MenuAction::TextSpeed;
-    let name = settings.map(|s| s.text_speed_name()).unwrap_or("Instant");
+    let name = settings
+        .map(|s| s.text_speed_name())
+        .unwrap_or_else(|| copy::text("settings.text-speed.instant"));
     let percent = settings.map(|s| s.text_speed_percent()).unwrap_or(0);
     parent
         .spawn((
@@ -191,7 +194,7 @@ pub(super) fn text_speed_row(
                     width: Val::Px(SETTINGS_LABEL_WIDTH),
                     ..default()
                 },
-                Text::new("Text speed"),
+                Text::new(copy::text("settings.control.text-speed")),
                 faces.sans(16.0),
                 TextColor::from(TEXT),
             ));

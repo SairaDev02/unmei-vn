@@ -1,6 +1,8 @@
 //! The settings value mapping: the slider/step vocabulary, the load-time clamps,
 //! and the amplitude/speed arithmetic the menu and presentation read.
 
+use unmei_engine::copy;
+
 use super::state::SettingsState;
 
 /// The audio controls the Settings view exposes, in menu order.
@@ -61,11 +63,11 @@ pub const SILENCE_DECIBELS: f32 = -60.0;
 /// The Settings control walks these five steps; the file stores the physical
 /// pace, exactly as the audio group stores amplitudes.
 pub const TEXT_SPEED_LADDER: [(&str, f32); 5] = [
-    ("Instant", 0.0),
-    ("Fast", 0.012),
-    ("Normal", 0.02),
-    ("Slow", 0.04),
-    ("Slowest", 0.08),
+    (copy::text("settings.text-speed.instant"), 0.0),
+    (copy::text("settings.text-speed.fast"), 0.012),
+    (copy::text("settings.text-speed.normal"), 0.02),
+    (copy::text("settings.text-speed.slow"), 0.04),
+    (copy::text("settings.text-speed.slowest"), 0.08),
 ];
 
 /// The slowest reveal the menu offers, in seconds per character (`0.0` is
