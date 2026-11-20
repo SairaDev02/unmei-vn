@@ -1,0 +1,4 @@
+(
+    name: "check ui: no manifest",
+    entry: "main",
+)

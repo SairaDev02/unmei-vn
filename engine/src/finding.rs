@@ -247,6 +247,14 @@ pub mod rules {
 
     pub const PREVIEW_STATE_UNREACHABLE: &str = "preview.state.unreachable";
 
+    // The pack's UI plugin (ui-plugin spec §8). Later plugin tickets add their
+    // own ids to this family.
+    pub const UI_FILE_READ: &str = "ui.file.read";
+    pub const UI_PARSE: &str = "ui.parse";
+    pub const UI_VERSION: &str = "ui.version";
+    pub const UI_PATH_ESCAPE: &str = "ui.path.escape";
+    pub const UI_CAP: &str = "ui.cap";
+
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
         format!("keiko.log.row-{row}")
@@ -465,5 +473,16 @@ mod tests {
             rules::PREVIEW_STATE_UNREACHABLE,
             "preview.state.unreachable"
         );
+    }
+
+    /// The slice-1 plugin ids, spelled as the UI plugin spec §8 table spells
+    /// them.
+    #[test]
+    fn the_ui_rule_ids_match_the_spec_table() {
+        assert_eq!(rules::UI_FILE_READ, "ui.file.read");
+        assert_eq!(rules::UI_PARSE, "ui.parse");
+        assert_eq!(rules::UI_VERSION, "ui.version");
+        assert_eq!(rules::UI_PATH_ESCAPE, "ui.path.escape");
+        assert_eq!(rules::UI_CAP, "ui.cap");
     }
 }

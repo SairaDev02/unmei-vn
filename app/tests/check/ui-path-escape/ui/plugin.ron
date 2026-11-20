@@ -1,0 +1,16 @@
+(
+    format_version: 1,
+    name: "Check escape",
+    fonts: [
+        (
+            family: "Plex",
+            weight: 400,
+            file: "fonts/plex.ttf",
+            license: "OFL-1.1",
+            license_file: "../licenses/plex.txt",
+        ),
+    ],
+    images: [
+        (file: "../art/arch.png"),
+    ],
+)

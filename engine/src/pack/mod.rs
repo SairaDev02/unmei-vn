@@ -64,16 +64,20 @@ use std::path::{Path, PathBuf};
 use crate::content::{Manifest, Npc, Pack, Scene, StateValue};
 use crate::finding::{rules, sort_findings, Finding, Location};
 use crate::parser::Parser;
+use crate::ui;
 
 use self::validate::validate;
 
 pub use self::assets::{AssetKind, AssetReference};
 
-/// A loaded pack plus its warnings.
+/// A loaded pack, its warnings and its UI plugin's outcome.
 #[derive(Debug)]
 pub struct LoadedPack {
     pub pack: Pack,
     pub warnings: Vec<Finding>,
+    /// The pack's `ui/` folder (ui-plugin spec §8). A failed plugin is the
+    /// plugin's alone: the pack still plays.
+    pub plugin: ui::PluginOutcome,
 }
 
 /// The tagline length the 1280x720 title column fits; past it the loader warns
@@ -157,6 +161,7 @@ pub fn load_pack(root: &Path) -> Result<LoadedPack, Vec<Finding>> {
             root: root.to_path_buf(),
         },
         warnings,
+        plugin: ui::load(root),
     })
 }
 

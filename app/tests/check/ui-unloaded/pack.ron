@@ -1,0 +1,4 @@
+(
+    name: "check ui: unloaded pack",
+    entry: "nowhere",
+)

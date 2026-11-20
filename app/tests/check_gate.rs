@@ -204,6 +204,49 @@ const EXPECTATIONS: &[Expectation] = &[
         warnings: 0,
         findings: &[],
     },
+    // A pack with no `ui/` is the `demo` row above: no plugin, no finding.
+    // Each of these packs loads, and one family of the plugin's folder rules
+    // fails (ui-plugin spec §2, §7, §15 rules 1–3).
+    Expectation {
+        pack: "ui-no-manifest",
+        errors: 1,
+        warnings: 0,
+        findings: &[("ui/plugin.ron", "ui.file.read")],
+    },
+    Expectation {
+        pack: "ui-version",
+        errors: 1,
+        warnings: 0,
+        findings: &[("ui/plugin.ron", "ui.version")],
+    },
+    Expectation {
+        pack: "ui-parse",
+        errors: 1,
+        warnings: 0,
+        findings: &[("ui/plugin.ron", "ui.parse")],
+    },
+    // Two paths the manifest names would leave `ui/`: a font's license text and
+    // a shipped image, each reported where the author wrote it.
+    Expectation {
+        pack: "ui-path-escape",
+        errors: 2,
+        warnings: 0,
+        findings: &[
+            ("ui/plugin.ron", "ui.path.escape"),
+            ("ui/plugin.ron", "ui.path.escape"),
+        ],
+    },
+    // A pack that does not load still reports its plugin, which is the folder's
+    // own and needs nothing the failed load would have returned (§8).
+    Expectation {
+        pack: "ui-unloaded",
+        errors: 2,
+        warnings: 0,
+        findings: &[
+            ("pack.ron", "pack.manifest"),
+            ("ui/plugin.ron", "ui.version"),
+        ],
+    },
 ];
 
 #[test]
@@ -309,6 +352,98 @@ fn a_decode_finding_lands_on_the_reference_line() {
     );
 }
 
+/// §7's per-file cap through the binary. A committed fixture would have to hold
+/// 16 MiB, so the pack is built here: the cap reads a file's size, never its
+/// body, so the oversized file stays sparse and costs no disk.
+#[test]
+fn a_file_over_the_cap_exits_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let pack = dir.path().join("ui-cap");
+    write_plugin_pack(&pack);
+    let padding = pack.join("ui/padding.bin");
+
+    resize(&padding, unmei_engine::ui::MAX_FILE_BYTES);
+    let output = check_json(&pack);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+
+    resize(&padding, unmei_engine::ui::MAX_FILE_BYTES + 1);
+    let output = check_json(&pack);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert_eq!(
+        reported(&output),
+        [("ui/padding.bin".to_string(), "ui.cap".to_string())],
+        "the finding names the file over the cap"
+    );
+}
+
+/// §7's image cap through the binary, on real PNGs: the engine reads the header,
+/// so a frame the player's own `image` crate writes at the cap passes and one
+/// pixel over it fails.
+#[test]
+fn an_image_over_the_cap_exits_one() {
+    let dir = tempfile::tempdir().unwrap();
+    let pack = dir.path().join("ui-image");
+    write_plugin_pack(&pack);
+    let art = pack.join("ui/ornament.png");
+
+    write_png(&art, unmei_engine::ui::MAX_IMAGE_SIDE);
+    let output = check_json(&pack);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+
+    write_png(&art, unmei_engine::ui::MAX_IMAGE_SIDE + 1);
+    let output = check_json(&pack);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert_eq!(
+        reported(&output),
+        [("ui/ornament.png".to_string(), "ui.cap".to_string())]
+    );
+}
+
+/// A pack that loads on its own, holding a clean `ui/` plugin.
+fn write_plugin_pack(root: &Path) {
+    for (rel, text) in [
+        ("pack.ron", "(name: \"check ui cap\", entry: \"main\")"),
+        ("state.ron", "(met_ace: false,)"),
+        ("scenes/main.unmei", "Narrator: A clean line.\n"),
+        ("ui/plugin.ron", "(format_version: 1, name: \"Cap\")"),
+    ] {
+        let path = root.join(rel);
+        std::fs::create_dir_all(path.parent().expect("a parent")).unwrap();
+        std::fs::write(path, text).unwrap();
+    }
+    std::fs::create_dir_all(root.join("npcs")).unwrap();
+}
+
+/// A file of `size` bytes, with none of them written.
+fn resize(path: &Path, size: u64) {
+    std::fs::File::create(path).unwrap().set_len(size).unwrap();
+}
+
+/// A real, valid `side`x`side` PNG.
+fn write_png(path: &Path, side: u32) {
+    let pixels = vec![0u8; side as usize * side as usize];
+    image::save_buffer(path, &pixels, side, side, image::ExtendedColorType::L8)
+        .expect("a PNG the image crate writes");
+}
+
+/// The check's JSON findings as `(file, rule)`, in the order reported.
+fn reported(output: &Output) -> Vec<(String, String)> {
+    let text = stdout(output);
+    let document: Value = serde_json::from_str(&text)
+        .unwrap_or_else(|error| panic!("one JSON document: {error}\n{text}"));
+    document["findings"]
+        .as_array()
+        .unwrap_or_else(|| panic!("a findings list: {text}"))
+        .iter()
+        .map(|finding| {
+            (
+                finding["file"].as_str().expect("a file").to_string(),
+                finding["rule"].as_str().expect("a rule").to_string(),
+            )
+        })
+        .collect()
+}
+
 #[test]
 fn the_text_form_names_each_finding_and_summarizes() {
     let pack = fixture_pack("cases");
@@ -353,6 +488,11 @@ fn two_runs_over_the_same_pack_give_byte_identical_json() {
         "repeated",
         "decode",
         "unreferenced",
+        "ui-no-manifest",
+        "ui-version",
+        "ui-parse",
+        "ui-path-escape",
+        "ui-unloaded",
     ] {
         let pack = pack(name);
         let first = check_json(&pack);
