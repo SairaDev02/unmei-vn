@@ -74,6 +74,7 @@ pub fn document(findings: &[Finding], errors: usize, warnings: usize) -> String 
 mod tests {
     use super::*;
     use unmei_engine::finding::rules;
+    use unmei_engine::Location;
 
     /// `file|line|rule|message`, so a failing order names the pair that moved.
     fn key(finding: &Finding) -> String {
@@ -90,7 +91,12 @@ mod tests {
     fn the_order_is_file_then_line_then_rule_then_message() {
         let mut findings = vec![
             Finding::at_line("scenes/b.unmei", 2, rules::PACK_STATE, "b"),
-            Finding::new("scenes/a.unmei", "", rules::PACK_MANIFEST, "whole file"),
+            Finding::new(
+                "scenes/a.unmei",
+                Location::File,
+                rules::PACK_MANIFEST,
+                "whole file",
+            ),
             Finding::at_line("scenes/a.unmei", 9, rules::PACK_STATE, "late"),
             Finding::at_line("scenes/a.unmei", 9, rules::PACK_SCENE_TARGET, "rule order"),
             Finding::at_line(
@@ -124,20 +130,23 @@ mod tests {
             Finding::at_line("npcs/ace.ron", 4, rules::PACK_DECISION, "line"),
             Finding::new(
                 "npcs/ace.ron",
-                "decisions.greet.fallback",
+                Location::Field("decisions.greet.fallback".to_string()),
                 rules::PACK_DECISION,
                 "path",
             ),
         ];
         sort(&mut findings);
-        assert_eq!(findings[0].path, "decisions.greet.fallback");
+        assert_eq!(
+            findings[0].path,
+            Location::Field("decisions.greet.fallback".to_string())
+        );
     }
 
     #[test]
     fn a_warning_counts_as_a_warning_and_keeps_its_display_text() {
         let warning = Finding::warning(
             "pack.ron",
-            "",
+            Location::File,
             rules::PACK_MANIFEST_TAGLINE_LENGTH,
             "tagline is too long",
         );
@@ -152,7 +161,12 @@ mod tests {
     #[test]
     fn the_json_document_has_the_five_fields_and_lower_case_severity() {
         let error = Finding::at_line("tests/a.keiko", 2, rules::EXPECT, "expected 1");
-        let warning = Finding::warning("pack.ron", "", rules::PACK_MANIFEST_UNLISTED, "unlisted");
+        let warning = Finding::warning(
+            "pack.ron",
+            Location::File,
+            rules::PACK_MANIFEST_UNLISTED,
+            "unlisted",
+        );
         let document = document(&[error, warning], 1, 1);
         let value: Value = serde_json::from_str(&document).expect("one JSON document");
 

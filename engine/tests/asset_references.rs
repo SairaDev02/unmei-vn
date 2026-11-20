@@ -9,7 +9,7 @@
 use std::fs;
 
 use unmei_engine::finding::rules;
-use unmei_engine::{load_pack, AssetKind, Pack};
+use unmei_engine::{load_pack, AssetKind, Location, Pack};
 
 const ACE_RON: &str = r#"(
     id: "ace",
@@ -183,7 +183,7 @@ fn a_missing_sprite_referenced_three_times_is_one_finding_at_its_first_reference
     assert_eq!(findings.len(), 1, "{findings:?}");
     let finding = &findings[0];
     assert_eq!(finding.file, "scenes/main.unmei");
-    assert_eq!(finding.path, "line 2");
+    assert_eq!(finding.path, Location::Line(2));
     assert_eq!(finding.rule, rules::PACK_ASSET_MISSING);
     assert_eq!(
         finding.message,
@@ -213,7 +213,7 @@ fn a_missing_title_backdrop_is_reported_on_the_manifest() {
     let findings = load(&dir).missing_asset_findings();
     assert_eq!(findings.len(), 1, "{findings:?}");
     assert_eq!(findings[0].file, "pack.ron");
-    assert_eq!(findings[0].path, "");
+    assert_eq!(findings[0].path, Location::File);
     assert_eq!(findings[0].rule, rules::PACK_ASSET_MISSING);
 }
 

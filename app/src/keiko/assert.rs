@@ -8,7 +8,7 @@ use unmei_engine::keiko::{
     exact, ControlCondition, DecisionState, Expect, LogLevel, SkipMode, SlotExpect,
 };
 
-use super::finding::{rules, Finding};
+use super::finding::{rules, Finding, Location};
 use super::observe::{LogLine, Observation};
 use crate::Runtime;
 
@@ -23,7 +23,7 @@ pub fn evaluate(
     let fail = |expected: String| {
         Finding::new(
             "case",
-            format!("step `expect {}`", expect_name(expect)),
+            Location::Field(format!("step `expect {}`", expect_name(expect))),
             rules::EXPECT,
             format!("expected {expected}, observed {}", describe(observed)),
         )
@@ -35,7 +35,7 @@ pub fn evaluate(
         };
         Finding::new(
             "case",
-            format!("step `expect {}`", expect_name(expect)),
+            Location::Field(format!("step `expect {}`", expect_name(expect))),
             rules::EXPECT,
             format!("expected {expected}, observed {observed}"),
         )

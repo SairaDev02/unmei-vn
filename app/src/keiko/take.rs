@@ -19,7 +19,7 @@ use unmei_engine::Pack;
 
 use super::assert::evaluate;
 use super::decide::KeikoResolver;
-use super::finding::{rules, Finding};
+use super::finding::{rules, Finding, Location};
 use super::observe::{observe, LogLine, Observation};
 use super::sandbox::Sandbox;
 use super::steps::{apply, Applied, FRAME};
@@ -83,7 +83,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             return TakeResult {
                 outcome: Err(Finding::new(
                     request.case_file,
-                    String::new(),
+                    Location::File,
                     rules::CASE_REFERENCE,
                     format!("cannot create the take sandbox: {error}"),
                 )),
@@ -242,7 +242,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
                 .unwrap_or_else(|| "a panic with no message".to_string());
             Err(Finding::new(
                 request.case_file.clone(),
-                String::new(),
+                Location::File,
                 rules::PANIC,
                 message,
             ))
@@ -302,7 +302,7 @@ fn start_at_scene(
     let fail = |message: String| {
         Finding::new(
             request.case_file.clone(),
-            String::new(),
+            Location::File,
             rules::CASE_REFERENCE,
             message,
         )
@@ -372,7 +372,7 @@ fn step_once(
         apply(app, step, &mut frame_run, &resolver, state.render.as_mut()).map_err(|finding| {
             let mut finding = finding;
             finding.file = request.case_file.clone();
-            finding.path = format!("line {line}");
+            finding.path = Location::Line(line);
             finding
         })?;
     match applied {
@@ -388,7 +388,7 @@ fn step_once(
             evaluate(&expect, &state.observation, &state.all_log, app).map_err(|finding| {
                 let mut finding = finding;
                 finding.file = request.case_file.clone();
-                finding.path = format!("line {line}");
+                finding.path = Location::Line(line);
                 finding
             })?;
         }
@@ -435,7 +435,7 @@ pub(super) fn settle(
             if std::time::Instant::now() >= live_deadline {
                 return Err(Finding::new(
                     request.case_file.clone(),
-                    String::new(),
+                    Location::File,
                     rules::UNSETTLED,
                     "the live decision did not answer within 60 s",
                 ));
@@ -460,7 +460,7 @@ pub(super) fn settle(
     }
     Err(Finding::new(
         request.case_file.clone(),
-        String::new(),
+        Location::File,
         rules::UNSETTLED,
         "the world did not become quiet within 600 frames",
     ))

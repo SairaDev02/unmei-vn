@@ -18,7 +18,7 @@
 use std::collections::{BTreeSet, HashMap, VecDeque};
 
 use crate::content::{Line, Pack, Scene};
-use crate::finding::{rules, Finding};
+use crate::finding::{rules, Finding, Location};
 
 /// Every flow warning a loaded pack earns.
 pub fn findings(pack: &Pack) -> Vec<Finding> {
@@ -185,8 +185,7 @@ fn landing_positions<'a>(
 
 fn unreachable_scene(pack: &Pack, scene_id: &str) -> Finding {
     Finding::warning(
-        format!("scenes/{scene_id}.unmei"),
-        "",
+        format!("scenes/{scene_id}.unmei"), Location::File,
         rules::FLOW_UNREACHABLE_SCENE,
         format!(
             "scene `{scene_id}` is unreachable: no path from entry scene `{}` reaches it (the Timeline is not a path)",
@@ -197,8 +196,7 @@ fn unreachable_scene(pack: &Pack, scene_id: &str) -> Finding {
 
 fn no_exit(scene_id: &str) -> Finding {
     Finding::warning(
-        format!("scenes/{scene_id}.unmei"),
-        "",
+        format!("scenes/{scene_id}.unmei"), Location::File,
         rules::FLOW_NO_EXIT,
         format!(
             "scene `{scene_id}` has no exit: every path loops without reaching the end of the file or another scene"

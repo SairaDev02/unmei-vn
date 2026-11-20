@@ -15,7 +15,7 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::content::{Line, Pack};
-use crate::finding::{rules, Finding};
+use crate::finding::{rules, Finding, Location};
 
 /// The kind of asset a reference names, which fixes its pack-relative path.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -127,7 +127,12 @@ impl Pack {
                 Some(line) => {
                     Finding::at_line(&reference.file, line, rules::PACK_ASSET_MISSING, message)
                 }
-                None => Finding::new(&reference.file, "", rules::PACK_ASSET_MISSING, message),
+                None => Finding::new(
+                    &reference.file,
+                    Location::File,
+                    rules::PACK_ASSET_MISSING,
+                    message,
+                ),
             });
         }
         findings

@@ -91,7 +91,7 @@ pub(super) fn validate_interpolation(text: &str) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use crate::content::{Line, Scene};
-    use crate::finding::Finding;
+    use crate::finding::{Finding, Location};
     use crate::parser::Parser;
 
     fn parse(text: &str) -> Result<Scene, Finding> {
@@ -141,7 +141,7 @@ mod tests {
     fn unknown_command_is_error() {
         let err = parse("frobnicate the gate\n").unwrap_err();
         assert!(err.message.contains("unknown command"), "{err}");
-        assert_eq!(err.path, "line 1");
+        assert_eq!(err.path, Location::Line(1));
     }
 
     #[test]

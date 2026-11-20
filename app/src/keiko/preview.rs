@@ -12,7 +12,7 @@ mod states;
 
 pub use run::run;
 
-use unmei_engine::keiko::{parse_case, Case, Finding};
+use unmei_engine::keiko::{parse_case, Case, Finding, Location};
 use unmei_engine::runner::Wait;
 use unmei_engine::{Pack, ScriptRunner, StateValue};
 
@@ -142,7 +142,7 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
             };
             Finding::new(
                 "preview",
-                String::new(),
+                Location::File,
                 unmei_engine::keiko::rules::DEFENSIVE,
                 stopped,
             )
@@ -224,7 +224,7 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
     if parks_met == MAX_PARKS {
         return Err(Finding::new(
             "preview",
-            String::new(),
+            Location::File,
             unmei_engine::keiko::rules::DEFENSIVE,
             format!("scene `{scene}` did not end within {MAX_PARKS} parks"),
         ));
@@ -238,7 +238,7 @@ const MAX_PARKS: usize = 10_000;
 fn reference(message: impl Into<String>) -> Finding {
     Finding::new(
         "preview",
-        String::new(),
+        Location::File,
         unmei_engine::keiko::rules::CASE_REFERENCE,
         message,
     )

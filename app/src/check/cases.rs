@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use unmei_engine::keiko::{parse_case, Finding};
+use unmei_engine::keiko::{parse_case, Finding, Location};
 use unmei_engine::Pack;
 
 /// Every `.keiko` file under `tests/`, `tests/findings/` included, in byte order
@@ -24,7 +24,7 @@ pub fn findings(pack_root: &Path, pack: Option<&Pack>) -> Vec<Finding> {
             Err(error) => {
                 findings.push(Finding::new(
                     file,
-                    String::new(),
+                    Location::File,
                     unmei_engine::keiko::rules::CASE_SYNTAX,
                     format!("cannot read the case: {error}"),
                 ));

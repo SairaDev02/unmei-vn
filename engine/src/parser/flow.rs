@@ -174,6 +174,7 @@ impl<'a> Parser<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::finding::Location;
 
     use crate::content::Scene;
 
@@ -198,7 +199,7 @@ mod tests {
     fn if_without_endif_is_error() {
         let err = parse("if met_ace\nAce: Hello.\n").unwrap_err();
         assert!(err.message.contains("no matching `endif`"), "{err}");
-        assert_eq!(err.path, "line 1");
+        assert_eq!(err.path, Location::Line(1));
         assert_eq!(err.file, "test.unmei");
     }
 
@@ -211,42 +212,42 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.message.contains("no matching `endif`"), "{err}");
-        assert_eq!(err.path, "line 2");
+        assert_eq!(err.path, Location::Line(2));
     }
 
     #[test]
     fn stray_else_is_error() {
         let err = parse("Ace: Hi.\nelse\n").unwrap_err();
         assert!(err.message.contains("without a matching `if`"), "{err}");
-        assert_eq!(err.path, "line 2");
+        assert_eq!(err.path, Location::Line(2));
     }
 
     #[test]
     fn doubled_else_is_error() {
         let err = parse("if met_ace\nelse\nelse\nendif\n").unwrap_err();
         assert!(err.message.contains("duplicate `else`"), "{err}");
-        assert_eq!(err.path, "line 3");
+        assert_eq!(err.path, Location::Line(3));
     }
 
     #[test]
     fn stray_endif_is_error() {
         let err = parse("endif\n").unwrap_err();
         assert!(err.message.contains("without a matching `if`"), "{err}");
-        assert_eq!(err.path, "line 1");
+        assert_eq!(err.path, Location::Line(1));
     }
 
     #[test]
     fn label_inside_arm_is_error() {
         let err = parse("if met_ace\nlabel inside\nendif\n").unwrap_err();
         assert!(err.message.contains("`label` is not allowed"), "{err}");
-        assert_eq!(err.path, "line 2");
+        assert_eq!(err.path, Location::Line(2));
     }
 
     #[test]
     fn label_in_an_else_arm_is_error() {
         let err = parse("if met_ace\nelse\nlabel inside\nendif\n").unwrap_err();
         assert!(err.message.contains("`label` is not allowed"), "{err}");
-        assert_eq!(err.path, "line 3");
+        assert_eq!(err.path, Location::Line(3));
     }
 
     #[test]
@@ -282,7 +283,7 @@ mod tests {
                 err.message.contains("not allowed inside a `choice` block"),
                 "{err}"
             );
-            assert_eq!(err.path, "line 3");
+            assert_eq!(err.path, Location::Line(3));
         }
     }
 
@@ -325,7 +326,7 @@ mod tests {
         ] {
             let err = parse(&format!("choice\n  {option}\nend\n")).unwrap_err();
             assert!(err.message.contains("expected"), "{option}: {err}");
-            assert_eq!(err.path, "line 2", "{option}");
+            assert_eq!(err.path, Location::Line(2), "{option}");
         }
     }
 

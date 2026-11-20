@@ -17,7 +17,7 @@ mod validate;
 #[cfg(test)]
 mod tests;
 
-pub use crate::finding::{rules, Finding};
+pub use crate::finding::{rules, Finding, Location};
 pub use controls::{is_control_id, slot_control, CONTROL_IDS, INDEXED_CONTROL_FAMILIES};
 pub use model::{
     Case, Click, ControlCondition, DecisionFault, DecisionState, Expect, Fault, FixtureKind,

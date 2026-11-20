@@ -206,7 +206,12 @@ fn every_loader_and_parser_site_carries_its_family_id() {
                 "{}: {finding:?}",
                 fixture.id
             );
-            assert_eq!(finding.path, fixture.path, "{}: {finding:?}", fixture.id);
+            assert_eq!(
+                finding.path.to_string(),
+                fixture.path,
+                "{}: {finding:?}",
+                fixture.id
+            );
         }
         assert_eq!(
             loaded,

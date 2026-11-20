@@ -16,7 +16,7 @@ use unmei_engine::keiko::{exact, Expect, LoadTarget, Pick, Step};
 use unmei_engine::runner::Wait;
 
 use super::controls::{focus_for_id, is_enabled, surface_ids};
-use super::finding::{rules, Finding};
+use super::finding::{rules, Finding, Location};
 use crate::credentials::ClipboardPort;
 use crate::menu::{MenuFocus, MenuState, MenuView};
 use crate::Runtime;
@@ -50,7 +50,12 @@ pub fn apply(
     render: Option<&mut super::render::Rendered>,
 ) -> Result<Applied, Finding> {
     let fail = |rule: &str, message: String| {
-        Finding::new("case", format!("step `{}`", verb(step)), rule, message)
+        Finding::new(
+            "case",
+            Location::Field(format!("step `{}`", verb(step))),
+            rule,
+            message,
+        )
     };
     match step {
         Step::NewGame => {
@@ -343,7 +348,7 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
 fn unavailable(step: &Step) -> Finding {
     Finding::new(
         "case",
-        format!("step `{}`", verb(step)),
+        Location::Field(format!("step `{}`", verb(step))),
         rules::RENDER_UNAVAILABLE,
         "no software rasterizer is available in this take",
     )

@@ -9,7 +9,7 @@
 use std::collections::{BTreeSet, HashMap};
 
 use crate::content::{Line, Manifest, Npc, Scene, StateValue};
-use crate::finding::{rules, Finding};
+use crate::finding::{rules, Finding, Location};
 
 pub(super) fn validate(
     manifest: Option<&Manifest>,
@@ -38,7 +38,7 @@ fn validate_entry(manifest: &Manifest, scenes: &HashMap<String, Scene>, errors: 
     }
     errors.push(Finding::new(
         "pack.ron",
-        "",
+        Location::File,
         rules::PACK_MANIFEST,
         format!(
             "entry scene `{}` does not exist (scenes: {:?})",
@@ -121,8 +121,7 @@ fn validate_npc_configs(
                 for key in &config.state_keys {
                     if !state.contains_key(key) {
                         errors.push(Finding::new(
-                            &file,
-                            "",
+                            &file, Location::File,
                             rules::PACK_DECISION,
                             format!(
                                 "decision `{question}`: state_keys entry `{key}` is not declared in state.ron"
@@ -136,8 +135,7 @@ fn validate_npc_configs(
             {
                 if !criteria.contains_key(fallback) {
                     errors.push(Finding::new(
-                        &file,
-                        "",
+                        &file, Location::File,
                         rules::PACK_DECISION,
                         format!(
                             "decision `{question}`: fallback `{fallback}` is not a criterion id (criteria: {:?})",
@@ -147,8 +145,7 @@ fn validate_npc_configs(
                 }
                 if !criteria.contains_key("none") {
                     warnings.push(Finding::warning(
-                        &file,
-                        "",
+                        &file, Location::File,
                         rules::PACK_DECISION_NO_NONE,
                         format!(
                             "decision `{question}`: no `none` action — the model has no way to say nothing fits"
@@ -164,8 +161,7 @@ fn validate_npc_configs(
             {
                 if fallback >= legend.len() {
                     errors.push(Finding::new(
-                        &file,
-                        "",
+                        &file, Location::File,
                         rules::PACK_DECISION,
                         format!(
                             "decision `{question}`: fallback index {fallback} is outside the legend (0..={})",
@@ -209,15 +205,14 @@ fn validate_declared_order(
         if repeated.contains(id) {
             errors.push(Finding::new(
                 "pack.ron",
-                "",
+                Location::File,
                 rules::PACK_MANIFEST,
                 format!("scene `{id}` is listed more than once in `scenes`"),
             ));
         }
         if !scenes.contains_key(id) {
             errors.push(Finding::new(
-                "pack.ron",
-                "",
+                "pack.ron", Location::File,
                 rules::PACK_MANIFEST,
                 format!(
                     "scene `{id}` is listed in `scenes` but is not among loaded scenes (scenes: {:?})",
@@ -244,7 +239,7 @@ fn validate_declared_order(
         };
         warnings.push(Finding::warning(
             "pack.ron",
-            "",
+            Location::File,
             rules::PACK_MANIFEST_UNLISTED,
             format!("{noun} `{scene_id}` is not listed in `scenes`{tail}"),
         ));

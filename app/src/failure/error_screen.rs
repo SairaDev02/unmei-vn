@@ -114,6 +114,7 @@ mod tests {
     use std::path::Path;
 
     use super::*;
+    use unmei_engine::Location;
 
     use unmei_engine::finding::rules;
 
@@ -171,7 +172,7 @@ mod tests {
         const HINT: &str = "No PACK_DIR given — expected demo-pack beside unmei-play.";
         let errors = vec![Finding::new(
             "pack.ron",
-            "",
+            Location::File,
             rules::PACK_FILE_READ,
             "missing",
         )];
@@ -236,7 +237,7 @@ mod tests {
             .map(|i| {
                 Finding::new(
                     format!("scenes/s{i}.unmei"),
-                    "",
+                    Location::File,
                     rules::PACK_FILE_READ,
                     "boom",
                 )
@@ -261,7 +262,7 @@ mod tests {
             .map(|i| {
                 Finding::new(
                     format!("scenes/s{i}.unmei"),
-                    "",
+                    Location::File,
                     rules::PACK_FILE_READ,
                     "boom",
                 )

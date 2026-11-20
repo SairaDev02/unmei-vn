@@ -24,7 +24,7 @@ pub mod take;
 use std::path::{Path, PathBuf};
 
 use serde_json::json;
-use unmei_engine::keiko::{parse_case, validate, Case, Facts, Finding, StepLine};
+use unmei_engine::keiko::{parse_case, validate, Case, Facts, Finding, Location, StepLine};
 use unmei_engine::Pack;
 
 use crate::launch::{Format, KeikoMode};
@@ -72,7 +72,7 @@ fn with_pack(pack_root: &Path, format: Format, run: impl FnOnce(&Pack) -> u8) ->
                 .join("; ");
             let finding = Finding::new(
                 pack_root.display().to_string(),
-                String::new(),
+                Location::File,
                 unmei_engine::keiko::rules::CASE_REFERENCE,
                 format!("pack: {detail}"),
             );
@@ -246,7 +246,7 @@ fn invalid(id: &str, message: String) -> output::CaseRun {
         case: id.to_string(),
         result: Err(Finding::new(
             format!("tests/{id}.keiko"),
-            String::new(),
+            Location::File,
             unmei_engine::keiko::rules::CASE_SYNTAX,
             message,
         )),
@@ -369,7 +369,7 @@ fn append_step(
     if is_header_line(step) && existing_has_steps(&existing) {
         let finding = Finding::new(
             &case_file,
-            String::new(),
+            Location::File,
             unmei_engine::keiko::rules::CASE_HEADER_ORDER,
             "a header line must come before the first step",
         );

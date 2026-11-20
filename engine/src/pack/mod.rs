@@ -62,7 +62,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::content::{Manifest, Npc, Pack, Scene, StateValue};
-use crate::finding::{rules, sort_findings, Finding};
+use crate::finding::{rules, sort_findings, Finding, Location};
 use crate::parser::Parser;
 
 use self::validate::validate;
@@ -172,7 +172,7 @@ fn read_manifest(
         Err(e) => {
             errors.push(Finding::new(
                 "pack.ron",
-                "",
+                Location::File,
                 rules::PACK_FILE_READ,
                 format!("cannot read pack manifest: {e}"),
             ));
@@ -184,7 +184,7 @@ fn read_manifest(
         Err(e) => {
             errors.push(Finding::new(
                 "pack.ron",
-                "",
+                Location::File,
                 rules::PACK_FILE_RON,
                 format!("invalid RON: {e}"),
             ));
@@ -199,8 +199,7 @@ fn read_manifest(
                 let len = tagline.chars().count();
                 if len > TAGLINE_WARN_LEN {
                     warnings.push(Finding::warning(
-                        "pack.ron",
-                        "",
+                        "pack.ron", Location::File,
                         rules::PACK_MANIFEST_TAGLINE_LENGTH,
                         format!(
                             "tagline is {len} characters long; the 1280x720 title column fits {TAGLINE_WARN_LEN}"
@@ -210,9 +209,12 @@ fn read_manifest(
                 manifest.tagline = Some(tagline);
             }
             Ok(None) => {}
-            Err(message) => {
-                errors.push(Finding::new("pack.ron", "", rules::PACK_MANIFEST, message))
-            }
+            Err(message) => errors.push(Finding::new(
+                "pack.ron",
+                Location::File,
+                rules::PACK_MANIFEST,
+                message,
+            )),
         }
     }
     // The optional title backdrop names an asset resolved exactly like
@@ -221,7 +223,12 @@ fn read_manifest(
     // a runtime silent degradation; the check's asset rule reports it.
     if let Some(id) = &manifest.title_backdrop {
         if let Err(message) = crate::parser::check_id(id, "title_backdrop id") {
-            errors.push(Finding::new("pack.ron", "", rules::PACK_MANIFEST, message));
+            errors.push(Finding::new(
+                "pack.ron",
+                Location::File,
+                rules::PACK_MANIFEST,
+                message,
+            ));
         }
     }
     Some(manifest)
@@ -235,7 +242,7 @@ fn read_state(root: &Path, errors: &mut Vec<Finding>) -> Option<HashMap<String, 
         Err(e) => {
             errors.push(Finding::new(
                 "state.ron",
-                "",
+                Location::File,
                 rules::PACK_FILE_READ,
                 format!("cannot read state file: {e}"),
             ));
@@ -248,7 +255,12 @@ fn read_state(root: &Path, errors: &mut Vec<Finding>) -> Option<HashMap<String, 
     match crate::pack_ron::decode_state(&src) {
         Ok(state) => Some(state),
         Err(e) => {
-            errors.push(Finding::new("state.ron", "", rules::PACK_FILE_RON, e));
+            errors.push(Finding::new(
+                "state.ron",
+                Location::File,
+                rules::PACK_FILE_RON,
+                e,
+            ));
             None
         }
     }
@@ -273,7 +285,7 @@ fn read_scenes(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Scene>
         Err(e) => {
             errors.push(Finding::new(
                 "scenes/",
-                "",
+                Location::File,
                 rules::PACK_FILE_READ,
                 format!("cannot read scenes directory: {e}"),
             ));
@@ -292,7 +304,7 @@ fn read_scenes(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Scene>
             Err(e) => {
                 errors.push(Finding::new(
                     &rel,
-                    "",
+                    Location::File,
                     rules::PACK_FILE_READ,
                     format!("cannot read scene: {e}"),
                 ));
@@ -326,7 +338,7 @@ fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
         Err(e) => {
             errors.push(Finding::new(
                 "npcs/",
-                "",
+                Location::File,
                 rules::PACK_FILE_READ,
                 format!("cannot read npcs directory: {e}"),
             ));
@@ -345,7 +357,7 @@ fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
             Err(e) => {
                 errors.push(Finding::new(
                     &rel,
-                    "",
+                    Location::File,
                     rules::PACK_FILE_READ,
                     format!("cannot read NPC file: {e}"),
                 ));
@@ -357,7 +369,7 @@ fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
                 if npc.id != stem {
                     errors.push(Finding::new(
                         &rel,
-                        "",
+                        Location::File,
                         rules::PACK_NPC,
                         format!("npc id `{}` does not match filename stem `{stem}`", npc.id),
                     ));
@@ -368,7 +380,7 @@ fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
             Err(e) => {
                 errors.push(Finding::new(
                     &rel,
-                    "",
+                    Location::File,
                     rules::PACK_FILE_RON,
                     format!("invalid NPC RON: {e}"),
                 ));

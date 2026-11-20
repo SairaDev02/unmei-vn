@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use unmei_engine::keiko::{rules, Case};
-use unmei_engine::{Finding, Pack, StateValue};
+use unmei_engine::{Finding, Location, Pack, StateValue};
 
 use super::states::{Fixture, Outcome};
 use super::{plan, Plan, PreviewRequest};
@@ -40,7 +40,7 @@ pub fn run(args: &PreviewArgs, pack_root: &Path, keep: bool, format: Format) -> 
         return report_findings(
             vec![Finding::new(
                 "preview",
-                String::new(),
+                Location::File,
                 rules::RENDER_UNAVAILABLE,
                 "this machine has no wgpu fallback adapter, so the preview cannot render",
             )],
@@ -141,7 +141,7 @@ fn take_request<'a>(
 fn unreachable(name: &str, reason: &str) -> Finding {
     Finding::warning(
         "preview",
-        String::new(),
+        Location::File,
         rules::PREVIEW_STATE_UNREACHABLE,
         format!("{name}: {reason}"),
     )
@@ -180,7 +180,7 @@ fn state_overrides(path: &Path) -> Result<Vec<(String, StateValue)>, Finding> {
     let fail = |message: String| {
         Finding::new(
             "preview",
-            String::new(),
+            Location::File,
             rules::CASE_REFERENCE,
             format!("--state {}: {message}", path.display()),
         )

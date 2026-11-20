@@ -354,10 +354,7 @@ proptest! {
         for text in std::iter::once(text.as_str()).chain(text.lines()) {
             if let Err(error) = Parser::new("soup.unmei").parse("soup", text) {
                 let last = text.lines().count().max(1);
-                let reported = error
-                    .path
-                    .strip_prefix("line ")
-                    .and_then(|line| line.parse::<usize>().ok());
+                let reported = error.line_number();
                 prop_assert!(
                     reported.is_some_and(|line| (1..=last).contains(&line)),
                     "line {:?} outside 1..={last}: {error}\n{text:?}",

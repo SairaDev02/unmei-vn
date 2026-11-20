@@ -7,6 +7,8 @@
 
 use std::fmt;
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
 /// Whether a finding stops the load or only reports something real but
 /// non-fatal.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -27,16 +29,79 @@ impl Severity {
     }
 }
 
+/// Where a finding sits inside its file.
+///
+/// On the wire (the check's JSON and Keiko's JSON) it is one string, and that
+/// text is a compatibility contract: `""` for the file as a whole, `line <n>`
+/// for a line, anything else for a field path.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Location {
+    /// The file as a whole.
+    File,
+    /// One line of the file, counted from 1.
+    Line(usize),
+    /// A named place: a dotted RON path such as `decisions.greet.fallback`, or
+    /// the Keiko step a finding is about. Never empty and never `line <n>`;
+    /// those read back as [`Location::File`] and [`Location::Line`].
+    Field(String),
+}
+
+impl Location {
+    /// The line number, for a [`Location::Line`] only.
+    pub fn line(&self) -> Option<usize> {
+        match self {
+            Location::Line(line) => Some(*line),
+            Location::File | Location::Field(_) => None,
+        }
+    }
+
+    fn from_wire(text: String) -> Self {
+        if text.is_empty() {
+            return Location::File;
+        }
+        let line = text
+            .strip_prefix("line ")
+            .filter(|digits| !digits.is_empty() && digits.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|digits| digits.parse().ok());
+        match line {
+            Some(line) => Location::Line(line),
+            None => Location::Field(text),
+        }
+    }
+}
+
+/// The wire text. It also orders the last ties in [`sort_findings`], so that
+/// the order stays what it was when a location was a plain string.
+impl fmt::Display for Location {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Location::File => Ok(()),
+            Location::Line(line) => write!(f, "line {line}"),
+            Location::Field(path) => f.write_str(path),
+        }
+    }
+}
+
+impl Serialize for Location {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> Deserialize<'de> for Location {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        String::deserialize(deserializer).map(Location::from_wire)
+    }
+}
+
 /// One problem, reported in the one shape every engine surface speaks.
 #[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Finding {
     /// The pack-relative file, such as `scenes/reunion.unmei`, `npcs/ace.ron`
     /// or `tests/opening.keiko`.
     pub file: String,
-    /// Where inside the file: `line <n>` for a line, a dotted RON path such as
-    /// `decisions.greet.fallback` when the rule knows one, or an empty string
-    /// for the file as a whole.
-    pub path: String,
+    /// Where inside the file. The JSON key stays `path`.
+    pub path: Location,
     /// One of the fixed rule ids ([`rules`]).
     pub rule: String,
     /// Whether the problem stops the load.
@@ -50,13 +115,13 @@ impl Finding {
     /// report unless the rule is a warning.
     pub fn new(
         file: impl Into<String>,
-        path: impl Into<String>,
+        path: Location,
         rule: &str,
         message: impl Into<String>,
     ) -> Self {
         Self {
             file: file.into(),
-            path: path.into(),
+            path,
             rule: rule.to_string(),
             severity: Severity::Error,
             message: message.into(),
@@ -66,7 +131,7 @@ impl Finding {
     /// A warning finding: real, reported, but not a rejection.
     pub fn warning(
         file: impl Into<String>,
-        path: impl Into<String>,
+        path: Location,
         rule: &str,
         message: impl Into<String>,
     ) -> Self {
@@ -83,7 +148,7 @@ impl Finding {
         rule: &str,
         message: impl Into<String>,
     ) -> Self {
-        Self::new(file, format!("line {line}"), rule, message)
+        Self::new(file, Location::Line(line), rule, message)
     }
 
     /// A warning about one line of a file.
@@ -106,9 +171,9 @@ impl Finding {
         self
     }
 
-    /// The number in a `line <n>` path; `None` for any other path.
+    /// The line number; `None` when the finding is not about a line.
     pub fn line_number(&self) -> Option<usize> {
-        line_digits(&self.path)?.parse().ok()
+        self.path.line()
     }
 }
 
@@ -123,7 +188,7 @@ pub fn sort_findings(findings: &mut [Finding]) {
             .then_with(|| a.line_number().cmp(&b.line_number()))
             .then_with(|| a.rule.cmp(&b.rule))
             .then_with(|| a.message.cmp(&b.message))
-            .then_with(|| a.path.cmp(&b.path))
+            .then_with(|| a.path.to_string().cmp(&b.path.to_string()))
             .then_with(|| severity_rank(a.severity).cmp(&severity_rank(b.severity)))
     });
 }
@@ -141,18 +206,12 @@ fn severity_rank(severity: Severity) -> u8 {
 /// printed here.
 impl fmt::Display for Finding {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match line_digits(&self.path) {
-            Some(line) => write!(f, "{}:{}: {}", self.file, line, self.message),
-            None if self.path.is_empty() => write!(f, "{}: {}", self.file, self.message),
-            None => write!(f, "{}: {}: {}", self.file, self.path, self.message),
+        match &self.path {
+            Location::Line(line) => write!(f, "{}:{}: {}", self.file, line, self.message),
+            Location::File => write!(f, "{}: {}", self.file, self.message),
+            Location::Field(path) => write!(f, "{}: {}: {}", self.file, path, self.message),
         }
     }
-}
-
-/// The digits in a `line <n>` path, for the `file:line: message` display form.
-fn line_digits(path: &str) -> Option<&str> {
-    let digits = path.strip_prefix("line ")?;
-    (!digits.is_empty() && digits.bytes().all(|byte| byte.is_ascii_digit())).then_some(digits)
 }
 
 /// The fixed rule ids: Keiko's case and step rules, and the pack rules the
@@ -206,7 +265,7 @@ mod tests {
     #[test]
     fn a_line_finding_displays_the_old_file_line_message_form() {
         let finding = Finding::at_line("scenes/a.unmei", 4, rules::PACK_SCENE_SYNTAX, "boom");
-        assert_eq!(finding.path, "line 4");
+        assert_eq!(finding.path, Location::Line(4));
         assert_eq!(finding.to_string(), "scenes/a.unmei:4: boom");
     }
 
@@ -214,7 +273,7 @@ mod tests {
     fn another_path_displays_between_the_file_and_the_message() {
         let finding = Finding::new(
             "npcs/ace.ron",
-            "decisions.greet.fallback",
+            Location::Field("decisions.greet.fallback".to_string()),
             rules::PACK_DECISION,
             "boom",
         );
@@ -226,7 +285,7 @@ mod tests {
 
     #[test]
     fn an_empty_path_displays_the_file_and_the_message_only() {
-        let finding = Finding::new("pack.ron", "", rules::PACK_MANIFEST, "boom");
+        let finding = Finding::new("pack.ron", Location::File, rules::PACK_MANIFEST, "boom");
         assert_eq!(finding.to_string(), "pack.ron: boom");
     }
 
@@ -240,7 +299,12 @@ mod tests {
 
     #[test]
     fn a_built_finding_is_an_error() {
-        let path = Finding::new("case", "step", rules::CASE_REFERENCE, "boom");
+        let path = Finding::new(
+            "case",
+            Location::Field("step".to_string()),
+            rules::CASE_REFERENCE,
+            "boom",
+        );
         assert_eq!(path.severity, Severity::Error);
         let line = Finding::at_line("case", 3, rules::EXPECT, "boom");
         assert_eq!(line.severity, Severity::Error);
@@ -250,14 +314,24 @@ mod tests {
     /// already showed: the severity is carried, never printed.
     #[test]
     fn a_warning_is_a_warning_and_prints_no_severity() {
-        let finding = Finding::warning("pack.ron", "", rules::PACK_MANIFEST_UNLISTED, "unlisted");
+        let finding = Finding::warning(
+            "pack.ron",
+            Location::File,
+            rules::PACK_MANIFEST_UNLISTED,
+            "unlisted",
+        );
         assert_eq!(finding.severity, Severity::Warning);
         assert_eq!(finding.to_string(), "pack.ron: unlisted");
     }
 
     #[test]
     fn a_line_path_needs_a_number_after_the_word() {
-        let finding = Finding::new("case", "line sideways", rules::CASE_REFERENCE, "boom");
+        let finding = Finding::new(
+            "case",
+            Location::Field("line sideways".to_string()),
+            rules::CASE_REFERENCE,
+            "boom",
+        );
         assert_eq!(finding.to_string(), "case: line sideways: boom");
     }
 
@@ -265,8 +339,53 @@ mod tests {
     fn a_keiko_line_finding_keeps_its_rule_and_path() {
         let finding = Finding::at_line("tests/a.keiko", 4, rules::EXPECT, "expected 1");
         assert_eq!(finding.file, "tests/a.keiko");
-        assert_eq!(finding.path, "line 4");
+        assert_eq!(finding.path, Location::Line(4));
         assert_eq!(finding.rule, "keiko.expect");
+    }
+
+    /// The wire form is the one text the check's JSON and Keiko's JSON already
+    /// carry: an empty string, `line <n>` or the field path, byte for byte.
+    #[test]
+    fn a_location_keeps_its_wire_form_in_both_directions() {
+        let cases = [
+            (Location::File, ""),
+            (Location::Line(12), "line 12"),
+            (
+                Location::Field("decisions.greet.fallback".to_string()),
+                "decisions.greet.fallback",
+            ),
+        ];
+        for (location, wire) in cases {
+            let finding = Finding::new("npcs/ace.ron", location.clone(), rules::PACK_DECISION, "m");
+            let json = serde_json::to_string(&finding).unwrap();
+            assert!(json.contains(&format!("\"path\":\"{wire}\"")), "{json}");
+            let back: Finding = serde_json::from_str(&json).unwrap();
+            assert_eq!(back, finding);
+            assert_eq!(back.path, location);
+        }
+    }
+
+    #[test]
+    fn a_line_word_without_digits_reads_back_as_a_field() {
+        for wire in ["line x", "line ", "line 1x", "line -1"] {
+            let json = format!(
+                r#"{{"file":"f","path":"{wire}","rule":"r","severity":"Error","message":"m"}}"#
+            );
+            let finding: Finding = serde_json::from_str(&json).unwrap();
+            assert_eq!(finding.path, Location::Field(wire.to_string()), "{wire}");
+        }
+    }
+
+    #[test]
+    fn a_line_sorts_by_number_and_a_finding_without_a_line_sorts_first() {
+        let mut findings = vec![
+            Finding::at_line("a", 10, "r", "m"),
+            Finding::at_line("a", 9, "r", "m"),
+            Finding::new("a", Location::File, "r", "m"),
+        ];
+        sort_findings(&mut findings);
+        let lines: Vec<Option<usize>> = findings.iter().map(Finding::line_number).collect();
+        assert_eq!(lines, [None, Some(9), Some(10)]);
     }
 
     #[test]
@@ -282,20 +401,27 @@ mod tests {
     fn sorting_uses_file_then_line_then_rule_then_message() {
         let mut findings = vec![
             Finding::at_line("b.unmei", 10, rules::PACK_SCENE_TARGET, "ten"),
-            Finding::new("a.ron", "decisions.greet", rules::PACK_DECISION, "no line"),
+            Finding::new(
+                "a.ron",
+                Location::Field("decisions.greet".to_string()),
+                rules::PACK_DECISION,
+                "no line",
+            ),
             Finding::at_line("a.ron", 9, rules::PACK_SCENE_SYNTAX, "nine"),
             Finding::at_line("a.ron", 9, rules::PACK_STATE, "beta"),
             Finding::at_line("a.ron", 9, rules::PACK_STATE, "alpha"),
-            Finding::new("a.ron", "", rules::PACK_NPC, "file wide"),
+            Finding::new("a.ron", Location::File, rules::PACK_NPC, "file wide"),
             Finding::at_line("b.unmei", 2, rules::PACK_SCENE_SYNTAX, "two"),
         ];
         sort_findings(&mut findings);
+        let wires: Vec<String> = findings.iter().map(|f| f.path.to_string()).collect();
         let order: Vec<(&str, &str, &str, &str)> = findings
             .iter()
-            .map(|f| {
+            .zip(&wires)
+            .map(|(f, wire)| {
                 (
                     f.file.as_str(),
-                    f.path.as_str(),
+                    wire.as_str(),
                     f.rule.as_str(),
                     f.message.as_str(),
                 )

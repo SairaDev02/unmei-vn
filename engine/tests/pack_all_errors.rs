@@ -6,7 +6,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use unmei_engine::finding::rules;
-use unmei_engine::{load_pack, Finding};
+use unmei_engine::{load_pack, Finding, Location};
 
 const PACK_RON: &str = r#"(
     name: "all errors",
@@ -93,7 +93,7 @@ fn a_broken_state_file_still_reports_a_jump_to_a_missing_target() {
     assert!(
         errors
             .iter()
-            .any(|f| f.rule == rules::PACK_SCENE_TARGET && f.path == "line 2"),
+            .any(|f| f.rule == rules::PACK_SCENE_TARGET && f.path == Location::Line(2)),
         "the jump behind the broken state file still reports: {errors:?}"
     );
     assert!(
@@ -127,7 +127,8 @@ fn a_scene_file_reports_only_its_first_syntax_error() {
     );
     assert_eq!(broken[0].rule, rules::PACK_SCENE_SYNTAX);
     assert_eq!(
-        broken[0].path, "line 1",
+        broken[0].path,
+        Location::Line(1),
         "the reported error is the first one: {errors:?}"
     );
 }
@@ -154,9 +155,11 @@ fn findings_come_out_in_spec_order_on_every_load() {
     let first = load_pack(&root).unwrap_err();
     let second = load_pack(&root).unwrap_err();
 
+    let paths: Vec<String> = first.iter().map(|f| f.path.to_string()).collect();
     let order: Vec<(&str, &str, &str)> = first
         .iter()
-        .map(|f| (f.file.as_str(), f.path.as_str(), f.rule.as_str()))
+        .zip(&paths)
+        .map(|(f, path)| (f.file.as_str(), path.as_str(), f.rule.as_str()))
         .collect();
     assert_eq!(
         order,

@@ -16,7 +16,7 @@ use std::path::Path;
 use std::time::{Duration, Instant};
 
 use bevy::prelude::*;
-use unmei_engine::finding::{rules, Finding};
+use unmei_engine::finding::{rules, Finding, Location};
 use unmei_engine::{AssetKind, AssetReference, Pack};
 
 use crate::composition::check_app;
@@ -125,6 +125,11 @@ fn settle_all(app: &mut App) -> Vec<(String, String)> {
 fn reference_finding(reference: &AssetReference, message: String) -> Finding {
     match reference.line {
         Some(line) => Finding::at_line(&reference.file, line, rules::PACK_ASSET_DECODE, message),
-        None => Finding::new(&reference.file, "", rules::PACK_ASSET_DECODE, message),
+        None => Finding::new(
+            &reference.file,
+            Location::File,
+            rules::PACK_ASSET_DECODE,
+            message,
+        ),
     }
 }

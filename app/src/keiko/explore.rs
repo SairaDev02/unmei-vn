@@ -14,7 +14,7 @@ use unmei_engine::keiko::{Header, HeaderLine, Pick, Step, StepLine, CASE_VERSION
 use unmei_engine::runner::Wait;
 use unmei_engine::Pack;
 
-use super::finding::{rules, Finding};
+use super::finding::{rules, Finding, Location};
 use super::observe::Observation;
 use super::take::{self, TakeRequest, TakeResult};
 
@@ -233,7 +233,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
         if stuck {
             let finding = Finding::new(
                 "tests/findings/explore.keiko",
-                format!("line {}", observation.line.unwrap_or_default()),
+                Location::Line(observation.line.unwrap_or_default() as usize),
                 rules::STUCK,
                 format!(
                     "scene `{}` line {} does not move: every move leaves it in place",
@@ -336,7 +336,7 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
         if let Some(notice) = &record.notice {
             findings.push(Finding::new(
                 "tests/findings/explore.keiko",
-                format!("line {}", record.line.unwrap_or_default()),
+                Location::Line(record.line.unwrap_or_default() as usize),
                 rules::NOTICE,
                 format!("a Notice was shown: \"{notice}\""),
             ));
@@ -345,7 +345,7 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
         if record.held {
             findings.push(Finding::new(
                 "tests/findings/explore.keiko",
-                format!("line {}", record.line.unwrap_or_default()),
+                Location::Line(record.line.unwrap_or_default() as usize),
                 rules::DEFENSIVE,
                 "a defensive failure held the runner".to_string(),
             ));
@@ -358,7 +358,7 @@ fn branch_findings(result: &TakeResult) -> Vec<Finding> {
         }
         findings.push(Finding::new(
             "tests/findings/explore.keiko",
-            String::new(),
+            Location::File,
             &rules::log_row(line.row),
             line.text.clone(),
         ));
@@ -387,7 +387,7 @@ fn load_branch(pack_root: &Path, id: &str) -> Result<Branch, Finding> {
     let text = std::fs::read_to_string(&path).map_err(|error| {
         Finding::new(
             format!("tests/{id}.keiko"),
-            String::new(),
+            Location::File,
             rules::CASE_REFERENCE,
             format!("cannot read the case: {error}"),
         )
