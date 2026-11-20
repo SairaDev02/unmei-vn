@@ -33,6 +33,7 @@ pub mod composition;
 mod core;
 pub mod credentials;
 pub mod drawer;
+pub mod export_ui;
 pub mod failure;
 mod input;
 pub mod keiko;

@@ -29,6 +29,18 @@ pub enum KeikoMode {
 }
 
 impl KeikoMode {
+    /// The flag that selected this mode, so a usage error about another mode can
+    /// name the one the author actually wrote.
+    pub fn flag(&self) -> &'static str {
+        match self {
+            KeikoMode::Take { .. } => "--take",
+            KeikoMode::Step { .. } => "--step",
+            KeikoMode::Observe { .. } => "--observe",
+            KeikoMode::Explore { .. } => "--explore",
+            KeikoMode::Preview(_) => "--preview",
+        }
+    }
+
     /// The rules that need the canonical pack root rather than the token list:
     /// a preview never writes into the pack it reads (spec §1). The grammar
     /// touches no filesystem, so this step runs where the root is resolved.

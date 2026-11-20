@@ -89,6 +89,18 @@ fn main() -> AppExit {
         return AppExit::from_code(code);
     }
 
+    // `--export-ui` writes the embedded reference plugin into the pack's `ui/`
+    // and exits: no shipping app, no window, no settings, saves, read log,
+    // session log or credential file (ui-plugin spec §1). The one rule that
+    // needs the pack folder runs here, because the grammar never touches it.
+    if cli.export_ui {
+        let ui = match launch::export_target(&pack_root) {
+            Ok(ui) => ui,
+            Err(error) => return usage_error(&error),
+        };
+        return AppExit::from_code(unmei_app::export_ui::run(&ui));
+    }
+
     // A Keiko mode is a testing entry point, not a play session: it never builds
     // the shipping app, never opens a window and never touches the user's
     // settings, saves, read log, session log or credential file (spec §1).
