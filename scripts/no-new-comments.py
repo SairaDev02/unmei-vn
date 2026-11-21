@@ -1,23 +1,29 @@
-"""Fail when a change adds a comment, so the comment count can only fall.
+"""Fail when a change adds or rewords a comment, so the comment set can only shrink.
 
 `docs/agents/comments.md` owns what a comment is for. This gate enforces the
-budget, not the judgement: it compares each file's comment count against a
-checked-in baseline and reports where a new comment should live instead.
+budget, not the judgement: it compares each file's comments against a checked-in
+baseline of per-comment digests and reports where a new comment should live
+instead. ADR 0016 records why the baseline holds digests rather than counts.
 
-    python3 scripts/no-new-comments.py            # check (the CI gate)
-    python3 scripts/no-new-comments.py --tighten  # lower the baseline
+    python3 scripts/no-new-comments.py                          # check (the CI gate)
+    python3 scripts/no-new-comments.py --tighten                # shrink the baseline
+    python3 scripts/no-new-comments.py --tighten --reword PATH  # accept a reworded comment
 
-`--tighten` only ever lowers an entry. It refuses to raise one, so the baseline
-cannot grow back through a convenient rewrite.
+`--tighten` drops digests the tree no longer holds and admits a file the baseline
+has never counted. It refuses a new digest in a counted file, so a comment cannot
+be swapped for another one silently. `--reword PATH` accepts new digests in that
+file only while its count does not rise, and the swap then shows in the baseline
+diff for review.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -31,7 +37,8 @@ WHERE_IT_GOES = (
     "  - a decision the code cannot express -> an ADR in docs/adr/\n"
     "  - a hack kept alive by its rationale  -> an issue on the tracker\n"
     "  - narration, a banner, a restated name -> deleted\n"
-    "Rustdoc, Python docstrings and tool directives are exempt."
+    "Rustdoc, Python docstrings and tool directives are exempt.\n"
+    "A deliberate rewording: --tighten --reword PATH, reviewed in the baseline diff."
 )
 
 
@@ -42,87 +49,111 @@ def tracked() -> list[str]:
     return [p for p in out.split("\0") if p]
 
 
-def counts(comments: list[Comment]) -> dict[str, int]:
-    per: dict[str, int] = defaultdict(int)
+def digest(comment: Comment) -> str:
+    """Identity of a comment, independent of its position and indentation."""
+    return hashlib.sha256(" ".join(comment.text.split()).encode("utf-8")).hexdigest()[:8]
+
+
+def digests(comments: list[Comment]) -> dict[str, list[str]]:
+    per: dict[str, list[str]] = defaultdict(list)
     for comment in comments:
-        per[comment.path] += 1
-    return dict(per)
+        per[comment.path].append(digest(comment))
+    return {path: sorted(found) for path, found in per.items()}
 
 
-def load() -> dict[str, int]:
+def load() -> dict[str, list[str]]:
     if not BASELINE.exists():
         return {}
-    return json.loads(BASELINE.read_text(encoding="utf-8"))
+    raw = json.loads(BASELINE.read_text(encoding="utf-8"))
+    return {path: found.split() for path, found in raw.items()}
 
 
-def write(baseline: dict[str, int]) -> None:
-    text = json.dumps(dict(sorted(baseline.items())), indent=2) + "\n"
-    BASELINE.write_bytes(text.encode("utf-8"))
+def write(baseline: dict[str, list[str]]) -> None:
+    flat = {path: " ".join(sorted(found)) for path, found in sorted(baseline.items())}
+    BASELINE.write_bytes((json.dumps(flat, indent=2) + "\n").encode("utf-8"))
 
 
-def excess(current: dict[str, int], baseline: dict[str, int]) -> list[tuple[str, int, int]]:
-    return [
-        (path, count, baseline.get(path, 0))
-        for path, count in sorted(current.items())
-        if count > baseline.get(path, 0)
-    ]
+def new_in(current: list[str], allowed: list[str]) -> Counter[str]:
+    return Counter(current) - Counter(allowed)
 
 
-def report(over: list[tuple[str, int, int]], comments: list[Comment]) -> None:
+def excess(comments: list[Comment], baseline: dict[str, list[str]]) -> list[Comment]:
+    """The comments whose digest the baseline does not hold, latest copy first claimed."""
     by_path: dict[str, list[Comment]] = defaultdict(list)
     for comment in comments:
         by_path[comment.path].append(comment)
-    for path, count, allowed in over:
-        print(f"error: {path}: {count} comment(s), baseline {allowed}")
-        for comment in by_path[path][allowed:]:
+    out = []
+    for path, found in sorted(by_path.items()):
+        extra = new_in([digest(c) for c in found], baseline.get(path, []))
+        for comment in reversed(found):
+            if extra[digest(comment)] > 0:
+                extra[digest(comment)] -= 1
+                out.append(comment)
+    return sorted(out, key=lambda c: (c.path, c.start))
+
+
+def report(over: list[Comment], baseline: dict[str, list[str]]) -> None:
+    for path in sorted({c.path for c in over}):
+        print(f"error: {path}: comment(s) not in the baseline (baseline {len(baseline.get(path, []))})")
+        for comment in (c for c in over if c.path == path):
             print(f"  {path}:{comment.start}: {comment.text.splitlines()[0][:100]}")
     print()
     print(WHERE_IT_GOES)
-    print(f"\n{len(over)} file(s) above the baseline.")
+    print(f"\n{len(over)} comment(s) not in the baseline.")
 
 
-def tighten(current: dict[str, int]) -> int:
-    baseline = load()
+def tighten(current: dict[str, list[str]], reword: set[str]) -> int:
     if not BASELINE.exists():
         write(current)
-        print(f"baseline created: {sum(current.values())} comments in {len(current)} file(s)")
+        print(f"baseline created: {sum(map(len, current.values()))} comments in {len(current)} file(s)")
         return 0
-    raised = [p for p, n in current.items() if p in baseline and n > baseline[p]]
-    if raised:
-        print("refusing to tighten: these files would need MORE comments than the baseline:")
-        for path in raised:
-            print(f"  {path}: {current[path]} > {baseline[path]}")
+    baseline = load()
+    raised, reworded = [], []
+    for path, found in sorted(current.items()):
+        if path not in baseline or not new_in(found, baseline[path]):
+            continue
+        if len(found) > len(baseline[path]):
+            raised.append(f"  {path}: {len(found)} > {len(baseline[path])}")
+        elif path not in reword:
+            reworded.append(f"  {path}: rerun with --reword {path} if the rewording is deliberate")
+    if raised or reworded:
+        if raised:
+            print("refusing to tighten: these files would need MORE comments than the baseline:")
+            print("\n".join(raised))
+        if reworded:
+            print("refusing to tighten: these files hold a comment the baseline does not:")
+            print("\n".join(reworded))
         print("\nDelete the new comment, or move its content to an ADR or an issue first.")
         return 1
     # A file the baseline has never counted is admitted, not raised: otherwise a
     # new file could hold no comment at all and the gate would be unsatisfiable.
-    admitted = sorted(p for p in current if p not in baseline)
-    merged = {p: n for p, n in baseline.items() if current.get(p, 0) > 0}
-    for path, count in current.items():
-        merged[path] = min(count, baseline.get(path, count))
-    write(merged)
-    for path in admitted:
-        print(f"admitted new file: {path} ({current[path]} comment(s))")
-    dropped = sum(baseline.values()) - sum(merged.values())
-    print(f"baseline tightened: {sum(baseline.values())} -> {sum(merged.values())} comments ({dropped} shed)")
+    for path in sorted(p for p in current if p not in baseline):
+        print(f"admitted new file: {path} ({len(current[path])} comment(s))")
+    write(current)
+    before, after = sum(map(len, baseline.values())), sum(map(len, current.values()))
+    print(f"baseline tightened: {before} -> {after} comments")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--tighten", action="store_true", help="lower the baseline to the tree")
+    parser.add_argument("--tighten", action="store_true", help="shrink the baseline to the tree")
+    parser.add_argument("--reword", action="append", default=[], metavar="PATH",
+                        help="with --tighten, accept new comments in PATH while its count does not rise")
     args = parser.parse_args()
+    if args.reword and not args.tighten:
+        parser.error("--reword needs --tighten")
 
     comments = [c for c in scan_tracked(tracked()) if in_scope(c)]
-    current = counts(comments)
     if args.tighten:
-        return tighten(current)
+        return tighten(digests(comments), set(args.reword))
 
-    over = excess(current, load())
+    baseline = load()
+    over = excess(comments, baseline)
     if over:
-        report(over, comments)
+        report(over, baseline)
         return 1
-    print(f"ok: {sum(current.values())} comments, within the {sum(load().values())}-comment baseline")
+    print(f"ok: {len(comments)} comments, all in the {sum(map(len, baseline.values()))}-comment baseline")
     return 0
 
 

@@ -47,13 +47,17 @@ For Unmei behavior, use [domain.md](domain.md), the specs, the ADRs and the test
 
 An explicitly requested comment review is **report-only** by default. It covers the requested paths, or the current diff when no paths are named. Each proposed change names the location, the classification, the source context that supports it and any behavior or documentation risk. Do not optimize a comment ratio.
 
+A bulk sweep runs in two passes. The second pass is adversarial: it rechecks every `REMOVE` from the first pass and keeps the comment when the evidence is uncertain. Issue #133 recorded a sample of what such a second pass keeps. Most of it was context the code does not show, such as UI state after a key press, a spec row number or an action's version pin, so keep this pass. The exception is banner rule lines made only of dashes: they are the decorative headers that the policy names, so a sweep removes the rule lines and keeps the title.
+
 Edit comments only after the requester authorizes the change. Deleting an ambiguous contract and refactoring application code each need their own approval. For an edit, follow [`docs/testing.md`](../testing.md) and run only the checks that could detect a plausible regression. A documentation-only change does not need a Cargo test by default. Report exactly what you verified and what you did not.
 
 ## Budget gate
 
-[`scripts/no-new-comments.py`](../../scripts/no-new-comments.py) runs in the per-push gate and fails when a change adds a comment. It compares each file against the checked-in [`.comment-baseline.json`](../../.comment-baseline.json) and names where the content belongs instead: an ADR, an issue, or nowhere. Rustdoc, Python docstrings and tool directives are exempt, because they carry the API contract, the reading, or an instruction a tool obeys.
+[`scripts/no-new-comments.py`](../../scripts/no-new-comments.py) runs in the per-push gate. It fails when a change adds a comment or swaps one comment for another. It compares each file against the per-comment digests in the checked-in [`.comment-baseline.json`](../../.comment-baseline.json), and it names where the content belongs instead: an ADR, an issue, or nowhere. [ADR 0016](../adr/0016-comment-baseline-holds-digests.md) records why the baseline holds digests rather than counts. Rustdoc, Python docstrings and tool directives are exempt, because they carry the API contract, the reading, or an instruction a tool obeys.
 
-The baseline only falls. `--tighten` lowers it to the tree and refuses to raise an entry, so a sweep lands as a smaller budget rather than a looser one. This gate enforces the budget, not the judgement above: a comment the policy protects still belongs in the code even though the file's count stays flat.
+The baseline only shrinks. `--tighten` drops the comments the tree no longer holds and refuses a new one, so a sweep lands as a smaller budget rather than a looser one. A deliberate `SHORTEN` takes `--tighten --reword PATH`, which accepts the new wording only while that file's count does not rise. The reworded entry then shows in the baseline diff for review. This gate enforces the budget, not the judgement above: a comment the policy protects still belongs in the code.
+
+The gate covers `.rs`, `.py`, `.toml`, `.yml`, `.yaml` and `.sh` files, plus the scripts in `.githooks/`. Markdown is out of scope on purpose: an HTML comment in a doc is prose, and [`LANGUAGE.md`](../../LANGUAGE.md) and the docs checks govern prose. [`scripts/test-comments.py`](../../scripts/test-comments.py) proves the gate's behaviour, including the Rust `/* */` path, which no file in the tree currently uses.
 
 ## References
 
