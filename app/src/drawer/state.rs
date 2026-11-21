@@ -130,10 +130,7 @@ impl Default for MonitorPanel {
 }
 
 impl MonitorPanel {
-    // The accessors below read the drawer's own state; the panel methods are
-    // its only writers.
     /// Whether the drawer currently owns the window.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn is_open(&self) -> bool {
         self.open
     }

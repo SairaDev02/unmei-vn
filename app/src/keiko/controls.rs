@@ -54,7 +54,7 @@ pub fn focus_ids() -> Vec<(MenuFocus, &'static str)> {
 }
 
 /// The id a focus target carries, when the table names it.
-pub fn id_for_focus(focus: MenuFocus) -> Option<&'static str> {
+pub fn id_for_focus(focus: MenuFocus) -> Option<String> {
     match focus {
         MenuFocus::GalleryCard(index) => return Some(gallery_card_id(index)),
         MenuFocus::TimelineCard(index) => return Some(timeline_card_id(index)),
@@ -63,90 +63,17 @@ pub fn id_for_focus(focus: MenuFocus) -> Option<&'static str> {
     focus_ids()
         .into_iter()
         .find(|(candidate, _)| *candidate == focus)
-        .map(|(_, id)| id)
+        .map(|(_, id)| id.to_string())
 }
 
-/// The id a focus target carries, as a leaked-free owned string.
-pub fn owned_id_for_focus(focus: MenuFocus) -> Option<String> {
-    id_for_focus(focus).map(str::to_string)
+/// A gallery card's id, 1-based in order.
+pub fn gallery_card_id(index: usize) -> String {
+    format!("gallery.card.{}", index + 1)
 }
 
-/// A gallery card's id, 1-based in entry order.
-pub fn gallery_card_id(index: usize) -> &'static str {
-    const IDS: [&str; 32] = [
-        "gallery.card.1",
-        "gallery.card.2",
-        "gallery.card.3",
-        "gallery.card.4",
-        "gallery.card.5",
-        "gallery.card.6",
-        "gallery.card.7",
-        "gallery.card.8",
-        "gallery.card.9",
-        "gallery.card.10",
-        "gallery.card.11",
-        "gallery.card.12",
-        "gallery.card.13",
-        "gallery.card.14",
-        "gallery.card.15",
-        "gallery.card.16",
-        "gallery.card.17",
-        "gallery.card.18",
-        "gallery.card.19",
-        "gallery.card.20",
-        "gallery.card.21",
-        "gallery.card.22",
-        "gallery.card.23",
-        "gallery.card.24",
-        "gallery.card.25",
-        "gallery.card.26",
-        "gallery.card.27",
-        "gallery.card.28",
-        "gallery.card.29",
-        "gallery.card.30",
-        "gallery.card.31",
-        "gallery.card.32",
-    ];
-    IDS.get(index).copied().unwrap_or("gallery.card.32")
-}
-
-/// A timeline card's id, 1-based in declared order.
-pub fn timeline_card_id(index: usize) -> &'static str {
-    const IDS: [&str; 32] = [
-        "timeline.card.1",
-        "timeline.card.2",
-        "timeline.card.3",
-        "timeline.card.4",
-        "timeline.card.5",
-        "timeline.card.6",
-        "timeline.card.7",
-        "timeline.card.8",
-        "timeline.card.9",
-        "timeline.card.10",
-        "timeline.card.11",
-        "timeline.card.12",
-        "timeline.card.13",
-        "timeline.card.14",
-        "timeline.card.15",
-        "timeline.card.16",
-        "timeline.card.17",
-        "timeline.card.18",
-        "timeline.card.19",
-        "timeline.card.20",
-        "timeline.card.21",
-        "timeline.card.22",
-        "timeline.card.23",
-        "timeline.card.24",
-        "timeline.card.25",
-        "timeline.card.26",
-        "timeline.card.27",
-        "timeline.card.28",
-        "timeline.card.29",
-        "timeline.card.30",
-        "timeline.card.31",
-        "timeline.card.32",
-    ];
-    IDS.get(index).copied().unwrap_or("timeline.card.32")
+/// A timeline card's id, 1-based in order.
+pub fn timeline_card_id(index: usize) -> String {
+    format!("timeline.card.{}", index + 1)
 }
 
 /// The focus target an id names: the reverse map, and the indexed families.
@@ -256,16 +183,10 @@ pub fn surface_ids(
             if menu.gallery_still {
                 Vec::new()
             } else {
-                (0..gallery_entries)
-                    .map(gallery_card_id)
-                    .map(str::to_string)
-                    .collect()
+                (0..gallery_entries).map(gallery_card_id).collect()
             }
         }
-        MenuView::Timeline => (0..timeline_entries)
-            .map(timeline_card_id)
-            .map(str::to_string)
-            .collect(),
+        MenuView::Timeline => (0..timeline_entries).map(timeline_card_id).collect(),
     }
 }
 
@@ -364,7 +285,7 @@ pub fn observe_controls(world: &mut World) -> Vec<Control> {
 
     let ids = surface_ids(&menu, gallery_entries, timeline_entries);
     let labels = labels_by_action(world);
-    let focused = owned_id_for_focus(menu.focus);
+    let focused = id_for_focus(menu.focus);
     ids.iter()
         .filter_map(|id| {
             let action = action_for_id(id)?;
@@ -465,10 +386,40 @@ pub fn the_table_is_one_to_one() -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use super::MenuFocus;
+
     /// Rule 10: the id table maps every fixed control to one focus and back,
     /// and every id is in the engine's table.
     #[test]
     fn the_control_id_table_is_one_to_one() {
         super::the_table_is_one_to_one().unwrap();
+    }
+
+    /// The indexed families are bounded only by what a pack declares, so their
+    /// ids must stay distinct and round-trip past any fixed pool.
+    #[test]
+    fn indexed_control_ids_stay_distinct_and_round_trip() {
+        assert_ids_unique(40, super::gallery_card_id, MenuFocus::GalleryCard);
+        assert_ids_unique(40, super::timeline_card_id, MenuFocus::TimelineCard);
+    }
+
+    fn assert_ids_unique(
+        count: usize,
+        id_of: fn(usize) -> String,
+        focus_of: fn(usize) -> MenuFocus,
+    ) {
+        let ids: Vec<String> = (0..count).map(id_of).collect();
+        let distinct: HashSet<&str> = ids.iter().map(String::as_str).collect();
+        assert_eq!(distinct.len(), ids.len(), "duplicate ids: {ids:?}");
+
+        for (index, id) in ids.iter().enumerate() {
+            assert_eq!(
+                super::focus_for_id(id),
+                Some(focus_of(index)),
+                "{id} did not round-trip"
+            );
+        }
     }
 }

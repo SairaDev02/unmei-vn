@@ -409,8 +409,7 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
 
 /// Home chooses the oldest **currently displayed** matching event during an
 /// incomplete refresh and keeps that event as older matches are prepended; it
-/// does not silently retarget to the whole retained history (approved meaning,
-/// finding B4).
+/// does not silently retarget to the whole retained history.
 #[test]
 fn home_keeps_the_oldest_currently_displayed_event_through_the_refresh() {
     let pack = temp_pack();
@@ -860,7 +859,7 @@ fn a_filter_refresh_never_shows_a_false_empty_state_while_locating_the_anchor() 
 /// present the matching tail as the older non-following reader's location. The
 /// retained anchor is older than everything the first pass examined, so the
 /// body stays on the locating placeholder until the anchor is reached, then
-/// jumps straight to it — never to the tail and back (finding A07).
+/// jumps straight to it — never to the tail and back.
 #[test]
 fn a_pending_refresh_never_presents_the_matching_tail_as_the_olders_location() {
     let pack = temp_pack();
@@ -1267,7 +1266,7 @@ fn a_third_arrival_batch_above_an_established_band_is_projected() {
 /// Successive 128-event arrival batches under an incomplete refresh leave no
 /// unexamined gap: the projection extends its examined band contiguously from
 /// the entry it last stopped on, so the settled projection equals the
-/// independently selected current matching retained identities (finding A05).
+/// independently selected current matching retained identities.
 /// The fixture slides the retained window as the batches arrive, so the pass
 /// also prunes entries the window has moved past.
 #[test]

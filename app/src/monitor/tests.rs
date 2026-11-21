@@ -302,7 +302,7 @@ fn a_long_target_column_keeps_the_whole_escaped_target() {
     assert_eq!(short.target_display, "unmei::smoke");
 
     // A long module path renders its whole escaped target; the fixed 224px
-    // column wraps it instead of shortening it under an ellipsis (B5).
+    // column wraps it instead of shortening it under an ellipsis.
     const LONG_TARGET: &str = "unmei::smoke::a_deliberately_long_module_path_that_does_not_fit";
     let line = one_line(&capture, || {
         tracing::info!(target: LONG_TARGET, "tail");

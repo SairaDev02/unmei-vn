@@ -274,9 +274,8 @@ class PackageTests(unittest.TestCase):
         )
 
     def test_the_placeholder_scan_covers_both_crate_roots(self) -> None:
-        # The crate roots carry @@PUBLIC_REPO_URL@@ and @@GUIDE_URL@@ in their
-        # rustdoc, and they ship as published crate docs, so a scan that skips
-        # them cannot refuse a release whose docs still name a token.
+        # The crate roots' rustdoc ships as published crate docs, so a scan
+        # that skips them cannot refuse a release whose docs still name a token.
         sources = self.pkg.placeholder_sources([])
         self.assertIn("engine/src/lib.rs", sources)
         self.assertIn("cli/src/lib.rs", sources)

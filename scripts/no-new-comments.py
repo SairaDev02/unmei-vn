@@ -57,7 +57,7 @@ def load() -> dict[str, int]:
 
 def write(baseline: dict[str, int]) -> None:
     text = json.dumps(dict(sorted(baseline.items())), indent=2) + "\n"
-    BASELINE.write_text(text, encoding="utf-8")
+    BASELINE.write_bytes(text.encode("utf-8"))
 
 
 def excess(current: dict[str, int], baseline: dict[str, int]) -> list[tuple[str, int, int]]:

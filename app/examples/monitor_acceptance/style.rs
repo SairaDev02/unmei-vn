@@ -78,7 +78,7 @@ pub(crate) fn check_style_fixtures(world: &mut World, harness: &mut Harness) {
     }
 
     // The long module path renders whole and wraps inside the fixed target
-    // column (B5): no ordinary display ellipsis, and the row grows past one
+    // column: no ordinary display ellipsis, and the row grows past one
     // line.
     let long_target = snap.rows().into_iter().find(|row| {
         !row.truncated

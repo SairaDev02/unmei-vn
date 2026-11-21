@@ -44,7 +44,7 @@
   "app/src/drawer/mod.rs": 4,
   "app/src/drawer/projection.rs": 29,
   "app/src/drawer/rows.rs": 34,
-  "app/src/drawer/state.rs": 5,
+  "app/src/drawer/state.rs": 3,
   "app/src/drawer/status.rs": 2,
   "app/src/drawer/tree.rs": 13,
   "app/src/failure/error_screen.rs": 1,
@@ -261,7 +261,7 @@
   "scripts/test-docs-policy-overlay.py": 3,
   "scripts/test-docs-report.py": 23,
   "scripts/test-linux-walk.py": 7,
-  "scripts/test-package.py": 16,
+  "scripts/test-package.py": 15,
   "scripts/test-staged-token-limit.py": 2,
   "scripts/test_docs_frontmatter_cases.py": 9
 }
