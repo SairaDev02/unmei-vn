@@ -13,6 +13,7 @@ use std::path::{Path, PathBuf};
 
 use crate::finding::{rules, Finding, Location};
 
+use super::caps::MAX_FILES;
 use super::FOLDER;
 
 /// The visible files of one plugin.
@@ -128,16 +129,30 @@ impl DirSource {
                 "the plugin folder is not a folder".to_string(),
             )]);
         }
-
-        let mut files: Vec<(String, Entry)> = Vec::new();
-        let mut findings = Vec::new();
-        // The root counts as visited, so a link back to it is a loop.
-        let mut visited = BTreeSet::from([root.clone()]);
-        walk(&root, &root, "", &mut visited, &mut files, &mut findings);
-        if !findings.is_empty() {
-            return Err(findings);
+        // A `ui/` that is a link out of the pack would make another folder the
+        // plugin, so confinement is decided before anything inside it is read.
+        if !inside_pack(folder, &root) {
+            return Err(vec![Finding::new(
+                display(""),
+                Location::File,
+                rules::UI_PATH_ESCAPE,
+                "the plugin folder resolves outside the pack",
+            )]);
         }
 
+        let mut walk = Walk {
+            root: root.clone(),
+            // The root counts as visited, so a link back to it is a loop.
+            visited: BTreeSet::from([root.clone()]),
+            files: Vec::new(),
+            findings: Vec::new(),
+        };
+        walk.folder(&root, "");
+        if !walk.findings.is_empty() {
+            return Err(walk.findings);
+        }
+
+        let mut files = walk.files;
         files.sort_by(|left, right| left.0.cmp(&right.0));
         let mut paths = Vec::with_capacity(files.len());
         let mut entries = BTreeMap::new();
@@ -147,6 +162,18 @@ impl DirSource {
         }
         Ok(DirSource { paths, entries })
     }
+}
+
+/// Whether the canonical plugin folder lies inside the canonical pack folder,
+/// which is its parent by the format's layout of `<pack>/ui/`.
+fn inside_pack(folder: &Path, root: &Path) -> bool {
+    let pack = match folder.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    // A pack folder that cannot be resolved cannot prove confinement either, so
+    // the folder is not opened.
+    fs::canonicalize(pack).is_ok_and(|pack| root.starts_with(pack))
 }
 
 impl Source for DirSource {
@@ -171,43 +198,63 @@ impl Source for DirSource {
     }
 }
 
-fn walk(
-    root: &Path,
-    folder: &Path,
-    prefix: &str,
-    visited: &mut BTreeSet<PathBuf>,
-    files: &mut Vec<(String, Entry)>,
-    findings: &mut Vec<Finding>,
-) {
-    let entries = match fs::read_dir(folder) {
-        Ok(entries) => entries,
-        Err(error) => {
-            findings.push(read_finding(
-                display(prefix),
-                format!("cannot read: {error}"),
-            ));
-            return;
-        }
-    };
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
+/// One walk over a plugin folder.
+///
+/// The walk stops as soon as it lists one file past the cap, because the
+/// folder's count is only interesting up to the point the cap rejects it, and
+/// listing 10,000 entries to say so reads exactly what the cap forbids. The
+/// count a memory source already holds is `caps::check`'s to report; this is
+/// the folder's way of never reaching it.
+struct Walk {
+    root: PathBuf,
+    visited: BTreeSet<PathBuf>,
+    files: Vec<(String, Entry)>,
+    findings: Vec<Finding>,
+}
+
+impl Walk {
+    fn stopped(&self) -> bool {
+        self.files.len() > MAX_FILES
+    }
+
+    fn folder(&mut self, folder: &Path, prefix: &str) {
+        let entries = match fs::read_dir(folder) {
+            Ok(entries) => entries,
             Err(error) => {
-                findings.push(read_finding(
+                self.findings.push(read_finding(
                     display(prefix),
-                    format!("cannot read one entry: {error}"),
+                    format!("cannot read: {error}"),
                 ));
-                continue;
+                return;
             }
         };
+        for entry in entries {
+            if self.stopped() {
+                return;
+            }
+            let entry = match entry {
+                Ok(entry) => entry,
+                Err(error) => {
+                    self.findings.push(read_finding(
+                        display(prefix),
+                        format!("cannot read one entry: {error}"),
+                    ));
+                    continue;
+                }
+            };
+            self.entry(entry, prefix);
+        }
+    }
+
+    fn entry(&mut self, entry: fs::DirEntry, prefix: &str) {
         let name = match entry.file_name().into_string() {
             Ok(name) => name,
             Err(name) => {
-                findings.push(read_finding(
+                self.findings.push(read_finding(
                     display(prefix),
                     format!("`{}` is not a UTF-8 name", name.to_string_lossy()),
                 ));
-                continue;
+                return;
             }
         };
         let rel = if prefix.is_empty() {
@@ -219,85 +266,79 @@ fn walk(
         let kind = match entry.file_type() {
             Ok(kind) => kind,
             Err(error) => {
-                findings.push(read_finding(shown, format!("cannot read: {error}")));
-                continue;
+                self.findings
+                    .push(read_finding(shown, format!("cannot read: {error}")));
+                return;
             }
         };
         if kind.is_symlink() {
-            follow(root, &entry.path(), &shown, &rel, visited, files, findings);
+            self.follow(&entry.path(), &shown, &rel);
         } else if kind.is_dir() {
-            walk(root, &entry.path(), &rel, visited, files, findings);
+            self.folder(&entry.path(), &rel);
         } else if kind.is_file() {
-            let size = match entry.metadata() {
-                Ok(metadata) => metadata.len(),
-                Err(error) => {
-                    findings.push(read_finding(shown, format!("cannot read: {error}")));
-                    continue;
-                }
-            };
-            files.push((
-                rel,
-                Entry {
-                    file: entry.path(),
-                    size,
-                },
-            ));
+            match entry.metadata() {
+                Ok(metadata) => self.file(rel, entry.path(), metadata.len()),
+                Err(error) => self
+                    .findings
+                    .push(read_finding(shown, format!("cannot read: {error}"))),
+            }
         }
         // A device, a socket or a fifo holds no plugin content, and the player
         // never opens one.
     }
-}
 
-/// A link is listed only when its target stays inside the folder; a link out is
-/// the escape §7 forbids, and following it would read a file the pack does not
-/// own.
-fn follow(
-    root: &Path,
-    link: &Path,
-    shown: &str,
-    rel: &str,
-    visited: &mut BTreeSet<PathBuf>,
-    files: &mut Vec<(String, Entry)>,
-    findings: &mut Vec<Finding>,
-) {
-    let target = match fs::canonicalize(link) {
-        Ok(target) => target,
-        Err(error) => {
-            findings.push(read_finding(
+    /// A link is listed only when its target stays inside the folder; a link
+    /// out is the escape §7 forbids, and following it would read a file the
+    /// pack does not own.
+    fn follow(&mut self, link: &Path, shown: &str, rel: &str) {
+        let target = match fs::canonicalize(link) {
+            Ok(target) => target,
+            Err(error) => {
+                self.findings.push(read_finding(
+                    shown.to_string(),
+                    format!("a link that cannot be read: {error}"),
+                ));
+                return;
+            }
+        };
+        if !target.starts_with(&self.root) {
+            self.findings.push(Finding::new(
                 shown.to_string(),
-                format!("a link that cannot be read: {error}"),
+                Location::File,
+                rules::UI_PATH_ESCAPE,
+                "a link that resolves outside the plugin folder",
             ));
             return;
         }
-    };
-    if !target.starts_with(root) {
-        findings.push(Finding::new(
-            shown.to_string(),
-            Location::File,
-            rules::UI_PATH_ESCAPE,
-            "a link that resolves outside the plugin folder",
-        ));
-        return;
-    }
-    if target.is_dir() {
-        // A link back to a folder already walked is a loop, not a second copy.
-        if visited.insert(target.clone()) {
-            walk(root, &target, rel, visited, files, findings);
+        if target.is_dir() {
+            // A link back to a folder already walked is a loop, not a second
+            // copy.
+            if self.visited.insert(target.clone()) {
+                self.folder(&target, rel);
+            }
+            return;
         }
-        return;
+        match fs::metadata(&target) {
+            Ok(metadata) => self.file(rel.to_string(), target, metadata.len()),
+            Err(error) => self.findings.push(read_finding(
+                shown.to_string(),
+                format!("a link that cannot be read: {error}"),
+            )),
+        }
     }
-    match fs::metadata(&target) {
-        Ok(metadata) => files.push((
-            rel.to_string(),
-            Entry {
-                file: target,
-                size: metadata.len(),
-            },
-        )),
-        Err(error) => findings.push(read_finding(
-            shown.to_string(),
-            format!("a link that cannot be read: {error}"),
-        )),
+
+    /// List one file, and end the walk once the folder holds more than the cap.
+    fn file(&mut self, rel: String, file: PathBuf, size: u64) {
+        self.files.push((rel, Entry { file, size }));
+        if self.stopped() {
+            let found = self.files.len();
+            self.findings.push(Finding::new(
+                display(""),
+                Location::File,
+                rules::UI_CAP,
+                format!("the plugin folder holds at least {found} files; the cap is {MAX_FILES}"),
+            ));
+        }
     }
 }
 

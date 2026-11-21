@@ -420,6 +420,106 @@ fn a_property_the_node_kind_does_not_take_fails() {
     );
 }
 
+/// A text slot takes the face the engine's words are drawn in and their tone,
+/// because the words are the engine's and the look is the plugin's (spec §4,
+/// "Engine text", rule 34).
+#[test]
+fn a_text_slot_takes_a_typography_token_and_a_color() {
+    let tree = r#"(kind: "box", children: [
+        (kind: "slot", slot: "prose", typography: "{typography.body}",
+         color: "{colors.focus}"),
+        (kind: "slot", slot: "quick-row"),
+        (kind: "slot", slot: "advance-marker"),
+        (kind: "slot", slot: "deciding-marker"),
+        (kind: "list", list: "choices", item: (kind: "box", children: [
+            (kind: "slot", slot: "choice.number"),
+            (kind: "slot", slot: "choice.text"),
+        ])),
+        (kind: "slot", slot: "play.save"),
+        (kind: "slot", slot: "play.load"),
+        (kind: "slot", slot: "play.auto"),
+        (kind: "slot", slot: "play.skip"),
+        (kind: "slot", slot: "play.menu"),
+    ])"#;
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(reported(&outcome), []);
+    let plugin = plugin(&outcome);
+    let NodeKind::Box(ref root) = plugin.surfaces["play"].kind else {
+        panic!("the root is a box");
+    };
+    let NodeKind::Slot(ref prose) = root.children[0].kind else {
+        panic!("the first child is a slot");
+    };
+    let typography = prose.typography.as_ref().expect("the slot's face");
+    close(typography.size_px, 25.0);
+    close(typography.line_height_px, 38.0);
+    assert_eq!(prose.color, Some(focus()), "the slot's own tone");
+    let NodeKind::Slot(ref bare) = root.children[1].kind else {
+        panic!("the second child is a slot");
+    };
+    assert_eq!(bare.typography, None, "a slot may name neither");
+    assert_eq!(bare.color, None);
+}
+
+/// An unknown token in either property is the same `ui.token.unknown` it is
+/// anywhere else (spec §15, rule 34).
+#[test]
+fn an_unknown_token_on_a_text_slot_fails() {
+    for property in ["typography", "color"] {
+        let value = if property == "typography" {
+            "{typography.unknown}"
+        } else {
+            "{colors.unknown}"
+        };
+        let tree = format!(
+            "(kind: \"box\", children: [\n\
+             (kind: \"slot\", slot: \"prose\", {property}: \"{value}\"),\n\
+             {PLAY_INTERFACE}\n\
+             ])",
+        );
+        let outcome = load(TOKENS, &[("play", &tree)]);
+        assert_eq!(
+            reported(&outcome),
+            [(
+                "ui/surfaces/play.ron".to_string(),
+                format!("root.children[0].{property}"),
+                "ui.token.unknown".to_string(),
+            )],
+            "{property}"
+        );
+    }
+}
+
+/// A state override may change a control label's tone, so a `lit` quick-row
+/// control can look active (spec §4, "Engine text").
+#[test]
+fn a_state_override_changes_a_label_tone() {
+    let interface = PLAY_INTERFACE.replace(
+        "(kind: \"slot\", slot: \"play.auto\"),",
+        "(kind: \"slot\", slot: \"play.auto\", typography: \"{typography.body}\",\n         \
+         color: \"{colors.ink}\",\n         \
+         lit: (color: \"{colors.focus}\")),",
+    );
+    let tree = format!("(kind: \"box\", children: [{interface}])");
+    let outcome = load(TOKENS, &[("play", &tree)]);
+    assert_eq!(reported(&outcome), []);
+    let plugin = plugin(&outcome);
+    let NodeKind::Box(ref root) = plugin.surfaces["play"].kind else {
+        panic!("the root is a box");
+    };
+    let NodeKind::Slot(ref auto) = root.children[7].kind else {
+        panic!("the eighth child is `play.auto`");
+    };
+    assert_eq!(auto.slot, "play.auto");
+    let lit = auto.states.lit.as_ref().expect("the lit override");
+    assert_eq!(
+        lit.color,
+        Some(focus()),
+        "the lit label takes the focus tone"
+    );
+    assert_eq!(auto.color, Some(ink()), "and the label keeps its own");
+}
+
 #[test]
 fn an_image_path_outside_the_folder_escapes() {
     let outcome = load(

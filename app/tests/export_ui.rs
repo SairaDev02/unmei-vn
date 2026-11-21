@@ -220,6 +220,24 @@ fn an_export_into_an_existing_empty_ui_succeeds() {
     );
 }
 
+/// A `PACK_DIR` that does not exist exits 2 and creates nothing: export makes
+/// the plugin folder, never the pack (spec §1, rule 32).
+#[test]
+fn an_export_into_a_missing_pack_exits_two_and_creates_nothing() {
+    let dir = tempfile::tempdir().unwrap();
+    let pack = dir.path().join("typoed-pack");
+
+    let output = run(&[pack.to_str().unwrap(), "--export-ui"]);
+    assert_eq!(output.status.code(), Some(2), "{}", stderr(&output));
+    assert!(!pack.exists(), "a mistyped path makes no folder");
+    let reported = stderr(&output);
+    assert!(
+        reported.contains("existing pack folder"),
+        "the usage error says what is missing: {reported}"
+    );
+    assert!(reported.contains("Usage:"), "{reported}");
+}
+
 #[test]
 fn export_ui_with_another_mode_or_with_dev_is_a_usage_error() {
     let dir = tempfile::tempdir().unwrap();

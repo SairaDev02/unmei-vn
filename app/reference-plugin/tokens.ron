@@ -2,10 +2,10 @@
 // section's value in its own notation (16/255 = 0.063), so a reader can check one
 // against the other. Faces are the five the player embeds; the plugin ships none.
 //
-// One gap this file cannot close: the format gives a `slot` no `typography` and no
-// text tone, so the values §1, §3 and §6 state for engine content (the 25px prose,
-// the 64px wordmark, the 21px options, the tab's dark speaker) have no token here.
-// They live with the engine's slot binding until the format grows one (R26).
+// A text slot takes a typography token and a tone (spec §4, "Engine text"), so the
+// faces §1, §3 and §6 state for engine content are here as roles the surfaces hand
+// to those slots: the 25px prose, the 64px wordmark, the 22px rows, the tab's
+// speaker and the 12px mono line.
 (
     colors: {
         "ink": (r: 0.063, g: 0.071, b: 0.102, a: 0.95),
@@ -33,6 +33,11 @@
         "legend": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0),
         "detail": (face: "IBM Plex Sans", weight: 400, size_px: 15.0, line_height_px: 20.0),
         "marker": (face: "IBM Plex Sans", weight: 400, size_px: 18.0, line_height_px: 18.0),
+        // §1 and §3: engine text the surfaces place through a slot.
+        "wordmark": (face: "IBM Plex Sans", weight: 700, size_px: 64.0, line_height_px: 72.0),
+        "prose": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        "row": (face: "IBM Plex Sans", weight: 400, size_px: 22.0, line_height_px: 28.0),
+        "speaker": (face: "IBM Plex Sans", weight: 600, size_px: 16.0, line_height_px: 20.0),
     },
     rounded: {
         "box": 14.0,

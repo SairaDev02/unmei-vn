@@ -154,6 +154,23 @@ fn symlink(target: &Path, link: &Path) -> std::io::Result<()> {
     }
 }
 
+/// The same, for a link to a folder, which Windows marks as a directory link.
+fn directory_link(target: &Path, link: &Path) -> std::io::Result<()> {
+    #[cfg(unix)]
+    {
+        std::os::unix::fs::symlink(target, link)
+    }
+    #[cfg(windows)]
+    {
+        std::os::windows::fs::symlink_dir(target, link)
+    }
+    #[cfg(not(any(unix, windows)))]
+    {
+        let _ = (target, link);
+        Err(std::io::Error::from(std::io::ErrorKind::Unsupported))
+    }
+}
+
 // --- Rule 1: absent, and a folder with no manifest --------------------------
 
 /// A pack with no `ui/` has no plugin, which is not a failure.
@@ -312,6 +329,63 @@ fn a_symlink_out_of_the_folder_escapes() {
         reported(&outcome),
         [("ui/link.png", String::new(), "ui.path.escape")],
         "only the escape is reported, so the file behind it was never read"
+    );
+}
+
+// --- Rule 28: the folder itself must sit inside the pack ---------------------
+
+/// A `ui/` that is a link to a folder outside the pack is an escape, and
+/// nothing inside its target is read (spec §7, rule 28). The target holds a
+/// valid plugin, so a build that followed the link would report its rules
+/// instead of one finding.
+#[test]
+fn a_ui_folder_that_links_out_of_the_pack_fails() {
+    let outside = tempfile::tempdir().expect("a temp dir");
+    write(
+        outside.path(),
+        "plugin.ron",
+        b"(format_version: 1, name: \"Elsewhere\")",
+    );
+    write(outside.path(), "tokens.ron", b"(colors: {})");
+    let dir = pack(&[]);
+    if let Err(error) = directory_link(outside.path(), &dir.path().join("ui")) {
+        // Windows without Developer Mode or the symlink privilege cannot make
+        // one; the CI gate and every other platform run this case for real.
+        eprintln!("skipped: the platform refused a symlink: {error}");
+        return;
+    }
+
+    let outcome = ui::load(dir.path());
+    assert_eq!(
+        reported(&outcome),
+        [("ui/", String::new(), "ui.path.escape")],
+        "the folder's own escape is the only finding, so its target was never listed"
+    );
+}
+
+// --- Rule 29: the walk stops at the cap -------------------------------------
+
+/// A folder far past the file cap fails with `ui.cap`, and the walk reports the
+/// count it stopped at rather than the count the folder holds (spec §7,
+/// rule 29).
+#[test]
+fn the_walk_stops_one_file_past_the_file_count_cap() {
+    let dir = pack(&[("ui/plugin.ron", MANIFEST.as_bytes())]);
+    for index in 0..10_000 {
+        write(dir.path(), &format!("ui/bulk-{index:05}.txt"), b"");
+    }
+
+    let outcome = ui::load(dir.path());
+    assert_eq!(
+        reported(&outcome),
+        [("ui/", String::new(), "ui.cap")],
+        "the cap ends the walk, so no later rule sees the folder"
+    );
+    let message = messages(&outcome);
+    let stopped_at = ui::MAX_FILES + 1;
+    assert!(
+        message.contains(&format!("at least {stopped_at}")),
+        "the walk lists {stopped_at} files and stops, not all 10,001: {message}"
     );
 }
 
