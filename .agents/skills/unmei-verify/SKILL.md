@@ -41,6 +41,7 @@ cargo fmt --check
 cargo clippy --locked --workspace --all-targets -- -D warnings
 cargo test --locked --workspace
 python3 scripts/check-invariants.py
+python3 scripts/no-new-comments.py
 ```
 
 [`docs/testing.md` § Validation](../../../docs/testing.md#validation) and [CONTRIBUTING.md § Local repository invariant checks](../../../CONTRIBUTING.md#local-repository-invariant-checks) own the gate's full wording, including the invariant self-test and the rule groups. [`.github/workflows/check.yml`](../../../.github/workflows/check.yml) runs it on every push.
