@@ -11,7 +11,7 @@ keywords:
 ---
 # UI plugins — build-ready spec
 
-**Status (2026-11-20).** **Not built.** This page turns the accepted [UI plugin requirements](ui-plugins.md) R1–R27, as the [plugin family](plugin-family.md) amended them, into a build-ready spec. It settles every item that [UI plugins §11](ui-plugins.md#11-left-to-the-spec) left to the spec. The decisions below were reviewed with the maintainer on 2026-11-20 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
+**Status (2026-11-21).** **Slice 1 built** on the integration branch `spec/102-ui-plugins`; slices 2 and 3 not built. This page turns the accepted [UI plugin requirements](ui-plugins.md) R1–R27, as the [plugin family](plugin-family.md) amended them, into a build-ready spec. It settles every item that [UI plugins §11](ui-plugins.md#11-left-to-the-spec) left to the spec. The decisions below were reviewed with the maintainer on 2026-11-20 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
 **What this spec covers.** The plugin format and its rules, the plugin renderer, the boot fallback, the author flags, and [variant E](title-and-menu.md#default-look) built as the **reference plugin** (R16, R17). Building variant E through the renderer completes the default look's own build. This spec also builds three pieces of shared groundwork from the [readiness audit](plugin-readiness.md#2-shared-groundwork): G1 (the plugin-folder loader), G3 (the interface string table, here the copy table) and G6 (a second asset source for `ui/`). Interface sounds and per-speaker style (plugin family U1–U7) are not part of it. They add to this format later (§16).
 
@@ -19,8 +19,8 @@ keywords:
 
 | Slice | Contents | Done when |
 |---|---|---|
-| 1 | The plugin folder (§2), tokens (§3), node kinds (§4), surfaces, slots and copy keys (§5), motion rules (§6), confinement and caps (§7), findings and the plugin outcome (§8), the static rules in `--check` (§1), and the reference plugin's files passing them. | §15's slice-1 rules pass. |
-| 2 | The renderer and variant E on every surface (§11), the layout rules (§9), the boot fallback and the Notice (§10), `--export-ui` (§1), the preview's new fixture states (§12), and the docs (§13). The card grid and today's hand-written surface trees are removed. | §15's slice-2 rules pass, and [Default look §7](title-and-menu.md#default-look) passes through the renderer. |
+| 1 | The plugin folder (§2), tokens (§3), node kinds (§4), surfaces, slots and copy keys (§5), motion rules (§6), confinement and caps (§7), findings and the plugin outcome (§8), the static rules in `--check` (§1), the reference plugin's files passing them, and `--export-ui` (§1). | §15's slice-1 rules pass. |
+| 2 | The renderer and variant E on every surface (§11), the layout rules (§9), the boot fallback and the Notice (§10), the preview's new fixture states (§12), and the docs (§13). The card grid and today's hand-written surface trees are removed. | §15's slice-2 rules pass, and [Default look §7](title-and-menu.md#default-look) passes through the renderer. |
 | 3 | The Gothic, Cottagecore and Aero fixture plugins (§13). | §15's slice-3 rules pass. |
 
 ---
@@ -33,7 +33,7 @@ The launch grammar in [`app/src/launch/mod.rs`](../app/src/launch/mod.rs) gains 
 unmei-play [PACK_DIR] --export-ui
 ```
 
-- **`--export-ui`** writes the embedded reference plugin into `PACK_DIR/ui/` and exits 0. If `ui/` exists and is not empty, it writes nothing and exits 2 with a usage error that names the folder. The author deletes or renames `ui/` to start over (*decided 2026-11-20*). It joins the exclusive group of `--check`, `--preview` and Keiko's modes, and `--dev` with it is a usage error. It opens no window and touches no sidecar.
+- **`--export-ui`** writes the embedded reference plugin into `PACK_DIR/ui/` and exits 0. If `ui/` exists and is not empty, it writes nothing and exits 2 with a usage error that names the folder. The author deletes or renames `ui/` to start over (*decided 2026-11-20*). It joins the exclusive group of `--check`, `--preview` and Keiko's modes, and `--dev` with it is a usage error. It opens no window and touches no sidecar. A `PACK_DIR` that does not exist is a usage error: export creates no folder but `ui/` and its contents, so a mistyped path makes nothing. *(Amended 2026-11-21, after the slice-1 review.)*
 - **`--check`** ([check and preview spec §1](check-preview-spec.md#1-commands-c1)) also runs every plugin rule: the static rules of §2–§8 in the engine and the layout rules of §9 in the player. Its output and exit codes are unchanged.
 - **`--preview DIR`** draws through the pack's plugin, or through the reference plugin when the pack has none, and renders the fixture states of §12.
 
@@ -78,7 +78,7 @@ Format version 1 has six node kinds:
 | `Image` | A file in `ui/`, with a fit of `cover`, `contain`, `stretch` or `none`. |
 | `Glyph` | Decorative text of at most 8 characters in a typography token: a fleuron, a corner mark, an advance mark. It is ornament and never copy. |
 | `Text` | The text of one copy key (§5), in a typography token. |
-| `Slot` | One named piece of engine content, or one control (§5). |
+| `Slot` | One named piece of engine content, or one control (§5). A slot that shows text takes a typography token and a text color. *(Amended 2026-11-21, after the slice-1 review.)* |
 | `List` | One engine list (§5), with one item template. |
 
 - **Paint.** `Box`, `Image` and `Glyph` take a fill (a color, or a linear or radial gradient of color stops), a border (width, color and a radius per corner), a list of shadows (offset, blur, spread, color; glow is a shadow with no offset), an opacity and a transform (offset, scale and rotation). Bevy 0.19.1 supplies gradients, box shadows and `UiTransform` rotation.
@@ -86,6 +86,7 @@ Format version 1 has six node kinds:
 - **No literal prose.** Words reach the screen only through copy keys and engine slots. A `Glyph` is the one literal, and its 8-character limit keeps it ornamental (*decided 2026-11-20*). This keeps every visible word in one keyed table, which language packs later translate (plugin family L2).
 - **Lists keep engine order (R5).** The engine supplies a `List`'s items in their specified order. The item template places the item's own slots and controls. A plugin cannot reorder, filter or repeat items.
 - **Control states.** A control `Slot` and a list item may carry property overrides for the states `focused`, `disabled`, `lit` (Auto and Skip while active) and `current` (the open contents-page section). Hover takes the `focused` style, as variant E does.
+- **Engine text.** Every slot or control that shows text (the prose, the speaker, the title rows, a ledger line, a control's label) takes `typography`, a typography token, and `color`, its text color. Its state overrides may change both, so a `lit` label can change tone. A text slot with no `typography` or `color` takes the surface root's. Both are additive under R26, so the format version stays 1. Spec rule 34 tests them. *(Amended 2026-11-21, after the slice-1 review.)*
 
 A tree has one root `Box`. A node's path in findings is its place in the tree, for example `root.children[2].children[0]`.
 
@@ -131,14 +132,14 @@ The tables are derived from what each surface shows today and from variant E. Ev
 
 - **A loop** is a list of keyframes, each giving opacity, offset, scale and rotation, with a period of at least 400 ms and an easing of `linear` or `ease-in-out`. It repeats forever from the moment its surface appears.
 - **Where.** Loops are allowed on `Box`, `Image` and `Glyph` ornament nodes of the `title` and `play` surfaces, and on the content of the two marker slots. A loop anywhere else is `ui.motion.forbidden`: on a slot, a control, a list item, or any node of `title-settings`, `contents`, `settings`, `gallery`, `still`, `timeline`, `legacy-picker` or `confirm`. Menu surfaces stay static, as plugin family S5's amendment of R10 keeps them.
-- **Flashing (WCAG 2.3.1).** A 400 ms floor alone does not stop flashing, because one loop can switch its opacity on and off several times within a period. A **flash** is a pair of opposing opacity changes, each of at least 0.2, between keyframes of one loop. The check counts the flashes in one period and scales them to one second. A loop with more than 3 flashes per second fails with `ui.motion.flash`. This is the flash cap that [plugin family S7](plugin-family.md#3-stage-plugin) sets for the stage, defined here once so the stage spec can reuse it.
+- **Flashing (WCAG 2.3.1).** A 400 ms floor alone does not stop flashing, because one loop can switch its opacity on and off several times within a period. A **flash** is a pair of opposing opacity changes, each of at least 0.2, between keyframes of one loop. The check walks the period as a ring, from the last keyframe back to the first. Consecutive steps in one direction join into one change, so a fade drawn as many small steps is one change, and a change smaller than 0.2 is dropped. Each pair of opposing changes is one flash, so the count is the number of direction reversals divided by two. Writing a loop's closing keyframe or leaving it implied gives the same count: `[0, 1]` and `[0, 1, 0]` are each one flash per period (*amended 2026-11-21: the slice-1 build counted every reversal as a flash, which counted `[0, 1]` twice*). The check scales the count to one second. A loop with more than 3 flashes per second fails with `ui.motion.flash`. This is the flash cap that [plugin family S7](plugin-family.md#3-stage-plugin) sets for the stage, defined here once so the stage spec can reuse it.
 - **Real time.** Loops run on real time, so they keep running under the presentation pause. The contents page is opaque, so no play-frame loop is visible under it.
 - **Never gating.** No loop gates input or delays a frame. There are no transitions between surfaces or states.
 
 ## 7. Confinement and caps (R13)
 
-- **Confinement.** Every path a plugin names is relative, contains no `..` and resolves inside `ui/` after symlinks are followed. The engine checks each path before it reads the file. A path that fails is `ui.path.escape`.
-- **Caps** (*decided 2026-11-20*). Each cap is an error, `ui.cap`, naming the cap and the value found:
+- **Confinement.** Every path a plugin names is relative, contains no `..` and resolves inside `ui/` after symlinks are followed. The engine checks each path before it reads the file. A path that fails is `ui.path.escape`. The `ui/` folder itself must resolve inside the pack folder: a `ui/` that is a link out of the pack is `ui.path.escape` before anything inside it is listed. *(Amended 2026-11-21, after the slice-1 review.)*
+- **Caps** (*decided 2026-11-20*). Each cap is an error, `ui.cap`, naming the cap and the value found. The folder walk stops as soon as it passes the file cap, so an oversized folder is never listed in full (*amended 2026-11-21*):
 
   | Cap | Limit |
   |---|---|
@@ -275,6 +276,16 @@ An unreachable state stays a `preview.state.unreachable` warning. A pack whose p
 
 26. Gothic, Cottagecore and Aero each pass `--check` with no finding and preview every reachable state.
 27. Together they use every node kind, gradients, shadows, glow, a shipped OFL font, alternative numbering, copy overrides, a loop and a rotation.
+
+**Slice 1, added 2026-11-21** *(numbered after slice 3 so that earlier rule numbers stay stable)*
+
+28. A `ui/` that is a link to a folder outside the pack fails with `ui.path.escape`, and nothing inside its target is read.
+29. A `ui/` holding 10,000 files fails with `ui.cap`, and the walk lists no more than 257 of them.
+30. At 400 ms, `[0, 1]` and `[0, 1, 0]` each count one flash and pass. At 300 ms they fail only the period floor.
+31. A 400 ms loop fading from 1 to 0 and back in steps of 0.1 counts one flash and passes. The same fade done three times in the period fails with `ui.motion.flash`.
+32. `--export-ui` with a `PACK_DIR` that does not exist exits 2 and creates nothing.
+33. Rules 10 and 13 still hold under the new count: the three-flash loop of rule 10 still fails, and the reference plugin still passes.
+34. A text slot with `typography: "{typography.prose}"` and a `color` token parses. An unknown token there fails with `ui.token.unknown`.
 
 ## 16. Out of scope
 
