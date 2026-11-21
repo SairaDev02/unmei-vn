@@ -12,9 +12,9 @@
 use crate::finding::{rules, Finding};
 
 use super::caps::{MAX_DEPTH, MAX_NODES};
-use super::paint::{self, PaintOverrides};
+use super::paint::{self, StateOverrides};
 use super::style::{self, AlignItems, Component, Direction, JustifyContent, Padding, Style};
-use super::tokens::{Tokens, Typography};
+use super::tokens::{self, Color, Tokens, Typography};
 use super::value::{self, Fields, Report};
 
 /// The most characters a glyph may hold (spec §4, rule 11).
@@ -88,11 +88,18 @@ pub struct TextNode {
 /// the engine only decides when they show (spec §5). Which slots may hold
 /// content is ticket #107's interface rule, so the parser accepts it on any
 /// slot and reads it the way a box's children are read.
+///
+/// A slot that shows text takes the face and the tone the engine's own text is
+/// drawn in, because the words are the engine's and only their look is the
+/// plugin's (spec §4, "Engine text"). Both are optional: a slot that names
+/// neither takes the surface root's.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SlotNode {
     pub slot: String,
     pub children: Vec<Node>,
     pub states: ControlStates,
+    pub typography: Option<Typography>,
+    pub color: Option<Color>,
 }
 
 /// One engine list and its item template. The engine supplies the items in
@@ -108,10 +115,10 @@ pub struct ListNode {
 /// not authored keeps the node's own paint.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ControlStates {
-    pub focused: Option<PaintOverrides>,
-    pub disabled: Option<PaintOverrides>,
-    pub lit: Option<PaintOverrides>,
-    pub current: Option<PaintOverrides>,
+    pub focused: Option<StateOverrides>,
+    pub disabled: Option<StateOverrides>,
+    pub lit: Option<StateOverrides>,
+    pub current: Option<StateOverrides>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -289,6 +296,8 @@ fn parse_node(
                 slot,
                 children,
                 states,
+                typography: merged.typography.clone(),
+                color: merged.color,
             })
         }
         Shape::List => {
@@ -388,13 +397,21 @@ fn state(
     path: &str,
     tokens: &Tokens,
     report: &mut Report,
-) -> Option<Option<PaintOverrides>> {
+) -> Option<Option<StateOverrides>> {
     let Some(value) = fields.take(name) else {
         return Some(None);
     };
     let property = format!("{path}.{name}");
     let mut state = Fields::new(value, &property, report)?;
-    let paint = paint::parse(&mut state, tokens, report)?;
+    let mut paint = paint::parse(&mut state, tokens, report)?;
+    if let Some(value) = state.take("typography") {
+        let property = state.path("typography");
+        paint.typography = Some(style::typography(value, &property, tokens, report)?);
+    }
+    if let Some(value) = state.take("color") {
+        let property = state.path("color");
+        paint.color = Some(tokens::color(value, &property, tokens, report)?);
+    }
     if !state.finish(report, " in a state override") {
         return None;
     }
@@ -424,8 +441,11 @@ fn check_kind(component: &Component, shape: Shape, path: &str, report: &mut Repo
             ok &= reject(component.align_items.is_some(), "align_items");
             ok &= reject(component.justify_content.is_some(), "justify_content");
         }
-        if !matches!(shape, Shape::Text | Shape::Glyph) {
+        if !matches!(shape, Shape::Text | Shape::Glyph | Shape::Slot) {
             ok &= reject(component.typography.is_some(), "typography");
+        }
+        if shape != Shape::Slot {
+            ok &= reject(component.color.is_some(), "color");
         }
         match shape {
             Shape::Text => {

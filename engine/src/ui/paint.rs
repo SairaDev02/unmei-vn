@@ -9,7 +9,7 @@
 //! state override keeps every property optional because it changes only what it
 //! names.
 
-use super::tokens::{self, Color, Tokens};
+use super::tokens::{self, Color, Tokens, Typography};
 use super::value::{self, Fields, Report};
 
 /// What fills a node: a solid colour, or a linear or radial gradient of colour
@@ -110,16 +110,20 @@ impl Default for Paint {
     }
 }
 
-/// The paint a control's state changes. A property left out keeps the value
-/// the node already has.
+/// The properties a control's state changes, paint and text alike: a state
+/// override keeps every property optional because it changes only what it
+/// names.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct PaintOverrides {
+pub struct StateOverrides {
     pub fill: Option<Fill>,
     pub border: Option<Border>,
     pub radius: Option<Radius>,
     pub shadows: Option<Vec<Shadow>>,
     pub opacity: Option<f32>,
     pub transform: Option<Transform>,
+    /// A `lit` control's label can change both of these (spec §4).
+    pub typography: Option<Typography>,
+    pub color: Option<Color>,
 }
 
 /// Read every paint property the map holds, leaving the rest for its caller.
@@ -127,8 +131,8 @@ pub(super) fn parse(
     fields: &mut Fields,
     tokens: &Tokens,
     report: &mut Report,
-) -> Option<PaintOverrides> {
-    let mut paint = PaintOverrides::default();
+) -> Option<StateOverrides> {
+    let mut paint = StateOverrides::default();
     let mut ok = true;
 
     if let Some(value) = fields.take("fill") {

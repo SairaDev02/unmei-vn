@@ -10,7 +10,7 @@
 
 use super::motion::{self, Motion};
 use super::paint::{self, Border, Fill, Paint, Radius, Shadow, Transform};
-use super::tokens::{Tokens, Typography};
+use super::tokens::{self, Color, Tokens, Typography};
 use super::value::{self, Fields, Report};
 
 /// The properties a component sets and a node may override. Nothing here is
@@ -41,6 +41,8 @@ pub struct Component {
     pub z_index: Option<i32>,
     // Text and motion.
     pub typography: Option<Typography>,
+    /// A text slot's own tone (spec §4, "Engine text").
+    pub color: Option<Color>,
     pub motion: Option<Motion>,
 }
 
@@ -72,6 +74,7 @@ impl Component {
                 .typography
                 .clone()
                 .or_else(|| self.typography.clone()),
+            color: winner.color.or(self.color),
             motion: winner.motion.clone().or_else(|| self.motion.clone()),
         }
     }
@@ -329,6 +332,13 @@ pub(super) fn parse(
             None => ok = false,
         }
     }
+    if let Some(value) = fields.take("color") {
+        let property = fields.path("color");
+        match tokens::color(value, &property, tokens, report) {
+            Some(value) => component.color = Some(value),
+            None => ok = false,
+        }
+    }
     if let Some(value) = fields.take("loop") {
         let property = fields.path("loop");
         match motion::parse(value, &property, tokens, report) {
@@ -384,7 +394,7 @@ fn padding(value: ron::Value, path: &str, tokens: &Tokens, report: &mut Report) 
     paint::length(value, path, tokens, report).map(Padding::Uniform)
 }
 
-fn typography(
+pub(super) fn typography(
     value: ron::Value,
     path: &str,
     tokens: &Tokens,

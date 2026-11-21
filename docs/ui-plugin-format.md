@@ -145,7 +145,9 @@ A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}`
 
 A length is a number of pixels or a `{spacing.key}` token. A colour is `(r: 0.0, g: 0.0, b: 0.0, a: 1.0)` with channels from 0 to 1, or a `{colors.key}` token. A number may be written as an integer or a float. A name the format knows is a lowercase kebab-case string, for example `"ease-in-out"`; never a RON identifier.
 
-A `slot` names engine content. Its name is one of the surface's slots, or a Keiko control id. A control may carry the four state overrides `focused`, `disabled`, `lit` and `current`, each a set of paint properties, and so may a `list`. A state that is not authored keeps the node's own paint.
+A `slot` names engine content. Its name is one of the surface's slots, or a Keiko control id. A control may carry the four state overrides `focused`, `disabled`, `lit` and `current`, each a set of paint and text properties, and so may a `list`. A state that is not authored keeps the node's own paint.
+
+A `slot` that shows text takes `typography` (a `{typography.key}` token) and `color`, the tone the engine's words are drawn in; the words are the engine's and only their look is the plugin's. A slot that names neither takes the surface root's. Its state overrides may change both, so a `lit` label can change tone while its text stays the engine's.
 
 Two slots carry the plugin's own nodes instead of engine content: `advance-marker` and `deciding-marker` on `play`. A slot other than those two takes no content, and content inside one is `ui.slot.unknown`.
 
