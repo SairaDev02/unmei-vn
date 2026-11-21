@@ -8,12 +8,13 @@ instead. ADR 0016 records why the baseline holds digests rather than counts.
     python3 scripts/no-new-comments.py                          # check (the CI gate)
     python3 scripts/no-new-comments.py --tighten                # shrink the baseline
     python3 scripts/no-new-comments.py --tighten --reword PATH  # accept a reworded comment
+    python3 scripts/no-new-comments.py --tighten --admit PATH   # accept a new file's comments
 
-`--tighten` drops digests the tree no longer holds and admits a file the baseline
-has never counted. It refuses a new digest in a counted file, so a comment cannot
-be swapped for another one silently. `--reword PATH` accepts new digests in that
-file only while its count does not rise, and the swap then shows in the baseline
-diff for review.
+`--tighten` drops digests the tree no longer holds and refuses every new one, so
+no comment enters silently. `--reword PATH` accepts new digests in a counted file
+only while its count does not rise. `--admit PATH` accepts the comments of a file
+the baseline has never counted, a renamed one included. Either way the change
+shows in the baseline diff for review.
 """
 
 from __future__ import annotations
@@ -102,21 +103,28 @@ def report(over: list[Comment], baseline: dict[str, list[str]]) -> None:
     print(f"\n{len(over)} comment(s) not in the baseline.")
 
 
-def tighten(current: dict[str, list[str]], reword: set[str]) -> int:
+def tighten(current: dict[str, list[str]], reword: set[str], admit: set[str]) -> int:
     if not BASELINE.exists():
         write(current)
         print(f"baseline created: {sum(map(len, current.values()))} comments in {len(current)} file(s)")
         return 0
     baseline = load()
-    raised, reworded = [], []
+    raised, reworded, unadmitted = [], [], []
     for path, found in sorted(current.items()):
-        if path not in baseline or not new_in(found, baseline[path]):
+        if path not in baseline:
+            if path not in admit:
+                unadmitted.append(f"  {path}: {len(found)} comment(s); rerun with --admit {path} once each meets the policy")
+            continue
+        if not new_in(found, baseline[path]):
             continue
         if len(found) > len(baseline[path]):
             raised.append(f"  {path}: {len(found)} > {len(baseline[path])}")
         elif path not in reword:
             reworded.append(f"  {path}: rerun with --reword {path} if the rewording is deliberate")
-    if raised or reworded:
+    if raised or reworded or unadmitted:
+        if unadmitted:
+            print("refusing to tighten: these files are new to the baseline and hold comments:")
+            print("\n".join(unadmitted))
         if raised:
             print("refusing to tighten: these files would need MORE comments than the baseline:")
             print("\n".join(raised))
@@ -125,8 +133,6 @@ def tighten(current: dict[str, list[str]], reword: set[str]) -> int:
             print("\n".join(reworded))
         print("\nDelete the new comment, or move its content to an ADR or an issue first.")
         return 1
-    # A file the baseline has never counted is admitted, not raised: otherwise a
-    # new file could hold no comment at all and the gate would be unsatisfiable.
     for path in sorted(p for p in current if p not in baseline):
         print(f"admitted new file: {path} ({len(current[path])} comment(s))")
     write(current)
@@ -140,13 +146,17 @@ def main() -> int:
     parser.add_argument("--tighten", action="store_true", help="shrink the baseline to the tree")
     parser.add_argument("--reword", action="append", default=[], metavar="PATH",
                         help="with --tighten, accept new comments in PATH while its count does not rise")
+    parser.add_argument("--admit", action="append", default=[], metavar="PATH",
+                        help="with --tighten, accept the comments of PATH, a file the baseline has never counted")
     args = parser.parse_args()
     if args.reword and not args.tighten:
         parser.error("--reword needs --tighten")
+    if args.admit and not args.tighten:
+        parser.error("--admit needs --tighten")
 
     comments = [c for c in scan_tracked(tracked()) if in_scope(c)]
     if args.tighten:
-        return tighten(digests(comments), set(args.reword))
+        return tighten(digests(comments), set(args.reword), set(args.admit))
 
     baseline = load()
     over = excess(comments, baseline)

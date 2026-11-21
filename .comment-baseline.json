@@ -243,7 +243,6 @@
   "scripts/license_policy.py": "fe70e3b2",
   "scripts/linux_walk.py": "0838eeb8 0ec70275 1d4bd691 21ee7179 2201de29 2fba5dda 34e31363 36307e5b 3aa4f384 50468953 5b01398d 5e025fd2 6077fcb0 6b037403 6b33ada1 73580d51 7a345f6e 89a8a87e 8f47451d 93d52691 9448ad6c 967e9b08 994db0da 99539d72 a2cb3412 a3f8ab85 cbf9786f db32f985 e3fbb294 e736fe73 f2f1bd8d f2f40b21 f807052c",
   "scripts/linux_walk_runner.py": "11bd6589 6fd4ab69",
-  "scripts/no-new-comments.py": "7b25ee35 d8a65a9c",
   "scripts/package.py": "cd38a08b f5c3e6a2",
   "scripts/package_lib.py": "09139d51 38d37e88 4dca86e5 6f04c661 73a3ac67 920a6040 a2b0917d c11661cd cc48417b ceed05e6 fb155488",
   "scripts/test-archive-accept.py": "158e4589 3df8fac8 d6bccb1e e69f2fcb ee8dadea",
