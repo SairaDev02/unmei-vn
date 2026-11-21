@@ -231,9 +231,7 @@ fn first_meeting_addresses_resolve_or_name_nothing() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Layer-1 say-line gate (contract §4)
-// ---------------------------------------------------------------------------
 
 fn speaker_set(names: &[&str]) -> std::collections::HashSet<String> {
     names.iter().map(|name| name.to_string()).collect()
@@ -324,9 +322,7 @@ fn allowed_speakers_are_narrator_scene_speakers_and_npc_ids() {
     assert!(!allowed.contains("Bob"), "{allowed:?}");
 }
 
-// ---------------------------------------------------------------------------
 // Run-region splice (contract §6)
-// ---------------------------------------------------------------------------
 
 /// RED: the splice replaces the run's say-lines plus interstitial blank/comment
 /// lines, and every line outside survives byte-for-byte.

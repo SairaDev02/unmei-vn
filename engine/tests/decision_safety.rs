@@ -203,9 +203,7 @@ fn choice_body(model: &str, choice: &str) -> String {
     )
 }
 
-// ---------------------------------------------------------------------------
 // Diagnostics never retain response-controlled text
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn non_success_body_is_never_retained() {
@@ -370,9 +368,7 @@ async fn echoed_legend_is_absent_from_provenance_and_logs() {
     assert!(!logs_contain(&captured, KEY));
 }
 
-// ---------------------------------------------------------------------------
 // Redirects are never followed
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn redirects_are_not_followed_and_location_is_never_logged() {

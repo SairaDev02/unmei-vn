@@ -49,9 +49,7 @@ use unmei_engine::{
 
 const KEY: &str = "sk-dummy-monitor-121";
 
-// ---------------------------------------------------------------------------
 // A writer a layer can render into, so the test can inspect the bytes.
-// ---------------------------------------------------------------------------
 
 #[derive(Clone)]
 struct SharedBuffer(Arc<Mutex<Vec<u8>>>);

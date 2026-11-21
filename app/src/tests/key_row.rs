@@ -1501,9 +1501,7 @@ fn a_ping_verdict_never_quotes_the_key_in_a_log() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // OpenRouter keys are never sent (docs/nanogpt.md N10, N11)
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_typed_openrouter_key_is_refused_before_any_write_ping_or_resolver_change() {

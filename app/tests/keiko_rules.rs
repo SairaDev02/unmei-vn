@@ -120,9 +120,7 @@ fn assert_fail_with(pack: &Path, id: &str, needle: &str) {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Rule 6: the reveal
-// ---------------------------------------------------------------------------
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -161,9 +159,7 @@ fn an_advance_finishes_the_reveal_and_a_second_one_moves_on() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 7: auto's dwell under a virtual clock
-// ---------------------------------------------------------------------------
 
 #[test]
 fn auto_waits_its_dwell_and_not_a_frame_less() {
@@ -192,9 +188,7 @@ fn auto_waits_its_dwell_and_not_a_frame_less() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 8: the Notice's lifetime under a virtual clock
-// ---------------------------------------------------------------------------
 
 /// A Notice lives `NOTICE_SECONDS` (5 s) of unpaused time. Steps that move no
 /// time leave it up; `wait` is what spends it. The menu pauses play, so the
@@ -218,9 +212,7 @@ fn a_notice_expires_under_wait_and_not_without_it() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 13, 15 and 16: decisions, offline and faulted
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_case_landing_wins_and_an_unset_decision_takes_the_fallback() {
@@ -342,9 +334,7 @@ advance
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 19 and 20: asset faults and a broken pack
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_missing_asset_logs_its_row_without_a_notice() {
@@ -378,9 +368,7 @@ fn a_missing_manifest_reaches_the_error_screen() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 21: fixtures
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_take_without_fixtures_starts_with_no_slots_and_continue_disabled() {
@@ -399,9 +387,7 @@ fn a_take_without_fixtures_starts_with_no_slots_and_continue_disabled() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 25 and 26: stepping and observing
-// ---------------------------------------------------------------------------
 
 #[test]
 fn step_appends_only_what_passed_and_observe_never_writes() {
@@ -449,9 +435,7 @@ fn a_header_as_a_step_is_refused_once_the_case_has_steps() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 33: start at a scene with chosen state
-// ---------------------------------------------------------------------------
 
 #[test]
 fn start_reaches_a_scene_top_with_the_cases_state() {
@@ -470,9 +454,7 @@ fn start_reaches_a_scene_top_with_the_cases_state() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 32: live needs the environment key
-// ---------------------------------------------------------------------------
 
 #[test]
 fn live_without_the_environment_key_is_a_usage_error() {
@@ -486,9 +468,7 @@ fn live_without_the_environment_key_is_a_usage_error() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("NANOGPT_API_KEY"));
 }
 
-// ---------------------------------------------------------------------------
 // Rules 27, 29, 30 and 31: exploration on the demo pack
-// ---------------------------------------------------------------------------
 
 #[test]
 fn exploration_reaches_every_branch_and_saves_no_finding() {
@@ -1170,9 +1150,7 @@ fn a_stuck_finding_without_a_later_say_line_saves_no_case() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // The cycle, rules 11, 12 and 17, and the K2–K4 credential cases
-// ---------------------------------------------------------------------------
 
 /// The case's observation of one control, so a test can read the label the
 /// player actually rendered.
@@ -1685,9 +1663,7 @@ expect surface settings
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 35-37: the render path (slice 2)
-// ---------------------------------------------------------------------------
 
 fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()

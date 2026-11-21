@@ -315,9 +315,7 @@ fn an_unwritable_log_reports_without_a_notice_and_the_pack_still_plays() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Silent asset degradation (rows 3–6)
-// ---------------------------------------------------------------------------
 
 /// A presentation-only app rooted at `asset_root`, with the demo pack's runner
 /// held but undriven, so the real load sites and the watcher run with no
