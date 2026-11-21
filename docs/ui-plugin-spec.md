@@ -74,7 +74,7 @@ Format version 1 has six node kinds:
 
 | Kind | What it draws |
 |---|---|
-| `Box` | A flex container: direction, gap, padding, alignment, width and height, relative or absolute position with offsets, and z-index. It may have children. |
+| `Box` | A flex container: direction, gap, padding, alignment, width and height, relative or absolute position with offsets, and z-index. It may have children, and may set `typography` and `color` as the text style they inherit (§4, Engine text). *(Amended 2026-11-21, after the slice-1 fix review.)* |
 | `Image` | A file in `ui/`, with a fit of `cover`, `contain`, `stretch` or `none`. |
 | `Glyph` | Decorative text of at most 8 characters in a typography token: a fleuron, a corner mark, an advance mark. It is ornament and never copy. |
 | `Text` | The text of one copy key (§5), in a typography token. |
@@ -86,7 +86,8 @@ Format version 1 has six node kinds:
 - **No literal prose.** Words reach the screen only through copy keys and engine slots. A `Glyph` is the one literal, and its 8-character limit keeps it ornamental (*decided 2026-11-20*). This keeps every visible word in one keyed table, which language packs later translate (plugin family L2).
 - **Lists keep engine order (R5).** The engine supplies a `List`'s items in their specified order. The item template places the item's own slots and controls. A plugin cannot reorder, filter or repeat items.
 - **Control states.** A control `Slot` and a list item may carry property overrides for the states `focused`, `disabled`, `lit` (Auto and Skip while active) and `current` (the open contents-page section). Hover takes the `focused` style, as variant E does.
-- **Engine text.** Every slot or control that shows text (the prose, the speaker, the title rows, a ledger line, a control's label) takes `typography`, a typography token, and `color`, its text color. Its state overrides may change both, so a `lit` label can change tone. A text slot with no `typography` or `color` takes the surface root's. Both are additive under R26, so the format version stays 1. Spec rule 34 tests them. *(Amended 2026-11-21, after the slice-1 review.)*
+- **States inside a list item.** Every node inside a list item may carry state overrides, and they follow the state of the item's control. So a title row's label slot can turn white when the row's control is focused, though the label and the control are separate nodes. A node outside a list item keeps the rule above: only a control slot carries states. *(Amended 2026-11-21, after the slice-1 fix review.)*
+- **Engine text.** Every slot or control that shows text (the prose, the speaker, the title rows, a ledger line, a control's label) takes `typography`, a typography token, and `color`, its text color. Its state overrides may change both, so a `lit` label can change tone. A text slot with no `typography` or `color` takes the nearest enclosing `Box` that sets it. *(Amended 2026-11-21, after the slice-1 fix review: the nearest enclosing `Box`, replacing "the surface root's", which named a node that could not set either. `Text` and `Glyph` nodes inherit the same way.)* A node that shows text and finds no `typography` or no `color`, on itself or on an enclosing `Box`, fails with `ui.text.unstyled`, so every piece of text has a face and a tone before the layout rules measure it. Both are additive under R26, so the format version stays 1. Spec rule 34 tests them. *(Amended 2026-11-21, after the slice-1 review.)*
 
 A tree has one root `Box`. A node's path in findings is its place in the tree, for example `root.children[2].children[0]`.
 
@@ -172,6 +173,7 @@ The tables are derived from what each surface shows today and from variant E. Ev
   | `ui.layout.outside`, `ui.layout.empty`, `ui.layout.hidden`, `ui.layout.covered` | error | §9. |
   | `ui.contrast`, `ui.text.size` | error | §9. |
   | `ui.contrast.unknown` | warning | §9. |
+  | `ui.text.unstyled` | error | §4, Engine text. *(Added 2026-11-21.)* |
 
 - **The plugin outcome, not a load error.** `load_pack` returns the loaded pack with a plugin outcome: absent, loaded, or failed with its findings (*decided 2026-11-20*). A failed plugin never makes `load_pack` fail, because the pack still plays (R14). One loader serves the check, the preview and the boot (R24).
 - **In the check.** `--check` reports the plugin's findings in its normal order. Plugin errors count as errors, so a pack with a failed plugin exits 1.
@@ -203,7 +205,7 @@ The placement rules (`ui.slot.missing`, `ui.slot.duplicate`) are static, so the 
 - **The renderer** turns a surface's resolved tree into Bevy UI nodes, and binds each slot and list to its surface owner's state. Each surface keeps its one owner ([ADR 0013](adr/0013-presentation-surface-partition.md)): the owner asks the renderer for its tree, then fills slots as it fills hand-built nodes today. Focus, walks, actions and confirms stay in the existing menu and input code, keyed by control id, never by node.
 - **Fonts and images.** The player reads plugin files as bytes through the engine's confined paths and adds them to Bevy's asset stores directly. The pack's `assets/` root is unchanged.
 - **Fonts are declared.** Each font the plugin ships names a family, a weight, a license and a license-text file in the manifest. A font file with no declaration, or whose license-text file is missing, is `ui.font.license`. A typography token that names a family neither shipped nor embedded is `ui.font.unknown`. The five embedded faces are usable by name without shipping them (R19, R20).
-- **The reference plugin.** Variant E is written as plain plugin files in the repository and embedded in the player at build time. It renders [Default look](title-and-menu.md#default-look) §1–§6: the dialogue box, name tab and quick row (without `Log` until the Backlog is built), the centred choices with the question kept, the title's left column and veil, the contents page with its ledger and Exit to title at its foot, and the Monitor drawer at y 212–500. The card grid is removed. The Settings, Gallery and Timeline interiors keep their current views, rewritten as reference-plugin trees. The reference plugin passes every rule it imposes.
+- **The reference plugin.** Variant E is written as plain plugin files in the repository and embedded in the player at build time. It renders [Default look](title-and-menu.md#default-look) §1–§6: the dialogue box, name tab and quick row (without `Log` until the Backlog is built), the centred choices with the question kept, the title's left column and veil, the contents page with its ledger and Exit to title at its foot, and the Monitor drawer at y 212–500. The card grid is removed. The Settings, Gallery and Timeline interiors keep their current views, rewritten as reference-plugin trees. It sets a face and a tone for every text it shows, Default look §6's table included: the choice option text (21 px, sans) and its number badge (mono), and the contents page's section entries (SemiBold) and their `current` state, as well as the slots slice 1 already styled. *(Amended 2026-11-21.)* The reference plugin passes every rule it imposes.
 - **Fullscreen.** A plugin lays out at the 1280×720 reference. In borderless fullscreen it is placed exactly as today's surfaces are, with no scaling (*decided 2026-11-20*; [Player comfort](runtime-hardening.md#player-comfort) §5).
 
 ## 12. Preview (R23)
@@ -286,6 +288,13 @@ An unreachable state stays a `preview.state.unreachable` warning. A pack whose p
 32. `--export-ui` with a `PACK_DIR` that does not exist exits 2 and creates nothing.
 33. Rules 10 and 13 still hold under the new count: the three-flash loop of rule 10 still fails, and the reference plugin still passes.
 34. A text slot with `typography: "{typography.prose}"` and a `color` token parses. An unknown token there fails with `ui.token.unknown`.
+
+**Text styles, added 2026-11-21** *(rules 35, 36 and 38 are static and land on the integration branch before slice 2 starts; rule 37's parsing is static too, and its drawn half lands with #115)*
+
+35. A `Box` with `typography` and `color` styles a text slot inside it that sets neither, and the nearest enclosing `Box` wins over an outer one.
+36. A text slot with no `typography` or no `color`, on itself or on any enclosing `Box`, fails with `ui.text.unstyled`. A `Text` node or `Glyph` without them fails the same way.
+37. A label slot inside a list item may carry a `focused` override of `color`, and it parses. Drawn, the label takes that color when the item's control is focused.
+38. The reference plugin, with faces on the choice option text, the number badge and the section entries, still passes every static rule.
 
 ## 16. Out of scope
 
