@@ -62,7 +62,17 @@ impl ExportArgs {
 /// The folder an export writes into, or the usage error that refuses it. A pack
 /// with no `ui/` or an empty one is writable; a `ui/` holding anything stays
 /// exactly as the author left it (spec §1).
+///
+/// The pack folder itself must already exist: export creates the plugin folder
+/// and the surfaces under it, never the pack, so a mistyped path makes nothing
+/// (spec §1, rule 32).
 pub fn export_target(pack_root: &Path) -> Result<PathBuf, UsageError> {
+    if !pack_root.is_dir() {
+        return Err(UsageError::new(format!(
+            "--export-ui needs an existing pack folder, and {} is not one; check the path",
+            pack_root.display()
+        )));
+    }
     let ui = pack_root.join(UI_FOLDER);
     if !ui.exists() {
         return Ok(ui);
@@ -123,5 +133,20 @@ mod tests {
         std::fs::create_dir(&other).expect("a second pack folder");
         std::fs::write(other.join(UI_FOLDER), "not a folder").expect("a file named ui");
         assert!(export_target(&other).is_err());
+    }
+
+    /// A pack folder that does not exist is a usage error, and the check leaves
+    /// the filesystem exactly as it found it (spec §1, rule 32).
+    #[test]
+    fn a_missing_pack_folder_is_refused_and_creates_nothing() {
+        let dir = tempfile::tempdir().expect("a temp dir");
+        let missing = dir.path().join("typoed-pack");
+
+        let error = export_target(&missing).expect_err("an absent pack folder");
+        assert!(
+            error.to_string().contains(&missing.display().to_string()),
+            "the refusal names the path: {error}"
+        );
+        assert!(!missing.exists(), "nothing is created for a mistyped path");
     }
 }
