@@ -315,6 +315,18 @@ fn a_loop_with_a_400_ms_period_passes() {
     assert_eq!(reported(&outcome), [], "the floor is inclusive");
 }
 
+/// Below the floor the period is the only finding: the flash count is not
+/// reported for a loop that already failed on its period (spec §6, rule 30).
+#[test]
+fn a_two_keyframe_loop_at_300_ms_fails_only_the_period() {
+    let tree = format!(
+        "(kind: \"box\", children: [ {} ])",
+        glyph(&loop_ron(300, &[1.0, 0.0]))
+    );
+    let outcome = load(&[("play", &tree)]);
+    assert_eq!(reported(&outcome), [forbidden("root.children[0]")]);
+}
+
 // --- The flash cap ---------------------------------------------------------
 
 #[test]
@@ -334,7 +346,7 @@ fn a_400_ms_loop_that_flashes_three_times_fails() {
     );
     let message = messages(&outcome);
     assert!(
-        message.contains("400") && message.contains("7.5"),
+        message.contains("400") && message.contains("5.0"),
         "the message names the period and the rate: {message}"
     );
 }
@@ -384,15 +396,78 @@ fn a_flash_of_exactly_0_2_counts() {
     );
 }
 
-/// A loop repeats forever, so the step from its last keyframe back to its first
-/// is a step of the period like any other. A two-keyframe loop turns twice in
-/// one period, and two turns in 400 ms is five flashes a second.
+/// The closing keyframe is implied when it repeats the first, so writing it or
+/// leaving it out is the same loop (spec §6, rule 30). A two-keyframe loop is
+/// therefore one flash per period, not two.
 #[test]
-fn a_two_keyframe_loop_at_400_ms_fails() {
+fn a_two_keyframe_loop_at_400_ms_passes() {
     let tree = format!(
         "(kind: \"box\", children: [ {},{} ])",
         glyph(&loop_ron(400, &[1.0, 0.0])),
         PLAY_INTERFACE
+    );
+    let outcome = load(&[("play", &tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [],
+        "one flash in 400 ms is 2.5 a second"
+    );
+}
+
+/// The same fade written with its closing keyframe counts the same one flash.
+#[test]
+fn the_implied_closing_keyframe_changes_nothing() {
+    let implied = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(400, &[1.0, 0.0])),
+        PLAY_INTERFACE
+    );
+    let written = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(400, &[1.0, 0.0, 1.0])),
+        PLAY_INTERFACE
+    );
+    assert_eq!(reported(&load(&[("play", &implied)])), []);
+    assert_eq!(reported(&load(&[("play", &written)])), []);
+}
+
+/// Steps in one direction are one change, so a fine-grained fade flashes once
+/// and passes; the same fade three times in the period is three flashes and
+/// fails (spec §6, rule 31).
+#[test]
+fn a_fade_in_small_steps_is_one_flash() {
+    let mut down: Vec<f32> = (0..=10).map(|step| 1.0 - step as f32 * 0.1).collect();
+    down.extend((1..=9).map(|step| step as f32 * 0.1));
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(400, &down)),
+        PLAY_INTERFACE
+    );
+    assert_eq!(reported(&load(&[("play", &tree)])), []);
+}
+
+/// A change under 0.2 is dropped, so two small wobbles between two big ones do
+/// not each count as a reversal: this loop flashes once, not twice.
+#[test]
+fn a_change_under_0_2_is_dropped() {
+    let tree = format!(
+        "(kind: \"box\", children: [ {},{} ])",
+        glyph(&loop_ron(400, &[1.0, 0.0, 0.15, 0.0, 1.0])),
+        PLAY_INTERFACE
+    );
+    assert_eq!(reported(&load(&[("play", &tree)])), []);
+}
+
+#[test]
+fn the_same_fade_three_times_in_the_period_fails() {
+    let mut thrice: Vec<f32> = Vec::new();
+    for _ in 0..3 {
+        thrice.extend((0..=10).map(|step| 1.0 - step as f32 * 0.1));
+        thrice.extend((1..=9).map(|step| step as f32 * 0.1));
+    }
+    let tree = format!(
+        "(kind: \"box\", children: [ {} ])",
+        glyph(&loop_ron(400, &thrice))
     );
     let outcome = load(&[("play", &tree)]);
     assert_eq!(
@@ -402,11 +477,6 @@ fn a_two_keyframe_loop_at_400_ms_fails() {
             "root.children[0]",
             "ui.motion.flash"
         )]
-    );
-    let message = messages(&outcome);
-    assert!(
-        message.contains("400") && message.contains("5.0"),
-        "the message names the period and the rate: {message}"
     );
 }
 

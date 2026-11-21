@@ -26,7 +26,7 @@ pub const MAX_FLASHES_PER_SECOND: u64 = 3;
 /// The opacity change a flash needs on each side of its turn (spec §6).
 const MIN_FLASH_STEP: f32 = 0.2;
 
-/// How far under [`MIN_FLASH_STEP`] a step may land and still count.
+/// How far under [`MIN_FLASH_STEP`] a change may land and still count.
 ///
 /// Opacity is f32, so the authored decimals subtract to just under their
 /// decimal difference: 1.0 - 0.8 is 0.19999999. The spec says "at least 0.2",
@@ -291,19 +291,13 @@ fn short_period(motion: &Motion) -> Option<String> {
 
 /// Why the loop flashes too fast, or `None` when it stays under the cap.
 ///
-/// A flash is two opposing opacity changes of at least [`MIN_FLASH_STEP`] in a
-/// row, so it takes three consecutive keyframes. The list is a ring: a loop
-/// repeats forever, so the step from the last keyframe back to the first ends
-/// the period and the turn that step completes sits at `keyframes[0]`. Each
-/// keyframe is a turn's centre once, so the count is turns per period and not
-/// triples visited. The rate compares as integers: that keeps the cap exact at
-/// its boundary and leaves a sub-floor period to [`short_period`], which
-/// already reported it.
+/// The rate compares as integers: that keeps the cap exact at its boundary and
+/// leaves a sub-floor period to the period rule, which already reported it.
 fn fast_flash(motion: &Motion) -> Option<String> {
     if motion.period_ms < MIN_PERIOD_MS {
         return None;
     }
-    let flashes = turns_in_one_period(&motion.keyframes) as u64;
+    let flashes = flashes_in_one_period(&motion.keyframes) as u64;
     if flashes * 1000 <= MAX_FLASHES_PER_SECOND * u64::from(motion.period_ms) {
         return None;
     }
@@ -315,30 +309,52 @@ fn fast_flash(motion: &Motion) -> Option<String> {
     ))
 }
 
-/// The turns in one period of `keyframes`, walked as a ring. A loop of fewer
-/// than two keyframes has no step, and so no turn.
-fn turns_in_one_period(keyframes: &[Keyframe]) -> usize {
+/// The flashes in one period of `keyframes` (spec §6).
+///
+/// The list is a ring, because a loop repeats from its last keyframe back to
+/// its first. Consecutive steps in one direction join into one change, so a
+/// fade drawn as many small steps is one change rather than many; a change
+/// under [`MIN_FLASH_STEP`] is dropped; and each pair of opposing changes is
+/// one flash. That is why a fade written as `[0, 1]` and one written as
+/// `[0, 1, 0]` both count once: the implied closing keyframe adds no change.
+fn flashes_in_one_period(keyframes: &[Keyframe]) -> usize {
     let count = keyframes.len();
     if count < 2 {
         return 0;
     }
-    (0..count)
-        .filter(|&index| {
-            is_flash(
-                keyframes[(index + count - 1) % count],
-                keyframes[index],
-                keyframes[(index + 1) % count],
-            )
-        })
-        .count()
-}
-
-fn is_flash(a: Keyframe, b: Keyframe, c: Keyframe) -> bool {
-    let out = b.opacity - a.opacity;
-    let back = c.opacity - b.opacity;
-    out.abs() >= MIN_FLASH_STEP - STEP_TOLERANCE
-        && back.abs() >= MIN_FLASH_STEP - STEP_TOLERANCE
-        && out.signum() != back.signum()
+    let mut changes: Vec<f32> = Vec::new();
+    let mut run = 0.0_f32;
+    for index in 0..count {
+        let step = keyframes[(index + 1) % count].opacity - keyframes[index].opacity;
+        if step == 0.0 {
+            continue;
+        }
+        if run != 0.0 && run.signum() == step.signum() {
+            run += step;
+        } else {
+            if run != 0.0 {
+                changes.push(run);
+            }
+            run = step;
+        }
+    }
+    if run != 0.0 {
+        changes.push(run);
+    }
+    // The last run and the first one meet across the ring's join, so they are
+    // one change when they head the same way.
+    if changes.len() > 1 && changes[0].signum() == changes[changes.len() - 1].signum() {
+        let last = changes.pop().unwrap_or_default();
+        changes[0] += last;
+    }
+    changes.retain(|change| change.abs() >= MIN_FLASH_STEP - STEP_TOLERANCE);
+    if changes.len() < 2 {
+        return 0;
+    }
+    let reversals = (0..changes.len())
+        .filter(|&index| changes[index].signum() != changes[(index + 1) % changes.len()].signum())
+        .count();
+    reversals / 2
 }
 
 fn report(findings: &mut Vec<Finding>, file: &str, path: &str, rule: &str, message: String) {
