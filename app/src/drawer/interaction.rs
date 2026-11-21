@@ -71,7 +71,6 @@ pub(crate) fn panel_input(
             };
         }
 
-        // Pointer activation names its control directly and focuses it.
         let mut clicked = None;
         for (tag, interaction) in &controls {
             if *interaction == Interaction::Pressed {

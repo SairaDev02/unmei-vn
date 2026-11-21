@@ -171,7 +171,6 @@ pub(super) fn build_title(
                 title_row(panel, faces, menu, MenuAction::Quit, "Quit", true, None);
             });
 
-            // The foot row: Continue's reason line left, the legend right.
             root.spawn(Node {
                 width: Val::Px(TITLE_PANEL_WIDTH),
                 max_width: Val::Percent(92.0),

@@ -90,7 +90,6 @@ async fn prompt_includes_state_vocabulary() {
     let joined: String = messages.iter().map(|m| m.content.as_str()).collect();
     assert!(joined.contains("affinity_level"), "{joined}");
     assert!(joined.contains("letters_found"), "{joined}");
-    // Types and bucketing guidance are present.
     assert!(joined.to_lowercase().contains("bucketed"), "{joined}");
     assert!(joined.to_lowercase().contains("string"), "{joined}");
 }
@@ -105,7 +104,6 @@ async fn prompt_includes_existing_config_when_replacing() {
     let messages = assemble_prompt(&data);
     let joined: String = messages.iter().map(|m| m.content.as_str()).collect();
     assert!(joined.contains("existing warm config"), "{joined}");
-    // And says this replaces an existing config.
     assert!(joined.to_lowercase().contains("replac"), "{joined}");
 }
 
@@ -211,7 +209,6 @@ async fn invalid_json_retries_with_correction() {
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
     let calls = chat.calls();
-    // The correction references the failure and repeats the shape demand.
     let retry_correction = calls[1].last().unwrap();
     assert_eq!(
         retry_correction.role, "user",
@@ -227,7 +224,7 @@ async fn invalid_json_retries_with_correction() {
         "correction: {}",
         retry_correction.content
     );
-    // And the conversation carries the failed assistant reply for continuity.
+    // And the conversation carries the empty failed-reply marker for continuity.
     assert_eq!(
         calls[1].len(),
         calls[0].len() + 2,
@@ -372,10 +369,6 @@ async fn schema_fixups_strip_npid_and_trim() {
         other => panic!("expected Accepted, got {other:?}"),
     }
 }
-
-// ---------------------------------------------------------------------------
-// Typed generation: `--type noul` / `--type score`
-// ---------------------------------------------------------------------------
 
 /// RED: the prompt asks for the `noul` shape — boolean fallback, both
 /// `true`/`false` criteria keys — when the type is noul.
@@ -927,10 +920,6 @@ async fn non_snake_case_fallback_is_a_correction() {
         correction.content
     );
 }
-
-// ---------------------------------------------------------------------------
-// Contract constants
-// ---------------------------------------------------------------------------
 
 /// RED: the retry limit is 3 attempts (contract §5).
 #[test]

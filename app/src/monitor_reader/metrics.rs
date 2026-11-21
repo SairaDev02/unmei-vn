@@ -71,7 +71,6 @@ impl Metrics {
     /// byte-truncated event keeps its preserved single warm line.
     pub(super) fn text_lines(&self, line: &MonitorLine) -> f32 {
         if line.truncated {
-            // A byte-truncated event keeps its preserved single warm line.
             return 1.0;
         }
         wrap_lines(display_cells(&line.target_display), self.target_columns)

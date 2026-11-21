@@ -3,8 +3,6 @@
 
 use super::*;
 
-// --- StagingState ------------------------------------------------------
-
 #[test]
 fn staging_applies_bg_sprite_play() {
     let mut staging = StagingState::default();
@@ -54,8 +52,6 @@ fn staging_hide_removes_a_sprite() {
     assert!(staging.sprites.is_empty());
 }
 
-// --- RON round-trip ----------------------------------------------------
-
 #[test]
 fn save_round_trips_through_ron() {
     let mut runner = ScriptRunner::new(demo_pack());
@@ -88,8 +84,6 @@ fn save_file_round_trips_through_disk() {
     let loaded = read_save(&path).expect("reads");
     assert_eq!(loaded, save);
 }
-
-// --- Exact resume ------------------------------------------------------
 
 #[test]
 fn restore_replays_a_say_wait() {

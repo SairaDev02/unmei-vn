@@ -38,10 +38,6 @@ use crate::session_lines;
 use crate::slots::PendingAutosave;
 use crate::Runtime;
 
-// ---------------------------------------------------------------------------
-// Origin and outcome vocabulary
-// ---------------------------------------------------------------------------
-
 /// Who asked for a load; the typed origin, never caller-supplied rows or
 /// Notice booleans, selects the read-stage failure policy
 /// (`docs/runtime-hardening.md` § Menu and live-session transitions).
@@ -92,10 +88,6 @@ pub(crate) enum RestartOutcome {
     /// was reported.
     Refused,
 }
-
-// ---------------------------------------------------------------------------
-// The borrowed recipes
-// ---------------------------------------------------------------------------
 
 /// A short-lived ordinary borrow of the live-session resources: the recipe
 /// owner. Every mutation of the coordinated transition lives here; callers get
@@ -314,10 +306,6 @@ impl SessionTransitions<'_> {
         RestartOutcome::Restarted
     }
 }
-
-// ---------------------------------------------------------------------------
-// The Bevy acquisition bridge
-// ---------------------------------------------------------------------------
 
 /// The one module-owned bridge that acquires the separately stored session
 /// resources; every caller reborrows it into short-lived

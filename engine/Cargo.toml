@@ -4,8 +4,7 @@ version.workspace = true
 edition = "2021"
 description = "Minimal visual-novel runtime core: content-pack loading, .unmei DSL parser, shared by the Bevy runtime and the unmei author CLI."
 license = "MIT"
-# The export fills this token with the public repository URL. It stays visibly
-# unresolved until then, so a release refuses while it remains.
+# The public repository URL, which the export fills in for the published crate.
 repository = "https://github.com/SairaDev02/unmei-vn"
 readme = "README.md"
 rust-version = "1.98"

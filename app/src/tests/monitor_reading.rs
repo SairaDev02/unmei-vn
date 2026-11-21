@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Monitor reader: stable older-line reading
-// ---------------------------------------------------------------------------
-
 fn reader_anchor(app: &App) -> Option<drawer::MonitorAnchor> {
     drawer_panel(app).anchor()
 }
@@ -126,7 +122,6 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
         Vec2::new(1232.0, 293.0),
     );
 
-    // A wheel outside the body is swallowed: no scroll and no follow change.
     set_reader_cursor(&mut app, Vec2::new(40.0, 40.0));
     send_reader_wheel(&mut app, 1.0, bevy::input::mouse::MouseScrollUnit::Line);
     step_input(&mut app);
@@ -169,7 +164,6 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
     );
     assert_eq!(drawer_window(&mut app).first().copied(), Some(82));
 
-    // Only a deliberate return to the bottom resumes following.
     for _ in 0..3 {
         send_reader_wheel(&mut app, -1.0, bevy::input::mouse::MouseScrollUnit::Line);
         step_input(&mut app);
@@ -193,7 +187,6 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     tap_key(&mut app, KeyCode::Tab);
     assert_eq!(drawer_focus(&app), MonitorControl::FollowLatest);
 
-    // A fresh PgUp pages a full viewport older.
     press_key(&mut app, KeyCode::PageUp);
     step_input(&mut app);
     assert_eq!(
@@ -203,7 +196,6 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     );
     assert!(!drawer_panel(&app).is_following());
 
-    // The held key does not repeat before the cadence, and does after it.
     advance_time(&mut app, 0.05);
     step_input(&mut app);
     assert_eq!(
@@ -235,7 +227,6 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(170));
     assert!(!drawer_panel(&app).is_following());
 
-    // Home selects the oldest displayed event; End returns to the newest.
     tap_key(&mut app, KeyCode::Home);
     assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(0));
     assert_eq!(drawer_window(&mut app).first().copied(), Some(0));
@@ -266,7 +257,6 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     release_key(&mut app, KeyCode::Home);
     step_input(&mut app);
 
-    // Simultaneous conflicting navigation is ignored whole.
     let anchor = reader_anchor(&app);
     press_key(&mut app, KeyCode::PageUp);
     press_key(&mut app, KeyCode::Home);
@@ -353,7 +343,6 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
     app.world_mut().entity_mut(thumb).insert(Interaction::None);
     step_input(&mut app);
 
-    // A close cancels an active drag, and a held pointer cannot resume it.
     app.world_mut()
         .resource_mut::<ButtonInput<MouseButton>>()
         .press(MouseButton::Left);
@@ -379,7 +368,6 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
         .release(MouseButton::Left);
     step_input(&mut app);
 
-    // Window focus loss cancels an active drag but preserves the reader state.
     tap_key(&mut app, KeyCode::Home);
     assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(0));
     let thumb = reader_node(&mut app, drawer::MonitorReaderNode::Thumb);
@@ -496,7 +484,6 @@ fn a_reading_anchor_survives_hide_reopen_and_clamps_to_its_rewrap() {
     );
     assert_eq!(drawer_window(&mut app).first().copied(), Some(42));
 
-    // Hiding and reopening preserves the event and the reading offset.
     let offset = anchor.offset_lines;
     tap_key(&mut app, KeyCode::F3);
     tap_key(&mut app, KeyCode::F3);
@@ -612,7 +599,6 @@ fn an_evicted_anchor_clamps_to_the_oldest_match_and_acknowledges_expiry() {
     );
     assert!(app.world().resource::<Notice>().text.is_none());
 
-    // Hide/reopen does not clear it; repeated eviction keeps it set.
     tap_key(&mut app, KeyCode::F3);
     tap_key(&mut app, KeyCode::F3);
     assert!(
@@ -626,7 +612,6 @@ fn an_evicted_anchor_clamps_to_the_oldest_match_and_acknowledges_expiry() {
         "a repeated eviction keeps the acknowledgement set"
     );
 
-    // A deliberate navigation clears it.
     tap_key(&mut app, KeyCode::PageUp);
     assert!(
         !drawer_panel(&app).is_expired(),
@@ -640,7 +625,6 @@ fn an_evicted_anchor_clamps_to_the_oldest_match_and_acknowledges_expiry() {
     activate_control(&mut app, MonitorControl::ShowEverything);
     assert!(!drawer_panel(&app).is_expired());
 
-    // `End` is a deliberate bottom arrival and acknowledges the loss as well.
     seed_numbered_monitor(&mut app, 500..600, "unmei::seq");
     settle_reader(&mut app);
     assert!(drawer_panel(&app).is_expired());
@@ -859,7 +843,6 @@ fn a_filter_refresh_never_shows_a_false_empty_state_while_locating_the_anchor() 
     );
     assert!(drawer_status(&mut app).contains("updating view"));
 
-    // The pass completes and the same anchor reappears.
     app.world_mut()
         .entity_mut(control)
         .insert(Interaction::None);
@@ -926,7 +909,6 @@ fn a_pending_refresh_never_presents_the_matching_tail_as_the_olders_location() {
     assert!(drawer_status(&mut app).contains("updating view"));
     assert!(drawer_status(&mut app).contains("reading older lines"));
 
-    // The pass reaches the anchor and the display jumps straight to it.
     settle_reader(&mut app);
     assert!(!drawer_panel(&app).is_pending());
     assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(200));
@@ -1077,7 +1059,6 @@ fn reader_position_and_expiry_survive_session_transitions() {
     assert!(drawer_panel(&app).is_expired());
     let anchor = reader_anchor(&app);
 
-    // Hide/reopen preserves the reader choice.
     tap_key(&mut app, KeyCode::F3);
     tap_key(&mut app, KeyCode::F3);
     settle_reader(&mut app);
@@ -1089,7 +1070,6 @@ fn reader_position_and_expiry_survive_session_transitions() {
     );
     assert!(drawer_panel(&app).is_expired());
 
-    // The overlay transition and the ordinary manual save/load preserve it too.
     tap_key(&mut app, KeyCode::F3);
     assert!(!drawer_open(&app));
     tap_key(&mut app, KeyCode::Escape);
@@ -1304,11 +1284,6 @@ fn arrival_batches_under_an_incomplete_refresh_settle_complete() {
         "the opening pass left the older block incomplete"
     );
 
-    // Three 128-event batches arrive while the older block is still incomplete,
-    // sliding the retained window forward by 128 each time (the fixture seeds
-    // the retained set directly; real retention eviction and its counter are
-    // covered by the capture suites). The pass budget for arrivals is smaller
-    // than each batch, so the gap between batches is where A05 lost identities.
     for end in [1128u64, 1256, 1384] {
         seed_numbered_monitor(&mut app, (end - 1000)..end, "unmei::seq");
         step_input(&mut app);
@@ -1335,7 +1310,6 @@ fn arrival_batches_under_an_incomplete_refresh_settle_complete() {
     );
     assert_eq!(projected, (384..1384).collect::<Vec<_>>());
 
-    // A settled band does no metadata scan and no text work at all.
     step_input(&mut app);
     let work = app.world().resource::<MonitorWork>();
     assert_eq!(work.scanned, 0, "settled frames scan nothing");

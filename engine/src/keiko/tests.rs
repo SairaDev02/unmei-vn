@@ -16,10 +16,6 @@ fn parse_ok(text: &str) -> Case {
     parse(text).unwrap_or_else(|finding| panic!("expected a parse, got {finding:?}"))
 }
 
-// ---------------------------------------------------------------------------
-// Version line
-// ---------------------------------------------------------------------------
-
 #[test]
 fn keiko_one_parses_and_the_rest_of_the_file_follows() {
     let case = parse_ok("keiko 1\n# a comment\n\nnew-game\nadvance 2\n");
@@ -49,10 +45,6 @@ fn crlf_line_endings_are_accepted() {
     let case = parse_ok("keiko 1\r\nnew-game\r\nadvance\r\n");
     assert_eq!(case.steps.len(), 2);
 }
-
-// ---------------------------------------------------------------------------
-// Comments, tokens and quoting
-// ---------------------------------------------------------------------------
 
 #[test]
 fn comments_and_blank_lines_are_ignored_anywhere() {
@@ -124,10 +116,6 @@ fn a_duration_takes_seconds_or_milliseconds_and_rounds_later() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Headers and their order
-// ---------------------------------------------------------------------------
-
 #[test]
 fn every_header_parses_before_the_first_step() {
     let case = parse_ok(
@@ -184,10 +172,6 @@ fn a_state_header_needs_the_equals_sign() {
     let finding = parse("keiko 1\nstate met true\n").expect_err("must fail");
     assert_eq!(finding.rule, rules::CASE_SYNTAX);
 }
-
-// ---------------------------------------------------------------------------
-// Static validation
-// ---------------------------------------------------------------------------
 
 fn facts_pack() -> Pack {
     let mut state = HashMap::new();

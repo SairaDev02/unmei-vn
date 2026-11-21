@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Esc menu overlay
-// ---------------------------------------------------------------------------
-
 /// Open, then close with no action: the position is untouched either way.
 fn assert_open_close_leaves_position(app: &mut App) {
     let before = parked_position(app);
@@ -17,7 +13,6 @@ fn assert_open_close_leaves_position(app: &mut App) {
 
 #[test]
 fn esc_opens_and_closes_from_every_parked_state_unchanged() {
-    // say-wait
     let pack = temp_pack();
     let mut say = app_for_pack(pack.path().join("pack"));
     assert!(matches!(
@@ -30,7 +25,6 @@ fn esc_opens_and_closes_from_every_parked_state_unchanged() {
         "opening then closing writes no autosave"
     );
 
-    // choice-wait
     let pack = temp_pack();
     let mut choice = app_for_pack(pack.path().join("pack"));
     press_and_update(&mut choice, KeyCode::Space);
@@ -41,14 +35,12 @@ fn esc_opens_and_closes_from_every_parked_state_unchanged() {
     ));
     assert_open_close_leaves_position(&mut choice);
 
-    // end of scene (no parked wait)
     let pack = temp_pack();
     let mut ended = app_for_pack(pack.path().join("pack"));
     play_to_end(&mut ended);
     assert!(ended.world().resource::<Runtime>().runner.wait().is_none());
     assert_open_close_leaves_position(&mut ended);
 
-    // decision-wait with a request in flight: the request survives too.
     let fake = FakeResolver::new(model_answer("warm"));
     let (mut inflight, _dir) = app_parked_on_decision(&fake);
     assert!(inflight.world().resource::<PendingDecision>().0.is_some());
@@ -164,7 +156,6 @@ fn save_over_empty_is_immediate_and_overwrite_confirms_once() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
 
-    // Save-over-empty: no second prompt.
     esc(&mut app);
     assert_eq!(menu(&app).focus, MenuFocus::Card(0));
     press_and_update(&mut app, KeyCode::Enter);
@@ -196,7 +187,6 @@ fn save_over_empty_is_immediate_and_overwrite_confirms_once() {
         "cancelling leaves the file byte-identical"
     );
 
-    // Accept: the slot is overwritten with the moved position.
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(
         menu(&app).confirm,
@@ -285,7 +275,6 @@ fn a_load_refused_under_the_overlay_notices_row_17() {
 
 #[test]
 fn manual_save_succeeds_from_every_parked_state_including_in_flight() {
-    // say-wait
     let pack = temp_pack();
     let mut say = app_for_pack(pack.path().join("pack"));
     esc(&mut say);
@@ -293,7 +282,6 @@ fn manual_save_succeeds_from_every_parked_state_including_in_flight() {
     assert_eq!(menu(&say).confirm, None);
     assert!(manual_path(&say).exists());
 
-    // choice-wait
     let pack = temp_pack();
     let mut choice = app_for_pack(pack.path().join("pack"));
     press_and_update(&mut choice, KeyCode::Space);
@@ -302,7 +290,6 @@ fn manual_save_succeeds_from_every_parked_state_including_in_flight() {
     press_and_update(&mut choice, KeyCode::Enter);
     assert!(manual_path(&choice).exists());
 
-    // end of scene
     let pack = temp_pack();
     let mut ended = app_for_pack(pack.path().join("pack"));
     play_to_end(&mut ended);
@@ -310,8 +297,6 @@ fn manual_save_succeeds_from_every_parked_state_including_in_flight() {
     press_and_update(&mut ended, KeyCode::Enter);
     assert!(manual_path(&ended).exists());
 
-    // decision-wait with a request in flight: the parked wait is captured and
-    // the request is not disturbed.
     let fake = FakeResolver::new(model_answer("warm"));
     let (mut inflight, _dir) = app_parked_on_decision(&fake);
     esc(&mut inflight);
@@ -353,8 +338,6 @@ fn keyboard_focus_walks_the_grid_and_cycles_the_top_bar() {
     press_and_update(&mut app, KeyCode::Digit2);
     assert_eq!(menu(&app).focus, MenuFocus::Card(1));
 
-    // Tab cycles the top bar: Save → Load → Timeline → Gallery → Settings →
-    // Save.
     press_and_update(&mut app, KeyCode::Tab);
     assert_eq!(menu(&app).focus, MenuFocus::SaveTab);
     press_and_update(&mut app, KeyCode::Tab);
@@ -411,7 +394,6 @@ fn settings_route_is_reachable_and_esc_backs_out_to_the_grid() {
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
 
-    // Reach Settings by keyboard: Save → Load → Timeline → Gallery → Settings.
     press_and_update(&mut app, KeyCode::Tab);
     press_and_update(&mut app, KeyCode::Tab);
     press_and_update(&mut app, KeyCode::Tab);
@@ -432,7 +414,6 @@ fn settings_route_is_reachable_and_esc_backs_out_to_the_grid() {
     click(&mut app, MenuAction::BackToSlots);
     assert_eq!(menu(&app).view, MenuView::Slots);
 
-    // Esc backs out of Settings, then closes the overlay.
     click(&mut app, MenuAction::OpenSettings);
     assert_eq!(menu(&app).view, MenuView::Settings);
     esc(&mut app);

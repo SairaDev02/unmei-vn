@@ -20,7 +20,6 @@ fn string_equality_takes_the_matching_arm_and_skips_the_other() {
     assert_eq!(taken.staged, vec![StageCommand::Bg("warm_bg".to_string())]);
     assert_eq!(say_text(taken.wait.as_ref().unwrap()).1, "High.");
 
-    // The untaken arm staged nothing; the script continues after `endif`.
     runner.advance_say().unwrap();
     let after = runner.run().unwrap();
     assert_eq!(say_text(after.wait.as_ref().unwrap()).1, "After.");
@@ -205,8 +204,7 @@ fn an_untaken_arm_sets_nothing() {
 
 #[test]
 fn kind_mismatch_evaluates_false_without_panicking() {
-    // Kind validation is the fixed-state-kind ticket's job; until then a
-    // mismatched comparison must merely be false, never a panic.
+    // A mismatched comparison must be false, never a panic.
     let pack = test_pack(
         &[(
             "scene",

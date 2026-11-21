@@ -81,7 +81,7 @@ fn set_mutates_state_and_interpolates() {
         &[("scene", "set mood = \"calm\"\nAce: Feeling {mood} today.\n")],
         HashMap::from([("mood".to_string(), StateValue::Str("low".to_string()))]),
     );
-    // Ensure the fixture is a well-formed single scene.
+    // The fixture scene declares no labels.
     assert_eq!(pack.scenes["scene"].labels.len(), 0);
 
     let mut runner = ScriptRunner::new(pack);

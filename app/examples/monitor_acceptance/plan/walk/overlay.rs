@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 pub(crate) fn overlay_steps() -> Vec<Step> {
     vec![
-        // --- the decision wait -----------------------------------------------
         Step::new("decision: advance onto the decide point held by the gate")
             .at(0, |world, harness| tap_key(world, harness, KeyCode::Space))
             .at(8, |world, harness| tap_key(world, harness, KeyCode::Space))
@@ -46,7 +45,6 @@ pub(crate) fn overlay_steps() -> Vec<Step> {
                     !matches!(wait_kind(world), Some(Wait::Decision { .. })),
                 );
             }),
-        // --- the overlay and Settings ---------------------------------------
         Step::new("menu: Esc opens the overlay, F3 opens Monitor over it")
             .at(0, |world, harness| tap_key(world, harness, KeyCode::Escape))
             .at(6, open_drawer)

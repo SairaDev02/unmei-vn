@@ -73,8 +73,6 @@ pub fn owned_id_for_focus(focus: MenuFocus) -> Option<String> {
 
 /// A gallery card's id, 1-based in entry order.
 pub fn gallery_card_id(index: usize) -> &'static str {
-    // The indexed families are finite in practice (a pack's declared art), so a
-    // small fixed pool of interned ids keeps the return type borrowed.
     const IDS: [&str; 32] = [
         "gallery.card.1",
         "gallery.card.2",

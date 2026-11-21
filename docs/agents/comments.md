@@ -45,9 +45,15 @@ For Unmei behavior, use [domain.md](domain.md), the specs, the ADRs and the test
 
 ## Review and verification
 
-An explicitly requested comment review is **report-only** by default. It covers the requested paths, or the current diff when no paths are named. Each proposed change names the location, the classification, the source context that supports it and any behavior or documentation risk. Do not optimize a comment ratio, and do not add a CI gate or a test suite for comments.
+An explicitly requested comment review is **report-only** by default. It covers the requested paths, or the current diff when no paths are named. Each proposed change names the location, the classification, the source context that supports it and any behavior or documentation risk. Do not optimize a comment ratio.
 
 Edit comments only after the requester authorizes the change. Deleting an ambiguous contract and refactoring application code each need their own approval. For an edit, follow [`docs/testing.md`](../testing.md) and run only the checks that could detect a plausible regression. A documentation-only change does not need a Cargo test by default. Report exactly what you verified and what you did not.
+
+## Budget gate
+
+[`scripts/no-new-comments.py`](../../scripts/no-new-comments.py) runs in the per-push gate and fails when a change adds a comment. It compares each file against the checked-in [`.comment-baseline.json`](../../.comment-baseline.json) and names where the content belongs instead: an ADR, an issue, or nowhere. Rustdoc, Python docstrings and tool directives are exempt, because they carry the API contract, the reading, or an instruction a tool obeys.
+
+The baseline only falls. `--tighten` lowers it to the tree and refuses to raise an entry, so a sweep lands as a smaller budget rather than a looser one. This gate enforces the budget, not the judgement above: a comment the policy protects still belongs in the code even though the file's count stays flat.
 
 ## References
 

@@ -789,7 +789,6 @@ async fn replace_leaves_the_pin_alone() {
     );
     assert!(!written.contains("pin/other"), "{written}");
 
-    // An unpinned NPC stays unpinned.
     let mut fx = fixture();
     unpin_pack(&mut fx);
     let chat = Chat::free(vec![Ok(valid_npc_reply())]);

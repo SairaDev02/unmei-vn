@@ -286,7 +286,6 @@ fn one_shot_replaces_config_and_preserves_comments() {
     .success();
 
     let after = std::fs::read_to_string(fx.pack_root.join("npcs/ace.ron")).unwrap();
-    // Comments preserved, and the file still parses + pack loads.
     for line in before.lines().filter(|l| l.trim_start().starts_with("//")) {
         assert!(after.contains(line), "lost comment: {line}");
     }
@@ -569,7 +568,7 @@ fn corrections_fed_back_between_attempts() {
 
     let requests = fx.requests.lock().unwrap();
     assert_eq!(requests.len(), 2);
-    // The retry request carries the previous assistant reply + the correction.
+    // The retry request carries the empty failed-reply marker + the correction.
     let first_messages = count_messages(&requests[0]);
     let second_messages = count_messages(&requests[1]);
     assert_eq!(
@@ -1185,10 +1184,6 @@ accept
     );
 }
 
-// ---------------------------------------------------------------------------
-// `author draft` run addressing
-// ---------------------------------------------------------------------------
-
 /// RED: `--list` prints every run's handle, span and first say-line, in scene
 /// order, and drafts nothing.
 #[test]
@@ -1324,7 +1319,6 @@ fn draft_one_shot_replaces_only_the_run() {
         "Ace: Who goes there? You don't look like you're from the school."
     );
 
-    // The pack still loads, and the request carried the assembled context.
     unmei_engine::load_pack(&fx.pack_root).unwrap();
     let requests = fx.requests.lock().unwrap();
     // Contract §7: drafting asks for JSON-schema output and routes only
@@ -1697,10 +1691,6 @@ fn draft_help_names_addressing_flags() {
         assert!(text.contains(needle), "help missing {needle}:\n{text}");
     }
 }
-
-// ---------------------------------------------------------------------------
-// `author draft -i` interactive session
-// ---------------------------------------------------------------------------
 
 /// RED (contract §5): `-i` previews the first generation and `accept`
 /// writes it through the same gate, replacing only the addressed run.
@@ -2691,10 +2681,6 @@ fn interactive_brief_prompt_masks_the_known_value() {
     );
     assert_masked("interactive prompt", &stdout, &[key]);
 }
-
-// ---------------------------------------------------------------------------
-// Exact-byte authoring witnesses
-// ---------------------------------------------------------------------------
 
 /// Independently captured stdout/stderr/status bytes and written
 /// files for the authoring commands' key paths. `.gitattributes` keeps these

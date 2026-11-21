@@ -137,8 +137,6 @@ fn live_decision_resolves_through_the_bevy_async_wait() {
         saw_async_task,
         "the runtime never entered the async Decisions wait"
     );
-    // It really went to the model (an info `... via <model>` record) and did not
-    // fall back (no warn record).
     assert!(
         decision_logs
             .iter()

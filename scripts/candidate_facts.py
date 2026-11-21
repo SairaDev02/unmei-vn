@@ -69,8 +69,8 @@ SLOT_FILE_ONLY = (
     ("boot", "linux-shipping-boot"),
 )
 # Which staged files a slot exercised, for the re-run resets. `crate-overlay`,
-# both acceptance jobs and the walk all consume the Linux payload because the
-# Linux job's files are what publication sends.
+# `accept-linux` and the walk consume the Linux payload because the Linux job's
+# files are what publication sends; `accept-windows` consumes the Windows one.
 SLOT_HASH_JOBS = {
     "packaging-windows": ("packaging-windows",),
     "packaging-linux": ("packaging-linux",),

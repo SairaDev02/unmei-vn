@@ -44,7 +44,6 @@ def doc(body: str) -> str:
 
 
 CASES = [
-    # --- accepted documents -------------------------------------------------
     dict(
         id="A01-published-example",
         area="accept",
@@ -441,7 +440,6 @@ CASES = [
             ),
         ),
     ),
-    # --- rejected: syntax ---------------------------------------------------
     dict(
         id="R01-missing-frontmatter",
         area="syntax",
@@ -1020,7 +1018,6 @@ CASES = [
         ),
         expect=dict(accept=False, stage="syntax", field="summary"),
     ),
-    # --- rejected: schema ---------------------------------------------------
     dict(
         id="S01-unknown-field",
         area="schema",

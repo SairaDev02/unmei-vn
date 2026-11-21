@@ -75,8 +75,6 @@ class PackageTests(unittest.TestCase):
         self.addCleanup(self.tempdir.cleanup)
         self.root = Path(self.tempdir.name)
 
-    # --- payload selection ------------------------------------------------
-
     def test_demo_pack_selection_keeps_tracked_content_only(self) -> None:
         listing = "\n".join(
             [
@@ -142,8 +140,6 @@ class PackageTests(unittest.TestCase):
             self.assertFalse(
                 any(name.endswith(leaked) for name in names), f"{leaked} leaked"
             )
-
-    # --- names and layout -------------------------------------------------
 
     def test_archive_names_follow_the_release_identity(self) -> None:
         self.assertEqual(
@@ -212,8 +208,6 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(modes[f"{stem}/unmei-play.exe"], 0o755)
         self.assertEqual(modes[f"{stem}/README"], 0o644)
         self.assertEqual(modes[f"{stem}/demo-pack/pack.ron"], 0o644)
-
-    # --- refusals ---------------------------------------------------------
 
     def test_dirty_build_inputs_refused_and_override_allowed(self) -> None:
         status = "\n".join(
@@ -342,8 +336,6 @@ class PackageTests(unittest.TestCase):
         self.assertIn("101", message)
         self.assertIn("2 files dirty", message)
 
-    # --- rehearsal stamp --------------------------------------------------
-
     def test_rehearsal_stamp_reaches_both_readmes_and_the_run_output(self) -> None:
         self.assertIsNone(self.pkg.rehearsal_stamp(False, False))
         stamp = self.pkg.rehearsal_stamp(True, False)
@@ -375,8 +367,6 @@ class PackageTests(unittest.TestCase):
             "Unmei 0.1.0\n",
         )
 
-    # --- SHA256SUMS -------------------------------------------------------
-
     def test_sha256sums_format_is_sorted_with_two_spaces_and_lf(self) -> None:
         text = self.pkg.sha256sums_text(
             [("unmei-play.exe", "b" * 64), ("unmei-0.1.0-x86_64-windows.zip", "a" * 64)]
@@ -388,8 +378,6 @@ class PackageTests(unittest.TestCase):
         )
         self.assertNotIn("\r", text)
         self.assertTrue(text.endswith("\n"))
-
-    # --- crate staging ----------------------------------------------------
 
     def test_the_package_command_stages_every_publishable_crate(self) -> None:
         self.assertEqual(
@@ -417,8 +405,6 @@ class PackageTests(unittest.TestCase):
         with self.assertRaises(self.pkg.Refusal) as raised:
             self.pkg.staged_crates(staged, "0.1.0")
         self.assertIn("unmei-0.1.0.crate", str(raised.exception))
-
-    # --- normalized archive writers --------------------------------------
 
     def entries(self) -> list:
         return [

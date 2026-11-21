@@ -124,10 +124,6 @@ pub(crate) fn drag_scrollbar(world: &mut World, fraction: f32) {
     crate::harness::move_cursor(world, center);
 }
 
-// ---------------------------------------------------------------------------
-// Settings scroll
-// ---------------------------------------------------------------------------
-
 /// One real OS clipboard paste (Ctrl+V) through the widget's own paste path.
 pub(crate) fn paste(world: &mut World, harness: &mut Harness) {
     world.write_message(KeyboardInput {

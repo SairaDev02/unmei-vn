@@ -4,8 +4,7 @@ version.workspace = true
 edition = "2021"
 description = "The unmei author CLI: generates and edits NPC decision configs via any OpenAI-compatible chat endpoint, fully offline in output."
 license = "MIT"
-# The export fills this token with the public repository URL. It stays visibly
-# unresolved until then, so a release refuses while it remains.
+# The public repository URL, which the export fills in for the published crate.
 repository = "https://github.com/SairaDev02/unmei-vn"
 readme = "README.md"
 rust-version = "1.98"
@@ -23,7 +22,7 @@ path = "src/main.rs"
 unmei-engine = { workspace = true, features = ["network"] }
 clap = { version = "4", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-# The provider's HTTP client (`cli/src/provider.rs`); rustls avoids an OpenSSL
+# The provider's HTTP client (`cli/src/provider/`); rustls avoids an OpenSSL
 # system dependency.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }

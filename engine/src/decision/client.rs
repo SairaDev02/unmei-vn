@@ -266,10 +266,6 @@ fn shared_runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
-// ---------------------------------------------------------------------------
-// Key validation
-// ---------------------------------------------------------------------------
-
 /// The real [`KeyCheck`]: `GET https://api.nano-gpt.com/api/v1/api-keys/current` with
 /// `Authorization: Bearer <key>` and a [`KEY_CHECK_TIMEOUT`] bound
 /// (`docs/title-and-menu.md` § Decisions settings §3). The URL is fixed — it

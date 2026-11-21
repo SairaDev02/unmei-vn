@@ -11,10 +11,6 @@ fn boot_app_capturing(pack_root: PathBuf) -> App {
     app
 }
 
-// ---------------------------------------------------------------------------
-// The read log: player knowledge across launches and save slots
-// ---------------------------------------------------------------------------
-
 #[test]
 fn the_boot_park_behind_the_title_marks_nothing_and_writes_nothing() {
     let pack = temp_pack();
@@ -53,7 +49,6 @@ fn a_second_visit_to_a_line_reports_arrival_read() {
     let pack = temp_pack();
     let pack_root = pack.path().join("pack");
 
-    // First launch: the entry line is marked and reads as arrival-unread.
     let first = app_for_pack(pack_root.clone());
     assert_eq!(read_state(&first).arrival_read(), Some(false));
     assert!(read_state(&first).is_read("first_meeting", 7));
@@ -93,7 +88,6 @@ fn non_say_parks_mark_nothing_and_arrival_is_absent() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
 
-    // Entry say -> Ace say -> the choice wait.
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::Space);
     assert!(matches!(wait(&app), Some(Wait::Choice { .. })));
@@ -648,8 +642,6 @@ fn continue_resuming_a_clean_session_writes_nothing() {
     let clean = std::fs::read(read_log_path(&app)).unwrap();
     assert!(!read_state(&app).is_dirty());
 
-    // Exit to title and Continue the live session: nothing changes, nothing
-    // writes.
     press_and_update(&mut app, KeyCode::Escape);
     click(&mut app, MenuAction::OpenSettings);
     click(&mut app, MenuAction::ExitToTitle);
@@ -672,7 +664,6 @@ fn empty_knowledge_can_become_arrival_read_later_in_the_same_launch() {
     // First arrival to the entry line is unread.
     assert_eq!(read_state(&app).arrival_read(), Some(false));
 
-    // A later ordinary visit in the same launch reads it as read.
     press_and_update(&mut app, KeyCode::Escape);
     click(&mut app, MenuAction::ExitToTitle);
     click(&mut app, MenuAction::ConfirmAccept);
@@ -763,10 +754,6 @@ fn a_held_fallback_answer_flushes_the_read_log_on_resume() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Text skip: replay previously read say-lines with Tab
-// ---------------------------------------------------------------------------
-
 /// The rendered `SKIP` cue, through the same `sync_skip_cue` the app runs.
 fn skip_cue_text(app: &mut App) -> String {
     app.world_mut()
@@ -828,7 +815,6 @@ fn the_skip_dwell_is_fifty_ms_and_unscaled() {
 
 #[test]
 fn tab_engages_only_on_an_arrival_read_say_park() {
-    // Unknown arrival: inert, no cue flash.
     let pack = temp_pack();
     let root = pack.path().join("pack");
     let mut app = app_for_pack(root.clone());
@@ -838,14 +824,12 @@ fn tab_engages_only_on_an_arrival_read_say_park() {
     assert!(!skip_on(&app), "an unread arrival cannot engage");
     assert_eq!(skip_cue_text(&mut app), "", "no cue flash");
 
-    // A non-say park is inert too.
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::Space);
     assert!(matches!(wait(&app), Some(Wait::Choice { .. })));
     press_and_update(&mut app, KeyCode::Tab);
     assert!(!skip_on(&app), "a choice-wait cannot engage");
 
-    // Known arrival: engages, shows the cue, and toggles back off.
     let known = pack_with_entry_says(&["Narrator: One.", "Narrator: Two."]);
     let mut known_app = app_with_known_entry(&known);
     build_ui(&mut known_app);
@@ -1653,10 +1637,6 @@ fn esc_still_clears_skip_under_a_defensive_hold() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Force skip: deliberately skip all say-lines while holding Ctrl
-// ---------------------------------------------------------------------------
-
 /// Step the force hold until it reaches a choice-wait.
 fn run_until_choice(app: &mut App) {
     for _ in 0..8 {
@@ -1708,7 +1688,6 @@ fn a_held_ctrl_skips_unread_lines_and_release_stops() {
         "the hold continues without a fresh press"
     );
 
-    // Release: force stops and the cue clears.
     release_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(!skip_on(&app), "release ends the force hold");

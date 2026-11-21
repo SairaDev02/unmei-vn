@@ -45,11 +45,12 @@ include-dev = true
 # license at all (it is `publish = false`).
 private = { ignore = true }
 
-# `ring` declares `Apache-2.0 AND ISC`, but its `LICENSE` file holds the four
-# texts of the ring project, including OpenSSL-derived files from BoringSSL. The
-# hash is cargo-deny's own 32-bit hash of that file: a version bump that changes
-# the file drops the clarification instead of silently keeping a stale
-# expression, and the crate then falls back to its declared license.
+# `ring` declares `Apache-2.0 AND ISC`, but its `LICENSE` is a short pointer to
+# `LICENSE-BoringSSL` (the OpenSSL-derived Apache-2.0 text) and
+# `LICENSE-other-bits`, so the declared expression does not describe the files.
+# The hash is cargo-deny's own 32-bit hash of that `LICENSE` file: a version bump
+# that changes the file drops the clarification instead of silently keeping a
+# stale expression, and the crate then falls back to its declared license.
 [[licenses.clarify]]
 crate = "ring"
 expression = "ISC AND OpenSSL AND MIT"

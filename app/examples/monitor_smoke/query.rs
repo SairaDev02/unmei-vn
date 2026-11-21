@@ -2,10 +2,6 @@
 
 use crate::prelude::*;
 
-// ---------------------------------------------------------------------------
-// Tree walking
-// ---------------------------------------------------------------------------
-
 /// Read a fixed-pixel node value, panicking on anything proportional.
 pub(crate) fn px(value: Val) -> f32 {
     match value {

@@ -86,10 +86,6 @@ impl<'a> MakeWriter<'a> for SharedBuffer {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Loopback fixtures
-// ---------------------------------------------------------------------------
-
 /// The raw bytes of every request one loopback listener received. A connection
 /// count alone cannot show *which* headers arrived, and an empty destination
 /// log is only evidence once the same harness is shown to record.
@@ -577,7 +573,6 @@ async fn no_supported_diagnostic_reaches_any_sink() {
             notice.as_deref(),
         );
 
-        // The origin saw exactly one request, carrying the (sensitive) bearer
         // The origin saw exactly one request carrying the sensitive bearer
         // header — no retry, and the credential only ever went to the configured
         // endpoint.
@@ -689,8 +684,6 @@ async fn no_supported_diagnostic_reaches_any_sink() {
         "the real log target must be recovered: {targets:?}"
     );
 
-    // No supported sink retained the dummy credential or any reflected
-    // redirect target, query or body text.
     for (sink, text) in [
         ("console", &console_text),
         ("monitor", &history.text()),
@@ -714,8 +707,6 @@ async fn no_supported_diagnostic_reaches_any_sink() {
         );
     }
 
-    // Through request completion and past every sink assertion, the distinct
-    // destination listener still holds no request at all.
     assert_eq!(
         destination.requests.count(),
         0,

@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Text speed reveal
-// ---------------------------------------------------------------------------
-
 #[test]
 fn at_instant_the_say_line_is_whole_on_the_first_frame_and_a_press_advances() {
     let pack = temp_pack();
@@ -280,9 +276,6 @@ fn the_text_speed_control_walks_the_named_ladder_and_persists_on_leave() {
         "Slow"
     );
 
-    // A click on the row focuses the control. The pointer geometry that snaps a
-    // click to a step lives in `settings_drag`, which a headless UI cannot lay
-    // out; `set_text_speed_fraction`'s unit test covers the snapping rule.
     click(&mut app, MenuAction::TextSpeed);
     assert_eq!(menu(&app).focus, MenuFocus::TextSpeed);
     assert_eq!(
@@ -298,10 +291,6 @@ fn the_text_speed_control_walks_the_named_ladder_and_persists_on_leave() {
     press_and_update(&mut app, KeyCode::Escape); // leave -> flush
     assert_eq!(settings::load(&pack_root).settings.play.text_speed, 0.04);
 }
-
-// ---------------------------------------------------------------------------
-// Auto mode and the AUTO cue
-// ---------------------------------------------------------------------------
 
 #[test]
 fn auto_advances_an_instant_line_two_seconds_after_it_parks() {

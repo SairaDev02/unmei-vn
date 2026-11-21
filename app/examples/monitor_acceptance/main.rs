@@ -214,7 +214,3 @@ fn finish(harness: &mut Harness) {
         eprintln!("\nthe rendered acceptance walk failed");
     }
 }
-
-// ---------------------------------------------------------------------------
-// Physical input helpers
-// ---------------------------------------------------------------------------

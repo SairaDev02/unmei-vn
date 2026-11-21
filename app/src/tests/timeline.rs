@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// The Timeline: browse visited scenes and jump
-// ---------------------------------------------------------------------------
-
 /// A copied demo pack whose manifest declares the given scene order. `None`
 /// omits the field (no declared order); `Some(&[])` writes an explicit empty
 /// list. The demo scenes stay as authored.
@@ -93,7 +89,6 @@ fn timeline_replaces_absent_scenes_with_the_exact_empty_copy_and_keeps_the_door(
             "the explanation renders"
         );
 
-        // Back returns to the slot grid, and Resume closes the overlay.
         click(&mut app, MenuAction::TimelineBack);
         assert_eq!(menu(&app).view, MenuView::Slots);
         click(&mut app, MenuAction::Resume);
@@ -157,20 +152,16 @@ fn reopening_forgets_the_previous_focus() {
 
 #[test]
 fn timeline_move_steps_plus_minus_one_and_two_and_clamps_without_wrapping() {
-    // Horizontal ±1.
     assert_eq!(menu::timeline_move(3, 5, menu::GalleryDir::Left), Some(2));
     assert_eq!(menu::timeline_move(3, 5, menu::GalleryDir::Right), Some(4));
-    // Vertical ±2.
     assert_eq!(menu::timeline_move(3, 5, menu::GalleryDir::Up), Some(1));
     assert_eq!(menu::timeline_move(1, 5, menu::GalleryDir::Down), Some(3));
-    // Clamp at both ends, no wrap.
     assert_eq!(menu::timeline_move(0, 5, menu::GalleryDir::Left), None);
     assert_eq!(menu::timeline_move(0, 5, menu::GalleryDir::Up), None);
     assert_eq!(menu::timeline_move(4, 5, menu::GalleryDir::Right), None);
     assert_eq!(menu::timeline_move(4, 5, menu::GalleryDir::Down), None);
     // Diagonal end clamping is intentional: index 1 up lands on 0.
     assert_eq!(menu::timeline_move(1, 5, menu::GalleryDir::Up), Some(0));
-    // Empty list has no move.
     assert_eq!(menu::timeline_move(0, 0, menu::GalleryDir::Left), None);
 }
 
@@ -189,7 +180,6 @@ fn the_walk_includes_locked_cards_and_activation_of_a_locked_card_is_inert() {
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::TimelineCard(1));
 
-    // Enter, Space and click are all inert on a locked card.
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, None);
     press_and_update(&mut app, KeyCode::Space);
@@ -370,7 +360,6 @@ fn the_coordinator_rebuilds_only_on_structure_and_carries_scroll_on_confirm() {
         "the row repaints the new label in place"
     );
 
-    // A structural change rebuilds the tree.
     app.world_mut().resource_mut::<MenuState>().view = MenuView::Timeline;
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TimelineCard(29);
     build_pause_tree(&mut app);
@@ -585,7 +574,6 @@ fn a_held_ctrl_through_a_timeline_jump_disarms_and_needs_a_fresh_press() {
         "no skip runs while Ctrl is still down"
     );
 
-    // Release and repress in play: only a fresh press arms.
     release_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(!skip_force(&app));
@@ -920,7 +908,6 @@ fn opening_walking_and_backing_out_of_the_timeline_writes_nothing() {
 #[test]
 fn the_timeline_opens_at_a_choice_wait_and_freezes_the_request() {
     let (mut app, _pack) = timeline_app(&["first_meeting", "reunion", "epilogue"]);
-    // Entry say -> Ace say -> the choice wait.
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::Space);
     assert!(matches!(wait(&app), Some(Wait::Choice { .. })));

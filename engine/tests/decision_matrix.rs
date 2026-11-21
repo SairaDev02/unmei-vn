@@ -465,8 +465,6 @@ async fn assert_failure_row(status: &'static str, body: &'static str, expected: 
         },
     );
 
-    // An immediate retry would race the fixture's accept loop, and a short
-    // backoff would arrive inside this window; either opens a second connection.
     std::thread::sleep(Duration::from_millis(200));
     assert_eq!(
         server.connections(),
@@ -687,7 +685,6 @@ fn stalled_loopback_exhausts_the_production_timeout_then_progresses() {
         },
     );
 
-    // A retry would open a second connection to the still-listening fixture.
     std::thread::sleep(Duration::from_millis(200));
     assert_eq!(stalled.connections(), 1, "a timed-out call is not retried");
     // Dropping the fixture releases the held socket and joins its thread.

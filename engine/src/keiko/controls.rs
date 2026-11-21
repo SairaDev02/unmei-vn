@@ -6,13 +6,11 @@
 
 /// The fixed control ids, in the player's walk order where one exists.
 pub const CONTROL_IDS: &[&str] = &[
-    // Title
     "title.continue",
     "title.new-game",
     "title.settings",
     "title.gallery",
     "title.quit",
-    // Pause overlay
     "overlay.save-tab",
     "overlay.load-tab",
     "overlay.slot.1",
@@ -25,12 +23,10 @@ pub const CONTROL_IDS: &[&str] = &[
     "overlay.gallery",
     "overlay.timeline",
     "overlay.legacy",
-    // Legacy picker
     "legacy.target.1",
     "legacy.target.2",
     "legacy.target.3",
     "legacy.cancel",
-    // Settings
     "settings.back",
     "settings.master",
     "settings.music",
@@ -44,7 +40,6 @@ pub const CONTROL_IDS: &[&str] = &[
     "settings.key",
     "settings.copy-path",
     "settings.clear-key",
-    // Confirm
     "confirm.yes",
     "confirm.no",
 ];

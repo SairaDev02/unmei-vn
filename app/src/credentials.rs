@@ -84,10 +84,6 @@ pub struct CopyPathLabel {
     pub remaining: f32,
 }
 
-// ---------------------------------------------------------------------------
-// The clipboard port
-// ---------------------------------------------------------------------------
-
 /// The clipboard backend the key row uses. Production installs [`System`] so
 /// `Copy path` and paste reach the real OS clipboard through the existing
 /// `bevy_clipboard::Clipboard` resource; every test world keeps the default
@@ -136,10 +132,6 @@ pub fn clipboard_write(port: &mut ClipboardPort, clipboard: Option<&mut Clipboar
     }
 }
 
-// ---------------------------------------------------------------------------
-// Paste normalisation
-// ---------------------------------------------------------------------------
-
 /// Surrounding **ASCII** whitespace, and only that — a trailing newline a key
 /// paste carries is removed before the widget's all-or-nothing filter sees it
 /// (`docs/title-and-menu.md` § Decisions settings §4.2).
@@ -169,10 +161,6 @@ pub fn substitute_paste_edits(edits: &mut Vec<TextEdit>, clipboard: Option<&str>
     }
     *edits = replaced;
 }
-
-// ---------------------------------------------------------------------------
-// Paths
-// ---------------------------------------------------------------------------
 
 /// The credential file inside an explicit config directory. The file name is
 /// added here, so no caller ever spells it.
@@ -254,10 +242,6 @@ fn non_empty(value: Option<OsString>) -> Option<OsString> {
     value.filter(|value| !value.is_empty())
 }
 
-// ---------------------------------------------------------------------------
-// Shape + fingerprint
-// ---------------------------------------------------------------------------
-
 /// The local, free shape check: after trimming, a key must be non-empty,
 /// at least [`MIN_KEY_LENGTH`] characters, and every character ASCII graphic —
 /// so no space, newline, control character or non-ASCII byte can hide in it.
@@ -286,10 +270,6 @@ pub fn fingerprint(key: &str) -> String {
     let suffix: String = characters[characters.len() - suffix_len..].iter().collect();
     format!("{prefix}\u{2026}{suffix}")
 }
-
-// ---------------------------------------------------------------------------
-// The row's states
-// ---------------------------------------------------------------------------
 
 /// What the key row shows. This is the whole surface: a fingerprint at most,
 /// never the key. `Invalid` covers a stored value that fails the shape check and
@@ -392,10 +372,6 @@ impl KeyRow {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Live state
-// ---------------------------------------------------------------------------
 
 /// The read credential state the presentation renders. It never holds the raw
 /// key: `path` and `row` are everything a row or a path line needs.
@@ -576,10 +552,6 @@ fn trimmed_env_key(env_key: Option<&str>) -> Option<&str> {
     env_key.map(str::trim).filter(|key| !key.is_empty())
 }
 
-// ---------------------------------------------------------------------------
-// Launch resolution
-// ---------------------------------------------------------------------------
-
 /// The launch read and the resolver it built. `main` installs `state`/`warning`
 /// as [`StartupCredentials`] and `resolver` into the runtime config, so the two
 /// cannot diverge.
@@ -638,10 +610,6 @@ pub(crate) fn setup_credentials(
     }
     *state = preloaded.state.clone();
 }
-
-// ---------------------------------------------------------------------------
-// The atomic write
-// ---------------------------------------------------------------------------
 
 /// One atomic write: a stale `credentials.tmp` is removed best-effort, a fresh
 /// temp is created `0600` (Unix) with `create_new`, and the rename replaces the
@@ -756,10 +724,6 @@ impl std::fmt::Display for CredentialError {
 
 impl std::error::Error for CredentialError {}
 
-// ---------------------------------------------------------------------------
-// Unit tests
-// ---------------------------------------------------------------------------
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -772,8 +736,6 @@ mod tests {
     fn temp_root() -> tempfile::TempDir {
         tempfile::tempdir().unwrap()
     }
-
-    // -- paths ---------------------------------------------------------------
 
     #[test]
     fn the_file_name_is_the_helpers_never_a_callers() {
@@ -828,8 +790,6 @@ mod tests {
             "a relative XDG value is invalid and falls back to $HOME"
         );
     }
-
-    // -- shape + fingerprint -------------------------------------------------
 
     #[test]
     fn the_shape_check_follows_the_settled_table() {
@@ -896,8 +856,6 @@ mod tests {
             "\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{2026}\u{00e9}\u{00e9}\u{00e9}\u{00e9}"
         );
     }
-
-    // -- row state lines -----------------------------------------------------
 
     #[test]
     fn the_row_state_lines_follow_the_settled_table() {
@@ -1029,8 +987,6 @@ mod tests {
         assert!(KeyRow::Invalid.fingerprint().is_none());
     }
 
-    // -- paste normalisation ------------------------------------------------
-
     #[test]
     fn the_paste_trim_removes_only_surrounding_ascii_whitespace() {
         assert_eq!(trim_ascii_whitespace("  key\n"), "key");
@@ -1077,8 +1033,6 @@ mod tests {
             "an edit list with no paste is left alone"
         );
     }
-
-    // -- read posture --------------------------------------------------------
 
     fn config_dir_with(dir: &Path) -> PathBuf {
         let config = dir.join("unmei");
@@ -1229,8 +1183,6 @@ mod tests {
         }
     }
 
-    // -- launch resolution ---------------------------------------------------
-
     struct FakeResolver;
 
     impl DecisionResolver for FakeResolver {
@@ -1255,7 +1207,6 @@ mod tests {
         let root = temp_root();
         let config = config_dir_with(root.path());
 
-        // Nothing anywhere: no resolver.
         let used = std::cell::RefCell::new(Vec::new());
         let launch = resolve_launch(Some(&config), None, |key| {
             used.borrow_mut().push(key.to_string());
@@ -1264,7 +1215,6 @@ mod tests {
         assert!(launch.resolver.is_none());
         assert!(used.borrow().is_empty());
 
-        // A shape-valid stored value builds one.
         let stored = format!("sk-nano-{}", "d".repeat(60));
         write(&config, &stored).unwrap();
         let launch = resolve_launch(Some(&config), None, |key| {
@@ -1274,7 +1224,6 @@ mod tests {
         assert!(launch.resolver.is_some());
         assert_eq!(used.borrow().as_slice(), [stored.as_str()]);
 
-        // A non-empty variable wins over the stored value.
         let env = "sk-nano-env-wins-over-stored-0000";
         let launch = resolve_launch(Some(&config), Some(env), |key| {
             used.borrow_mut().push(key.to_string());
@@ -1302,8 +1251,6 @@ mod tests {
             "the shape failure is the one logged warning"
         );
     }
-
-    // -- the write -----------------------------------------------------------
 
     #[test]
     fn a_successful_write_creates_the_file_atomically_and_leaves_no_temp() {

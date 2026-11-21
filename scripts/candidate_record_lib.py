@@ -65,8 +65,6 @@ def version_at(manifest_text):
     return workspace_version(manifest_text)
 
 
-# --- eligibility --------------------------------------------------------
-
 
 def shape_refusals(sha, ref):
     """Why this dispatch cannot name a candidate, before any history is read."""
@@ -116,8 +114,6 @@ def eligibility_result(sha, version, coordinator_revision):
         "coordinator_revision": coordinator_revision,
     }
 
-
-# --- the record ---------------------------------------------------------
 
 
 def normalized_hashes(hashes):
@@ -330,8 +326,6 @@ def require_record(record, path="the record"):
 def slot_of(record, name):
     return next(slot for slot in record["slots"] if slot["name"] == name)
 
-
-# --- staged payload and SHA256SUMS -------------------------------------
 
 
 def staged_crate(record, crate):

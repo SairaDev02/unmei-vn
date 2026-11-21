@@ -27,7 +27,6 @@ fn save_then_load_restores_position_through_the_app() {
     press_and_update(&mut app, KeyCode::F5);
     assert!(manual_path(&app).exists(), "F5 wrote the first manual slot");
 
-    // Move on, then load: the same line comes back.
     press_and_update(&mut app, KeyCode::Space);
     let moved_on = app.world().resource::<Runtime>().runner.wait().cloned();
     assert_ne!(moved_on, saved_wait);
@@ -42,7 +41,6 @@ fn save_survives_an_app_restart() {
     let pack = temp_pack();
     let pack_root = pack.path().join("pack");
 
-    // First run: advance once, then save mid-scene, then shut the app down.
     let (saved_wait, saved_staging) = {
         let mut app = app_for_pack(pack_root.clone());
         press_and_update(&mut app, KeyCode::Space);
@@ -53,7 +51,6 @@ fn save_survives_an_app_restart() {
         (wait, staging)
     };
 
-    // Second run: a fresh app starts at the entry scene, then F9 resumes.
     let mut restarted = app_for_pack(pack_root);
     assert_eq!(
         restarted.world().resource::<Runtime>().runner.scene_id(),
@@ -79,17 +76,12 @@ fn load_without_a_save_file_is_a_clean_no_op() {
     assert_eq!(before, after);
 }
 
-// ---------------------------------------------------------------------------
-// Shared dev mode and the F5/F9 gate
-// ---------------------------------------------------------------------------
-
 #[test]
 fn runtime_config_defaults_dev_mode_to_debug_assertions_with_an_override() {
     let config = RuntimeConfig::new(PathBuf::from("a-pack"), None);
     // The default is the compiler's debug-assertions setting, never the
     // optimization level or the presence of debug symbols.
     assert_eq!(config.dev_mode, cfg!(debug_assertions));
-    // The explicit construction-time override wins in either direction.
     assert!(
         RuntimeConfig::new(PathBuf::from("a-pack"), None)
             .with_dev_mode(true)
@@ -130,7 +122,6 @@ fn dev_mode_off_makes_f5_and_f9_silent_no_ops() {
     captures::take();
     app.world_mut().resource_mut::<Notice>().text = None;
 
-    // F5 is a no-op: the slot keeps its bytes and no shortcut log is emitted.
     press_and_update(&mut app, KeyCode::F5);
     assert_eq!(
         std::fs::read(&slot).unwrap(),
@@ -142,8 +133,6 @@ fn dev_mode_off_makes_f5_and_f9_silent_no_ops() {
         "dev-off F5 logged nothing at all"
     );
 
-    // F9 is a no-op: the dev-off app stays on its own park rather than
-    // restoring the seeded save.
     press_and_update(&mut app, KeyCode::F9);
     assert_eq!(
         app.world().resource::<Runtime>().runner.wait().cloned(),
@@ -163,10 +152,6 @@ fn dev_mode_off_makes_f5_and_f9_silent_no_ops() {
         "dev mode off leaves autosave active"
     );
 }
-
-// ---------------------------------------------------------------------------
-// Slot write points
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_boot_run_writes_no_slot() {
@@ -189,7 +174,6 @@ fn a_choice_resolve_writes_the_autosave_once() {
     let mut app = app_for_pack(pack.path().join("pack"));
     assert!(!autosave_path(&app).exists());
 
-    // Reach the choice: entry say -> Ace say -> choice.
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::Space);
     assert!(matches!(
@@ -251,7 +235,6 @@ fn a_load_writes_no_autosave() {
     press_and_update(&mut app, KeyCode::F5);
     assert!(manual_path(&app).exists());
 
-    // Move on (say -> choice), then load back: the load itself writes nothing.
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::F9);
 
@@ -389,7 +372,6 @@ fn an_unreadable_slot_refuses_to_load_with_its_reason() {
         !app.world().resource::<Notice>().is_showing(),
         "row 16 has no Notice — the slot card is its surface"
     );
-    // The file is preserved and still overwritable.
     assert_eq!(std::fs::read(&slot).unwrap(), garbage);
     press_and_update(&mut app, KeyCode::F5);
     assert!(save::read_slot(
@@ -532,10 +514,6 @@ fn typed_load_origins_route_the_read_stages_to_their_own_outcomes_and_rows() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Legacy save import card
-// ---------------------------------------------------------------------------
-
 fn legacy_path(app: &App) -> PathBuf {
     let runtime = app.world().resource::<Runtime>();
     save::legacy_save_path_for(runtime.runner.pack())
@@ -560,18 +538,15 @@ fn app_with_legacy() -> (App, tempfile::TempDir) {
 
 #[test]
 fn the_legacy_card_is_shown_only_in_save_mode_while_importable() {
-    // No legacy file: nothing to offer.
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
     assert!(!menu::legacy_visible(menu(&app)), "no file, no card");
 
-    // An importable legacy file: save mode shows it.
     let (mut app, _pack) = app_with_legacy();
     esc(&mut app);
     assert!(menu::legacy_visible(menu(&app)));
 
-    // Load mode hides it; the file is still there.
     switch_mode(&mut app, MenuMode::Load);
     assert!(
         !menu::legacy_visible(menu(&app)),
@@ -579,7 +554,6 @@ fn the_legacy_card_is_shown_only_in_save_mode_while_importable() {
     );
     assert!(legacy_path(&app).exists());
 
-    // Settings leaves the grid entirely.
     click(&mut app, MenuAction::OpenSettings);
     assert!(!menu::legacy_visible(menu(&app)), "settings hides the card");
     click(&mut app, MenuAction::BackToSlots);
@@ -589,14 +563,12 @@ fn the_legacy_card_is_shown_only_in_save_mode_while_importable() {
         "back in save mode it returns"
     );
 
-    // Keyboard reaches it: Down from the grid's bottom row.
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::Card(2);
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::LegacyCard);
     press_and_update(&mut app, KeyCode::ArrowUp);
     assert_eq!(menu(&app).focus, MenuFocus::Card(2));
 
-    // An unreadable legacy file is neither shown nor touched.
     let (app, _pack) = app_with_legacy();
     let mut app = app;
     let before = b"not a save at all".to_vec();
@@ -629,7 +601,6 @@ fn legacy_picker_labels_occupied_targets_as_overwrite() {
         "slot 3 is unreadable, still overwritable"
     );
 
-    // Down/Up walk the three rows; Esc backs out to the card, not the overlay.
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::LegacyTarget(1));
     esc(&mut app);
@@ -637,8 +608,6 @@ fn legacy_picker_labels_occupied_targets_as_overwrite() {
     assert!(menu(&app).open, "Esc cancelled the picker, not the overlay");
     assert_eq!(menu(&app).focus, MenuFocus::LegacyCard);
 
-    // The picker is save-mode only: switching mode retires it and a stale
-    // target action cannot import.
     let before = std::fs::read(legacy_path(&app)).unwrap();
     click(&mut app, MenuAction::LegacyImport);
     switch_mode(&mut app, MenuMode::Load);
@@ -659,9 +628,8 @@ fn importing_the_legacy_save_writes_the_target_and_retires_the_card() {
     esc(&mut app);
 
     click(&mut app, MenuAction::LegacyImport);
-    click(&mut app, MenuAction::LegacyTarget(Slot::Manual(2))); // Manual(2)
+    click(&mut app, MenuAction::LegacyTarget(Slot::Manual(2)));
 
-    // The slot holds the legacy save, unstamped, and the picker is retired.
     assert!(menu(&app).picker.is_none());
     assert!(!menu::legacy_visible(menu(&app)));
     let runtime = app.world().resource::<Runtime>();
@@ -669,7 +637,6 @@ fn importing_the_legacy_save_writes_the_target_and_retires_the_card() {
     assert_eq!(imported.saved_at, None, "the import fabricates no time");
     assert_eq!(imported.wait, runtime.runner.wait().cloned());
 
-    // The cards re-read: slot 2 is `Ok`, shows `—`, and the entry is gone.
     assert!(matches!(
         menu(&app).slots[1].status,
         SlotStatus::Ok { saved_at: None, .. }
@@ -683,7 +650,6 @@ fn importing_the_legacy_save_writes_the_target_and_retires_the_card() {
     let imported_path = save::imported_legacy_path_for(runtime.runner.pack());
     assert_eq!(std::fs::read(&imported_path).unwrap(), original);
 
-    // A second pass finds neither the entry nor an importable file.
     esc(&mut app);
     esc(&mut app);
     esc(&mut app);

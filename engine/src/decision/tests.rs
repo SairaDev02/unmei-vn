@@ -161,8 +161,6 @@ fn any_error_falls_back_to_author_action() {
     assert_eq!(resolved.fallback_reason, Some(DecisionError::Http));
 }
 
-// --- the type discriminator on the wire ----------------------------------
-
 fn noul_config() -> DecisionConfig {
     DecisionConfig {
         question_type: QuestionType::Noul,
@@ -203,8 +201,6 @@ fn request_shape_follows_the_question_type() {
         serde_json::json!(["No trust.", "Some trust.", "Complete trust."])
     );
 }
-
-// --- `noul` landing ------------------------------------------------------
 
 fn noul_body(probability: f64) -> String {
     format!(
@@ -293,8 +289,6 @@ fn typed_fallback_lands_on_its_typed_key() {
     let score = resolve_or_fallback(&score_config(), Err(DecisionError::Http));
     assert_eq!(score.action, "0");
 }
-
-// --- `score` landing -----------------------------------------------------
 
 /// A score response with the research's echoed `legend`. `score_body` leaves
 /// the probabilities to the caller so landing can be probed directly.
@@ -398,8 +392,6 @@ fn a_choice_answer_on_a_score_config_is_wrong_type() {
         DecisionError::WrongType { .. }
     ));
 }
-
-// --- key validation ------------------------------------------------------
 
 #[test]
 fn verdict_from_status_follows_the_settled_table() {

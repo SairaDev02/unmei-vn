@@ -18,7 +18,6 @@ updates:
       github-actions:
         patterns:
           - "*"
-    # Matches the repository's `ci: ...` commit style, so a bot commit reads
-    # like the hand-written CI commits beside it.
+    # A short prefix so a bot commit reads like the hand-written ones beside it.
     commit-message:
       prefix: ci
