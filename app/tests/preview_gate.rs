@@ -84,10 +84,8 @@ fn size(path: &Path) -> (u32, u32) {
     (image.width(), image.height())
 }
 
-// ---------------------------------------------------------------------------
 // Spec §13 rule 1, preview part: one mode per invocation, its own flags, and a
 // folder that is never inside the pack
-// ---------------------------------------------------------------------------
 
 #[test]
 fn preview_usage_errors_exit_two_before_startup() {
@@ -138,10 +136,8 @@ fn preview_usage_errors_exit_two_before_startup() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Spec §13 rule 24: `--preview` alone writes §9.2's fixture states, and a state
 // a pack cannot reach is a warning that leaves the exit code at 0
-// ---------------------------------------------------------------------------
 
 /// With no selector the preview writes §9.2's fixture states without any help,
 /// and a folder it is given is created when missing.
@@ -278,9 +274,7 @@ fn expected(names: &[&str]) -> Vec<String> {
     names
 }
 
-// ---------------------------------------------------------------------------
 // Rule 21: `--at` writes the one frame its line's park shows
-// ---------------------------------------------------------------------------
 
 /// `reunion:19` is the say-line the authored fallback lands on, so the frame
 /// also proves the replay walked past the decide point at line 10.
@@ -326,9 +320,7 @@ fn an_at_line_that_is_no_park_reports_the_reference_rule_and_writes_nothing() {
     assert!(written(&out).is_empty(), "no frame is written");
 }
 
-// ---------------------------------------------------------------------------
 // Rule 22: `--scene` writes one frame per park, and stops at the scene's edge
-// ---------------------------------------------------------------------------
 
 /// `first_meeting` parks twice on say-lines, once on its choice and once on the
 /// first option's say-line; the jump to `reunion` ends the walk.
@@ -398,9 +390,7 @@ fn a_scene_frames_the_decide_park_and_the_fallback_it_lands_on() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Rule 23: `--pick` and `--state` choose the branch the replay walks
-// ---------------------------------------------------------------------------
 
 /// `first_meeting:28` is the second option's say-line, so the frame proves the
 /// pick reached that branch, and the default picks cannot reach it at all.
@@ -479,10 +469,8 @@ fn a_state_file_reaches_the_if_arm_the_initial_state_skips() {
     assert_eq!(written(&out), ["at-epilogue-10.png"]);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 1's `--format` half: the preview reports its finding in the check's
 // JSON shape too
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_preview_finding_has_the_checks_json_shape() {
@@ -506,9 +494,7 @@ fn a_preview_finding_has_the_checks_json_shape() {
     assert!(written(&out).is_empty(), "no frame is written");
 }
 
-// ---------------------------------------------------------------------------
 // Rule 25: a pack that fails to load writes no frame
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_pack_that_fails_to_load_reports_its_findings_and_writes_no_frame() {
@@ -532,9 +518,7 @@ fn a_pack_that_fails_to_load_reports_its_findings_and_writes_no_frame() {
     assert!(written(&out).is_empty(), "no frame is written");
 }
 
-// ---------------------------------------------------------------------------
 // Rule 26: no fallback adapter fails the preview before any frame
-// ---------------------------------------------------------------------------
 
 #[test]
 fn without_a_fallback_adapter_the_preview_fails_before_any_frame() {
@@ -561,9 +545,7 @@ fn without_a_fallback_adapter_the_preview_fails_before_any_frame() {
     assert!(written(&out).is_empty(), "no frame is written");
 }
 
-// ---------------------------------------------------------------------------
 // Rule 27: a rerun overwrites its own files and leaves the rest alone
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_rerun_overwrites_its_files_and_leaves_another_file_alone() {

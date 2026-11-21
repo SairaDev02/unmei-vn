@@ -77,9 +77,7 @@ impl AuthorChat for FakeChat {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Prompt assembly (§6)
-// ---------------------------------------------------------------------------
 
 /// RED: the prompt carries the state vocabulary with types + bucketing guidance.
 #[tokio::test]
@@ -157,9 +155,7 @@ async fn prompt_includes_brief() {
     assert!(joined.contains("her farewell softens"), "{joined}");
 }
 
-// ---------------------------------------------------------------------------
 // Retries + validation gate (§3/§5)
-// ---------------------------------------------------------------------------
 
 /// RED: a valid model response parses, validates against the demo pack, and is
 /// returned as accepted.
@@ -536,9 +532,7 @@ async fn typed_loader_rejection_is_a_correction() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Accepted implies the candidate was installed and loader-validated
-// ---------------------------------------------------------------------------
 
 /// A `choice` config whose `state_keys` names an undeclared key, so the real
 /// loader rejects it wherever it is actually installed and validated.
@@ -936,9 +930,7 @@ fn public_surface_is_pipeline_shaped() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Drafting one run of prose (contract §3/§4)
-// ---------------------------------------------------------------------------
 
 /// The demo pack plus the exact source bytes of one scene.
 fn demo_draft_setup(scene_id: &str) -> (unmei_engine::Pack, unmei_engine::Scene, String) {
@@ -1132,9 +1124,7 @@ fn validate_edited_scene_accepts_good_and_reports_loader_errors() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Structured output, retry and free-text fallback (contract §7)
-// ---------------------------------------------------------------------------
 
 /// A fake with explicit structured-output behaviour: scripted replies for
 /// `complete_structured` and `complete`, plus the messages each received.
@@ -1506,9 +1496,7 @@ async fn draft_retries_layer_2_loader_failures() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // The interactive `-i` session core (contract §5/§7)
-// ---------------------------------------------------------------------------
 
 /// Build the per-round input the interactive session rebuilds each loop.
 fn draft_input<'a, C: AuthorChat>(
@@ -1714,9 +1702,7 @@ async fn draft_session_updates_the_feedback_referent_each_regeneration() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Terminal target preflight (author-cli contract §10)
-// ---------------------------------------------------------------------------
 
 /// A `GEN` reply the demo pack validates, used as the forbidden later success
 /// on the refusal paths.

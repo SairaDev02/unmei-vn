@@ -671,9 +671,7 @@ async fn draft_writer_refuses_backslash_and_colon_scene_stems_on_native_windows(
     }
 }
 
-// ---------------------------------------------------------------------------
 // The decision pin (N25) and the missing-pin note (N26)
-// ---------------------------------------------------------------------------
 
 const NOTE_ACE: &str = "note: npc `ace` has decision configs but no model pin, so its decision points always take the fallback";
 const NOTE_ZED: &str = "note: npc `zed` has decision configs but no model pin, so its decision points always take the fallback";

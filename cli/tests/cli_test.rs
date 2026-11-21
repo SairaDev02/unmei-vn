@@ -2080,9 +2080,7 @@ fn draft_interactive_eof_after_preview_writes_nothing() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Whole-command terminal masking of the recognized credentials (ADR 0014)
-// ---------------------------------------------------------------------------
 
 /// The fixed marker the CLI substitutes for a recognized credential value.
 const MASK: &str = "[redacted]";
@@ -3444,9 +3442,7 @@ fn baseline_npc_interactive_accept_follows_a_crlf_template() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Terminal target refusal in the spawned binary (author-cli contract §10)
-// ---------------------------------------------------------------------------
 
 /// Run the binary with an unsafe target, a configured loopback endpoint and
 /// missing provider configuration, and assert the refusal preempts everything:
@@ -3667,9 +3663,7 @@ fn draft_write_into_a_bom_scene_drops_the_mark_and_stays_loadable() {
     unmei_engine::load_pack(&fx.pack_root).expect("the written scene still loads");
 }
 
-// ---------------------------------------------------------------------------
 // NanoGPT migration (docs/nanogpt.md N9-N13, N15, N25, N26, N28)
-// ---------------------------------------------------------------------------
 
 fn help_text(args: &[&str]) -> String {
     let out = run_cli(args, &[]).assert().success().get_output().clone();
