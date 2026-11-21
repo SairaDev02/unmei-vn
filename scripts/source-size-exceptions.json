@@ -9,7 +9,7 @@
   {
    "path": ".comment-baseline.json",
    "bytes": 47000,
-   "reason": "Machine-written by scripts/no-new-comments.py: one 8-hex digest per frozen comment (ADR 0016). --tighten only shrinks it, except when it admits a file the baseline has never counted.",
+   "reason": "Machine-written by scripts/no-new-comments.py: one 8-hex digest per frozen comment (ADR 0016). --tighten only shrinks it, except when --admit takes in a file the baseline has never counted.",
    "authorization": "Maintainer decision, 2026-11-21, issue #133: a size exception was chosen over sharding the baseline or exempting it from the size gate"
   }
  ]

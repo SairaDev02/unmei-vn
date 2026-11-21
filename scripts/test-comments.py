@@ -163,13 +163,52 @@ class GateTest(unittest.TestCase):
         self.assertEqual(run.returncode, 1, run.stdout)
         self.assertIn("run.sh", run.stdout)
 
-    def test_tighten_admits_a_file_never_counted(self) -> None:
+    def test_tighten_refuses_a_new_file_with_comments(self) -> None:
         self.repo.write("src/lib.rs", "// fresh\nfn f() {}\n")
+        before = self.repo.baseline()
         run = self.repo.gate("--tighten")
+        self.assertEqual(run.returncode, 1, run.stdout)
+        self.assertIn("--admit src/lib.rs", run.stdout)
+        self.assertEqual(self.repo.baseline(), before)
+
+    def test_admit_takes_in_the_named_file(self) -> None:
+        self.repo.write("src/lib.rs", "// fresh\nfn f() {}\n")
+        run = self.repo.gate("--tighten", "--admit", "src/lib.rs")
         self.assertEqual(run.returncode, 0, run.stdout)
         self.assertIn("admitted new file: src/lib.rs", run.stdout)
         self.assertEqual(len(self.repo.baseline()["src/lib.rs"]), 1)
         self.assert_green()
+
+    def test_admit_is_scoped_to_the_named_file(self) -> None:
+        self.repo.write("src/lib.rs", "// fresh\nfn f() {}\n")
+        self.repo.write("src/other.rs", "// also fresh\nfn g() {}\n")
+        run = self.repo.gate("--tighten", "--admit", "src/lib.rs")
+        self.assertEqual(run.returncode, 1, run.stdout)
+        self.assertIn("--admit src/other.rs", run.stdout)
+        self.assertNotIn("src/lib.rs", self.repo.baseline())
+
+    def test_a_rename_needs_admit_and_drops_the_old_entry(self) -> None:
+        git(self.repo.root, "mv", "tool.py", "renamed.py")
+        before = self.repo.baseline()["tool.py"]
+        self.assertEqual(self.repo.gate("--tighten").returncode, 1)
+        run = self.repo.gate("--tighten", "--admit", "renamed.py")
+        self.assertEqual(run.returncode, 0, run.stdout)
+        self.assertNotIn("tool.py", self.repo.baseline())
+        self.assertEqual(self.repo.baseline()["renamed.py"], before)
+        self.assert_green()
+
+    def test_a_new_file_with_only_exempt_comments_needs_no_admit(self) -> None:
+        self.repo.write("src/lib.rs", "/// Item doc.\nfn f() {}\n")
+        self.repo.write("new.py", '#!/usr/bin/env python3\n"""Doc."""\nimport os  # noqa: F401\n')
+        run = self.repo.gate("--tighten")
+        self.assertEqual(run.returncode, 0, run.stdout)
+        self.assertNotIn("src/lib.rs", self.repo.baseline())
+        self.assertNotIn("new.py", self.repo.baseline())
+
+    def test_admit_needs_tighten(self) -> None:
+        run = self.repo.gate("--admit", "tool.py")
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertIn("--admit needs --tighten", run.stderr)
 
 
 class RustBlockTest(unittest.TestCase):
