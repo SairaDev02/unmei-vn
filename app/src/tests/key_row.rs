@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// The Decisions group and the credential file
-// ---------------------------------------------------------------------------
-
 /// The Decisions group's key row state line, if the group is built.
 fn key_row_text(app: &App) -> Option<String> {
     app.world().iter_entities().find_map(|entity| {
@@ -28,7 +24,6 @@ fn the_decisions_group_renders_last_with_the_read_only_key_row_and_path_line() {
     let key = format!("sk-nano-{}", "a".repeat(60));
     let fingerprint = credentials::fingerprint(&key);
 
-    // The overlay door.
     let mut app = app_for_pack(pack.path().join("pack"));
     open_settings(&mut app);
     app.init_resource::<crate::presentation::MenuBuilt>();
@@ -62,7 +57,6 @@ fn the_decisions_group_renders_last_with_the_read_only_key_row_and_path_line() {
         "the raw key is never rendered"
     );
 
-    // The title door renders the same group.
     let mut titled = temp_title_app();
     titled.init_resource::<crate::presentation::MenuBuilt>();
     titled.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleSettings;
@@ -414,7 +408,6 @@ fn the_settings_wheel_scrolls_the_lower_controls_and_back_control_into_view() {
         app.update();
         assert_eq!(settings_scroll(&app), 0.0, "{door:?}: starts at the top");
 
-        // A wheel off the body leaves it where it was.
         set_settings_cursor(&mut app, SETTINGS_VIEWPORT + Vec2::splat(50.0));
         send_settings_wheel(&mut app, -1.0);
         app.update();
@@ -477,7 +470,6 @@ fn the_settings_wheel_is_frozen_under_an_open_confirmation() {
         app.update();
         assert_eq!(settings_scroll(&app), 0.0, "{door:?}: rebuilt at the top");
 
-        // A wheel over the still-laid-out body is inert behind the confirm.
         set_settings_cursor(&mut app, SETTINGS_VIEWPORT / 2.0);
         send_settings_wheel(&mut app, -1.0);
         app.update();
@@ -629,10 +621,6 @@ fn a_shape_failure_logs_once_without_quoting_the_value_or_its_fingerprint() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// The interactive key row
-// ---------------------------------------------------------------------------
-
 /// The field's current buffer.
 fn field_text(app: &App) -> String {
     let entity = key_field_entity(app).expect("the key field is built");
@@ -693,7 +681,6 @@ fn the_key_field_starts_empty_hides_the_key_and_shows_the_placeholder_only_on_no
         "a Set row shows no placeholder"
     );
 
-    // Not set: the placeholder is the fixed copy and is visible.
     app.world_mut().resource_mut::<CredentialsState>().row = KeyRow::NotSet;
     app.world_mut()
         .run_system_once(crate::presentation::settings_view::sync_key_row)
@@ -740,7 +727,6 @@ fn the_key_field_focus_model_walks_edits_commits_and_discards() {
     open_settings_with_ui(&mut app);
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::KeyRow;
 
-    // Enter enters editing; arrows no longer walk.
     press_and_update(&mut app, KeyCode::Enter);
     assert!(menu(&app).key_editing);
     press_and_update(&mut app, KeyCode::ArrowDown);
@@ -750,7 +736,6 @@ fn the_key_field_focus_model_walks_edits_commits_and_discards() {
         "arrows do not walk while editing"
     );
 
-    // A shape failure writes nothing and keeps the typed text.
     set_field_text(&mut app, "short");
     press_and_update(&mut app, KeyCode::Enter);
     assert!(
@@ -790,7 +775,6 @@ fn the_key_field_focus_model_walks_edits_commits_and_discards() {
         "a committed key never stays in the field"
     );
 
-    // The first Esc discards and stays; the second backs out of Settings.
     press_and_update(&mut app, KeyCode::Enter);
     set_field_text(&mut app, "another-value-here");
     press_and_update(&mut app, KeyCode::Escape);
@@ -871,7 +855,6 @@ fn clear_key_confirms_once_deletes_the_file_and_returns_the_resolver_to_none() {
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::ClearKey));
 
-    // Cancelling changes nothing.
     click(&mut app, MenuAction::ConfirmCancel);
     assert!(path.exists());
     assert!(app
@@ -1070,10 +1053,6 @@ fn the_editable_field_receives_keyboard_input_and_a_trimmed_in_process_paste() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Key validation on write
-// ---------------------------------------------------------------------------
-
 #[test]
 fn a_shape_failure_writes_nothing_and_never_pings() {
     let mut rig = key_check_rig(Arc::new(FakeResolver::new(model_answer("warm"))));
@@ -1150,7 +1129,6 @@ fn a_committed_key_is_on_disk_before_the_ping_and_shows_accepted() {
         "the row shows Checking while the ping runs"
     );
 
-    // `Checking…` disables the field: Enter on the row is a no-op again.
     rig.app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::KeyRow;
     press_and_update(&mut rig.app, KeyCode::Enter);
     assert!(!menu(&rig.app).key_editing, "Checking… disables the input");
@@ -1267,7 +1245,6 @@ fn there_is_no_standing_ping_at_launch_or_on_view_open() {
     }
     assert_eq!(rig.checker.calls(), 0, "boot and view-open ping nothing");
 
-    // Back out and re-open Settings: still no ping.
     press_and_update(&mut rig.app, KeyCode::Escape);
     click(&mut rig.app, MenuAction::OpenSettings);
     rig.app.update();

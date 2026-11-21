@@ -78,7 +78,6 @@ pub(crate) fn menu_input(
         return;
     }
 
-    // A click on any control names its action directly.
     let mut clicked = None;
     for (interaction, action) in &mut interactions {
         if *interaction == Interaction::Pressed {

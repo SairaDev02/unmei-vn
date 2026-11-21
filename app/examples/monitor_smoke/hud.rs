@@ -2,10 +2,6 @@
 
 use crate::prelude::*;
 
-// ---------------------------------------------------------------------------
-// HUD stability
-// ---------------------------------------------------------------------------
-
 /// Every node that is one of the four HUD elements the drawer must leave alone:
 /// the help line, the Notice slot, the dialogue band and the cue slot.
 pub(crate) fn snapshot_hud(

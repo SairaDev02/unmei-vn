@@ -103,8 +103,6 @@ class ArchiveTests(unittest.TestCase):
         (directory / "SHA256SUMS").write_text(sums, encoding="utf-8")
         return directory
 
-    # --- archive discovery and extraction ---------------------------------
-
     def test_each_archive_is_found_by_the_name_packaging_writes(self) -> None:
         directory = self.release_dir()
         self.assertEqual(accept.find_archive(directory, "player", "windows").name,
@@ -128,8 +126,6 @@ class ArchiveTests(unittest.TestCase):
         with self.assertRaises(accept.Refusal) as raised:
             accept.extract(archive, self.root / "out")
         self.assertIn("not one", str(raised.exception))
-
-    # --- the payload ------------------------------------------------------
 
     def test_the_player_layout_passes_and_names_what_is_missing(self) -> None:
         root = accept.extract(self.write_archive(PLAYER + ".zip", player_entries()),
@@ -165,8 +161,6 @@ class ArchiveTests(unittest.TestCase):
         root = accept.extract(archive, self.root / "p")
         problems = accept.layout_problems("player", root, VERSION, ".exe")
         self.assertTrue(any("does not name" in item for item in problems))
-
-    # --- the executables --------------------------------------------------
 
     def test_the_environment_carries_no_cargo_or_toolchain(self) -> None:
         env = accept.clean_env(self.root / "home")

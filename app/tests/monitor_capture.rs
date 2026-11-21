@@ -132,7 +132,6 @@ fn hidden_capture_retains_through_further_updates_and_is_not_cleared() {
 
     let before = app.world().resource::<MonitorHistory>().retained();
     assert!(before >= 1);
-    // Extra frames on the same surface do not age the history out or clear it.
     for _ in 0..3 {
         app.update();
     }

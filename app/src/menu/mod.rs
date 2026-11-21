@@ -47,7 +47,7 @@ pub use cards::{
 };
 pub(crate) use credential_sync::{read_on_settings_open, sync_key_focus};
 pub(crate) use input::menu_input;
-// The key row's system parameters are read by the app's tests only.
+// The re-export keeps the pre-split `menu::KeyRowInput` path valid for tests.
 #[cfg(test)]
 #[allow(
     unused_imports,
@@ -61,7 +61,7 @@ pub use labels::{
     TIMELINE_LEGEND, TIMELINE_LOCKED, TITLE_LEGEND, TITLE_ORDER,
 };
 pub use navigation::{gallery_browse, gallery_move, timeline_move, GalleryDir};
-// The load-completion pair is called and named by the app's tests only.
+// The re-export keeps the pre-split `menu::` load paths valid for tests.
 #[cfg(test)]
 pub(crate) use persistence::{complete_load, LoadSurface};
 pub use state::{

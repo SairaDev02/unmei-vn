@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 pub(crate) fn door_steps() -> Vec<Step> {
     vec![
-        // --- gallery and timeline -------------------------------------------
         Step::new("gallery: leave Settings for the slot grid")
             .at(0, close_drawer)
             .at(6, |world, _harness| {
@@ -126,7 +125,6 @@ pub(crate) fn door_steps() -> Vec<Step> {
                     crate::harness::snap(world).drawer_open(),
                 );
             }),
-        // --- confirmation ----------------------------------------------------
         Step::new("confirm: the title's New Game raises the destructive confirmation")
             .at(0, close_drawer)
             .at(6, |world, _harness| {

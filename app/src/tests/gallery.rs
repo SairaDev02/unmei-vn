@@ -41,10 +41,6 @@ fn gallery_entries_resolve_through_the_shared_path_producers() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// The gallery surface: two doors, back-out and the empty state
-// ---------------------------------------------------------------------------
-
 /// A copied demo pack whose scenes declare no `bg`/`sprite` and whose manifest
 /// declares no `title_backdrop`, so its gallery has no entries
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §6).
@@ -227,13 +223,11 @@ fn the_overlay_top_bar_renders_gallery_left_of_settings_only_in_the_grid() {
         "Gallery sits immediately left of Settings"
     );
 
-    // Settings carries neither sub-view control.
     click(&mut app, MenuAction::OpenSettings);
     build_pause_tree(&mut app);
     assert!(!has_action(&app, MenuAction::OpenGallery));
     assert!(!has_action(&app, MenuAction::OpenSettings));
 
-    // The gallery carries no Settings control.
     click(&mut app, MenuAction::BackToSlots);
     click(&mut app, MenuAction::OpenGallery);
     build_pause_tree(&mut app);
@@ -279,7 +273,6 @@ fn the_overlay_gallery_control_renders_the_copy_string() {
 /// from (`docs/title-and-menu.md` § Gallery `### Behavior` §3/§7).
 #[test]
 fn the_gallery_back_control_is_door_aware() {
-    // Overlay door: `← Back to slots`.
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     open_overlay_gallery(&mut app);
@@ -292,7 +285,6 @@ fn the_gallery_back_control_is_door_aware() {
     assert_eq!(menu(&app).view, MenuView::Slots);
     assert!(menu(&app).open, "the overlay is still up");
 
-    // Title door: `← Back to title`.
     let mut title = temp_title_app();
     title.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleGallery;
     press_and_update(&mut title, KeyCode::Enter);
@@ -357,7 +349,6 @@ fn neither_settings_nor_the_gallery_is_a_door_to_the_other() {
         "the gallery carries no Settings control"
     );
 
-    // Same from the title's door.
     let mut title = temp_title_app();
     title.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleSettings;
     press_and_update(&mut title, KeyCode::Enter);
@@ -374,7 +365,6 @@ fn neither_settings_nor_the_gallery_is_a_door_to_the_other() {
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §2).
 #[test]
 fn the_gallery_opens_at_every_parked_wait_leaving_the_session_unchanged() {
-    // say-wait
     let pack = temp_pack();
     let mut say = app_for_pack(pack.path().join("pack"));
     assert!(matches!(
@@ -386,7 +376,6 @@ fn the_gallery_opens_at_every_parked_wait_leaving_the_session_unchanged() {
     assert_eq!(parked_position(&say), before);
     assert!(!autosave_path(&say).exists());
 
-    // choice-wait
     let pack = temp_pack();
     let mut choice = app_for_pack(pack.path().join("pack"));
     press_and_update(&mut choice, KeyCode::Space);
@@ -399,7 +388,6 @@ fn the_gallery_opens_at_every_parked_wait_leaving_the_session_unchanged() {
     open_overlay_gallery(&mut choice);
     assert_eq!(parked_position(&choice), before);
 
-    // end of scene (no parked wait)
     let pack = temp_pack();
     let mut ended = app_for_pack(pack.path().join("pack"));
     play_to_end(&mut ended);
@@ -408,7 +396,6 @@ fn the_gallery_opens_at_every_parked_wait_leaving_the_session_unchanged() {
     open_overlay_gallery(&mut ended);
     assert_eq!(parked_position(&ended), before);
 
-    // decision-wait with the request in flight: the request survives too.
     let fake = FakeResolver::new(model_answer("warm"));
     let (mut inflight, _dir) = app_parked_on_decision(&fake);
     let before = parked_position(&inflight);
@@ -417,7 +404,6 @@ fn the_gallery_opens_at_every_parked_wait_leaving_the_session_unchanged() {
     assert!(inflight.world().resource::<PendingDecision>().0.is_some());
     assert_eq!(fake.calls(), 1, "the gallery never re-fires or cancels");
 
-    // a held answer stays held
     let fake = FakeResolver::new(model_answer("warm"));
     let (mut held_app, _dir) = app_parked_on_decision(&fake);
     esc(&mut held_app);
@@ -501,7 +487,6 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         "the empty state raises no Notice"
     );
 
-    // The heading is sans SemiBold; the empty-state line is sans prose.
     let faces = app
         .world()
         .resource::<crate::presentation::style::TextFaces>()
@@ -517,7 +502,6 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         "the empty-state line is sans prose"
     );
 
-    // The title's door draws the same empty state.
     let dir = temp_pack_without_gallery_entries();
     let mut title = boot_app(dir.path().join("pack"), None);
     title.insert_resource(TempPack(dir));
@@ -531,10 +515,6 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
     );
     assert!(!has_action(&title, MenuAction::Card(0)), "no grid draws");
 }
-
-// ---------------------------------------------------------------------------
-// The gallery grid and its walk
-// ---------------------------------------------------------------------------
 
 /// The card a gallery arrow move lands on for each direction and boundary. The
 /// walk does not wrap; `↑`/`↓` step one row and clamp to the last entry when
@@ -612,7 +592,6 @@ fn gallery_column_count_is_three_across_at_the_reference_window() {
         crate::presentation::gallery::gallery_column_count(1856.0),
         5
     );
-    // A degenerate width still draws one column.
     assert_eq!(crate::presentation::gallery::gallery_column_count(0.0), 1);
 }
 
@@ -749,7 +728,6 @@ fn the_gallery_grid_is_three_across_with_a_twenty_pixel_gap() {
         "the grid keeps its natural height inside the scrolling body"
     );
 
-    // One card per demo entry, each with a 4:3 art box and its label.
     let faces = app
         .world()
         .resource::<crate::presentation::style::TextFaces>()
@@ -1002,7 +980,6 @@ fn the_focused_gallery_card_differs_only_by_its_focus_border() {
         "focus changes no fill or brightness"
     );
 
-    // Moving the walk moves the one ring.
     press_and_update(&mut app, KeyCode::ArrowRight);
     app.world_mut()
         .run_system_once(crate::presentation::sync_menu_focus)
@@ -1081,7 +1058,6 @@ fn the_gallery_grid_legend_renders_right_aligned_and_mono() {
             .map(|child| child.parent());
     }
 
-    // The empty state draws no legend.
     let dir = temp_pack_without_gallery_entries();
     let mut empty = app_for_pack(dir.path().join("pack"));
     esc(&mut empty);
@@ -1123,7 +1099,6 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
         "no wrap at the start"
     );
 
-    // Down steps one row: 0 -> 3 -> 6; the last card's down is a no-op.
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(3));
     press_and_update(&mut app, KeyCode::ArrowDown);
@@ -1135,7 +1110,6 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
         "no wrap at the end"
     );
 
-    // Up steps one row: 6 -> 3 -> 0; the first card's up is a no-op.
     press_and_update(&mut app, KeyCode::ArrowUp);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(3));
     press_and_update(&mut app, KeyCode::ArrowUp);
@@ -1156,12 +1130,10 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(5));
 
-    // A digit does nothing in the grid.
     let before = menu(&app).focus;
     press_and_update(&mut app, KeyCode::Digit1);
     assert_eq!(menu(&app).focus, before, "a digit does nothing");
 
-    // Re-opening starts on the first card again.
     click(&mut app, MenuAction::GalleryBack);
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryButton;
     press_and_update(&mut app, KeyCode::Enter);
@@ -1171,7 +1143,6 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
         "every open starts on the first card"
     );
 
-    // The title's door starts on the first card too.
     let dir = temp_pack_with_backgrounds(&["g1", "g2", "g3", "g4"]);
     let mut title = boot_app(dir.path().join("pack"), None);
     title.insert_resource(TempPack(dir));
@@ -1180,10 +1151,6 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
     assert_eq!(menu(&title).view, MenuView::Gallery);
     assert_eq!(menu(&title).focus, MenuFocus::GalleryCard(0));
 }
-
-// ---------------------------------------------------------------------------
-// The still view
-// ---------------------------------------------------------------------------
 
 /// The label of the entry the still is showing, from the runtime pack's entry
 /// order and the menu's focused card.
@@ -1228,7 +1195,6 @@ fn enter_space_and_click_each_open_the_still_for_the_focused_entry() {
     let mut app = app_for_pack(pack.path().join("pack"));
     open_overlay_gallery(&mut app);
 
-    // Enter on the first card opens the still on it, and the label is up.
     press_and_update(&mut app, KeyCode::Enter);
     assert!(menu(&app).gallery_still, "Enter opens the still");
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(0));
@@ -1239,7 +1205,6 @@ fn enter_space_and_click_each_open_the_still_for_the_focused_entry() {
         "the still caption renders: {caption:?}"
     );
 
-    // Space opens it on the entry the walk moved to.
     esc(&mut app);
     assert!(!menu(&app).gallery_still, "Esc closes the still");
     press_and_update(&mut app, KeyCode::ArrowRight);
@@ -1248,13 +1213,11 @@ fn enter_space_and_click_each_open_the_still_for_the_focused_entry() {
     assert!(menu(&app).gallery_still, "Space opens the still");
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(1));
 
-    // A click on a card opens it on that entry too.
     esc(&mut app);
     click(&mut app, MenuAction::GalleryCard(2));
     assert!(menu(&app).gallery_still, "a click opens the still");
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(2));
 
-    // The title's door opens it the same way.
     let mut title = boot_app(pack.path().join("pack"), None);
     title.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleGallery;
     press_and_update(&mut title, KeyCode::Enter);
@@ -1450,7 +1413,6 @@ fn fit_gallery_still_contain_fits_the_image_above_the_foot_strip() {
     assert_eq!(tall_node.width, Val::Px(350.0));
     assert_eq!(tall_node.height, Val::Px(700.0));
 
-    // Both axes fit and the aspect is preserved.
     for (node, natural) in [
         (wide_node, Vec2::new(1280.0, 720.0)),
         (tall_node, Vec2::new(256.0, 512.0)),
@@ -1551,7 +1513,6 @@ fn the_overlay_chrome_is_inert_while_the_still_is_up() {
         "the shown entry still does not move"
     );
 
-    // The still's own click still closes it.
     click(&mut app, MenuAction::GalleryStillClose);
     assert!(!menu(&app).gallery_still, "the still's own click closes it");
 }
@@ -1577,7 +1538,6 @@ fn the_still_browses_cyclically_and_the_caption_and_grid_focus_follow() {
     sync_still(&mut app);
     let first = still_label(&app);
 
-    // Left wraps back to the last entry; the caption follows.
     press_and_update(&mut app, KeyCode::ArrowLeft);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(count - 1));
     build_pause_tree(&mut app);
@@ -1589,11 +1549,9 @@ fn the_still_browses_cyclically_and_the_caption_and_grid_focus_follow() {
         "the caption follows the step: {last:?}"
     );
 
-    // Right wraps forward to the first entry.
     press_and_update(&mut app, KeyCode::ArrowRight);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(0));
 
-    // Right steps one entry; closing returns to that grid card.
     press_and_update(&mut app, KeyCode::ArrowRight);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(1));
     esc(&mut app);
@@ -1778,7 +1736,6 @@ fn moving_the_gallery_focus_triggers_scroll_into_view() {
         crate::presentation::gallery::scroll_gallery_focus.after(RuntimeCoreSet),
     );
 
-    // The initial focus reveals itself; an idle frame does not repeat.
     app.update();
     assert_eq!(
         gallery_scrolls(&app),
@@ -1791,7 +1748,6 @@ fn moving_the_gallery_focus_triggers_scroll_into_view() {
         "an idle frame triggers nothing"
     );
 
-    // An arrow move reveals the new card.
     press_and_update(&mut app, KeyCode::ArrowRight);
     assert_eq!(
         gallery_scrolls(&app).len(),
@@ -1962,7 +1918,6 @@ fn closing_the_still_reveals_the_focused_card_again() {
         "the still surface is up"
     );
 
-    // `↓` closes it on the same card, and the rebuilt grid reveals it again.
     press_and_update(&mut app, KeyCode::ArrowDown);
     build_pause_tree(&mut app);
     assert!(!menu(&app).gallery_still, "↓ closes the still");
@@ -1974,7 +1929,6 @@ fn closing_the_still_reveals_the_focused_card_again() {
         "the returned grid reveals the still's entry"
     );
 
-    // An idle frame leaves the scroll alone.
     app.update();
     assert_eq!(
         gallery_body_scroll(&app),
@@ -2139,7 +2093,6 @@ fn a_missing_art_card_draws_the_placeholder_frame_with_its_label() {
     captures::take();
     pump_until_watch_drains(&mut app);
 
-    // Every declared card still carries its label, the failed one included.
     let texts = all_texts(&app);
     for label in ["school_gate", "ace \u{b7} happy", "ace \u{b7} neutral"] {
         assert!(
@@ -2261,8 +2214,6 @@ fn a_failed_cards_still_keeps_the_placeholder_and_the_label() {
     captures::take();
     pump_until_watch_drains(&mut app);
 
-    // The grid reported the missing sprite once; the still reuses that path and
-    // must not add a line of its own.
     let grid_warns = failure_lines();
     assert_eq!(grid_warns.len(), 1, "one warn for the path: {grid_warns:?}");
 
@@ -2291,7 +2242,6 @@ fn a_failed_cards_still_keeps_the_placeholder_and_the_label() {
         "absent art leaves the transparent fallback, not a stretched sentinel"
     );
 
-    // No line was added by the still, and nothing noticed.
     assert!(
         failure_lines().is_empty(),
         "the still must not warn again for a reported path"
@@ -2432,7 +2382,6 @@ fn a_path_the_play_path_reported_is_not_reported_again_by_the_gallery() {
         "a path already reported by the play path logs no second line"
     );
 
-    // The card still draws its placeholder frame with its label.
     let gate = gallery_art_box(&app, entry_index(&app, "school_gate"));
     assert_ne!(
         app.world().get::<Outline>(gate).unwrap().color,
@@ -2496,7 +2445,6 @@ fn a_nineteen_entry_grid_scrolls_with_the_focus_in_range() {
         "the body scrolls"
     );
 
-    // The walk stays on a real card and reaches both ends.
     for _ in 0..(count + 4) {
         press_and_update(&mut app, KeyCode::ArrowRight);
         assert_in_grid(&app, count);
@@ -2528,10 +2476,6 @@ fn assert_in_grid(app: &App, count: usize) {
         other => panic!("focus left the grid: {other:?}"),
     }
 }
-
-// ---------------------------------------------------------------------------
-// The gallery's door backdrop and the title-door scrim
-// ---------------------------------------------------------------------------
 
 /// The built gallery's title-door scrim node, if the title door drew one.
 fn gallery_scrim(app: &App) -> Option<Entity> {
@@ -2694,8 +2638,6 @@ fn the_overlay_gallery_draws_no_scrim() {
         gallery_scrim(&app).is_none(),
         "the overlay's door adds no scrim"
     );
-    // The overlay root keeps its dim over the frozen play frame and draws no
-    // gradient of its own.
     let root = app
         .world()
         .iter_entities()
@@ -2838,7 +2780,6 @@ fn walking_the_title_gallery_leaves_the_backdrop_and_scrim_unchanged() {
     assert_eq!(child_order(&app, root), before, "the tree is not rebuilt");
     assert_eq!(scrim_gradient(&app), gradient, "the scrim is unchanged");
 
-    // Backing out to the title leaves the title's backdrop standing.
     esc(&mut app);
     assert_eq!(menu(&app).view, MenuView::Title);
     pump_until_watch_drains(&mut app);

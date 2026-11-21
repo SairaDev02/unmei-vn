@@ -73,13 +73,13 @@ fn a_normal_mode_walk_writes_the_three_progress_lines() {
     // Two says, the choice, then the crossing into `reunion`; the offline
     // decision fallback resolves in its frame, and one more advance crosses
     // into `epilogue`.
-    press_and_update(&mut app, KeyCode::Space); // say 1 -> say 2
-    press_and_update(&mut app, KeyCode::Space); // say 2 -> choice
-    press_and_update(&mut app, KeyCode::Digit1); // ask_letter say
-    press_and_update(&mut app, KeyCode::Space); // -> reunion
+    press_and_update(&mut app, KeyCode::Space);
+    press_and_update(&mut app, KeyCode::Space);
+    press_and_update(&mut app, KeyCode::Digit1);
+    press_and_update(&mut app, KeyCode::Space);
     assert_eq!(scene_id(&app), "reunion");
-    press_and_update(&mut app, KeyCode::Space); // -> decision fallback say
-    press_and_update(&mut app, KeyCode::Space); // -> epilogue
+    press_and_update(&mut app, KeyCode::Space);
+    press_and_update(&mut app, KeyCode::Space);
     assert_eq!(scene_id(&app), "epilogue");
 
     let walked = read_log(&log_path);
@@ -110,12 +110,12 @@ fn a_normal_mode_walk_writes_the_three_progress_lines() {
 
     // The overlay's Load of the slot just written restores its scene, which is
     // a scene entry like any other.
-    press_and_update(&mut app, KeyCode::Tab); // card -> Save tab
-    press_and_update(&mut app, KeyCode::Tab); // Save tab -> Load tab
-    press_and_update(&mut app, KeyCode::Enter); // the grid switches to Load
+    press_and_update(&mut app, KeyCode::Tab);
+    press_and_update(&mut app, KeyCode::Tab);
+    press_and_update(&mut app, KeyCode::Enter);
     press_and_update(&mut app, KeyCode::Digit1);
-    press_and_update(&mut app, KeyCode::Enter); // Load asks its one confirm
-    press_and_update(&mut app, KeyCode::Enter); // accept
+    press_and_update(&mut app, KeyCode::Enter);
+    press_and_update(&mut app, KeyCode::Enter);
     let loaded = read_log(&log_path);
     assert!(
         loaded.contains(&format!("unmei: loaded {}", slot1.display())),
@@ -127,10 +127,6 @@ fn a_normal_mode_walk_writes_the_three_progress_lines() {
         "a restored save announces the scene it lands in: {loaded}"
     );
 }
-
-// ---------------------------------------------------------------------------
-// Fixtures and log readers
-// ---------------------------------------------------------------------------
 
 fn demo_pack_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))

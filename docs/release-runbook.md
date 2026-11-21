@@ -534,7 +534,7 @@ Open one issue per release attempt in the public tracker. Record each step's tim
 
 ## Later versions
 
-0.1.0 is published by hand, as § 6 and § 7 describe. A later version publishes through `publish.yml`, one crate per run, behind the approval of the `crates-io` environment, which the public repository has, with you as its required reviewer.
+0.1.0 is published by hand, as § 6 and § 7 describe. A later version publishes through `publish.yml`, one crate per run, under the `crates-io` environment that `publish.yml` declares. A Free-plan repository cannot have required reviewers on an environment, so the approval gate and the real OIDC exchange stay open items: the `publish-environment-oidc` residual confirms the gate before the first real run, and a rehearsal records what GitHub does with a declared environment and no reviewer.
 
 1. Bump the version and move the tag-pinned Guide links in the same change. Those links carry the release tag in their path: `<repository URL>/blob/v<version>/docs/guide`. Search for the link form `/blob/v<version>/docs/guide` — every tag-pinned Guide link holds it, with the version segment the published tag set — in the root `README.md`, the crate `README`s, the crate roots' rustdoc and the demo pack's agent guide, and change that segment with the bump. The archive `README`s need no edit: their links use `blob/v@@VERSION@@/`, which `scripts/package.py` fills with the version. The bump and the links ship in one commit, because a candidate that freezes the links at the previous version ships archives that point at the previous release.
 

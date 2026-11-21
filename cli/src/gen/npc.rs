@@ -211,7 +211,7 @@ fn prompt_messages<C: AuthorChat>(
 
     let mut messages = assemble_prompt(&data);
     if !corrections.is_empty() {
-        // Continuity: the model sees its own failed reply, then the correction.
+        // Continuity: the model sees the empty failed-reply marker, then the correction.
         messages.push(Message::assistant(FAILED_REPLY_MARKER.to_string()));
         messages.push(Message::user(corrections_message(corrections, feedback)));
     } else if let Some(instruction) = feedback {

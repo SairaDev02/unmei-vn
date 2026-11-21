@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 pub(crate) fn projection_steps() -> Vec<Step> {
     vec![
-        // --- boot and the empty projection ---------------------------------
         Step::new("boot: the title is up and Monitor is closed")
             .settle(12)
             .check(|world, harness| {
@@ -101,7 +100,6 @@ pub(crate) fn projection_steps() -> Vec<Step> {
                     menu.open && menu.view == MenuView::Title,
                 );
             }),
-        // --- the small-history filter fallbacks -----------------------------
         Step::new("filter: emit a small history with the drawer open")
             .at(0, |world, harness| {
                 open_drawer(world, harness);
@@ -215,7 +213,6 @@ pub(crate) fn projection_steps() -> Vec<Step> {
                     target.starts_with("unmei::") && body.contains("sequence event 0000"),
                 );
             }),
-        // --- the 1,000-line overflow with marked progressive refresh ---------
         Step::new("overflow: close the drawer and accumulate a 1,000-line backlog")
             .at(0, close_drawer)
             .at(6, |_world, harness| {

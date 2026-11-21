@@ -91,7 +91,6 @@ pub(crate) fn setup_ui(mut commands: Commands, faces: Res<TextFaces>) {
         faces.mono(14.0),
         TextColor::from(Color::srgba(1.0, 1.0, 1.0, 0.5)),
     ));
-    // The Notice: one line, top-right, right-aligned; presentation state only.
     commands.spawn((
         NoticeText,
         Node {

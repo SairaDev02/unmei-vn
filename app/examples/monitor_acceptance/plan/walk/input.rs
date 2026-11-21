@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 pub(crate) fn input_steps() -> Vec<Step> {
     vec![
-        // --- pointer, hold/repeat and focus loss ----------------------------
         Step::new("pointer: the Close control dismisses the drawer")
             .at(0, |world, harness| tap_control(world, harness, "Close"))
             .settle(8)
@@ -106,7 +105,6 @@ pub(crate) fn input_steps() -> Vec<Step> {
                     crate::harness::snap(world).drawer_open(),
                 );
             }),
-        // --- reader: wheel, paging and the scrollbar ------------------------
         Step::new("reader: the log-body wheel leaves following with a top anchor")
             .at(0, |world, _harness| wheel_over_body(world, 9.5))
             .settle(6)
@@ -162,7 +160,6 @@ pub(crate) fn input_steps() -> Vec<Step> {
                     );
                 }
             }),
-        // --- fullscreen ------------------------------------------------------
         Step::new("fullscreen: the 1920x1080 width contract (1872px drawer)")
             .at(0, |world, _harness| {
                 let mut query = world.query_filtered::<&mut Window, With<PrimaryWindow>>();
@@ -241,7 +238,6 @@ pub(crate) fn input_steps() -> Vec<Step> {
                 println!("  reference window: {width}x{height}");
                 check_panel(world, harness, "reference window");
             }),
-        // --- play surfaces ---------------------------------------------------
         Step::new("play: leave the title for the fixture's first say-line")
             .at(0, close_drawer)
             .at(5, |world, harness| tap_key(world, harness, KeyCode::Enter))

@@ -200,7 +200,6 @@ fn empty_and_extra_positionals_are_rejected() {
         .unwrap_err()
         .to_string()
         .contains("unexpected extra argument 'pack-b'"));
-    // Extra positionals after `--` are still an error.
     assert!(parse_strs(&["--", "pack-a", "pack-b"]).is_err());
     assert!(parse_strs(&["--dev", "pack-a", "pack-b"]).is_err());
 }

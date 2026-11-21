@@ -31,9 +31,6 @@ DEFAULT_DISPLAY = ":99"
 PACK_NAME = "demo-pack"
 SCENES = ("first_meeting", "reunion", "epilogue")
 
-# `Exit to title` is the rail's fourth child: 240 px rail, 20 px padding, 22/14/16
-# px text above it (`app/src/presentation/overlay/chrome.rs`). `MenuFocus` has no
-# stop for it, so keys cannot reach it — this click is the only way back.
 EXIT_TO_TITLE_POINT = (120, 167)
 
 # `unmei author draft first_meeting --list`, byte for byte (`cli/tests/draft_test.rs`).
@@ -343,7 +340,7 @@ class Walk:
         for _ in range(4):
             self.press("Down")    # Continue, New Game, Settings, Gallery, Quit
         self.press("Return")      # Quit, which asks while a session is live
-        self.press("Return")      # Yes
+        self.press("Return")
 
     def quit(self):
         self.quit_to_title(overlay_open=True)
@@ -363,7 +360,7 @@ class Walk:
         self.press("Return")  # switch the grid to load mode
         self.press("1")
         self.press("Return")  # Load asks once
-        self.press("Return")  # Yes
+        self.press("Return")
         name = re.escape(self.slot1_path.name)
         self.wait_log(rf"^.*unmei: loaded .*{name}$",
                       f"`loaded {self.slot1_path.name}`")

@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// The gated title
-// ---------------------------------------------------------------------------
-
 /// The title root's one radial gradient, so its resolved centre can be pinned
 /// without re-reading the whole entity tree.
 fn title_gradient_radial(app: &App) -> RadialGradient {
@@ -352,7 +348,6 @@ fn new_game_writes_no_slot_and_the_first_crossing_autosaves() {
     let manual_before = std::fs::read(manual_path(&app)).unwrap();
     let settings_before = std::fs::read(settings_path(&app)).unwrap();
 
-    // New Game with a live session: one confirm, then a fresh session.
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleNewGame;
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::NewGame));
@@ -449,7 +444,6 @@ fn the_old_autosave_survives_new_game_quit_and_relaunch() {
         )
     };
 
-    // New Game from the live session, then Quit.
     reenter_title(&mut app);
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleNewGame;
     press_and_update(&mut app, KeyCode::Enter);
@@ -464,7 +458,6 @@ fn the_old_autosave_survives_new_game_quit_and_relaunch() {
     click(&mut app, MenuAction::ConfirmAccept);
     assert!(matches!(app.should_exit(), Some(AppExit::Success)));
 
-    // Relaunch: the old autosave is still the checkpoint Continue loads.
     let mut relaunched = boot_app(pack_root, None);
     assert!(menu(&relaunched).continue_enabled);
     relaunched.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleContinue;
@@ -689,8 +682,6 @@ fn the_tagline_is_never_interpolated() {
         "the tagline renders literally: {texts:?}"
     );
 }
-
-// --- manifest title backdrop ---------------------------------------------
 
 /// `cover_size` fills both axes, preserves the texture's aspect, and lets the
 /// overflowing axis crop; a degenerate dimension falls back to the window.
@@ -1051,7 +1042,6 @@ fn the_titles_gallery_row_opens_the_gallery_with_the_title_as_origin() {
     assert_eq!(menu(&app).gallery_origin, menu::MenuOrigin::Title);
     assert_eq!(parked_position(&app), before, "opening changes nothing");
 
-    // The back control returns to the title.
     click(&mut app, MenuAction::GalleryBack);
     assert_eq!(menu(&app).view, MenuView::Title);
     assert!(menu(&app).title_up());
@@ -1309,7 +1299,7 @@ fn leaving_the_titles_settings_flushes_a_dirty_file() {
     assert!(app.world().resource::<SettingsState>().muted());
     assert!(!settings_path(&app).exists(), "opening writes nothing");
 
-    esc(&mut app); // back out to the title
+    esc(&mut app);
     assert_eq!(menu(&app).view, MenuView::Title);
     assert!(settings_path(&app).exists(), "leaving flushes the file");
     assert!(audio(&app).muted);
@@ -1404,7 +1394,6 @@ fn continue_resumes_a_mid_reveal_line_where_it_stopped() {
 
     reenter_title(&mut app);
     assert!(menu(&app).title_up());
-    // Time spent on the title does not advance the reveal clock.
     advance_time(&mut app, 5.0);
     assert_eq!(
         app.world().resource::<TextReveal>().chars_shown(0.04),
@@ -1768,10 +1757,6 @@ fn a_refused_continue_load_refreshes_the_titles_metadata() {
     assert_ne!(menu(&app).continue_line, "No autosave yet");
 }
 
-// ---------------------------------------------------------------------------
-// Continue's autosave path and its reason line
-// ---------------------------------------------------------------------------
-
 /// A temp pack carrying a loadable, app-stamped autosave at the second park,
 /// so every Continue-autosave test starts from the same fixture.
 fn pack_with_a_stamped_autosave() -> tempfile::TempDir {
@@ -1813,7 +1798,6 @@ fn continue_disables_with_the_engines_unreadable_reason_verbatim() {
         &state.continue_line, reason,
         "the engine's reason, verbatim"
     );
-    // The overlay's card shows the very same string.
     assert_eq!(
         &menu::card_model(info, MenuMode::Load).detail,
         reason,
@@ -1886,7 +1870,6 @@ fn continue_line_appends_the_autosaves_formatted_time_and_a_dash_when_unstamped(
     );
     assert!(menu(&app).continue_enabled);
 
-    // A stamped autosave renders the app-formatted local time.
     let stamped_at = 1_760_000_000;
     {
         let loaded = load_pack(&pack_root).expect("pack loads");
@@ -1901,7 +1884,6 @@ fn continue_line_appends_the_autosaves_formatted_time_and_a_dash_when_unstamped(
         format!("{scene_id} \u{00b7} {formatted}"),
         "the scene id plus the app-formatted local time"
     );
-    // The same fields and formatting as the overlay's card.
     let info = &menu(&app).slots[menu::slot_index(Slot::Autosave)];
     assert_eq!(
         menu::card_model(info, MenuMode::Load).saved_at,
@@ -2056,7 +2038,6 @@ fn no_key_state_gates_continue_or_new_game() {
     ];
 
     for row in &rows {
-        // Continue: enabled and it enters play.
         let mut app = boot_app(pack_root.clone(), None);
         app.insert_resource(CredentialsState {
             config_dir: None,
@@ -2072,7 +2053,6 @@ fn no_key_state_gates_continue_or_new_game() {
         assert!(!menu(&app).open, "Continue is not gated by {row:?}");
         assert!(live_session(&app), "{row:?} does not block play");
 
-        // New Game: still starts play.
         let mut app = boot_app(pack_root.clone(), None);
         app.insert_resource(CredentialsState {
             config_dir: None,
@@ -2116,7 +2096,7 @@ fn exit_to_title_renders_from_the_overlay_rail_with_its_confirm_copy() {
     let mut app = temp_title_app();
     app.init_resource::<crate::presentation::MenuBuilt>();
     enter_play(&mut app);
-    esc(&mut app); // open the overlay
+    esc(&mut app);
     click(&mut app, MenuAction::OpenSettings);
     assert_eq!(menu(&app).settings_origin, menu::MenuOrigin::Slots);
 

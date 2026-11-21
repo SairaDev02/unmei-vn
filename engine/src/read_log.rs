@@ -190,8 +190,6 @@ mod tests {
         std::fs::read(path).ok()
     }
 
-    // --- Path derivation ---------------------------------------------------
-
     #[test]
     fn the_read_log_is_the_packs_sibling_named_after_it() {
         let (dir, pack) = temp_pack();
@@ -214,8 +212,6 @@ mod tests {
             "both siblings sit beside the pack"
         );
     }
-
-    // --- The key -----------------------------------------------------------
 
     #[test]
     fn a_say_park_records_the_authored_source_line() {
@@ -255,8 +251,6 @@ mod tests {
         assert!(log.is_visited("scene_a"));
         assert!(!log.is_visited("scene_b"));
     }
-
-    // --- Version policy ----------------------------------------------------
 
     #[test]
     fn a_missing_file_is_the_empty_log_with_no_reason() {
@@ -376,8 +370,6 @@ mod tests {
         assert!(decoded.read.is_empty());
         assert!(decoded.visited.is_empty());
     }
-
-    // --- Round trip + sorted, stable bytes ---------------------------------
 
     #[test]
     fn the_log_round_trips_through_disk() {

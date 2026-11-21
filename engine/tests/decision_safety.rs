@@ -31,10 +31,6 @@ fn reason_text(resolved: &ResolvedDecision) -> Option<String> {
     resolved.fallback_reason.as_ref().map(ToString::to_string)
 }
 
-// ---------------------------------------------------------------------------
-// Log capture
-// ---------------------------------------------------------------------------
-
 /// One captured `log` record: level, target, rendered message.
 #[derive(Clone, Default)]
 struct Captured(Arc<Mutex<Vec<(log::Level, String, String)>>>);
@@ -78,10 +74,6 @@ fn logs_contain(captured: &Captured, needle: &str) -> bool {
         .iter()
         .any(|(_, _, message)| message.contains(needle))
 }
-
-// ---------------------------------------------------------------------------
-// Loopback fixtures
-// ---------------------------------------------------------------------------
 
 /// Read one complete HTTP/1.1 request: headers, then exactly `Content-Length`
 /// bytes of body.
@@ -309,10 +301,6 @@ async fn transport_failure_on_a_secret_bearing_path_is_categorical() {
     assert!(!format!("{resolved:?}").contains(KEY));
     assert!(!logs_contain(&captured, KEY));
 }
-
-// ---------------------------------------------------------------------------
-// Model pin and echoed legend
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn matching_pin_is_kept_and_labelled_as_requested() {

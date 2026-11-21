@@ -79,7 +79,3 @@ pub(crate) fn drain_and_record(world: &mut World, harness: &mut Harness) {
     drain_emissions(world, harness);
     record_updating(world, harness);
 }
-
-// ---------------------------------------------------------------------------
-// Checks
-// ---------------------------------------------------------------------------

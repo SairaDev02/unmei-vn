@@ -205,7 +205,7 @@ pub(crate) fn report(
     }
 
     // Fixture 3: the whole escaped target renders and wraps inside the fixed
-    // 224px target column instead of being shortened under an ellipsis (B5).
+    // 224px target column instead of being shortened under an ellipsis.
     let long_target_row = long_target_row.unwrap_or_else(|| {
         eprintln!("FAILED: the long-target fixture row is missing");
         std::process::exit(1)

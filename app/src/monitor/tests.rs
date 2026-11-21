@@ -116,8 +116,6 @@ fn a_panicking_formatter_releases_its_reservation() {
         });
     }));
     assert!(result.is_err(), "the emitter panic unwinds through capture");
-    // The reservation is released and the discarded admission counted; the
-    // next event still admits normally.
     assert_eq!(shared.reserved.load(Ordering::Acquire), 0);
     assert_eq!(capture.counters().lost, 1);
     let line = one_line(&capture, || tracing::info!(target: "t", "recovered"));
@@ -297,7 +295,6 @@ fn controls_line_separators_bidi_and_ansi_are_escaped_while_unicode_survives() {
 
 #[test]
 fn a_long_target_column_keeps_the_whole_escaped_target() {
-    // A short target is unchanged.
     let capture = capture_with(Arc::new(FakeClock::new()));
     let short = one_line(&capture, || {
         tracing::info!(target: "unmei::smoke", "short");
@@ -305,7 +302,7 @@ fn a_long_target_column_keeps_the_whole_escaped_target() {
     assert_eq!(short.target_display, "unmei::smoke");
 
     // A long module path renders its whole escaped target; the fixed 224px
-    // column wraps it instead of shortening it under an ellipsis (B5).
+    // column wraps it instead of shortening it under an ellipsis.
     const LONG_TARGET: &str = "unmei::smoke::a_deliberately_long_module_path_that_does_not_fit";
     let line = one_line(&capture, || {
         tracing::info!(target: LONG_TARGET, "tail");
@@ -436,7 +433,6 @@ fn a_formatter_that_fails_creates_no_line_and_releases_the_slot() {
     assert_eq!(capture.counters().lost, 1);
     assert_eq!(capture.shared.reserved.load(Ordering::Acquire), 0);
 
-    // The slot is free again: the next event admits normally.
     let line = one_line(&capture, || tracing::info!(target: "t", "ok"));
     assert!(line.text.ends_with("ok"));
 }
@@ -461,15 +457,12 @@ fn a_poisoned_queue_fails_open_and_recovers_a_reservation() {
     let capture = capture_with(Arc::new(FakeClock::new()));
     let shared = capture.shared_arc();
 
-    // Poison the completed mutex.
     let shared_for_panic = Arc::clone(&shared);
     let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let _guard = shared_for_panic.completed.lock().unwrap();
         panic!("poison");
     }));
 
-    // A subsequent admission still works: the poison is recovered and the
-    // local unavailable state is exposed.
     let line = one_line(&capture, || tracing::info!(target: "t", "after poison"));
     assert!(line.text.ends_with("after poison"));
     assert!(capture.unavailable());
@@ -545,7 +538,6 @@ fn contended_admission_rejects_without_waiting_and_counts_a_loss() {
     assert_eq!(shared.reserved.load(Ordering::Acquire), 0);
     drop(guard);
 
-    // Once uncontended, admission resumes.
     let line = one_line(&capture, || tracing::info!(target: "t", "unblocked"));
     assert!(line.text.ends_with("unblocked"));
 }

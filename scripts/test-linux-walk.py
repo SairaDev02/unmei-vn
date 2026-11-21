@@ -95,8 +95,6 @@ class Player:
         self.read = {}
         self.visited = []
 
-    # -- evidence -----------------------------------------------------------
-
     def write(self, suffix, text):
         self.files[str(self.pack.parent / f"{self.pack.name}.{suffix}")] = text
 
@@ -136,8 +134,6 @@ class Player:
     def autosave_scene(self):
         return "epilogue"
 
-    # -- process ------------------------------------------------------------
-
     def start(self):
         self.handle = FakeHandle()
         self.surface, self.scene, self.presses = "title", None, 0
@@ -151,8 +147,6 @@ class Player:
 
     def exit(self, code):
         self.handle.code = code
-
-    # -- input --------------------------------------------------------------
 
     def key(self, key):
         if self.handle.code is not None:

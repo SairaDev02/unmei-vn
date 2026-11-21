@@ -80,7 +80,6 @@ fn a_real_failed_open_keeps_capture_and_kira_independent_without_a_notice() {
             .is_none(),
         "an unavailable log is not a startup failure"
     );
-    // The log path is still a directory: a failed open never created a file.
     assert!(log_path.is_dir(), "the failed open left the path as it was");
 
     // The kira observer and the dev-gated Monitor capture are installed

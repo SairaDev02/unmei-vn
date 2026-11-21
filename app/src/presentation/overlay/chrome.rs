@@ -53,7 +53,6 @@ pub(in crate::presentation) fn build_overlay(
             BackgroundColor(OVERLAY_BG),
         ))
         .with_children(|root| {
-            // ---- left rail: pack name, current scene, Resume ----
             root.spawn((
                 Node {
                     width: Val::Px(240.0),
@@ -114,7 +113,6 @@ pub(in crate::presentation) fn build_overlay(
                 }
             });
 
-            // ---- main column: top bar + grid or Settings view ----
             root.spawn(Node {
                 flex_direction: FlexDirection::Column,
                 flex_grow: 1.0,
@@ -234,8 +232,8 @@ pub(in crate::presentation) fn build_overlay(
                     });
 
                     // Full-width, and only while the legacy file is importable.
-                    // Bevy UI has no dashed border, so the card is a faint
-                    // full-width outline.
+                    // Bevy UI has no dashed border, so the card stands as a
+                    // full-width row whose 2px border draws only when focused.
                     if menu::legacy_visible(menu) {
                         main.spawn((
                             MenuAction::LegacyImport,

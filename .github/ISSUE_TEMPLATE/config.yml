@@ -1,6 +1,5 @@
 blank_issues_enabled: false
-# The export fills the repository token in each URL. Quoted, because a plain
-# YAML scalar cannot start with `@`.
+# The export fills the repository token in each URL.
 contact_links:
   - name: Security vulnerability
     url: "https://github.com/SairaDev02/unmei-vn/security/advisories/new"

@@ -163,10 +163,6 @@ pub(super) fn click_and_update(app: &mut App) {
         .reset_all();
 }
 
-// ---------------------------------------------------------------------------
-// Test-local decision resolver
-// ---------------------------------------------------------------------------
-
 /// The shared control surface of [`FakeResolver`]: it withholds a resolution
 /// until [`FakeResolver::release`] and counts how many of its futures were
 /// dropped **before producing an answer** (the signal a load cancels the
@@ -1270,7 +1266,6 @@ pub(super) fn seed_visited(pack_root: &Path, visited: &[&str]) {
     seed_read_log(pack_root, &log);
 }
 
-//
 // The seam is one resource (`InputOwnership`) read by `input_unclaimed`. These
 // tests drive the real Bevy input/focus/text/clipboard pipeline end to end —
 // `KeyboardInput` messages through focus dispatch, `EditableText.pending_edits`
@@ -1571,7 +1566,6 @@ pub(super) fn has_component<T: Component>(app: &mut App) -> bool {
     query.iter(world).next().is_some()
 }
 
-//
 // The reader is driven through the production paths: real `KeyboardInput`
 // press/release/repeat for paging and Home/End, real `MouseWheel` messages
 // hit-tested against the log body's own laid-out rect, and the real widget

@@ -176,7 +176,7 @@ To author a document, follow these steps in order:
 
 CI lints the GitHub Actions workflows with [`actionlint`](https://github.com/rhysd/actionlint) in the `actionlint` job. The job runs alongside the Rust gate and compiles nothing. It pins actionlint 1.7.12, ShellCheck 0.11.0 and Ruff 0.17.4, and `.github/workflows/check.yml` records each release asset and its SHA-256.
 
-The same job lints the gate's own tooling: Ruff's `E4,E7,E9,F` rules over `scripts/doctor.py`, `scripts/check-invariants.py` and the invariant modules beside it, and POSIX ShellCheck over `.githooks/pre-commit`.
+The same job lints the gate's own tooling: Ruff's `E4,E7,E9,F` rules over the gate's own Python scripts, and POSIX ShellCheck over `.githooks/pre-commit`.
 
 actionlint also checks the shell inside every `run:` script through [ShellCheck](https://www.shellcheck.net/). To run the same check, install actionlint 1.7.12 and ShellCheck 0.11.0, put both on `PATH` and run this from the repository root:
 
@@ -193,11 +193,12 @@ Nothing here is required to contribute. These are the checks CI runs, so you can
 ```sh
 ruff check --no-cache --isolated --select E4,E7,E9,F \
   scripts/doctor.py scripts/check-invariants.py \
-  scripts/invariants_core.py scripts/invariants_eol.py scripts/license_policy.py
+  scripts/invariants_core.py scripts/invariants_eol.py scripts/license_policy.py \
+  scripts/comment_scan.py scripts/no-new-comments.py
 shellcheck -s sh .githooks/pre-commit
 ```
 
-Ruff only reads. The `E4,E7,E9,F` rules cover import, syntax and Pyflakes defects, and the command has no `--fix`. The options `--isolated --no-cache` make the result depend only on the Ruff binary and the file contents. `check.yml` owns the rule list. Change the list there first.
+Ruff only reads. The `E4,E7,E9,F` rules cover import, syntax and Pyflakes defects, and the command has no `--fix`. The options `--isolated --no-cache` make the result depend only on the Ruff binary and the file contents. `check.yml` owns the rule list and the file list. Change them there first.
 
 ## Local repository invariant checks
 

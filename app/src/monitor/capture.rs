@@ -280,10 +280,6 @@ impl Drop for Reservation {
     }
 }
 
-// ---------------------------------------------------------------------------
-// The public capture handle
-// ---------------------------------------------------------------------------
-
 /// The installed capture. Inserted as a Bevy resource only when the effective
 /// dev gate is on; its presence is what makes [`ingest_capture`] do work.
 #[derive(Resource, Clone)]

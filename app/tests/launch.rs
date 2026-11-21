@@ -185,13 +185,10 @@ fn help_version_and_usage_errors_leave_the_log_and_sidecars_untouched() {
     std::fs::write(&settings, b"(keep: true)").unwrap();
 
     let pack_arg = pack.as_os_str();
-    // A valid help invocation that names a real pack must not open it.
     let help = run_in(dir.path(), &[OsStr::new("--help"), pack_arg]);
     assert_eq!(help.code, Some(0), "{}", help.stderr);
-    // Neither must a version request naming a real pack.
     let version = run_in(dir.path(), &[pack_arg, OsStr::new("-V")]);
     assert_eq!(version.code, Some(0), "{}", version.stderr);
-    // A usage error naming a real pack must not open it either.
     let error = run_in(dir.path(), &[pack_arg, OsStr::new("--bogus")]);
     assert_eq!(error.code, Some(2), "{}", error.stdout);
 
@@ -205,7 +202,6 @@ fn help_version_and_usage_errors_leave_the_log_and_sidecars_untouched() {
         b"(keep: true)",
         "the settings sidecar was not rewritten"
     );
-    // No slot, log or settings file was created beside the pack.
     let mut names: Vec<String> = std::fs::read_dir(dir.path())
         .unwrap()
         .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())

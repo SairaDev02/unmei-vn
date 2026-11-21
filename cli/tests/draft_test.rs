@@ -138,10 +138,6 @@ fn render_list_formats_rows_in_scene_order() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// The shipped demo pack
-// ---------------------------------------------------------------------------
-
 /// RED: `first_meeting` exposes the four runs the contract's `--list` example
 /// names, with the exact handles, spans and first say-lines.
 #[test]

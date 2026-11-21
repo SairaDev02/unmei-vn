@@ -6,7 +6,7 @@ name: publish
 # The run publishes nothing that the candidate coordinator did not stage: it
 # reads the coordinator run's `candidate-record.json`, verifies the staged
 # `.crate` against the record's hash, and only then mints a crates.io token.
-# `crates.io` is declared as the environment so a protected one is enforced
+# `crates-io` is declared as the environment so a protected one is enforced
 # wherever it exists. A repository on the Free plan cannot have required
 # reviewers on an environment, so the approval gate and the real OIDC exchange
 # stay open items (the `publish-environment-oidc` residual): a rehearsal dry run

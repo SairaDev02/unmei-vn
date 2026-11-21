@@ -60,7 +60,6 @@ fn say_text(wait: &Wait) -> (&str, &str) {
 }
 
 fn say_after(runner: &mut ScriptRunner) -> String {
-    // Advance past the current say-wait and return the next line's text.
     runner.advance_say().unwrap();
     let outcome = runner.run().unwrap();
     say_text(outcome.wait.as_ref().unwrap()).1.to_string()

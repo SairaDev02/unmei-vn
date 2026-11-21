@@ -163,8 +163,6 @@ class CoverageSlotTests(unittest.TestCase):
                 sys.stdout = sys.__stdout__
                 sys.stderr = sys.__stderr__
 
-    # --- verify -----------------------------------------------------------
-
     def test_three_agreeing_views_pass_and_the_counts_are_summed(self):
         json_path, summary, html = Workspace(self.root).views(self.files)
         out = self.root / "VERIFY.md"
@@ -217,8 +215,6 @@ class CoverageSlotTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             self.run_cli("verify", "--json", str(json_path), "--summary", str(summary), "--html", str(html))
 
-    # --- witness ----------------------------------------------------------
-
     def witness_export(self, covered):
         summary = summary_json((covered, 279), (1, 1), (1, 1))
         export = {
@@ -252,8 +248,6 @@ class CoverageSlotTests(unittest.TestCase):
             self.run_cli(
                 "witness", "--json", str(self.witness_export(3)), "--file", "cli/src/main.rs", "--expect", "uncovered"
             )
-
-    # --- slot -------------------------------------------------------------
 
     def slot(self, *extra, **kwargs):
         json_path, summary, html = kwargs.get("views") or Workspace(self.root).views(self.files)

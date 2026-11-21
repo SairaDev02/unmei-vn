@@ -165,7 +165,3 @@ pub(crate) fn check_settings_focus_reveals_clear_key(world: &mut World, harness:
         unfocused_border == Some(Color::NONE),
     );
 }
-
-// ---------------------------------------------------------------------------
-// Common acts
-// ---------------------------------------------------------------------------

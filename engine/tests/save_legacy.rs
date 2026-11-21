@@ -78,8 +78,6 @@ fn a_failed_legacy_retirement_keeps_the_written_slot_and_the_importable_source()
         "the legacy save replaced the seeded slot"
     );
 
-    // The source is untouched and still offered, the obstruction is still in
-    // place, and no other slot moved.
     assert_eq!(
         std::fs::read(&legacy).unwrap(),
         source_bytes,

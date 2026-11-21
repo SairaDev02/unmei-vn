@@ -362,10 +362,6 @@ fn append_step(
             return output::FAIL;
         }
     };
-    if is_header_line(step) && !case.steps.is_empty() && !existing_has_steps(&existing) {
-        // Unreachable: a header line parsed after the first step already failed
-        // above. Kept total for the reader.
-    }
     if is_header_line(step) && existing_has_steps(&existing) {
         let finding = Finding::new(
             &case_file,
