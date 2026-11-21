@@ -1,6 +1,6 @@
 ---
 title: Code comment policy and its review classification
-summary: When a code comment earns its place, the REMOVE, SHORTEN, KEEP and REFACTOR outcomes, the protected contracts and the review procedure.
+summary: When a code comment earns its place, the REMOVE, SHORTEN, KEEP and REFACTOR outcomes, the protected contracts, the review procedure and the budget gate.
 keywords:
   - code-comments
   - repository-upkeep
@@ -56,6 +56,12 @@ Edit comments only after the requester authorizes the change. Deleting an ambigu
 [`scripts/no-new-comments.py`](../../scripts/no-new-comments.py) runs in the per-push gate. It fails when a change adds a comment or swaps one comment for another. It compares each file against the per-comment digests in the checked-in [`.comment-baseline.json`](../../.comment-baseline.json), and it names where the content belongs instead: an ADR, an issue, or nowhere. [ADR 0016](../adr/0016-comment-baseline-holds-digests.md) records why the baseline holds digests rather than counts. Rustdoc, Python docstrings and tool directives are exempt, because they carry the API contract, the reading, or an instruction a tool obeys.
 
 The baseline only shrinks. `--tighten` drops the comments the tree no longer holds and refuses a new one, so a sweep lands as a smaller budget rather than a looser one. A deliberate `SHORTEN` takes `--tighten --reword PATH`, which accepts the new wording only while that file's count does not rise. The reworded entry then shows in the baseline diff for review. This gate enforces the budget, not the judgement above: a comment the policy protects still belongs in the code.
+
+Run `python3 scripts/no-new-comments.py` before you push any change to a file the gate covers. What you do next depends on the change:
+
+- **The gate fails:** it lists each comment it does not recognize. Move the reason into a name, a type, a test, an ADR or an issue, then delete the comment. If the comment is a `SHORTEN` of an existing one, use `--reword` as above.
+- **You deleted comments:** run `--tighten` and commit `.comment-baseline.json` in the same change. Until then, the deleted text is still in the baseline, and it can come back.
+- **You added a file with comments:** the gate fails on it until `--tighten` admits the file. That run admits every comment in the file, so check each one against the [policy](#policy) first. The new baseline entry is where review sees them.
 
 The gate covers `.rs`, `.py`, `.toml`, `.yml`, `.yaml` and `.sh` files, plus the scripts in `.githooks/`. Markdown is out of scope on purpose: an HTML comment in a doc is prose, and [`LANGUAGE.md`](../../LANGUAGE.md) and the docs checks govern prose. [`scripts/test-comments.py`](../../scripts/test-comments.py) proves the gate's behaviour, including the Rust `/* */` path, which no file in the tree currently uses.
 

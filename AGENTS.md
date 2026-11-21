@@ -8,7 +8,7 @@ This file only routes a coding agent to the pages that hold its operating instru
 - **Vocabulary and design records:** [domain.md](docs/agents/domain.md), which routes to [`GLOSSARY.md`](GLOSSARY.md) and [`docs/adr/`](docs/adr/).
 - **Tests and verification:** [testing.md](docs/agents/testing.md) and the `unmei-verify` skill at [`.agents/skills/unmei-verify/SKILL.md`](.agents/skills/unmei-verify/SKILL.md). [`docs/testing.md`](docs/testing.md) is the testing authority.
 - **Reader-facing docs:** [`LANGUAGE.md`](LANGUAGE.md).
-- **Code comments:** [comments.md](docs/agents/comments.md).
+- **Code comments:** [comments.md](docs/agents/comments.md), before you add, reword or delete one, and when `scripts/no-new-comments.py` fails.
 - **Dependency facts:** [documentation.md](docs/agents/documentation.md).
 - **A fix that stops converging:** [recovery.md](docs/agents/recovery.md), after two failed attempts or when an external behavior is uncertain.
 - **Issues and the `gh` CLI:** [github.md](docs/agents/github.md), [issue-tracker.md](docs/agents/issue-tracker.md) and [triage-labels.md](docs/agents/triage-labels.md).
