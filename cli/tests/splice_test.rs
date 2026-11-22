@@ -104,7 +104,6 @@ fn replace_preserves_comments() {
 #[test]
 fn replace_touches_only_the_named_question() {
     let (_dir, root) = temp_pack();
-    // Give ace a second decision first.
     let npc: Npc =
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
     let mut two = npc.clone();

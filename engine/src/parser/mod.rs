@@ -168,7 +168,6 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            // Say-line fallback: `Speaker: text`.
             if let Some((speaker, text)) = split_say_line(trimmed) {
                 validate_interpolation(&text).map_err(|m| self.err(line_no, m))?;
                 lines.push(Line::Say { speaker, text });

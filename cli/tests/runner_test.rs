@@ -374,7 +374,7 @@ async fn npc_preparation_failure_ends_the_interactive_session_without_feedback()
     let fx = fixture();
     let ace = fx.root.join("npcs/ace.ron");
     // The pack is loaded before `run_npc`; removing a source file afterwards
-    // makes the staged transplant fail, exactly as the D2/D3 witnesses do.
+    // makes the staged transplant fail.
     std::fs::remove_file(&ace).unwrap();
     let chat = Chat::free(vec![Ok(valid_npc_reply())]);
     let mut io = Io::new("this feedback must never be read\n");

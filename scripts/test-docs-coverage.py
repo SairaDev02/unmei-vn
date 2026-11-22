@@ -47,9 +47,9 @@ class ClassificationTests(unittest.TestCase):
         self.assertClass("ARCHITECTURE.md", "unclassified")
 
     def test_local_only_and_removed_root_files_are_not_root_guidance(self):
-        # A scratch note stays local and git-ignored; CODE_OF_CONDUCT.md was
-        # removed. Neither is a tracked document, so tracking either must fail
-        # coverage.
+        # A scratch note stays local and untracked, and CODE_OF_CONDUCT.md is not part
+        # of this repository. Neither is a tracked document, so tracking either must
+        # fail coverage.
         for name in ("NOTES.md", "CODE_OF_CONDUCT.md"):
             self.assertClass(name, "unclassified")
 

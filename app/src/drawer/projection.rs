@@ -143,7 +143,7 @@ pub(crate) fn project_monitor(
     // Prune before the visibility check: dropping an evicted `Arc` reference is
     // not text work and must happen while hidden too, or a previously full
     // projection would keep a second copy of evicted payloads alive until the
-    // drawer reopens (finding A02).
+    // drawer reopens.
     let oldest = history.as_deref().and_then(MonitorHistory::oldest_sequence);
     projection.prune_evicted(oldest);
 

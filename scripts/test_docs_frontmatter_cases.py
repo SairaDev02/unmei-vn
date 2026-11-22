@@ -21,8 +21,8 @@ ALLOWED = {
     "related",
 }
 
-# The 39 approved terms are loaded from policy.json at run time; this list is
-# only used to build fixtures and is asserted against that file.
+# The 39 approved terms are loaded from scripts/docs-policy.json at run time;
+# this list only builds fixtures, and test-docs-parser.py asserts it equals that file.
 APPROVED = [
     "content-format", "content-pack", "dialogue-dsl", "decisions", "decision-point",
     "authoring-cli", "pack-validation", "credentials", "terminal-mask",

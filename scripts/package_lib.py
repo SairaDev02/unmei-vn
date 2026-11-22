@@ -44,9 +44,8 @@ PACKAGE_EXCLUDES = ("unmei-app",)
 BUILD_INPUT_PATHS = ("LICENSE", "Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
                      "app", "engine", "cli", "packaging", DEMO_PACK_SOURCE)
 
-# The release set's never-ship names. A tracked one is still
-# refused; selection reads the Git index, never the working tree, so an untracked
-# sidecar, log, temp file or credential cannot enter either.
+# Never-ship names: a tracked one is still refused, and selection reads the Git
+# index, never the working tree, so no untracked sidecar, log or credential enters.
 FORBIDDEN_DEMO_SUFFIXES = (".log", ".tmp", ".temp", ".bak", ".swp",
                            ".save.ron", ".read.ron", ".settings.ron")
 FORBIDDEN_DEMO_NAMES = {"credentials", ".env", ".env.local", "unmei.author.ron"}

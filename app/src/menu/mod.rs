@@ -47,7 +47,6 @@ pub use cards::{
 };
 pub(crate) use credential_sync::{read_on_settings_open, sync_key_focus};
 pub(crate) use input::menu_input;
-// The re-export keeps the pre-split `menu::KeyRowInput` path valid for tests.
 #[cfg(test)]
 #[allow(
     unused_imports,

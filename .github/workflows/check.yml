@@ -130,9 +130,8 @@ jobs:
       # there is no `--fix`, formatter, preview rule or config file to drift.
       # `--isolated --no-cache` makes the run depend on the pinned binary and the
       # file contents alone. Every script the gate itself runs is listed, plus
-      # `doctor.py` and `license_policy.py`; `doctor.py`'s own split modules are
-      # not yet listed. ShellCheck runs the hook as POSIX `sh`, the shell its
-      # shebang declares.
+      # `doctor.py` and `license_policy.py`. ShellCheck runs the hook as POSIX
+      # `sh`, the shell its shebang declares.
       #
       # Measured on a Windows host against these files: Ruff 73 ms and ShellCheck
       # 71 ms warm, so the pair stays far inside the roughly 60-second budget for

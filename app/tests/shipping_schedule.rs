@@ -35,8 +35,8 @@ fn the_shipping_composition_builds_clean_schedules_and_runs_frames() {
         ..default()
     });
 
-    // Presence checks supplement the executed frames and protect the delta's
-    // coverage and private upstream suppression prerequisites.
+    // Presence checks pin the plugin selection the frames cannot observe,
+    // including the SpritePlugin exclusion that keeps its private suppression off.
     assert!(
         !app.is_plugin_added::<bevy::winit::WinitPlugin>(),
         "the window backend must be absent from the headless gate"

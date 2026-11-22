@@ -73,7 +73,7 @@ impl DecisionsClient {
                 // A permissive `RUST_LOG` must never authorize a raw wire dump:
                 // reqwest's serialized bytes contain the Authorization header.
                 // Enabling this (or hyper/h2 tracing) requires renewed
-                // credential-safety validation (research 0007).
+                // credential-safety validation.
                 .connection_verbose(false)
                 // Q16: a redirect's `Location` is response-controlled and can
                 // reflect the credential into the next connection's logged
@@ -186,8 +186,8 @@ fn decision_request(
     api_key: &str,
     request: &DecisionRequest,
 ) -> reqwest::RequestBuilder {
-    // `bearer_auth` builds a sensitive `HeaderValue` (research 0007 item 1), so
-    // the typed header renders as `Sensitive` rather than the key.
+    // `bearer_auth` builds a sensitive `HeaderValue`, so the typed header
+    // renders as `Sensitive` rather than the key.
     http.post(endpoint).bearer_auth(api_key).json(request)
 }
 

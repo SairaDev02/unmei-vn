@@ -129,7 +129,7 @@ fn mute_then_leave_then_unmute_restores_levels_and_only_muted_changes() {
     open_settings(&mut app);
     step_slider(&mut app, KeyCode::ArrowLeft);
     step_slider(&mut app, KeyCode::ArrowLeft); // master 90
-    focus_down(&mut app, 3); // Master -> Mute
+    focus_down(&mut app, 3);
     assert_eq!(menu(&app).focus, MenuFocus::AudioMute);
     press_and_update(&mut app, KeyCode::Enter);
 
@@ -163,7 +163,7 @@ fn audio_reset_confirms_once_resets_only_audio_and_never_deletes_the_file() {
     let mut app = app_for_pack(pack_root.clone());
 
     open_settings(&mut app);
-    focus_down(&mut app, 4); // Master -> Reset
+    focus_down(&mut app, 4);
     assert_eq!(menu(&app).focus, MenuFocus::AudioReset);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::ResetAudio));
@@ -465,7 +465,7 @@ fn play_reset_confirms_once_resets_only_play_and_persists_on_leave() {
     let mut app = app_for_pack(pack_root.clone());
 
     open_settings(&mut app);
-    focus_down(&mut app, 8); // Master -> PlayReset
+    focus_down(&mut app, 8);
     assert_eq!(menu(&app).focus, MenuFocus::PlayReset);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::ResetPlay));
