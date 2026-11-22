@@ -256,9 +256,9 @@ jobs:
           # with the suite's status so a failing suite shows as a failed step
           # while `continue-on-error` keeps the job green. The report's own
           # status is deliberately dropped, so the advisory report never blocks.
-          python3 scripts/test-docs-report.py
-          suite=$?
-          python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY"
+          suite=0
+          python3 scripts/test-docs-report.py || suite=$?
+          python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY" || true
           exit "$suite"
 
       # Bevy links ALSA (audio) and udev (gamepads) on Linux; its default
