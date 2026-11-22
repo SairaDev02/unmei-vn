@@ -244,8 +244,7 @@ fn register_frame_schedules(app: &mut App) {
                 menu::sync_key_focus
                     .run_if(input::app_input_ready)
                     .ambiguous_with_all(),
-                // The overlay: Esc opens/closes it. Same vacuous
-                // `bevy_ui_widgets` `InputFocus` conflict as above.
+                // Same vacuous `bevy_ui_widgets` `InputFocus` conflict as above.
                 menu::menu_input
                     .run_if(input::app_input_ready)
                     .ambiguous_with_all(),

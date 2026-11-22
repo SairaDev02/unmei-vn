@@ -36,8 +36,7 @@ env:
   CARGO_TERM_COLOR: never
   RUST_BACKTRACE: "1"
   # One owner for the artifact retention: the slot records it and both uploads
-  # read it. The digest is the cargo-llvm-cov 0.9.1 crate archive the baseline
-  # run recorded in `cargo-llvm-cov-install.txt`.
+  # read it. The digest is that of the cargo-llvm-cov 0.9.1 crate archive.
   COVERAGE_RETENTION_DAYS: "90"
   CARGO_LLVM_COV_VERSION: "0.9.1"
   CARGO_LLVM_COV_SHA256: 5e00647cc92940c4dd82249c480fe08fd3809767e89f056bcec46d8a7962ea5b

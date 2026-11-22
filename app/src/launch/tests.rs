@@ -268,28 +268,21 @@ fn every_keiko_mode_parses_with_its_modifiers() {
 #[test]
 fn keiko_usage_errors_exit_before_any_startup_work() {
     for args in [
-        // Two modes together.
         vec!["--take", "--explore"],
         vec!["--observe", "one", "--take"],
-        // A modifier on the wrong mode.
         vec!["--observe", "one", "--live"],
         vec!["--take", "--budget", "5"],
         vec!["--take", "--from", "one"],
-        // `--dev` with any mode.
         vec!["--dev", "--take"],
         vec!["--take", "--dev"],
         vec!["--dev", "--explore"],
-        // A mode that is missing an operand.
         vec!["--step", "one"],
         vec!["--observe"],
-        // A malformed case id.
         vec!["--take", "Bad"],
         vec!["--observe", "a/b"],
         vec!["--step", "a.b", "advance"],
-        // A modifier with no mode at all.
         vec!["--keep"],
         vec!["--format", "json"],
-        // A malformed value.
         vec!["--explore", "--budget", "many"],
         vec!["--take", "--format", "yaml"],
     ] {
@@ -437,23 +430,18 @@ fn preview_is_a_mode_of_its_own_with_its_selector() {
 #[test]
 fn preview_is_exclusive_and_its_flags_are_rejected_without_it() {
     for args in [
-        // Two modes together.
         vec!["--preview", "out", "--take"],
         vec!["--take", "--preview", "out"],
         vec!["--preview", "out", "--explore"],
         vec!["--preview", "out", "--check"],
         vec!["--check", "--preview", "out"],
-        // `--dev` with the mode.
         vec!["--dev", "--preview", "out"],
         vec!["--preview", "out", "--dev"],
-        // A preview-only flag with no mode.
         vec!["--scene", "a"],
         vec!["--at", "a:1"],
         vec!["--state", "high.ron"],
         vec!["--pick", "2"],
-        // The two selectors exclude each other.
         vec!["--preview", "out", "--scene", "a", "--at", "a:1"],
-        // A missing or malformed value.
         vec!["--preview"],
         vec!["--preview", "out", "--at", "a"],
         vec!["--preview", "out", "--at", "a:sideways"],

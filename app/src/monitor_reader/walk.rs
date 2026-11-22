@@ -72,8 +72,7 @@ pub(super) fn walk_older(
     lines: f32,
 ) -> (usize, f32) {
     // The starting offset is consumed by the walk itself, so it is not added
-    // to the distance again (finding A08: that double-counted a fractional
-    // start position).
+    // to the distance again; adding it double-counts a fractional start.
     let mut remaining = lines;
     while remaining > 0.0 {
         if offset > 0.0 {

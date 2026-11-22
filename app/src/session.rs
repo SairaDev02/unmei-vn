@@ -130,8 +130,7 @@ impl SessionTransitions<'_> {
         let path = save::save_path_for(self.runtime.runner.pack(), slot);
         if origin == LoadOrigin::DevShortcut && !path.exists() {
             // Nothing to load is not a failure: a clean no-op with no log or
-            // Notice (`docs/runtime-hardening.md` § Load and transition
-            // contract).
+            // Notice (`docs/runtime-hardening.md` § Dev mode, Enabled F5/F9).
             return ReadOutcome::Missing;
         }
         match save::read_slot(self.runtime.runner.pack(), slot) {

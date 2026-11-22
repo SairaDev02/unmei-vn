@@ -530,7 +530,6 @@ fn contended_admission_rejects_without_waiting_and_counts_a_loss() {
     let capture = capture_with(Arc::new(FakeClock::new()));
     let shared = capture.shared_arc();
 
-    // Hold the completed lock while a producer tries to admit.
     let guard = shared.completed.lock().unwrap();
     let lines = emit(&capture, || tracing::info!(target: "t", "blocked"));
     assert!(lines.is_empty());
@@ -712,9 +711,8 @@ fn a_stalled_handoff_keeps_staged_payloads_charged_against_the_pending_cap() {
 
     // A producer refill evicts completed lines, but the staged payloads stay
     // charged, so only `PENDING_CAPACITY - INGEST_PER_UPDATE` completed lines
-    // can exist beside the staged batch (A01: the pre-repair code let the
-    // queue refill to its full 256 while 128 payloads were still staged,
-    // reaching 384 payloads in total).
+    // can exist beside the staged batch. Otherwise the queue could refill to its
+    // full 256 while 128 payloads were still staged, reaching 384 in total.
     for _ in 0..PENDING_CAPACITY {
         admit(&capture, || tracing::info!(target: "t", "refill"));
     }

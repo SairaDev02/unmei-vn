@@ -220,7 +220,6 @@ pub(super) fn apply(
                 open_gallery(menu, MenuOrigin::Title);
             }
         }
-        // The overlay's Gallery control opens it from the slot grid.
         MenuAction::OpenGallery => {
             if menu.confirm.is_none() && menu.view == MenuView::Slots {
                 open_gallery(menu, MenuOrigin::Slots);

@@ -40,9 +40,8 @@ impl OpenAiChat {
                 // destination the author never named, so none is followed —
                 // the 3xx surfaces as an ordinary status failure.
                 .redirect(reqwest::redirect::Policy::none())
-                // ADR 0014: verbose hyper connection tracing stays off, so a
-                // dependency log cannot render the request/response wire. It is
-                // reqwest's default; the explicit call records the contract.
+                // ADR 0014: verbose hyper connection tracing stays off, so a dependency log
+                // cannot render the wire. It is reqwest's default; the call records the contract.
                 .connection_verbose(false)
                 .build()
                 .expect("static reqwest client config always builds"),

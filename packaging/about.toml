@@ -61,7 +61,7 @@ private = { ignore = true }
 # tool (docs: cli/generate/workarounds.md).
 workarounds = ["ring"]
 
-# Crate-specific clarifications (research 0026 §3.3). Each one binds a license
+# Crate-specific clarifications. Each one binds a license
 # text from the crate's own repository at the commit it was published from, and
 # fails closed: a version bump that changes the file drops the clarification, the
 # crate is re-scanned, and `--fail` rejects a crate that then has no usable text.

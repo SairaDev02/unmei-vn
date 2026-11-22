@@ -144,8 +144,8 @@ fn autosave_offers_no_save_action_and_unreadable_keeps_overwrite() {
     assert_eq!(models[3].action.action, Some(SlotAction::Load));
     assert_eq!(models[0].action.label, "Overwrite", "still overwrite-only");
     assert_eq!(models[0].action.action, Some(SlotAction::Write));
-    // An empty manual slot still offers `Save here`: the issue's table
-    // qualifies only the occupied and autosave rows by mode.
+    // An empty manual slot still offers `Save here`: `docs/runtime-hardening.md`
+    // § Menu overlay §3 qualifies only the occupied and autosave rows by mode.
     assert_eq!(models[1].status, "Empty");
     assert_eq!(models[1].action.label, "Save here");
     assert_eq!(models[1].action.action, Some(SlotAction::Write));
@@ -432,7 +432,6 @@ fn the_focused_control_is_highlighted_in_every_state() {
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
 
-    // The controls the overlay renders, each starting unhighlighted.
     let spawn = |app: &mut App, action: MenuAction| {
         app.world_mut()
             .spawn((action, BorderColor::all(Color::NONE)))

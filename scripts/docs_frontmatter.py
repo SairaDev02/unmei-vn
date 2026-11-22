@@ -41,7 +41,7 @@ class Diagnostic:
     """One reason the document is not valid, positioned in the document."""
 
     stage: str          # "syntax" is decided before "schema"
-    field: str | None   # the frontmatter field the reason belongs to
+    field: str | None
     line: int
     reason: str
     detail: str | None = None   # the offending value, when naming it helps the remedy
@@ -170,7 +170,7 @@ def parse_frontmatter(text, policy, owner_dir):
 
     mapping = result.values
     key_lines = {}
-    pending_list = None       # field awaiting block-list items
+    pending_list = None
     pending_line = 0
     current = None
 
