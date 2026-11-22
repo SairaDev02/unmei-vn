@@ -212,7 +212,7 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     );
     // A repeat moves the reader like any other change: the drawn window starts
     // at the reader's own anchor, so a slow-frame repeat shows its own page, never
-    // an older one.
+    // an older one (the stale-drawing class once mistaken for a drifting anchor).
     assert_eq!(
         drawer_window(&mut app).first().copied(),
         reader_anchor(&app).map(|anchor| anchor.sequence),
@@ -417,7 +417,7 @@ fn home_keeps_the_oldest_currently_displayed_event_through_the_refresh() {
 
     // The opening frame examines exactly the newest `PROJECTION_SCAN_BUDGET`
     // entries, so the oldest displayed event is derived from the seeded history
-    // and the budget, not read back from the projection.
+    // and the documented budget, not read back from the projection.
     press_key(&mut app, KeyCode::F3);
     step_input(&mut app);
     let oldest_displayed = 300 - crate::drawer::PROJECTION_SCAN_BUDGET as u64;
