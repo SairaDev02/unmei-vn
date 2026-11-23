@@ -1605,6 +1605,37 @@ pub(super) fn seed_numbered_monitor(app: &mut App, range: std::ops::Range<u64>, 
     );
 }
 
+/// Admit numbered `unmei::seq` lines through the production capture layer and
+/// let the real ingest path hand them to retained history.
+///
+/// The capture assigns the admission identities, so a range that starts where
+/// the previous call stopped keeps them consecutive. Each chunk is ingested
+/// before the next is admitted: admitting more than
+/// [`crate::monitor::INGEST_PER_UPDATE`] at once would overflow the pending
+/// budget and lose lines that the caller meant to retain.
+pub(super) fn capture_numbered_monitor(
+    app: &mut App,
+    capture: &crate::monitor::MonitorCapture,
+    range: std::ops::Range<u64>,
+) {
+    use bevy::log::tracing;
+    use bevy::log::tracing_subscriber::prelude::*;
+
+    let mut next = range.start;
+    while next < range.end {
+        let chunk_end = (next + crate::monitor::INGEST_PER_UPDATE as u64).min(range.end);
+        let subscriber =
+            bevy::log::tracing_subscriber::registry().with(crate::monitor::capture_layer(capture));
+        tracing::subscriber::with_default(subscriber, || {
+            for index in next..chunk_end {
+                tracing::info!(target: "unmei::seq", "event {index}");
+            }
+        });
+        step_input(app);
+        next = chunk_end;
+    }
+}
+
 /// The materialized rows' admission sequences in display order, top row first
 /// — the window the developer actually sees.
 pub(super) fn drawer_window(app: &mut App) -> Vec<u64> {
