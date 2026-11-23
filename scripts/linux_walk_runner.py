@@ -92,14 +92,6 @@ class Runner:
         self.sleep(KEY_HOLD_SECONDS)
         self.run(["xdotool", "keyup", key], env=env)
 
-    def click(self, env, window, point):
-        x, y = point
-        code, _, err = self.run(
-            ["xdotool", "mousemove", "--window", window, str(x), str(y), "click", "1"],
-            env=env)
-        if code != 0:
-            raise OSError(f"xdotool click at {point} failed: {err.strip()}")
-
     def stop(self, handle):
         if handle is not None and handle.poll() is None:
             handle.terminate()
