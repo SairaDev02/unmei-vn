@@ -1265,13 +1265,25 @@ fn a_third_arrival_batch_above_an_established_band_is_projected() {
 /// unexamined gap: the projection extends its examined band contiguously from
 /// the entry it last stopped on, so the settled projection equals the
 /// independently selected current matching retained identities.
-/// The fixture slides the retained window as the batches arrive, so the pass
-/// also prunes entries the window has moved past.
+/// Retention evicts as the batches arrive, so the pass also prunes entries the
+/// window has moved past, and the capture's evicted count records the slide.
 #[test]
 fn arrival_batches_under_an_incomplete_refresh_settle_complete() {
+    use crate::monitor::{MonitorCapture, SystemClock};
+
     let pack = temp_pack();
+    let capture = MonitorCapture::install(Arc::new(SystemClock::new()));
     let mut app = boot_reader_app(pack.path().join("pack"));
-    seed_numbered_monitor(&mut app, 0..1000, "unmei::seq");
+    app.insert_resource(capture.clone());
+    app.world_mut().init_resource::<MonitorHistory>();
+    app.add_systems(Update, crate::monitor::ingest_capture);
+
+    capture_numbered_monitor(&mut app, &capture, 0..1000);
+    assert_eq!(
+        app.world().resource::<MonitorHistory>().retained(),
+        1000,
+        "the first 1000 admissions fill the retained window"
+    );
     tap_key(&mut app, KeyCode::F3);
     step_input(&mut app);
     assert!(
@@ -1282,10 +1294,15 @@ fn arrival_batches_under_an_incomplete_refresh_settle_complete() {
     );
 
     for end in [1128u64, 1256, 1384] {
-        seed_numbered_monitor(&mut app, (end - 1000)..end, "unmei::seq");
-        step_input(&mut app);
+        capture_numbered_monitor(&mut app, &capture, (end - 128)..end);
     }
     settle_reader(&mut app);
+
+    assert_eq!(
+        capture.counters().evicted,
+        384,
+        "every line past the 1,000-line cap was evicted, not reseeded"
+    );
 
     // Independently select the current matching retained identities; do not
     // mirror the projection's own interval arithmetic.
