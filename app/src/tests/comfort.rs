@@ -1,4 +1,6 @@
 use super::*;
+use crate::presentation::settings_view::SettingsTrack;
+use crate::settings::TrackControl;
 
 #[test]
 fn at_instant_the_say_line_is_whole_on_the_first_frame_and_a_press_advances() {
@@ -290,6 +292,116 @@ fn the_text_speed_control_walks_the_named_ladder_and_persists_on_leave() {
     );
     press_and_update(&mut app, KeyCode::Escape); // leave -> flush
     assert_eq!(settings::load(&pack_root).settings.play.text_speed, 0.04);
+}
+
+const TEXT_SPEED_TRACK_CENTRE: Vec2 = Vec2::new(640.0, 400.0);
+
+/// The track's declared size, read from the node the row builder spawned.
+fn declared_track_size(app: &App, track: Entity) -> Vec2 {
+    let node = app
+        .world()
+        .entity(track)
+        .get::<Node>()
+        .expect("the text-speed track has a layout node");
+    let axis = |value: Val, axis: &str| match value {
+        Val::Px(px) => px,
+        other => panic!("the track's {axis} is {other:?}, not a fixed size"),
+    };
+    Vec2::new(axis(node.width, "width"), axis(node.height, "height"))
+}
+
+/// The Settings row and track node for the text-speed control.
+fn text_speed_entities(app: &mut App) -> (Entity, Entity) {
+    let world = app.world_mut();
+    let row = {
+        let mut query = world.query::<(Entity, &MenuAction)>();
+        query
+            .iter(world)
+            .find(|(_, action)| **action == MenuAction::TextSpeed)
+            .map(|(entity, _)| entity)
+            .expect("the text-speed row exists")
+    };
+    let track = {
+        let mut query = world.query::<(Entity, &SettingsTrack)>();
+        query
+            .iter(world)
+            .find(|(_, track)| track.control == TrackControl::TextSpeed)
+            .map(|(entity, _)| entity)
+            .expect("the text-speed track exists")
+    };
+    (row, track)
+}
+
+/// Press the text-speed track at `fraction` of its width, the pointer path a
+/// player takes: the drag starts on the row's `Interaction::Pressed` and the
+/// cursor's x on the laid-out track names the step.
+///
+/// The three layout components are what `settings_drag` reads, and a headless
+/// app never computes them, so the test supplies them from the node's declared
+/// size.
+fn press_text_speed_track(
+    app: &mut App,
+    window: Entity,
+    row: Entity,
+    track: Entity,
+    fraction: f32,
+) {
+    let size = declared_track_size(app, track);
+    app.world_mut().entity_mut(track).insert((
+        bevy::ui::ComputedNode { size, ..default() },
+        bevy::ui::ComputedUiRenderTargetInfo::default(),
+        bevy::ui::UiGlobalTransform::from_translation(TEXT_SPEED_TRACK_CENTRE),
+    ));
+    let offset = (fraction - 0.5) * size.x;
+    app.world_mut()
+        .entity_mut(window)
+        .get_mut::<Window>()
+        .expect("the primary window")
+        .set_cursor_position(Some(TEXT_SPEED_TRACK_CENTRE + Vec2::new(offset, 0.0)));
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .press(MouseButton::Left);
+    app.world_mut().entity_mut(row).insert(Interaction::Pressed);
+    step_input(app);
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .release(MouseButton::Left);
+    step_input(app);
+}
+
+#[test]
+fn a_press_on_the_text_speed_track_lands_on_the_step_under_the_pointer() {
+    let pack = temp_pack();
+    let pack_root = pack.path().join("pack");
+    let (mut app, window) = boot_widget_input_app(pack_root.clone());
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    app.add_systems(Update, crate::presentation::sync_menu_ui);
+    enter_play_with_input(&mut app);
+    tap_key(&mut app, KeyCode::Escape);
+    click_input(&mut app, MenuAction::OpenSettings);
+    step_input(&mut app);
+    assert_eq!(menu(&app).view, MenuView::Settings);
+    let (row, track) = text_speed_entities(&mut app);
+    assert_eq!(
+        settings_switch_text(&mut app, SettingsLabelKind::TextSpeed),
+        "Instant"
+    );
+
+    for (fraction, step) in [(0.25, "Fast"), (0.75, "Slow"), (1.0, "Slowest")] {
+        press_text_speed_track(&mut app, window, row, track, fraction);
+        assert_eq!(
+            settings_switch_text(&mut app, SettingsLabelKind::TextSpeed),
+            step,
+            "a press at {fraction} of the track lands on {step}"
+        );
+    }
+
+    assert!(
+        !settings_path(&app).exists(),
+        "no write while the view is open"
+    );
+    tap_key(&mut app, KeyCode::Escape);
+    assert_eq!(settings::load(&pack_root).settings.play.text_speed, 0.08);
 }
 
 #[test]
