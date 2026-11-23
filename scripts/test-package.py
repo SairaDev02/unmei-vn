@@ -67,6 +67,7 @@ class PackageTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         cls.pkg = load_package_module()
+        cls.lib = importlib.import_module("package_lib")
         cls.win = cls.pkg.target_for("win32", "AMD64")
         cls.linux = cls.pkg.target_for("linux", "x86_64")
 
@@ -286,7 +287,7 @@ class PackageTests(unittest.TestCase):
         self.pkg.require_about_version("0.9.3")
 
         command = "cargo install --locked cargo-about@0.9.3 --features cli"
-        self.assertEqual(self.pkg.install_command(), command)
+        self.assertEqual(self.lib.install_command(), command)
         for found in ("0.10.0", None):
             with self.assertRaises(self.pkg.Refusal) as raised:
                 self.pkg.require_about_version(found)
@@ -295,7 +296,7 @@ class PackageTests(unittest.TestCase):
     def test_failed_to_validate_line_is_a_failure_even_on_exit_zero(self) -> None:
         self.pkg.require_no_validate_failures("generated 412 crates\n")
         output = "warning: ring failed to validate the license text\n"
-        self.assertEqual(self.pkg.validate_failure_lines(output), [output.strip()])
+        self.assertEqual(self.lib.validate_failure_lines(output), [output.strip()])
         with self.assertRaises(self.pkg.Refusal) as raised:
             self.pkg.require_no_validate_failures(output)
         self.assertIn("failed to validate", str(raised.exception))
@@ -308,7 +309,7 @@ class PackageTests(unittest.TestCase):
         ]
         self.pkg.require_versions("0.1.0", packages)
         drift = [("unmei-engine", "0.1.0"), ("unmei", "0.2.0")]
-        self.assertEqual(self.pkg.version_mismatches("0.1.0", drift),
+        self.assertEqual(self.lib.version_mismatches("0.1.0", drift),
                          ["unmei 0.2.0 (workspace 0.1.0)"])
         with self.assertRaises(self.pkg.Refusal) as raised:
             self.pkg.require_versions("0.1.0", drift)
@@ -407,16 +408,16 @@ class PackageTests(unittest.TestCase):
 
     def entries(self) -> list:
         return [
-            self.pkg.ArchiveEntry("top/exe", 0o755, False, b"binary"),
-            self.pkg.ArchiveEntry("top", 0o755, True, b""),
-            self.pkg.ArchiveEntry("top/README", 0o644, False, b"read me"),
-            self.pkg.ArchiveEntry("top/demo-pack", 0o755, True, b""),
-            self.pkg.ArchiveEntry("top/demo-pack/pack.ron", 0o644, False, b"(pack)"),
+            self.lib.ArchiveEntry("top/exe", 0o755, False, b"binary"),
+            self.lib.ArchiveEntry("top", 0o755, True, b""),
+            self.lib.ArchiveEntry("top/README", 0o644, False, b"read me"),
+            self.lib.ArchiveEntry("top/demo-pack", 0o755, True, b""),
+            self.lib.ArchiveEntry("top/demo-pack/pack.ron", 0o644, False, b"(pack)"),
         ]
 
     def test_zip_entries_are_normalized(self) -> None:
         path = self.root / "out.zip"
-        self.pkg.write_zip(path, self.entries(), COMMIT_EPOCH)
+        self.lib.write_zip(path, self.entries(), COMMIT_EPOCH)
         # The zip DOS timestamp stores two-second granularity, so an odd commit
         # second reads back floored. That is the format's contract, not drift.
         year, month, day, hour, minute, second = time.gmtime(COMMIT_EPOCH)[:6]
@@ -443,8 +444,8 @@ class PackageTests(unittest.TestCase):
 
     def test_tar_entries_are_normalized_and_gzip_header_is_fixed(self) -> None:
         path = self.root / "out.tar.gz"
-        self.pkg.write_tar_gz(path, self.entries(), COMMIT_EPOCH)
-        expected = self.pkg.normalized_mtime(COMMIT_EPOCH)
+        self.lib.write_tar_gz(path, self.entries(), COMMIT_EPOCH)
+        expected = self.lib.normalized_mtime(COMMIT_EPOCH)
         with tarfile.open(path, "r:gz") as archive:
             members = archive.getmembers()
             self.assertEqual(
@@ -470,11 +471,11 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(int.from_bytes(raw[4:8], "little"), expected & 0xFFFFFFFF)
 
     def test_zip_minimum_mtime_is_clamped_to_1980(self) -> None:
-        self.assertEqual(self.pkg.ZIP_MIN_MTIME, 315_532_800)
-        self.assertEqual(self.pkg.normalized_mtime(0), self.pkg.ZIP_MIN_MTIME)
-        self.assertEqual(self.pkg.zip_date_time(0), (1980, 1, 1, 0, 0, 0))
+        self.assertEqual(self.lib.ZIP_MIN_MTIME, 315_532_800)
+        self.assertEqual(self.lib.normalized_mtime(0), self.lib.ZIP_MIN_MTIME)
+        self.assertEqual(self.lib.zip_date_time(0), (1980, 1, 1, 0, 0, 0))
         path = self.root / "epoch.zip"
-        self.pkg.write_zip(path, self.entries(), 0)
+        self.lib.write_zip(path, self.entries(), 0)
         with zipfile.ZipFile(path) as archive:
             self.assertEqual(archive.infolist()[0].date_time, (1980, 1, 1, 0, 0, 0))
 
@@ -483,10 +484,10 @@ class PackageTests(unittest.TestCase):
         second_zip = self.root / "second.zip"
         first_tar = self.root / "first.tar.gz"
         second_tar = self.root / "second.tar.gz"
-        self.pkg.write_zip(first_zip, self.entries(), COMMIT_EPOCH)
-        self.pkg.write_zip(second_zip, list(reversed(self.entries())), COMMIT_EPOCH)
-        self.pkg.write_tar_gz(first_tar, self.entries(), COMMIT_EPOCH)
-        self.pkg.write_tar_gz(second_tar, list(reversed(self.entries())), COMMIT_EPOCH)
+        self.lib.write_zip(first_zip, self.entries(), COMMIT_EPOCH)
+        self.lib.write_zip(second_zip, list(reversed(self.entries())), COMMIT_EPOCH)
+        self.lib.write_tar_gz(first_tar, self.entries(), COMMIT_EPOCH)
+        self.lib.write_tar_gz(second_tar, list(reversed(self.entries())), COMMIT_EPOCH)
         self.assertEqual(first_zip.read_bytes(), second_zip.read_bytes())
         self.assertEqual(first_tar.read_bytes(), second_tar.read_bytes())
         with gzip.open(first_tar, "rb") as handle:

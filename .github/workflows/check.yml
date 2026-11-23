@@ -123,38 +123,26 @@ jobs:
             -pyflakes= \
             -shellcheck="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
-      # Lint the gate's own scripts and the hook, so a defect in the tooling
+      # Lint every repository script and the hook, so a defect in the tooling
       # cannot pass review just because the Rust gate is green.
       # Ruff reads only: `E4,E7,E9,F` are import, syntax and pyflakes defects,
       # selected explicitly so a Ruff default change cannot widen the gate, and
       # there is no `--fix`, formatter, preview rule or config file to drift.
       # `--isolated --no-cache` makes the run depend on the pinned binary and the
-      # file contents alone. Every script the gate itself runs is listed, plus
-      # `doctor.py`, its split modules and `license_policy.py`.
+      # file contents alone. Ruff takes the whole `scripts/` folder, so a new
+      # script is linted without a change to this step.
       # ShellCheck runs the hook as POSIX `sh`, the shell its shebang declares.
       #
-      # Measured on a Windows host against these files: Ruff 73 ms and ShellCheck
+      # Measured on a Windows host against `scripts/`: Ruff 28 ms and ShellCheck
       # 71 ms warm, so the pair stays far inside the roughly 60-second budget for
       # this job. Treat the budget as review-triggering, not as an assertion.
-      - name: Lint the gate scripts and the commit hook
+      - name: Lint the scripts and the commit hook
         run: |
           "$RUNNER_TEMP/ruff-x86_64-unknown-linux-gnu/ruff" check \
             --no-cache \
             --isolated \
             --select E4,E7,E9,F \
-            scripts/doctor.py \
-            scripts/doctor_cases_environment.py \
-            scripts/doctor_cases_toolchain.py \
-            scripts/doctor_checks.py \
-            scripts/doctor_probe.py \
-            scripts/doctor_selftest.py \
-            scripts/check-invariants.py \
-            scripts/invariants_core.py \
-            scripts/invariants_eol.py \
-            scripts/license_policy.py \
-            scripts/comment_scan.py \
-            scripts/no-new-comments.py \
-            scripts/test-comments.py
+            scripts/
 
           "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
             -s sh \

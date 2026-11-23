@@ -121,7 +121,9 @@ def plan_archive(kind, version, target, demo_files):
         raise Refusal(f"unknown archive kind: {kind}")
     stem = archive_stem(archive_name(kind, version, target))
     origins: dict[str, str] = {stem: "dir"}
-    add = lambda name, origin: origins.setdefault(name, origin)
+    def add(name, origin):
+        origins.setdefault(name, origin)
+
     add(f"{stem}/README", "readme")
     add(f"{stem}/LICENSE", "license")
     add(f"{stem}/THIRD-PARTY-LICENSES", "notice")

@@ -11,15 +11,14 @@ drive all of it without a run.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
-from package_lib import (Refusal, indented, sha256_bytes, sha256_file,
-                         workspace_version)
+from package_lib import (Refusal, indented, sha256_bytes as sha256_bytes,
+                         sha256_file as sha256_file, workspace_version)
 from candidate_record_facts import (RESIDUALS, SLOTS, hash_key, hash_ref,
                                     is_sha, require_digest, require_entries,
                                     require_facts, require_hashes,
