@@ -47,12 +47,6 @@ pub use cards::{
 };
 pub(crate) use credential_sync::{read_on_settings_open, sync_key_focus};
 pub(crate) use input::menu_input;
-#[cfg(test)]
-#[allow(
-    unused_imports,
-    reason = "the pre-split `menu::KeyRowInput` path stays valid; no test names it yet"
-)]
-pub(crate) use input::KeyRowInput;
 pub use labels::{
     control_focus, focus_control, focus_track, gallery_back_label, GALLERY_EMPTY,
     GALLERY_GRID_LEGEND, GALLERY_HEADING, GALLERY_STILL_LEGEND, SETTINGS_ORDER, TIMELINE_BACK,
