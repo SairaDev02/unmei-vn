@@ -15,6 +15,8 @@ The comment gate, [`scripts/no-new-comments.py`](../../scripts/no-new-comments.p
 
 **Amended 2026-11-21 (#139).** `--tighten` first admitted a never-counted file with all its comments and no flag, so a new file was the one way in that needed no deliberate step. It now needs `--admit`. Renamed files are not detected by matching digests: `--admit` is the one path for any file new to the baseline.
 
+**Amended 2026-11-23 (#151).** A trailing YAML comment whose whole body is a version tag, such as `# v2.9.3`, is out of scope. Dependabot reads that tag and rewrites it when it bumps the SHA on a pinned `uses:` line, so the comment is tool-maintained in the way a directive is. Counting it made every Dependabot pull request fail the required `fmt, clippy, test` job until a person ran `--reword`, and a push to Dependabot's branch stops Dependabot from rebasing that pull request. The exemption covers YAML files only, and only a comment that trails other text and holds nothing but the tag: an own-line `# v2.9.3`, a tag with any other text and a tag in another file type all still count.
+
 ## Considered options
 
 - **Keep counts and rely on review for swaps.** Rejected: a swap changes nothing in the baseline, so review has nothing to notice.

@@ -18,11 +18,18 @@ HERE = Path(__file__).resolve().parent
 GATE = HERE / "no-new-comments.py"
 sys.path.insert(0, str(HERE))
 
-from comment_scan import in_scope, scan_rust  # noqa: E402
+from comment_scan import in_scope, scan_rust, scan_yaml  # noqa: E402
 
 RUST = "fn main() {\n    // keep: the order matters\n    let x = 1;\n}\n"
 PYTHON = "x = 1\n# keep: why x is one\n"
 SHELL = "#!/bin/sh\n# keep: why this runs\necho hi\n"
+WORKFLOW = (
+    "name: ci\n"
+    "jobs:\n"
+    "  check:\n"
+    "    steps:\n"
+    "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1\n"
+)
 
 
 def git(repo: Path, *args: str) -> None:
@@ -59,6 +66,7 @@ class GateTest(unittest.TestCase):
         self.repo.write("src/main.rs", RUST)
         self.repo.write("tool.py", PYTHON)
         self.repo.write("run.sh", SHELL)
+        self.repo.write(".github/workflows/ci.yml", WORKFLOW)
         created = self.repo.gate("--tighten")
         self.assertEqual(created.returncode, 0, created.stdout + created.stderr)
         self.assert_green()
@@ -209,6 +217,53 @@ class GateTest(unittest.TestCase):
         run = self.repo.gate("--admit", "tool.py")
         self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
         self.assertIn("--admit needs --tighten", run.stderr)
+
+    def test_a_dependabot_pin_bump_needs_no_baseline_edit(self) -> None:
+        before = self.repo.baseline()
+        bumped = WORKFLOW.replace("3d3c42e5", "a1b2c3d4").replace("v7.0.1", "v7.1.0")
+        self.repo.write(".github/workflows/ci.yml", bumped)
+        self.assert_green()
+        self.assertEqual(self.repo.baseline(), before)
+
+    def test_a_yaml_version_comment_on_its_own_line_is_red(self) -> None:
+        self.repo.write(".github/workflows/ci.yml", WORKFLOW + "# v2.9.3\n")
+        self.assert_red(".github/workflows/ci.yml:6", "# v2.9.3")
+
+    def test_a_yaml_trailing_version_comment_with_more_text_is_red(self) -> None:
+        self.repo.write(
+            ".github/workflows/ci.yml", WORKFLOW.replace("# v7.0.1", "# v7.0.2, pinned for the probe")
+        )
+        self.assert_red(".github/workflows/ci.yml:5", "# v7.0.2, pinned for the probe")
+
+    def test_a_trailing_version_comment_outside_yaml_is_red(self) -> None:
+        self.repo.write("tool.py", PYTHON + "y = 2  # v2.9.3\n")
+        self.repo.write("run.sh", SHELL + "true  # v2.9.3\n")
+        self.repo.write("pyproject.toml", 'name = "x"  # v2.9.3\n')
+        self.assert_red("tool.py:3", "run.sh:4", "pyproject.toml:1")
+
+
+class YamlVersionPinTest(unittest.TestCase):
+    def scoped(self, src: str, path: str = ".github/workflows/ci.yml") -> list[str]:
+        return [c.text for c in scan_yaml(path, src) if in_scope(c)]
+
+    def test_a_trailing_version_pin_in_any_accepted_shape_is_out_of_scope(self) -> None:
+        for body in ("# v7", "# v2.9.3", "# v1.0.6", "#   v2.9.3  "):
+            with self.subTest(body=body):
+                self.assertEqual(self.scoped(f"- uses: a@b {body}\n"), [])
+
+    def test_a_trailing_comment_that_is_not_only_a_version_stays_in_scope(self) -> None:
+        for body in ("# v2.9.3 pinned for the probe", "# v2.9.3, pinned for the probe",
+                     "# version 2.9.3", "# v2.9.3-rc1"):
+            with self.subTest(body=body):
+                self.assertEqual(self.scoped(f"- uses: a@b {body}\n"), [body])
+
+    def test_a_version_on_its_own_line_stays_in_scope(self) -> None:
+        self.assertEqual(self.scoped("# v2.9.3\n"), ["# v2.9.3"])
+
+    def test_both_yaml_suffixes_are_exempt(self) -> None:
+        for path in (".github/workflows/ci.yml", "ci.yaml"):
+            with self.subTest(path=path):
+                self.assertEqual(self.scoped("- uses: a@b # v2.9.3\n", path), [])
 
 
 class RustBlockTest(unittest.TestCase):

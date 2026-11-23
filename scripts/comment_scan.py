@@ -8,6 +8,7 @@ counts them.
 from __future__ import annotations
 
 import io
+import re
 import tokenize
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,9 @@ DIRECTIVES = (
     "shellcheck", "yaml-language-server", "noqa", "type:", "fmt:", "pylint:", "ruff:",
     "mypy:", "pragma:", "coding:", "-*-", "prettier-ignore", "eslint",
 )
+
+VERSION_PIN = re.compile(r"#\s*v\d+(?:\.\d+)*")
+YAML_SUFFIXES = (".yml", ".yaml")
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,17 @@ class Comment:
             return True
         body = self.text.lstrip("#/*!<> \t")
         return body.startswith("!") or body.startswith(DIRECTIVES)
+
+    @property
+    def version_pin(self) -> bool:
+        """A trailing YAML comment whose whole body is a version tag (#151).
+
+        Dependabot rewrites the tag on a pinned `uses:` line, so the comment is
+        tool-maintained and must not enter the baseline.
+        """
+        if self.kind != "trailing" or Path(self.path).suffix not in YAML_SUFFIXES:
+            return False
+        return VERSION_PIN.fullmatch(self.text.strip()) is not None
 
 
 def _rows(path: str, text: str, spans: list[tuple[int, int, str, str]]) -> list[Comment]:
@@ -259,8 +274,8 @@ def scan_tracked(rels: list[str]) -> list[Comment]:
 
 
 def in_scope(comment: Comment) -> bool:
-    """rustdoc and docstrings document an API; directives are code."""
-    return not (comment.directive or comment.kind.endswith(":"))
+    """rustdoc and docstrings document an API; directives and a tool-rewritten pin are code."""
+    return not (comment.directive or comment.version_pin or comment.kind.endswith(":"))
 
 
 def scope_suffixes() -> tuple[str, ...]:
