@@ -155,6 +155,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Source-size check on the changed files
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE}" ] || \
+             [ "${BASE}" = "0000000000000000000000000000000000000000" ] || \
+             ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE="$(git merge-base origin/main HEAD)"
+            echo "source-size: no reachable event base; comparing against origin/main (${BASE})"
+          fi
+          python3 scripts/check-staged-token-limit.py --base "${BASE}"
 
       # The documentation tooling is deterministic, standard library only and
       # costs seconds, so it runs before the Linux dependency install and never
@@ -223,6 +237,11 @@ jobs:
       # while the measurement itself stays on the candidate run.
       - name: Coverage slot logic tests
         run: python3 scripts/test-coverage-slot.py
+
+      - name: Source-size logic tests
+        run: |
+          python3 scripts/test-staged-token-limit.py
+          python3 scripts/test-audit-source-size.py
 
       - name: Comment gate logic tests
         run: python3 scripts/test-comments.py

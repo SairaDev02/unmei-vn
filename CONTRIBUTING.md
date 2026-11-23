@@ -125,12 +125,19 @@ The size limit exempts test code, documentation, and generated or vendored files
 
 These exemptions affect only the token-size check, not the staged whitespace check or Rust formatting. The precise patterns live in `scripts/check-staged-token-limit.py`. Production files that are already oversized are not checked until you stage them. The whole-tree counterpart is `scripts/audit-source-size.py`.
 
+The hook is a local early warning, not the gate. CI runs the same check with the same exemptions and exception list over the files each change touches: the merge base with the base branch for a pull request, and the pushed commits for a push to `main`. A change made without the hook installed, or committed with `--no-verify`, therefore still fails. The step names the file, its size and the recorded ceiling when one applies. To run it against a change locally, pass the base revision:
+
+```sh
+python3 scripts/check-staged-token-limit.py --base origin/main
+```
+
 A file may exceed the limit only when a maintainer decision is recorded in `scripts/source-size-exceptions.json`. The record holds the file path, the byte count the decision authorized and a reason. The hook and the audit read that one list. The recorded count is a **ceiling**: a file that grows past it is rejected again. The audit reports an exception that no longer describes an oversized file, so that you can remove it.
 
-A violation lists each file, its staged size and its estimated tokens. It then explains how to extract cohesive source modules, update imports and tests, stage the resulting files and retry. To run the focused regression suite for the size check, run:
+A violation lists each file, its staged size and its estimated tokens. It then explains how to extract cohesive source modules, update imports and tests, stage the resulting files and retry. To run the focused regression suites for the size checks, run:
 
 ```sh
 python3 scripts/test-staged-token-limit.py
+python3 scripts/test-audit-source-size.py
 ```
 
 The root `.gitattributes` pins `.githooks/*` and `*.sh` to `text eol=lf`. Git therefore checks the hook out with LF endings on Windows, Git Bash and Linux, even when `core.autocrlf` is enabled. A clone made before `.gitattributes` held that pin can still have a CRLF working copy of the hook, which the shell cannot run. The committed hook already has LF endings, so refreshing the hook file changes no tracked content. The refresh discards any uncommitted edit to the hook, so commit or stash the edit first. Then run:

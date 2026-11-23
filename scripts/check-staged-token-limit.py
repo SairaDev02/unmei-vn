@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
-"""Enforce an authored-file size budget against staged Git blobs only.
+"""Enforce an authored-file size budget against a change, never the whole tree.
+
+The default mode reads the staged Git blobs only: what the commit will contain.
+``--base`` switches to a revision range, which is how CI checks a pull request or
+a push without a local hook.
 
 A file may exceed the budget when a maintainer decision is recorded in
 ``scripts/source-size-exceptions.json``, which is read from the index (what the
-commit will contain) and then from the working tree. The recorded byte count is
-a ceiling: a file that grows past it is a violation again. The same schema is
-loaded by ``scripts/audit-source-size.py`` from the audited revision, so an
-exception means one thing at the hook and in the whole-tree audit.
+commit will contain) and then from the working tree, or, in range mode, from the
+revision being checked. The recorded byte count is a ceiling: a file that grows
+past it is a violation again. Both modes and ``scripts/audit-source-size.py``
+share one verdict, so an exception means one thing everywhere.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import subprocess
@@ -131,12 +136,48 @@ def staged_exceptions() -> list[dict]:
     return [] if source is None else load_exceptions(source, MAX_BYTES)
 
 
-def oversized_staged_files() -> tuple[list[tuple[str, int, int | None]], list[tuple[str, int, int]]]:
+def tree_exceptions(rev: str) -> list[dict]:
+    """The exception list ``rev`` records, or none when it records none."""
+    try:
+        source = git("show", f"{rev}:{EXCEPTIONS_PATH}").decode("utf-8")
+    except subprocess.CalledProcessError:
+        return []
+    return load_exceptions(source, MAX_BYTES)
+
+
+def ceilings(entries: list[dict]) -> dict[str, int]:
+    return {entry["path"]: entry["bytes"] for entry in entries}
+
+
+def size_verdict(path: str, size: int, limits: dict[str, int]) -> tuple[str, int | None]:
+    """The one size rule: skip, authorized under a recorded ceiling, or a violation."""
+    if excluded(path) or size <= MAX_BYTES:
+        return "skip", None
+    ceiling = limits.get(path)
+    if ceiling is not None and size <= ceiling:
+        return "authorized", ceiling
+    return "violation", ceiling
+
+
+def sort_oversized(
+    files: list[tuple[str, int]], limits: dict[str, int]
+) -> tuple[list[tuple[str, int, int | None]], list[tuple[str, int, int]]]:
     """Return (violations, authorized) with the recorded ceiling when one applies."""
-    ceilings = {entry["path"]: entry["bytes"] for entry in staged_exceptions()}
-    changed = set(git("diff", "--cached", "--name-only", "-z", "--no-ext-diff", "--diff-filter=ACMRT").split(b"\0"))
     violations: list[tuple[str, int, int | None]] = []
     authorized: list[tuple[str, int, int]] = []
+    for path, size in files:
+        verdict, ceiling = size_verdict(path, size, limits)
+        if verdict == "authorized":
+            authorized.append((path, size, ceiling))
+        elif verdict == "violation":
+            violations.append((path, size, ceiling))
+    return violations, authorized
+
+
+def index_files() -> list[tuple[str, int]]:
+    """The staged authored files, with the size of the blob the commit will hold."""
+    changed = set(git("diff", "--cached", "--name-only", "-z", "--no-ext-diff", "--diff-filter=ACMRT").split(b"\0"))
+    files: list[tuple[str, int]] = []
     for entry in git("ls-files", "--stage", "-z").split(b"\0"):
         if not entry:
             continue
@@ -146,29 +187,67 @@ def oversized_staged_files() -> tuple[list[tuple[str, int, int | None]], list[tu
         mode, oid, stage = metadata.split()
         if stage != b"0" or mode not in (b"100644", b"100755"):
             continue  # Unmerged entries, symlinks, and submodules are not authored files.
-        path = os.fsdecode(raw_path)
-        if excluded(path):
-            continue
-        size = int(git("cat-file", "-s", oid.decode("ascii")).strip())
-        if size <= MAX_BYTES:
-            continue
-        ceiling = ceilings.get(path)
-        if ceiling is not None and size <= ceiling:
-            authorized.append((path, size, ceiling))
-        else:
-            violations.append((path, size, ceiling))
-    return violations, authorized
+        files.append((os.fsdecode(raw_path), int(git("cat-file", "-s", oid.decode("ascii")).strip())))
+    return files
 
 
-def main() -> int:
+def tree_files(rev: str, changed: set[bytes]) -> list[tuple[str, int]]:
+    """The regular files of ``rev`` that the change touched, with their blob sizes."""
+    files: list[tuple[str, int]] = []
+    for entry in git("ls-tree", "-r", "-z", "--full-tree", rev).split(b"\0"):
+        if not entry:
+            continue
+        metadata, sep, raw_path = entry.partition(b"\t")
+        if not sep or raw_path not in changed:
+            continue
+        mode, kind, oid = metadata.split(b" ")
+        if kind != b"blob" or mode not in (b"100644", b"100755"):
+            continue
+        files.append((os.fsdecode(raw_path), int(git("cat-file", "-s", oid.decode("ascii")).strip())))
+    return files
+
+
+def oversized_staged_files() -> tuple[list[tuple[str, int, int | None]], list[tuple[str, int, int]]]:
+    """The staged change's violations and authorized files."""
+    return sort_oversized(index_files(), ceilings(staged_exceptions()))
+
+
+def oversized_changed_files(
+    base: str, head: str
+) -> tuple[list[tuple[str, int, int | None]], list[tuple[str, int, int]]]:
+    """The change between ``base`` and ``head``: violations and authorized files."""
+    changed = set(git(
+        "diff", "--name-only", "-z", "--no-ext-diff", "--diff-filter=ACMRT", f"{base}...{head}"
+    ).split(b"\0"))
+    return sort_oversized(tree_files(head, changed), ceilings(tree_exceptions(head)))
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--base", metavar="REV",
+        help="check the change between REV and --head instead of the staged index",
+    )
+    parser.add_argument(
+        "--head", metavar="REV", default=None,
+        help="the revision to check with --base (default: HEAD)",
+    )
+    args = parser.parse_args(argv)
+    if args.base is None and args.head is not None:
+        parser.error("--head needs --base")
+    ranged = args.base is not None
+    label, scope = ("source-size", "changed") if ranged else ("pre-commit", "staged")
     try:
-        violations, authorized = oversized_staged_files()
+        if ranged:
+            violations, authorized = oversized_changed_files(args.base, args.head or "HEAD")
+        else:
+            violations, authorized = oversized_staged_files()
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
-        print(f"pre-commit: cannot check staged file sizes: {exc}", file=sys.stderr)
+        print(f"{label}: cannot check {scope} file sizes: {exc}", file=sys.stderr)
         return 2
     for path, size, ceiling in authorized:
         print(
-            f"pre-commit: {path!r} ({size:,} bytes) is a recorded exception "
+            f"{label}: {path!r} ({size:,} bytes) is a recorded exception "
             f"(authorized up to {ceiling:,} bytes).",
             file=sys.stderr,
         )
@@ -176,7 +255,7 @@ def main() -> int:
         return 0
 
     print(
-        f"pre-commit: staged authored files exceed {MAX_TOKENS:,} tokens "
+        f"{label}: {scope} authored files exceed {MAX_TOKENS:,} tokens "
         f"({MAX_BYTES:,} bytes; tokens = bytes / 4):",
         file=sys.stderr,
     )
@@ -186,14 +265,19 @@ def main() -> int:
             f"  {path!r}: {size:,} bytes ({size / 4:,.2f} tokens){grown}",
             file=sys.stderr,
         )
+    then = (
+        "Commit the split files and push again."
+        if ranged else
+        "Stage the split files (git add <paths>) and retry the commit."
+    )
     print(
-        "\nSplit each oversized file before committing:\n"
+        f"\nSplit each oversized file before {'merging' if ranged else 'committing'}:\n"
         "  1. Extract cohesive features, types, or helpers into separate source files.\n"
         "     Rust: move related declarations into a module (e.g. foo.rs), then\n"
         "     update mod/use declarations and call sites.\n"
         "  2. Update imports and tests; keep each authored production source file\n"
         "     at or below 20,000 bytes (5,000 tokens by bytes / 4).\n"
-        "  3. Stage the split files (git add <paths>) and retry the commit.\n"
+        f"  3. {then}\n"
         "     Test and documentation files are exempt from this size check.",
         file=sys.stderr,
     )
