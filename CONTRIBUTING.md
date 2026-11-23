@@ -192,9 +192,11 @@ Nothing here is required to contribute. These are the checks CI runs, so you can
 
 ```sh
 ruff check --no-cache --isolated --select E4,E7,E9,F \
-  scripts/doctor.py scripts/check-invariants.py \
-  scripts/invariants_core.py scripts/invariants_eol.py scripts/license_policy.py \
-  scripts/comment_scan.py scripts/no-new-comments.py scripts/test-comments.py
+  scripts/doctor.py scripts/doctor_cases_environment.py scripts/doctor_cases_toolchain.py \
+  scripts/doctor_checks.py scripts/doctor_probe.py scripts/doctor_selftest.py \
+  scripts/check-invariants.py scripts/invariants_core.py scripts/invariants_eol.py \
+  scripts/license_policy.py scripts/comment_scan.py scripts/no-new-comments.py \
+  scripts/test-comments.py
 shellcheck -s sh .githooks/pre-commit
 ```
 
