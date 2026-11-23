@@ -314,6 +314,7 @@ SUMMARY_SEED = "<!-- summary written by an earlier step -->\n"
 # the policy its categories are computed with instead of borrowing one.
 CHECKER_PATH = "scripts/check-staged-token-limit.py"
 CHECKER_SOURCE = (support.SCRIPTS / "check-staged-token-limit.py").read_text(encoding="utf-8")
+CHECKER_LINES = len(CHECKER_SOURCE.splitlines())
 
 # The fixture documents live in a synthetic root that the fixture policy declares
 # and indexes itself, so no case depends on a directory only this private tree owns.
@@ -489,8 +490,10 @@ class BaselineComparisonTests(ReportCase):
         self.assertIn("| docs/pages 2 (baseline 0, +2)", result.stdout)
         self.assertIn("paragraph density: 4 narrative paragraphs in 2 sections "
                       "(baseline 1, +3)", result.stdout)
-        self.assertIn("code-file length: 2 files, 209 lines (baseline 0, +209); "
-                      "production 2 files 209 lines (baseline 0, +209)", result.stdout)
+        self.assertIn(f"code-file length: 2 files, {CHECKER_LINES + 5} lines "
+                      f"(baseline 0, +{CHECKER_LINES + 5}); "
+                      f"production 2 files {CHECKER_LINES + 5} lines "
+                      f"(baseline 0, +{CHECKER_LINES + 5})", result.stdout)
         self.assertNotIn("above the recorded reference", result.stdout)
         self.assertNotIn("measurement_only", result.stdout)
 
@@ -689,22 +692,27 @@ class CandidateSnapshotTests(ReportCase):
 
         staged = self.code_line(self.report(repo, "--staged"))
         self.assertEqual(staged, (
-            "code-file length: 7 files, 228 lines (baseline 0, +228); checker-excluded "
+            f"code-file length: 7 files, {CHECKER_LINES + 24} lines "
+            f"(baseline 0, +{CHECKER_LINES + 24}); checker-excluded "
             "2 files 7 lines (baseline 0, +7) | content 1 files 4 lines (baseline 0, +4) | "
-            "example 1 files 4 lines (baseline 0, +4) | production 3 files 213 lines "
-            "(baseline 0, +213)"))
+            "example 1 files 4 lines (baseline 0, +4) | "
+            f"production 3 files {CHECKER_LINES + 9} lines "
+            f"(baseline 0, +{CHECKER_LINES + 9})"))
 
         worktree_line = self.code_line(self.report(repo, "--worktree"))
         self.assertEqual(worktree_line, (
-            "code-file length: 7 files, 231 lines (baseline 0, +231); checker-excluded "
+            f"code-file length: 7 files, {CHECKER_LINES + 27} lines "
+            f"(baseline 0, +{CHECKER_LINES + 27}); checker-excluded "
             "2 files 7 lines (baseline 0, +7) | content 1 files 4 lines (baseline 0, +4) | "
-            "example 1 files 4 lines (baseline 0, +4) | production 3 files 216 lines "
-            "(baseline 0, +216)"))
+            "example 1 files 4 lines (baseline 0, +4) | "
+            f"production 3 files {CHECKER_LINES + 12} lines "
+            f"(baseline 0, +{CHECKER_LINES + 12})"))
 
         earlier = self.code_line(self.report(repo, "--checkout", "--rev", base))
         self.assertEqual(earlier, (
-            "code-file length: 2 files, 207 lines (baseline 0, +207); production "
-            "2 files 207 lines (baseline 0, +207)"))
+            f"code-file length: 2 files, {CHECKER_LINES + 3} lines "
+            f"(baseline 0, +{CHECKER_LINES + 3}); production "
+            f"2 files {CHECKER_LINES + 3} lines (baseline 0, +{CHECKER_LINES + 3})"))
 
         # Committing exactly what was staged must reproduce the staged verdict.
         repo.git("commit", "-qm", "the staged candidate")
@@ -741,8 +749,9 @@ class CandidateSnapshotTests(ReportCase):
         # The earlier commit keeps its own policy, so its categories differ.
         earlier = self.code_line(self.report(repo, "--checkout", "--rev", base))
         self.assertEqual(earlier, (
-            "code-file length: 2 files, 207 lines (baseline 0, +207); production "
-            "2 files 207 lines (baseline 0, +207)"))
+            f"code-file length: 2 files, {CHECKER_LINES + 3} lines "
+            f"(baseline 0, +{CHECKER_LINES + 3}); production "
+            f"2 files {CHECKER_LINES + 3} lines (baseline 0, +{CHECKER_LINES + 3})"))
 
     def test_a_snapshot_without_its_policy_is_unavailable(self):
         """A copy exists in this repository; a historical fallback must not be used."""

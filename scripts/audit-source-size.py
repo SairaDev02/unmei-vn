@@ -12,17 +12,19 @@ the commit hook.
 
 The checker's predicate exempts lockfiles, generated/codegen and vendored
 directories, generated CLI fixtures, generated source suffixes and binary
-assets; it also exempts test files and documentation. The report's per-file
-categories (test, documentation, evidence, example) stay in the tool so a run
-against an older revision still separates refactor targets from out-of-scope
-baggage without weakening the checker.
+assets; it also exempts test files and documentation. The audit's scope is that
+predicate and nothing else: a file the hook would check is in scope here, so a
+recorded exception the hook relies on is reported as applied rather than stale.
+The per-file categories (production, example, config, test, documentation,
+evidence, content) are reporting metadata the report groups rows by; they do not
+narrow the scope.
 
 Usage:
     python scripts/audit-source-size.py --rev <sha>
     python scripts/audit-source-size.py --rev <sha> --json inventory.json
 
-Exit code is 1 when an in-scope production or developer-tooling file exceeds
-20,000 bytes and is not covered by a recorded exception; 0 otherwise. Recorded
+Exit code is 1 when an in-scope file exceeds 20,000 bytes and is not covered by
+a recorded exception; 0 otherwise. Recorded
 exceptions live in ``scripts/source-size-exceptions.json`` and are read from the
 audited revision, so an older tree cannot inherit a later decision.
 """
@@ -42,7 +44,19 @@ MAX_BYTES = 20_000
 CHECKER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check-staged-token-limit.py")
 CHECKER_REPO_PATH = "scripts/check-staged-token-limit.py"
 EXCEPTIONS_REPO_PATH = "scripts/source-size-exceptions.json"
-IN_SCOPE = ("production", "example")
+IN_SCOPE_ORDER = (
+    "production", "example", "config", "content", "test", "documentation", "evidence",
+)
+CATEGORY_HEADINGS = {
+    "production": "in-scope production violations",
+    "example": "in-scope developer-tooling (examples) violations",
+    "config": "in-scope config violations",
+    "content": "in-scope demo-pack content violations",
+    "test": "in-scope test violations",
+    "documentation": "in-scope documentation violations",
+    "evidence": "in-scope evidence violations",
+    "checker-excluded": "checker-excluded: lockfiles/generated/vendor/assets",
+}
 REGULAR_MODES = {b"100644", b"100755"}
 CODE_SUFFIXES = (".rs", ".py", ".sh")
 
@@ -218,11 +232,11 @@ def apply_exceptions(
 ) -> tuple[list[dict], list[dict], list[dict]]:
     """Sort recorded exceptions into applied, expired and stale.
 
-    Applied: the exact path is in refactor scope, is still over the cap, and has
-    not grown past the byte count the decision authorized. Expired: it grew past
-    that count, so the file is a violation again. Stale: the entry no longer
-    describes a violation (the file is compliant or gone); it must be removed,
-    but it does not fail the audit.
+    Applied: the exact path is one the hook checks, is still over the cap, and
+    has not grown past the byte count the decision authorized. Expired: it grew
+    past that count, so the file is a violation again. Stale: the entry no longer
+    describes a violation (the file is compliant, is one the hook excludes, or is
+    gone); it must be removed, but it does not fail the audit.
     """
     by_path = {f["path"]: f for f in files}
     applied: list[dict] = []
@@ -232,7 +246,7 @@ def apply_exceptions(
         target = by_path.get(entry["path"])
         record = dict(entry)
         record["observed_bytes"] = target["bytes"] if target else None
-        if target is None or target["category"] not in IN_SCOPE or target["bytes"] <= MAX_BYTES:
+        if target is None or target["checker_excluded"] or target["bytes"] <= MAX_BYTES:
             stale.append(record)
         elif target["bytes"] > entry["bytes"]:
             expired.append(record)
@@ -292,18 +306,9 @@ def render(scan_result: dict) -> str:
     for category in sorted(by_category):
         lines.append(f"  {category}: {by_category[category]}")
     lines.append(f"over {scan_result['max_bytes']:,} bytes: {len(over)}")
-    headings = {
-        "production": "in-scope production violations",
-        "example": "in-scope developer-tooling (examples) violations",
-        "test": "out of scope: tests",
-        "documentation": "out of scope: documentation",
-        "evidence": "out of scope: committed evidence artefacts (not source)",
-        "content": "out of scope: demo-pack content",
-        "checker-excluded": "checker-excluded: lockfiles/generated/vendor/assets",
-    }
-    for category in ("production", "example"):
+    for category in IN_SCOPE_ORDER:
         rows = [f for f in over if f["category"] == category and f["path"] not in excepted]
-        lines.append(f"\n{headings[category]}: {len(rows)}")
+        lines.append(f"\n{CATEGORY_HEADINGS[category]}: {len(rows)}")
         for item in rows:
             excess = item["bytes"] - scan_result["max_bytes"]
             lines.append(
@@ -331,14 +336,11 @@ def render(scan_result: dict) -> str:
         observed = item["observed_bytes"]
         shown = "missing" if observed is None else f"{observed:>7}"
         lines.append(f"  {shown} <= {item['bytes']:>6} {item['path']!r} — {item['reason']}")
-    for category in ("test", "documentation", "evidence", "content", "checker-excluded"):
-        rows = [f for f in over if f["category"] == category]
-        lines.append(f"\n{headings[category]}: {len(rows)}")
-        for item in rows:
-            excess = item["bytes"] - scan_result["max_bytes"]
-            lines.append(
-                f"  {item['bytes']:>7} +{excess:>6} {item['path']!r} {item['oid']}"
-            )
+    rows = [f for f in over if f["category"] == "checker-excluded"]
+    lines.append(f"\n{CATEGORY_HEADINGS['checker-excluded']}: {len(rows)}")
+    for item in rows:
+        excess = item["bytes"] - scan_result["max_bytes"]
+        lines.append(f"  {item['bytes']:>7} +{excess:>6} {item['path']!r} {item['oid']}")
     return "\n".join(lines) + "\n"
 
 
@@ -361,9 +363,8 @@ def main(argv: list[str] | None = None) -> int:
             handle.write("\n")
     applied = {item["path"] for item in result["exceptions"]}
     violations = [
-        f
-        for f in over_budget(result)
-        if f["category"] in IN_SCOPE and f["path"] not in applied
+        f for f in over_budget(result)
+        if not f["checker_excluded"] and f["path"] not in applied
     ]
     return 1 if violations else 0
 
