@@ -28,8 +28,43 @@ from pathlib import Path
 # Load `package_lib` beside this script, both as `python3 scripts/package.py`
 # and when the test suite loads this file as a module from another directory.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from package_lib import *  # noqa: E402,F401,F403
-from package_lib import Refusal, sha256_bytes  # noqa: E402
+from package_lib import (  # noqa: E402
+    BINARIES,
+    BINARY_EXE,
+    BINARY_MANIFEST,
+    BINARY_README,
+    BUILD_INPUT_PATHS,
+    DEMO_PACK_SOURCE,
+    FONT_LICENSES,
+    Refusal,
+    archive_entries,
+    archive_name,
+    archive_stem,
+    demo_pack_files,
+    dirty_build_input_paths,
+    package_args,
+    parse_about_version,
+    placeholder_findings,
+    placeholder_sources,
+    plan_archive,
+    rehearsal_stamp,
+    require_about_version,
+    require_clean,
+    require_empty_out,
+    require_no_placeholders,
+    require_no_validate_failures,
+    require_success,
+    require_versions,
+    run_header_lines,
+    sha256_bytes,
+    sha256sums_text,
+    staged_crates,
+    stamp_readme,
+    substitute_version,
+    target_for,
+    workspace_version,
+    write_archive,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 

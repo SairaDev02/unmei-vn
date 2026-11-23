@@ -401,12 +401,14 @@ class FactsTests(unittest.TestCase):
                           "unmei-play-0.1.0-x86_64-windows.zip"])
 
     def test_a_crate_both_jobs_staged_appears_once_and_a_parity_break_is_refused(self) -> None:
-        staged = lambda digest: {"hashes": [
-            {"job": "packaging-windows", "name": "unmei-0.1.0.crate", "kind": "crate",
-             "sha256": digest, "bytes": 10},
-            {"job": "packaging-linux", "name": "unmei-0.1.0.crate", "kind": "crate",
-             "sha256": digest, "bytes": 10},
-        ]}
+        def staged(digest):
+            return {"hashes": [
+                {"job": "packaging-windows", "name": "unmei-0.1.0.crate", "kind": "crate",
+                 "sha256": digest, "bytes": 10},
+                {"job": "packaging-linux", "name": "unmei-0.1.0.crate", "kind": "crate",
+                 "sha256": digest, "bytes": 10},
+            ]}
+
         parsed = facts.parse_sums(facts.release_sums(staged("a" * 64)))
         self.assertEqual(parsed, [("a" * 64, "unmei-0.1.0.crate")])
         broken = {"hashes": staged("a" * 64)["hashes"]

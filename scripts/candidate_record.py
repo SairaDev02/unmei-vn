@@ -96,7 +96,7 @@ from candidate_record_appendix import (STAGES, VERIFY_KINDS, append_entry,
                                        crate_checks, entry, index_cksum_checks,
                                        release_asset_checks, require_header,
                                        template)  # noqa: E402
-from candidate_record_lib import (MAIN_REF, RECORD_NAME, RECORD_SUM_NAME,
+from candidate_record_lib import (RECORD_NAME, RECORD_SUM_NAME,
                                   Refusal, build_record, eligibility_result,
                                   history_refusals, indented, load_record,
                                   record_bytes, record_sum_text,
@@ -119,7 +119,7 @@ def tail(output, limit=12):
 
 def fetch_main(repo):
     result = git(repo, "fetch", "--prune", "--no-tags", "origin",
-                 f"+refs/heads/main:refs/remotes/origin/main")
+                 "+refs/heads/main:refs/remotes/origin/main")
     if result.returncode != 0:
         raise Refusal("git fetch of origin/main failed, so ancestry cannot be proven:\n"
                       + tail(result.stderr or result.stdout))
