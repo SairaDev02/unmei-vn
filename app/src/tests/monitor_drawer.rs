@@ -1430,10 +1430,19 @@ fn filter_change_cancels_obsolete_work_and_never_mixes_predicates() {
     );
 
     activate_control(&mut app, MonitorControl::ShowEverything);
-    assert!(app
-        .world()
-        .resource::<crate::drawer::MonitorProjection>()
-        .is_updating());
+    let projection = app.world().resource::<crate::drawer::MonitorProjection>();
+    assert!(projection.is_updating());
+    let sequences = projection.sequences();
+    assert!(
+        sequences.windows(2).all(|pair| pair[1] == pair[0] + 1),
+        "one everything pass materializes a contiguous admission run; rows kept \
+         from the unmei:: pass would leave gaps: {sequences:?}"
+    );
+    let targets = projection.targets();
+    assert!(
+        targets.iter().any(|target| target == "dep::noise"),
+        "the everything predicate admits dependency rows mid-refresh: {targets:?}"
+    );
     // Switching back cancels that obsolete pass: no dependency row from it may
     // survive into the `unmei::` view.
     activate_control(&mut app, MonitorControl::ShowEverything);
