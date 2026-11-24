@@ -121,6 +121,8 @@ The tables are derived from what each surface shows today and from variant E. Ev
 
 **Quick-row controls.** Keiko's control table gains `play.save`, `play.load`, `play.auto`, `play.skip` and `play.menu`. `play.log` is reserved for the Backlog.
 
+**Quick-row labels.** Each quick-row control draws its words from a copy key: `play.quick.save`, `play.quick.load`, `play.quick.auto`, `play.quick.skip` and `play.quick.menu`, none with placeholders. The reference values are Default look §1's `Save`, `Load`, `Auto A`, `Skip Tab` and `Menu Esc`. A plugin may override them like any copy key, but the keys stay `A`, `Tab` and `Esc`. `play.quick.log` waits for the Backlog, as `play.log` does. The copy keys for the help line and the corner cues, `play.help`, `play.cue.auto` and `play.cue.skip`, are removed, because Default look §1 removes those texts. No plugin has shipped, so removing them keeps format version 1. *(Amended 2026-11-24, after the #113 review.)*
+
 **Numbering.** `numbering` in the manifest takes `arabic`, `roman-upper`, `roman-lower`, `alpha-upper` or `alpha-lower`, and sets how choice numbers display. The keys stay `1`–`9`.
 
 **Markers.** The `▼` advance mark and the three-dot deciding marker are `Glyph` or `Image` nodes inside the `play` surface's `advance-marker` and `deciding-marker` slots. The engine decides when each one shows, and the plugin decides how it looks and loops (§6).
@@ -301,6 +303,10 @@ An unreachable state stays a `preview.state.unreachable` warning. A pack whose p
 **Images, added 2026-11-24** *(static, and lands on the integration branch before #118)*
 
 39. An image declared as `ornament/arch.jpg`, and a declared `ornament/arch.png` whose bytes are a JPEG, each fail with `ui.image.format`, and the message names the file. A declared PNG passes, and the reference plugin still passes every static rule.
+
+**Quick-row labels, added 2026-11-24** *(with #114)*
+
+40. The five quick-row controls draw `play.quick.save`, `.load`, `.auto`, `.skip` and `.menu`. With an override of `play.quick.auto`, the row shows the override, and `A` still toggles auto. A copy override of `play.help`, `play.cue.auto` or `play.cue.skip` fails with `ui.copy.unknown`.
 
 ## 16. Out of scope
 
