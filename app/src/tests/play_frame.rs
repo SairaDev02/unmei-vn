@@ -479,6 +479,26 @@ fn the_row_lights_in_the_frame_its_mode_changes() {
     );
 }
 
+/// `Skip Tab` is the `Tab` key's toggle: a click engages the seen skip on a
+/// re-read line and a second click ends it (Default look §1, rule 40).
+#[test]
+fn a_click_on_skip_tab_toggles_the_seen_skip() {
+    let pack = temp_pack();
+    let mut app = app_with_known_entry(&pack);
+    frame(&mut app);
+
+    click_row(&mut app, MenuAction::QuickSkip);
+    assert!(
+        app.world().resource::<SkipState>().is_seen(),
+        "the click engaged Tab's own toggle"
+    );
+    click_row(&mut app, MenuAction::QuickSkip);
+    assert!(
+        !app.world().resource::<SkipState>().is_seen(),
+        "a second click ends it"
+    );
+}
+
 /// A click that lands on the row is the row's, never the line's (Default look
 /// §1).
 #[test]
