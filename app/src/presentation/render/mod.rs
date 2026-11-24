@@ -24,7 +24,7 @@ pub(crate) use states::sync_paint_states;
 
 pub(crate) use look::{load_look, UiLook};
 pub(crate) use states::UiStates;
-pub(crate) use tree::{Bind, ControlLabel, Surface, Words};
+pub(crate) use tree::{Bind, ControlLabel, ControlState, Surface, Words};
 
 use bevy::prelude::*;
 

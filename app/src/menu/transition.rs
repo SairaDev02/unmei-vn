@@ -32,14 +32,7 @@ pub(super) fn escape(
     }
 
     if !menu.open {
-        menu.open = true;
-        menu.view = MenuView::Slots;
-        menu.mode = MenuMode::Save;
-        menu.focus = MenuFocus::Card(0);
-        menu.confirm = None;
-        menu.picker = None;
-        menu.key_editing = false;
-        menu.refresh(pack);
+        open_slots(menu, pack, MenuMode::Save);
         return;
     }
 
@@ -88,6 +81,20 @@ pub(super) fn escape(
 
     menu.open = false;
     menu.confirm = None;
+}
+
+/// Open the contents page on one section, which is `Esc`'s first moment when
+/// the overlay is closed and the quick row's `Save`, `Load` and `Menu Esc` door
+/// while play is up.
+pub(crate) fn open_slots(menu: &mut MenuState, pack: &Pack, mode: MenuMode) {
+    menu.open = true;
+    menu.view = MenuView::Slots;
+    menu.mode = mode;
+    menu.focus = MenuFocus::Card(0);
+    menu.confirm = None;
+    menu.picker = None;
+    menu.key_editing = false;
+    menu.refresh(pack);
 }
 
 /// Back out of Settings to whichever door opened it: the slot grid, or the

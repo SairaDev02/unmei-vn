@@ -7,6 +7,7 @@
 //! `title.row.label`, and the row's control paints the focus ring and nothing
 //! else. The tables the names come from are [`super::interface`]'s.
 
+#[cfg(test)]
 use super::interface::SURFACES;
 
 /// The slots and controls whose content is text the engine draws.

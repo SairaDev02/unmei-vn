@@ -112,6 +112,7 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Surface | Ids |
 |---|---|
 | Title | `title.continue`, `title.new-game`, `title.settings`, `title.gallery`, `title.quit` |
+| Play | `play.save`, `play.load`, `play.auto`, `play.skip`, `play.menu` |
 | Overlay | `overlay.save-tab`, `overlay.load-tab`, `overlay.slot.1`, `overlay.slot.2`, `overlay.slot.3`, `overlay.slot.autosave`, `overlay.resume`, `overlay.exit-to-title`, `overlay.settings`, `overlay.gallery`, `overlay.timeline`, `overlay.legacy` |
 | Legacy picker | `legacy.target.1`, `legacy.target.2`, `legacy.target.3`, `legacy.cancel` |
 | Settings | `settings.back`, `settings.master`, `settings.music`, `settings.sfx`, `settings.mute`, `settings.reset-audio`, `settings.text-speed`, `settings.auto`, `settings.fullscreen`, `settings.reset-play`, `settings.key`, `settings.copy-path`, `settings.clear-key` |
@@ -119,7 +120,7 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Timeline | `timeline.card.<n>` (1-based, in declared order) |
 | Confirm | `confirm.yes`, `confirm.no` |
 
-Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/menu/state.rs). The build adds the map beside that enum, with a test that every `MenuFocus` variant has exactly one id. A control added later gets an id in the same change (additive, §2.1). The play frame's quick row gets ids when variant E is built.
+Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/menu/state.rs). The build adds the map beside that enum, with a test that every `MenuFocus` variant has exactly one id. A control added later gets an id in the same change (additive, §2.1). The play frame's five quick-row controls are clicked rather than walked, so each has an id and a focus value while none joins a walk. *(Amended 2026-11-24, with #114.)*
 
 ### 3.3 Raw input
 
@@ -451,6 +452,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 - **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
 - **2026-11-19:** §4.1's take session log holds the version header only, because a take installs no global log subscriber. §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
+- **2026-11-24:** §3.2 gains the play frame's five quick-row ids, which the row's controls are reached by while play is up. The grammar and the case version are unchanged.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

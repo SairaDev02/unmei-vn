@@ -3,6 +3,7 @@
 //! manifest's choice numbering (spec §5, rule 22).
 
 use super::*;
+use crate::core::SkipState;
 use bevy::text::{FontSource, LineHeight};
 use bevy::ui::{BoxShadow, Display};
 
@@ -370,4 +371,224 @@ fn the_advance_mark_blinks_on_its_period() {
         (again - base).abs() < 0.02,
         "the loop returns to the authored tone, never compounding: {again}"
     );
+}
+
+/// The rendered quick-row control whose action is `action`.
+fn row_control(app: &App, action: MenuAction) -> Entity {
+    node_where(app, |entity, app| {
+        app.world().get::<MenuAction>(entity).copied() == Some(action)
+    })
+    .unwrap_or_else(|| panic!("the row draws a control for {action:?}"))
+}
+
+fn border_width(app: &App, entity: Entity) -> f32 {
+    match app.world().get::<Node>(entity).map(|node| node.border.left) {
+        Some(Val::Px(width)) => width,
+        _ => 0.0,
+    }
+}
+
+/// The tone a control's drawn words carry.
+fn words_tone(app: &App, control: Entity) -> Option<Color> {
+    let children = app.world().get::<Children>(control)?;
+    children
+        .iter()
+        .find_map(|child| app.world().get::<TextColor>(child).map(|tone| tone.0))
+}
+
+/// One click on a quick-row control, settled the way one `Update` settles it:
+/// the row's own input, then the frame's read, then the renderer's repaint.
+fn click_row(app: &mut App, action: MenuAction) {
+    let control = row_control(app, action);
+    app.world_mut()
+        .entity_mut(control)
+        .insert(Interaction::Pressed);
+    tick_update(app);
+    frame(app);
+    tick_update(app);
+    app.world_mut()
+        .entity_mut(control)
+        .insert(Interaction::Hovered);
+}
+
+/// The row's five labels are the copy table's, drawn from the plugin's tree
+/// (Default look §1, rule 40).
+#[test]
+fn the_quick_row_draws_its_five_labels() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+    for words in ["Save", "Load", "Auto A", "Skip Tab", "Menu Esc"] {
+        let label = node_with_words(&app, words);
+        assert!(!hidden(&app, label), "the row draws {words:?}");
+    }
+}
+
+/// `Auto A` and `Skip Tab` light and unlight in the frame their mode changes,
+/// with `Auto A` unlit while skip runs (Default look §1, rule 40).
+#[test]
+fn the_row_lights_in_the_frame_its_mode_changes() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+    let auto = row_control(&app, MenuAction::QuickAuto);
+    let skip = row_control(&app, MenuAction::QuickSkip);
+    assert_eq!(border_width(&app, auto), 0.0, "auto starts unlit");
+    assert_eq!(border_width(&app, skip), 0.0, "skip starts unlit");
+
+    click_row(&mut app, MenuAction::QuickAuto);
+    assert!(auto_on(&app), "the click turned auto on");
+    assert_eq!(border_width(&app, auto), 1.0, "auto lights on its click");
+    assert_eq!(
+        words_tone(&app, auto),
+        Some(Color::srgb(0.902, 0.62, 0.361)),
+        "a lit label draws in the plugin's focus tone"
+    );
+
+    app.world_mut().resource_mut::<SkipState>().engage();
+    frame(&mut app);
+    tick_update(&mut app);
+    assert_eq!(border_width(&app, skip), 1.0, "skip lights when it runs");
+    assert_eq!(
+        border_width(&app, auto),
+        0.0,
+        "auto is unlit while skip runs"
+    );
+
+    app.world_mut().resource_mut::<SkipState>().end();
+    app.world_mut().resource_mut::<SkipState>().arm_force();
+    app.world_mut()
+        .resource_mut::<SkipState>()
+        .set_force_active(true);
+    frame(&mut app);
+    tick_update(&mut app);
+    assert_eq!(border_width(&app, skip), 1.0, "a held Ctrl lights skip");
+
+    app.world_mut()
+        .resource_mut::<SkipState>()
+        .set_force_active(false);
+    app.world_mut().resource_mut::<SkipState>().end();
+    frame(&mut app);
+    tick_update(&mut app);
+    assert_eq!(border_width(&app, skip), 0.0, "skip unlights");
+    assert_eq!(border_width(&app, auto), 1.0, "auto relights");
+    assert_eq!(
+        words_tone(&app, skip),
+        Some(Color::srgba(0.80, 0.80, 0.85, 0.35)),
+        "an unlit label returns to the plugin's faint tone"
+    );
+}
+
+/// A click that lands on the row is the row's, never the line's (Default look
+/// §1).
+#[test]
+fn a_click_on_the_row_never_advances_the_line() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+    advance_time(&mut app, 10.0);
+    let before = wait(&app);
+    assert!(matches!(before, Some(Wait::Say { .. })));
+
+    let auto = row_control(&app, MenuAction::QuickAuto);
+    app.world_mut()
+        .entity_mut(auto)
+        .insert(Interaction::Pressed);
+    app.world_mut()
+        .resource_mut::<ButtonInput<MouseButton>>()
+        .press(MouseButton::Left);
+    app.world_mut()
+        .run_system_once(crate::input::advance_say_input)
+        .expect("the advance input runs");
+    assert_eq!(
+        wait(&app),
+        before,
+        "the row's click never advances the line"
+    );
+
+    app.world_mut()
+        .entity_mut(auto)
+        .insert(Interaction::Hovered);
+    app.world_mut()
+        .run_system_once(crate::input::advance_say_input)
+        .expect("the advance input runs");
+    assert_ne!(wait(&app), before, "a click on the box still advances");
+}
+
+/// `Save`, `Load` and `Menu Esc` open the contents page, the first two on their
+/// own section (Default look §1).
+#[test]
+fn save_and_load_open_the_contents_page_at_their_section() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+
+    click_row(&mut app, MenuAction::QuickSave);
+    let menu = app.world().resource::<MenuState>();
+    assert!(menu.open, "Save opens the contents page");
+    assert_eq!(menu.view, MenuView::Slots);
+    assert_eq!(menu.mode, MenuMode::Save, "on the Save section");
+
+    app.world_mut().resource_mut::<MenuState>().open = false;
+    click_row(&mut app, MenuAction::QuickLoad);
+    let menu = app.world().resource::<MenuState>();
+    assert!(menu.open);
+    assert_eq!(menu.mode, MenuMode::Load, "Load opens on its own section");
+
+    app.world_mut().resource_mut::<MenuState>().open = false;
+    click_row(&mut app, MenuAction::QuickMenu);
+    assert!(
+        app.world().resource::<MenuState>().open,
+        "Menu Esc opens the contents page"
+    );
+}
+
+/// A pack that draws the reference look with one copy override: rule 40's row
+/// shows the plugin's words, and `A` still toggles auto.
+#[test]
+fn a_copy_override_of_a_quick_label_shows_and_the_a_key_still_toggles_auto() {
+    let pack = temp_pack();
+    write_plugin_with_copy_override(
+        &pack.path().join("pack"),
+        "play.quick.auto",
+        "Auto (custom)",
+    );
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+
+    let auto = row_control(&app, MenuAction::QuickAuto);
+    assert_eq!(
+        app.world().get::<Children>(auto).map(|children| {
+            children
+                .iter()
+                .find_map(|child| app.world().get::<Text>(child).map(|text| text.0.clone()))
+        }),
+        Some(Some("Auto (custom)".to_string())),
+        "the override's words are the row's label"
+    );
+    assert!(
+        node_where(&app, |entity, app| text_of(app, entity) == "Auto A").is_none(),
+        "the table's words are not drawn"
+    );
+
+    press_and_update(&mut app, KeyCode::KeyA);
+    assert!(auto_on(&app), "A still toggles auto");
+}
+
+/// Install the reference look as the pack's own plugin with one copy override.
+fn write_plugin_with_copy_override(pack: &std::path::Path, key: &str, words: &str) {
+    let ui = pack.join("ui");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("reference-plugin"),
+        &ui,
+    );
+    let path = ui.join("plugin.ron");
+    let body = std::fs::read_to_string(&path).unwrap();
+    let at = body.find("format_version").expect("the manifest's fields");
+    let open = body[..at].rfind('(').expect("the manifest's tuple");
+    let rebuilt = format!(
+        "{}(format_version: 1, name: \"Reference\", numbering: \"arabic\", copy: {{ \"{key}\": \"{words}\" }})\n",
+        &body[..open]
+    );
+    std::fs::write(&path, rebuilt).unwrap();
 }

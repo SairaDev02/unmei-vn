@@ -52,6 +52,16 @@ pub enum MenuAction {
     PlayFullscreen,
     /// Open the play-only Reset confirmation.
     PlayReset,
+    /// The play frame's quick row: open the contents page on Save.
+    QuickSave,
+    /// The quick row's `Load`: open the contents page on Load.
+    QuickLoad,
+    /// The quick row's `Auto A`: the `A` key's toggle.
+    QuickAuto,
+    /// The quick row's `Skip Tab`: the `Tab` key's toggle.
+    QuickSkip,
+    /// The quick row's `Menu Esc`: open the contents page.
+    QuickMenu,
     /// The title's `Continue` row.
     Continue,
     /// The title's `New Game` row.
@@ -94,6 +104,21 @@ pub enum MenuAction {
     ConfirmCancel,
 }
 
+impl MenuAction {
+    /// Whether the action belongs to the play frame's quick row, which acts
+    /// while the overlay is closed and does nothing once it is open.
+    pub(crate) fn is_quick_row(self) -> bool {
+        matches!(
+            self,
+            MenuAction::QuickSave
+                | MenuAction::QuickLoad
+                | MenuAction::QuickAuto
+                | MenuAction::QuickSkip
+                | MenuAction::QuickMenu
+        )
+    }
+}
+
 pub(crate) fn action_for_focus(focus: MenuFocus) -> MenuAction {
     match focus {
         MenuFocus::Card(index) => MenuAction::Card(index),
@@ -118,6 +143,11 @@ pub(crate) fn action_for_focus(focus: MenuFocus) -> MenuAction {
         MenuFocus::PlayAuto => MenuAction::PlayAuto,
         MenuFocus::PlayFullscreen => MenuAction::PlayFullscreen,
         MenuFocus::PlayReset => MenuAction::PlayReset,
+        MenuFocus::QuickSave => MenuAction::QuickSave,
+        MenuFocus::QuickLoad => MenuAction::QuickLoad,
+        MenuFocus::QuickAuto => MenuAction::QuickAuto,
+        MenuFocus::QuickSkip => MenuAction::QuickSkip,
+        MenuFocus::QuickMenu => MenuAction::QuickMenu,
         MenuFocus::KeyRow => MenuAction::KeyRow,
         MenuFocus::CopyKeyPath => MenuAction::CopyKeyPath,
         MenuFocus::ClearKey => MenuAction::ClearKey,
@@ -405,5 +435,10 @@ pub(super) fn apply(
                 menu.focus = confirm_focus(confirm);
             }
         }
+        MenuAction::QuickSave
+        | MenuAction::QuickLoad
+        | MenuAction::QuickAuto
+        | MenuAction::QuickSkip
+        | MenuAction::QuickMenu => {}
     }
 }

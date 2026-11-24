@@ -42,6 +42,11 @@ pub(crate) struct UiStates {
     pub paint: Paint,
     /// The overrides the tree authored, and each one's face and tone resolved.
     pub states: ControlStates,
+    /// The face, line and tone the tree's own style draws, so leaving a state
+    /// restores them instead of keeping the state's paint.
+    base_font: Option<TextFont>,
+    base_line: Option<LineHeight>,
+    base_color: Option<bevy::prelude::Color>,
     fonts: [Option<TextFont>; STATES],
     lines: [Option<LineHeight>; STATES],
     colors: [Option<Color>; STATES],
@@ -65,6 +70,17 @@ impl UiStates {
             current: state.current,
             paint: style.paint.clone(),
             states: states.clone(),
+            base_font: style
+                .text
+                .typography
+                .as_ref()
+                .map(|typography| text::font(look, faces, typography)),
+            base_line: style
+                .text
+                .typography
+                .as_ref()
+                .map(|typography| LineHeight::Px(typography.line_height_px)),
+            base_color: text::tone_color(style),
             fonts: std::array::from_fn(|_| None),
             lines: std::array::from_fn(|_| None),
             colors: std::array::from_fn(|_| None),
@@ -87,7 +103,9 @@ impl UiStates {
     }
 }
 
-/// Repaint the paint of every rendered node whose state moved.
+/// Repaint the paint of every rendered node in the state it is now: the state's
+/// overrides when one is in force, the tree's own paint otherwise. Writing both
+/// is what unlights a control without a rebuild.
 #[allow(
     clippy::type_complexity,
     reason = "one node's paint is the six components Bevy carries it in"
@@ -105,10 +123,8 @@ pub(crate) fn sync_paint_states(
     )>,
 ) {
     for (states, mut node, background, gradient, border, shadow, transform) in &mut nodes {
-        let Some(index) = active(&menu, states) else {
-            continue;
-        };
-        let drawn = effective(&states.paint, overrides_at(&states.states, index));
+        let overrides = active(&menu, states).and_then(|index| overrides_at(&states.states, index));
+        let drawn = effective(&states.paint, overrides);
         let (fill_background, fill_gradient) = match &drawn.fill {
             Some(fill) => {
                 let (value, value_gradient) = paint::background(fill, drawn.opacity);
@@ -140,7 +156,8 @@ pub(crate) fn sync_paint_states(
     }
 }
 
-/// Repaint the face and tone of every rendered label whose state moved.
+/// Repaint the face, tone and line height of every rendered label in the state
+/// it is now, with the tree's own values standing in when the state sets none.
 #[allow(
     clippy::type_complexity,
     reason = "a label's face, tone and line height are the three components Bevy carries them in"
@@ -155,17 +172,25 @@ pub(crate) fn sync_text_states(
     )>,
 ) {
     for (states, font, line, color) in &mut labels {
-        let Some(index) = active(&menu, states) else {
-            continue;
-        };
-        if let (Some(mut component), Some(value)) = (font, states.fonts[index].clone()) {
+        let index = active(&menu, states);
+        let wanted_font = index
+            .and_then(|index| states.fonts[index].clone())
+            .or_else(|| states.base_font.clone());
+        let wanted_line = index
+            .and_then(|index| states.lines[index])
+            .or(states.base_line);
+        if let (Some(mut component), Some(value)) = (font, wanted_font) {
             *component = value;
         }
-        if let (Some(mut component), Some(value)) = (line, states.lines[index]) {
+        if let (Some(mut component), Some(value)) = (line, wanted_line) {
             *component = value;
         }
-        if let (Some(mut component), Some(value)) = (color, states.colors[index]) {
-            *component = TextColor::from(paint::color(value, states.paint.opacity));
+        let wanted_color = index
+            .and_then(|index| states.colors[index])
+            .map(|value| paint::color(value, states.paint.opacity))
+            .or(states.base_color);
+        if let (Some(mut component), Some(value)) = (color, wanted_color) {
+            *component = TextColor::from(value);
         }
     }
 }

@@ -798,7 +798,7 @@ pub(super) fn tick_update(app: &mut App) {
     app.world_mut().run_schedule(Update);
 }
 
-/// Build the presentation UI once so the `AUTO` cue and help line exist.
+/// Build the play HUD's own chrome once: the camera and the Notice node.
 pub(super) fn build_ui(app: &mut App) {
     app.world_mut()
         .run_system_once(crate::presentation::play::setup_ui)

@@ -8,6 +8,7 @@ use unmei_engine::runner::Wait;
 
 use crate::core::{ctrl_down, ctrl_just_pressed, SkipState};
 use crate::failure::{DefensiveHold, FailureRow, Failures};
+use crate::menu::{self, MenuAction, MenuMode, MenuState};
 use crate::presentation::assets::AssetWatch;
 use crate::presentation::play::{ChoiceButton, Sfx, TextReveal};
 use crate::read_log::ReadLogState;
@@ -18,12 +19,14 @@ use crate::Runtime;
 /// Space / Enter / left-click advances a say-wait — except while the line is
 /// still revealing: a press there **completes** the line and is consumed, so a
 /// player mashing the key can never skip a line outright. The next press
-/// advances. Every other park is untouched.
+/// advances. Every other park is untouched. A left-click that lands on a
+/// quick-row control is that control's, so it cannot also advance the line.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn advance_say_input(
     keys: Res<ButtonInput<KeyCode>>,
     mouse: Res<ButtonInput<MouseButton>>,
     settings: Option<Res<SettingsState>>,
+    row: Query<(&Interaction, &MenuAction)>,
     mut skip: ResMut<SkipState>,
     mut reveal: ResMut<TextReveal>,
     mut runtime: ResMut<Runtime>,
@@ -36,9 +39,12 @@ pub(crate) fn advance_say_input(
     if !matches!(wait, Wait::Say { .. }) {
         return;
     }
+    let on_row = row
+        .iter()
+        .any(|(interaction, action)| *interaction == Interaction::Pressed && action.is_quick_row());
     let advance = keys.just_pressed(KeyCode::Space)
         || keys.just_pressed(KeyCode::Enter)
-        || mouse.just_pressed(MouseButton::Left);
+        || (mouse.just_pressed(MouseButton::Left) && !on_row);
     if !advance {
         return;
     }
@@ -140,6 +146,65 @@ pub(crate) fn choice_input(
     }
 }
 
+/// `Tab`'s own rule, shared by the key and the quick row's `Skip Tab` control:
+/// end an engaged seen toggle, else engage only on an arrival-read say-park.
+pub(crate) fn toggle_seen_skip(skip: &mut SkipState, read_log: &ReadLogState) {
+    if skip.is_seen() {
+        skip.end();
+    } else if read_log.arrival_read() == Some(true) {
+        skip.engage();
+    }
+}
+
+/// The play frame's quick row: each click does exactly what its key does. The
+/// row is the plugin's `play` surface, so the click reaches the control's own
+/// [`MenuAction`]; the overlay's input never sees these while it is open.
+/// `Auto A` is the `A` key's body — it ends the seen toggle and is inert at a
+/// choice-wait — and `Skip Tab` is `Tab`'s rule under the same guard.
+pub(crate) fn quick_row_input(
+    mut interactions: Query<(&Interaction, &MenuAction), Changed<Interaction>>,
+    runtime: Res<Runtime>,
+    mut settings: Option<ResMut<SettingsState>>,
+    read_log: Option<Res<ReadLogState>>,
+    mut menu: ResMut<MenuState>,
+    mut skip: ResMut<SkipState>,
+) {
+    for (interaction, action) in &mut interactions {
+        if *interaction != Interaction::Pressed {
+            continue;
+        }
+        match action {
+            MenuAction::QuickSave => {
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save)
+            }
+            MenuAction::QuickLoad => {
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Load)
+            }
+            MenuAction::QuickMenu => {
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save)
+            }
+            MenuAction::QuickAuto => {
+                skip.end();
+                let choice_wait = matches!(runtime.runner.wait(), Some(Wait::Choice { .. }));
+                if choice_wait {
+                    continue;
+                }
+                if let Some(settings) = settings.as_deref_mut() {
+                    settings.toggle_auto();
+                }
+            }
+            MenuAction::QuickSkip => {
+                if let Some(read_log) = read_log.as_deref() {
+                    if !skip.is_force_active() {
+                        toggle_seen_skip(&mut skip, read_log);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
 /// `Tab` toggles the seen skip, but only on an **arrival-read** say-park; on an
 /// arrival-unread line, at any other park and at end-of-scene it is inert and
 /// flashes no cue. `Esc` clears the toggle on the frame that opens the overlay
@@ -192,11 +257,7 @@ pub(crate) fn skip_input(
     // `Tab` toggles the seen skip, but is inert while the force hold runs; on
     // release an otherwise eligible seen toggle resumes.
     if keys.just_pressed(KeyCode::Tab) && !hold.0 && !skip.is_force_active() {
-        if skip.is_seen() {
-            skip.end();
-        } else if read_log.arrival_read() == Some(true) {
-            skip.engage();
-        }
+        toggle_seen_skip(&mut skip, &read_log);
     }
 }
 
