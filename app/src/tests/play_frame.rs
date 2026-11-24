@@ -4,6 +4,7 @@
 
 use super::*;
 use crate::core::SkipState;
+use crate::failure::DefensiveHold;
 use bevy::text::{FontSource, LineHeight};
 use bevy::ui::{BoxShadow, Display};
 
@@ -425,7 +426,8 @@ fn the_quick_row_draws_its_five_labels() {
 }
 
 /// `Auto A` and `Skip Tab` light and unlight in the frame their mode changes,
-/// with `Auto A` unlit while skip runs (Default look §1, rule 40).
+/// in the `FOCUS` tone alone, with `Auto A` unlit while skip runs (Default look
+/// §1, rule 40).
 #[test]
 fn the_row_lights_in_the_frame_its_mode_changes() {
     let pack = temp_pack();
@@ -433,25 +435,37 @@ fn the_row_lights_in_the_frame_its_mode_changes() {
     frame(&mut app);
     let auto = row_control(&app, MenuAction::QuickAuto);
     let skip = row_control(&app, MenuAction::QuickSkip);
-    assert_eq!(border_width(&app, auto), 0.0, "auto starts unlit");
-    assert_eq!(border_width(&app, skip), 0.0, "skip starts unlit");
+    let skip_node = app
+        .world()
+        .get::<Node>(skip)
+        .cloned()
+        .expect("the row is laid out");
+    let focus = Some(Color::srgb(0.902, 0.62, 0.361));
+    let faint = Some(Color::srgba(0.80, 0.80, 0.85, 0.35));
+    assert_eq!(words_tone(&app, auto), faint, "auto starts unlit");
+    assert_eq!(words_tone(&app, skip), faint, "skip starts unlit");
 
     click_row(&mut app, MenuAction::QuickAuto);
     assert!(auto_on(&app), "the click turned auto on");
-    assert_eq!(border_width(&app, auto), 1.0, "auto lights on its click");
+    assert_eq!(words_tone(&app, auto), focus, "auto lights on its click");
     assert_eq!(
-        words_tone(&app, auto),
-        Some(Color::srgb(0.902, 0.62, 0.361)),
-        "a lit label draws in the plugin's focus tone"
+        border_width(&app, auto),
+        0.0,
+        "a lit label takes the tone alone, with no border"
+    );
+    assert_eq!(
+        app.world().get::<Node>(skip).cloned(),
+        Some(skip_node),
+        "lighting auto changes no layout input, so skip keeps its place"
     );
 
     app.world_mut().resource_mut::<SkipState>().engage();
     frame(&mut app);
     tick_update(&mut app);
-    assert_eq!(border_width(&app, skip), 1.0, "skip lights when it runs");
+    assert_eq!(words_tone(&app, skip), focus, "skip lights when it runs");
     assert_eq!(
-        border_width(&app, auto),
-        0.0,
+        words_tone(&app, auto),
+        faint,
         "auto is unlit while skip runs"
     );
 
@@ -462,7 +476,7 @@ fn the_row_lights_in_the_frame_its_mode_changes() {
         .set_force_active(true);
     frame(&mut app);
     tick_update(&mut app);
-    assert_eq!(border_width(&app, skip), 1.0, "a held Ctrl lights skip");
+    assert_eq!(words_tone(&app, skip), focus, "a held Ctrl lights skip");
 
     app.world_mut()
         .resource_mut::<SkipState>()
@@ -470,12 +484,92 @@ fn the_row_lights_in_the_frame_its_mode_changes() {
     app.world_mut().resource_mut::<SkipState>().end();
     frame(&mut app);
     tick_update(&mut app);
-    assert_eq!(border_width(&app, skip), 0.0, "skip unlights");
-    assert_eq!(border_width(&app, auto), 1.0, "auto relights");
+    assert_eq!(words_tone(&app, skip), faint, "skip unlights");
+    assert_eq!(words_tone(&app, auto), focus, "auto relights");
+}
+
+/// Each door ends the seen skip as `Esc` does, so no toggle runs behind the
+/// overlay (Text skip §3/§5; Default look §1).
+#[test]
+fn a_door_click_ends_the_seen_skip_like_esc() {
+    let pack = temp_pack();
+    let mut app = app_with_known_entry(&pack);
+    frame(&mut app);
+    for door in [
+        MenuAction::QuickSave,
+        MenuAction::QuickLoad,
+        MenuAction::QuickMenu,
+    ] {
+        app.world_mut().resource_mut::<SkipState>().engage();
+        click_row(&mut app, door);
+        assert!(
+            !app.world().resource::<SkipState>().is_seen(),
+            "{door:?} ends the seen toggle, as Esc does"
+        );
+        app.world_mut().resource_mut::<MenuState>().open = false;
+    }
+}
+
+/// A defensive hold freezes both modes, exactly as it freezes the `A` and `Tab`
+/// keys; the three doors stay live (Text skip §5; Default look §1).
+#[test]
+fn the_rows_modes_are_inert_under_a_defensive_hold() {
+    let pack = temp_pack();
+    let mut app = app_with_known_entry(&pack);
+    frame(&mut app);
+    app.world_mut().insert_resource(DefensiveHold(true));
+
+    click_row(&mut app, MenuAction::QuickAuto);
+    assert!(!auto_on(&app), "the held frame ignores the row's auto");
+    click_row(&mut app, MenuAction::QuickSkip);
+    assert!(
+        !app.world().resource::<SkipState>().is_seen(),
+        "and its skip"
+    );
+}
+
+/// A settled label is not rewritten: the repaint leaves an unchanged face,
+/// line or tone's change tick alone, so nothing re-measures it.
+#[test]
+fn an_unchanged_label_keeps_its_change_tick() {
+    use bevy::ecs::change_detection::DetectChanges;
+
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    frame(&mut app);
+    tick_update(&mut app);
+    let label = node_with_words(&app, "Save");
+    let face = app
+        .world()
+        .entity(label)
+        .get_ref::<TextFont>()
+        .expect("a drawn face")
+        .last_changed();
+    let tone = app
+        .world()
+        .entity(label)
+        .get_ref::<TextColor>()
+        .expect("a drawn tone")
+        .last_changed();
+
+    tick_update(&mut app);
     assert_eq!(
-        words_tone(&app, skip),
-        Some(Color::srgba(0.80, 0.80, 0.85, 0.35)),
-        "an unlit label returns to the plugin's faint tone"
+        app.world()
+            .entity(label)
+            .get_ref::<TextFont>()
+            .expect("a drawn face")
+            .last_changed(),
+        face,
+        "the unchanged face keeps its change tick"
+    );
+    assert_eq!(
+        app.world()
+            .entity(label)
+            .get_ref::<TextColor>()
+            .expect("a drawn tone")
+            .last_changed(),
+        tone,
+        "the unchanged tone keeps its change tick"
     );
 }
 

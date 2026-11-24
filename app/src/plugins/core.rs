@@ -208,7 +208,7 @@ fn register_frame_schedules(app: &mut App) {
                         .chain()
                         .run_if(core::not_held),
                     // `F11` toggles the fullscreen field and `A` toggles
-                    // auto; the window and the `AUTO` cue are synced
+                    // auto; the window and the row's `Auto A` label are synced
                     // from those fields by the presentation. Both are
                     // inert at a choice-wait, and skipped under a
                     // defensive hold. They share `SettingsState`, so the

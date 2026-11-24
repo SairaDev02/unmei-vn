@@ -105,7 +105,8 @@ impl UiStates {
 
 /// Repaint the paint of every rendered node in the state it is now: the state's
 /// overrides when one is in force, the tree's own paint otherwise. Writing both
-/// is what unlights a control without a rebuild.
+/// is what unlights a control without a rebuild, and a value that did not move
+/// is left alone, so an unchanged node keeps its change tick.
 #[allow(
     clippy::type_complexity,
     reason = "one node's paint is the six components Bevy carries it in"
@@ -133,31 +134,34 @@ pub(crate) fn sync_paint_states(
             None => (None, None),
         };
         if let (Some(mut component), Some(value)) = (background, fill_background) {
-            *component = value;
+            component.set_if_neq(value);
         }
         if let Some(mut component) = gradient {
-            *component = fill_gradient.unwrap_or(BackgroundGradient(Vec::new()));
+            component.set_if_neq(fill_gradient.unwrap_or(BackgroundGradient(Vec::new())));
         }
         if let (Some(mut component), Some(value)) = (border, drawn.border) {
             let (value, _) = paint::border(value, drawn.opacity);
-            *component = value;
+            component.set_if_neq(value);
         }
-        node.border = match drawn.border {
+        let mut next = node.clone();
+        next.border = match drawn.border {
             Some(value) => UiRect::all(Val::Px(value.width)),
             None => UiRect::ZERO,
         };
-        node.border_radius = drawn.radius.map(paint::radius).unwrap_or_default();
+        next.border_radius = drawn.radius.map(paint::radius).unwrap_or_default();
+        node.set_if_neq(next);
         if let Some(mut component) = shadow {
-            *component = paint::shadows(&drawn.shadows, drawn.opacity);
+            component.set_if_neq(paint::shadows(&drawn.shadows, drawn.opacity));
         }
         if let Some(mut component) = transform {
-            *component = paint::transform(drawn.transform);
+            component.set_if_neq(paint::transform(drawn.transform));
         }
     }
 }
 
 /// Repaint the face, tone and line height of every rendered label in the state
 /// it is now, with the tree's own values standing in when the state sets none.
+/// A value that did not move is left alone.
 #[allow(
     clippy::type_complexity,
     reason = "a label's face, tone and line height are the three components Bevy carries them in"
@@ -180,17 +184,17 @@ pub(crate) fn sync_text_states(
             .and_then(|index| states.lines[index])
             .or(states.base_line);
         if let (Some(mut component), Some(value)) = (font, wanted_font) {
-            *component = value;
+            component.set_if_neq(value);
         }
         if let (Some(mut component), Some(value)) = (line, wanted_line) {
-            *component = value;
+            component.set_if_neq(value);
         }
         let wanted_color = index
             .and_then(|index| states.colors[index])
             .map(|value| paint::color(value, states.paint.opacity))
             .or(states.base_color);
         if let (Some(mut component), Some(value)) = (color, wanted_color) {
-            *component = TextColor::from(value);
+            component.set_if_neq(TextColor::from(value));
         }
     }
 }
