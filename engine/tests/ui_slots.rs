@@ -77,8 +77,6 @@ fn spec(id: &str) -> &'static SurfaceSpec {
     ui::surface(id).unwrap_or_else(|| panic!("the table has a `{id}` surface"))
 }
 
-// --- the trees the tables describe -----------------------------------------
-
 fn root(children: &[String]) -> String {
     format!("(kind: \"box\", children: [{}])", children.join(", "))
 }
@@ -150,8 +148,6 @@ fn tree_with(id: &str, extras: &[String]) -> (String, usize) {
     children.extend(extras.iter().cloned());
     (root(&children), index)
 }
-
-// --- the tables are satisfiable and complete -------------------------------
 
 /// The tables are satisfiable: ten trees, each placing exactly what its surface
 /// requires, load with no finding.
@@ -270,8 +266,6 @@ fn the_ornament_slots_are_the_play_markers() {
         assert!(play.slots.contains(&marker), "`{marker}` is a play slot");
     }
 }
-
-// --- rule 6: slots and controls --------------------------------------------
 
 /// A slot no table names fails with `ui.slot.unknown`, at the node's own path.
 #[test]
@@ -552,8 +546,6 @@ fn two_members_of_one_family_are_a_duplicate() {
     assert_eq!(reported(&outcome)[0].2, "ui.slot.duplicate");
 }
 
-// --- rule 7: copy keys -----------------------------------------------------
-
 /// A `text` node names a copy key the copy table holds and the surface may use.
 #[test]
 fn a_text_node_naming_its_surface_s_copy_key_loads() {
@@ -720,8 +712,6 @@ fn an_override_over_the_copy_cap_fails() {
     );
 }
 
-// --- numbering -------------------------------------------------------------
-
 /// Each of the five authored styles resolves to its own value.
 #[test]
 fn every_numbering_style_resolves() {
@@ -790,8 +780,6 @@ fn a_numbering_written_as_a_ron_ident_fails() {
         )]
     );
 }
-
-// --- slot content ----------------------------------------------------------
 
 /// The two ornament slots carry the plugin's own nodes, so a marker holding one
 /// loads.

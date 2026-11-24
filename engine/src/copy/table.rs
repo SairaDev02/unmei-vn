@@ -15,7 +15,6 @@ use super::CopyKey;
 /// plugin's `copy` overrides only replace a value, so this list stays the
 /// reference text.
 pub const KEYS: &[CopyKey] = &[
-    // The title surface: the five rows, the legend and Continue's reason line.
     CopyKey {
         id: "title.row.continue",
         placeholders: &[],
@@ -56,7 +55,6 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &["scene", "saved_at"],
         text: "{scene} \u{00b7} {saved_at}",
     },
-    // The play surface: the dialogue band, the cues and the two non-say parks.
     CopyKey {
         id: "play.help",
         placeholders: &[],
@@ -299,9 +297,8 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &[],
         text: "Off",
     },
-    // The Decisions group's key row: its state line, the env note under it, the
-    // empty field's placeholder and the stored path. A state line carries the
-    // fingerprint's four-to-six characters, never more of the key.
+    // A state line carries the fingerprint's four-to-six characters, never
+    // more of the key.
     CopyKey {
         id: "settings.key.not-set",
         placeholders: &[],
@@ -429,8 +426,6 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &[],
         text: "\u{2190}/\u{2192} browse \u{00b7} \u{2191}/\u{2193} or Esc or click to close",
     },
-    // The Timeline surface: its header, its explanation, its empty state and its
-    // cards.
     CopyKey {
         id: "timeline.heading",
         placeholders: &[],
@@ -461,7 +456,6 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &[],
         text: "\u{2191}/\u{2193}/\u{2190}/\u{2192} move \u{00b7} Enter/Space select \u{00b7} Esc back \u{00b7} click to choose",
     },
-    // The legacy-save target picker.
     CopyKey {
         id: "legacy-picker.heading",
         placeholders: &[],

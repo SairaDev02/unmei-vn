@@ -85,6 +85,12 @@ impl Expectation {
 
 /// The check's whole report for each pack. A later rule family adds its fixture
 /// folder and one row here.
+///
+/// A pack with no `ui/` is the `demo` row: no plugin, no finding. Each `ui-*`
+/// pack loads and fails one family of the plugin's folder rules (ui-plugin spec
+/// §2, §7, §15 rules 1–3); `ui-path-escape`'s two findings are a font's license
+/// text and a shipped image, each reported at `ui/plugin.ron`, and `ui-unloaded`
+/// still reports its plugin, which needs nothing from the failed load (§8).
 const EXPECTATIONS: &[Expectation] = &[
     Expectation {
         pack: "demo",
@@ -204,9 +210,6 @@ const EXPECTATIONS: &[Expectation] = &[
         warnings: 0,
         findings: &[],
     },
-    // A pack with no `ui/` is the `demo` row above: no plugin, no finding.
-    // Each of these packs loads, and one family of the plugin's folder rules
-    // fails (ui-plugin spec §2, §7, §15 rules 1–3).
     Expectation {
         pack: "ui-no-manifest",
         errors: 1,
@@ -225,8 +228,6 @@ const EXPECTATIONS: &[Expectation] = &[
         warnings: 0,
         findings: &[("ui/plugin.ron", "ui.parse")],
     },
-    // Two paths the manifest names would leave `ui/`: a font's license text and
-    // a shipped image, each reported where the author wrote it.
     Expectation {
         pack: "ui-path-escape",
         errors: 2,
@@ -236,8 +237,6 @@ const EXPECTATIONS: &[Expectation] = &[
             ("ui/plugin.ron", "ui.path.escape"),
         ],
     },
-    // A pack that does not load still reports its plugin, which is the folder's
-    // own and needs nothing the failed load would have returned (§8).
     Expectation {
         pack: "ui-unloaded",
         errors: 2,

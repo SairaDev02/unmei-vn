@@ -171,8 +171,6 @@ fn directory_link(target: &Path, link: &Path) -> std::io::Result<()> {
     }
 }
 
-// --- Rule 1: absent, and a folder with no manifest --------------------------
-
 /// A pack with no `ui/` has no plugin, which is not a failure.
 #[test]
 fn a_pack_with_no_ui_folder_has_no_plugin() {
@@ -192,8 +190,6 @@ fn a_ui_folder_without_a_manifest_fails_the_plugin_only() {
     );
     assert!(loaded.plugin.plugin().is_none(), "no plugin is loaded");
 }
-
-// --- Rule 2: the format version --------------------------------------------
 
 /// Version 1 is the only version this build reads.
 #[test]
@@ -233,8 +229,6 @@ fn a_manifest_that_is_not_ron_is_ui_parse() {
         [("ui/plugin.ron", String::new(), "ui.parse")]
     );
 }
-
-// --- Rule 3: confinement ----------------------------------------------------
 
 /// `..` is an escape, checked before anything reads the file it names. The file
 /// behind the path is bait: an image the cap would reject, so a plugin that
@@ -332,8 +326,6 @@ fn a_symlink_out_of_the_folder_escapes() {
     );
 }
 
-// --- Rule 28: the folder itself must sit inside the pack ---------------------
-
 /// A `ui/` that is a link to a folder outside the pack is an escape, and
 /// nothing inside its target is read (spec §7, rule 28). The target holds a
 /// valid plugin, so a build that followed the link would report its rules
@@ -363,8 +355,6 @@ fn a_ui_folder_that_links_out_of_the_pack_fails() {
     );
 }
 
-// --- Rule 29: the walk stops at the cap -------------------------------------
-
 /// A folder far past the file cap fails with `ui.cap`, and the walk reports the
 /// count it stopped at rather than the count the folder holds (spec §7,
 /// rule 29).
@@ -388,8 +378,6 @@ fn the_walk_stops_one_file_past_the_file_count_cap() {
         "the walk lists {stopped_at} files and stops, not all 10,001: {message}"
     );
 }
-
-// --- Rule 4: the file-level caps -------------------------------------------
 
 /// One file over the folder's file-count cap fails it, and one fewer passes.
 #[test]
@@ -500,8 +488,6 @@ fn the_image_cap_passes_at_the_limit_and_fails_one_pixel_over() {
         );
     }
 }
-
-// --- One rule path for every source ----------------------------------------
 
 /// The embedded reference plugin and the export read through the same pass, so
 /// a memory source accepts and rejects exactly what a folder does.

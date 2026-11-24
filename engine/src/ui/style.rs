@@ -18,14 +18,12 @@ use super::value::{self, Fields, Report};
 /// states stay on the node, because a component is a style, not a template.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Component {
-    // Paint.
     pub fill: Option<Fill>,
     pub border: Option<Border>,
     pub radius: Option<Radius>,
     pub shadows: Option<Vec<Shadow>>,
     pub opacity: Option<f32>,
     pub transform: Option<Transform>,
-    // Layout.
     pub direction: Option<Direction>,
     pub gap: Option<f32>,
     pub padding: Option<Padding>,
@@ -39,7 +37,6 @@ pub struct Component {
     pub right: Option<f32>,
     pub bottom: Option<f32>,
     pub z_index: Option<i32>,
-    // Text and motion.
     pub typography: Option<Typography>,
     /// A text slot's own tone (spec §4, "Engine text").
     pub color: Option<Color>,

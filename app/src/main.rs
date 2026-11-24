@@ -89,10 +89,6 @@ fn main() -> AppExit {
         return AppExit::from_code(code);
     }
 
-    // `--export-ui` writes the embedded reference plugin into the pack's `ui/`
-    // and exits: no shipping app, no window, no settings, saves, read log,
-    // session log or credential file (ui-plugin spec §1). The one rule that
-    // needs the pack folder runs here, because the grammar never touches it.
     if cli.export_ui {
         let ui = match launch::export_target(&pack_root) {
             Ok(ui) => ui,

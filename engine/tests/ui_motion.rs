@@ -133,8 +133,6 @@ fn glow(period_ms: u32) -> String {
     loop_ron(period_ms, &[1.0, 0.4, 1.0])
 }
 
-// --- Where a loop may appear ------------------------------------------------
-
 #[test]
 fn a_loop_on_a_control_fails() {
     let tree = format!(
@@ -290,8 +288,6 @@ fn a_loop_on_the_marker_slot_itself_fails() {
     );
 }
 
-// --- The period floor ------------------------------------------------------
-
 #[test]
 fn a_loop_with_a_300_ms_period_fails() {
     let tree = format!("(kind: \"box\", children: [ {} ])", glyph(&glow(300)));
@@ -326,8 +322,6 @@ fn a_two_keyframe_loop_at_300_ms_fails_only_the_period() {
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), [forbidden("root.children[0]")]);
 }
-
-// --- The flash cap ---------------------------------------------------------
 
 #[test]
 fn a_400_ms_loop_that_flashes_three_times_fails() {
@@ -491,8 +485,6 @@ fn a_two_keyframe_loop_at_two_seconds_passes() {
     let outcome = load(&[("play", &tree)]);
     assert_eq!(reported(&outcome), []);
 }
-
-// --- Where a loop is allowed ------------------------------------------------
 
 #[test]
 fn a_loop_on_title_and_play_ornament_passes() {
