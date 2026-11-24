@@ -161,6 +161,13 @@ Read these in order:
 - [`SECURITY.md`](SECURITY.md): how to report a vulnerability and which versions get fixes
 - [Issue tracker](https://github.com/SairaDev02/unmei-vn/issues): where work in progress is tracked
 
+<a href="https://github.com/SairaDev02/unmei-vn/issues">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/chart/github/issues/SairaDev02/unmei-vn.svg?theme=blue&amp;mode=dark">
+    <img alt="Line chart of the total number of issues opened on Unmei over time" src="https://shieldcn.dev/chart/github/issues/SairaDev02/unmei-vn.svg?theme=blue&amp;mode=light">
+  </picture>
+</a>
+
 ## AI use in this project
 
 - **Development:** most of the code, tests and documentation were generated with AI coding agents
