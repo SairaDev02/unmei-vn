@@ -137,3 +137,78 @@ fn the_embedded_plugin_loads_with_no_finding() {
         "the reference plugin restyles every surface"
     );
 }
+
+/// The node that places the slot `name`, anywhere under `tree`.
+fn slot_node<'a>(tree: &'a ui::Node, name: &str) -> Option<&'a ui::Node> {
+    if let ui::NodeKind::Slot(slot) = &tree.kind {
+        if slot.slot == name {
+            return Some(tree);
+        }
+    }
+    match &tree.kind {
+        ui::NodeKind::Box(container) => container
+            .children
+            .iter()
+            .find_map(|child| slot_node(child, name)),
+        ui::NodeKind::Slot(slot) => slot
+            .children
+            .iter()
+            .find_map(|child| slot_node(child, name)),
+        ui::NodeKind::List(list) => slot_node(&list.item, name),
+        ui::NodeKind::Image(_) | ui::NodeKind::Glyph(_) | ui::NodeKind::Text(_) => None,
+    }
+}
+
+/// The node the reference look places for `name`, on the surface `id`.
+fn placed<'a>(plugin: &'a ui::UiPlugin, id: &str, name: &str) -> &'a ui::Node {
+    let tree = plugin
+        .surfaces
+        .get(id)
+        .unwrap_or_else(|| panic!("the reference plugin restyles `{id}`"));
+    slot_node(tree, name).unwrap_or_else(|| panic!("`{id}` places `{name}`"))
+}
+
+fn face<'a>(plugin: &'a ui::UiPlugin, id: &str, name: &str) -> &'a ui::Typography {
+    placed(plugin, id, name)
+        .style
+        .text
+        .typography
+        .as_ref()
+        .unwrap_or_else(|| panic!("`{name}` resolves a face"))
+}
+
+/// The faces Default look §6 and the 2026-11-21 settlement name for the text
+/// slice 1 did not style, and the section entry's `current` state (spec §11,
+/// rules 37's parsing and 38).
+#[test]
+fn the_reference_look_styles_the_options_and_the_section_entries() {
+    let outcome = ui::load_from(&reference_plugin::source());
+    let PluginOutcome::Loaded(plugin) = &outcome else {
+        panic!("the reference plugin loads: {outcome:?}");
+    };
+
+    let option = face(plugin, "play", "choice.text");
+    assert_eq!(option.face, "IBM Plex Sans");
+    assert_eq!(option.weight, 400);
+    assert_eq!(option.size_px, 21.0, "§2's option text is 21px");
+
+    let badge = face(plugin, "play", "choice.number");
+    assert_eq!(badge.face, "Fira Mono", "§2's number badge is mono");
+    assert_eq!(badge.size_px, 12.0);
+
+    let entry = face(plugin, "contents", "contents.section.label");
+    assert_eq!(entry.face, "IBM Plex Sans");
+    assert_eq!(entry.weight, 600, "§4's section entries are SemiBold");
+
+    let label = placed(plugin, "contents", "contents.section.label");
+    let current = label
+        .states
+        .current
+        .as_ref()
+        .expect("the entry carries its `current` override");
+    assert_eq!(
+        current.color,
+        plugin.tokens.colors.get("text").copied(),
+        "the current section is white, and the others stay faint"
+    );
+}

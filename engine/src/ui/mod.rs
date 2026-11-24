@@ -11,13 +11,13 @@
 //!
 //! The passes run in one order — the paths a source lists, the folder's caps,
 //! the manifest and its copy overrides, the tokens, the fonts, then each surface
-//! tree and its interface — and each pass ends the plugin when it found an
-//! error, so a folder that breaks a cap is never read on, a token table that
-//! failed is never resolved in a tree and a font that no file carries never
-//! reaches the renderer. A tree's loops are judged by §6 while its surface
-//! parses it, which is where the tree and the surface id meet; its slots are
-//! judged against the surface's table once every tree has parsed, because a
-//! table speaks about a whole tree.
+//! tree and its interface, then the face and tone its text shows — and each
+//! pass ends the plugin when it found an error, so a folder that breaks a cap is
+//! never read on, a token table that failed is never resolved in a tree and a
+//! font that no file carries never reaches the renderer. A tree's loops are
+//! judged by §6 while its surface parses it, which is where the tree and the
+//! surface id meet; its slots are judged against the surface's table once every
+//! tree has parsed, because a table speaks about a whole tree.
 
 mod caps;
 mod file;
@@ -32,6 +32,7 @@ mod slots;
 mod source;
 mod style;
 mod surface;
+mod text;
 mod tokens;
 mod value;
 
@@ -59,6 +60,7 @@ pub use self::paint::{
 pub use self::source::{DirSource, MemorySource, Source};
 pub use self::style::{
     AlignItems, Component, Dimension, Direction, JustifyContent, Offsets, Padding, Position, Style,
+    TextStyle,
 };
 pub use self::surface::{ORNAMENT_SLOTS, SURFACE_IDS};
 pub use self::tokens::{Color, Tokens, Typography};
@@ -192,6 +194,10 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
     }
 
     slots::check(&surfaces, &mut findings);
+    if !findings.is_empty() {
+        return PluginOutcome::failed(findings);
+    }
+    text::check(&surfaces, &mut findings);
     if !findings.is_empty() {
         return PluginOutcome::failed(findings);
     }

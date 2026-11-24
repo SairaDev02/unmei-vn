@@ -8,9 +8,9 @@
 // fade out and back — well inside the three-flashes-a-second cap.
 //
 // The quick row places the five controls and no `Log`: the Backlog is not built
-// and `play.log` is reserved (format reference §9). The labels are the engine's,
-// so `lit` is the only mode state this tree can paint — a `lit` label's tone is
-// engine content, which the format gives a slot no property for.
+// and `play.log` is reserved (format reference §9). The labels are the engine's;
+// this tree gives them their face and tone, and `lit` turns Auto and Skip to the
+// FOCUS tone.
 (
     kind: "box",
     component: "page",
@@ -145,9 +145,13 @@
                                 padding: (top: "{spacing.choice-pad-y}", right: "{spacing.choice-pad-x}", bottom: "{spacing.choice-pad-y}", left: "{spacing.choice-pad-x}"),
                                 children: [
                                     (kind: "box", component: "badge", children: [
-                                        (kind: "slot", slot: "choice.number"),
+                                        (kind: "slot", slot: "choice.number",
+                                        typography: "{typography.badge}",
+                                        color: "{colors.focus}"),
                                     ]),
-                                    (kind: "slot", slot: "choice.text", width: "fill"),
+                                    (kind: "slot", slot: "choice.text", width: "fill",
+                                        typography: "{typography.option}",
+                                        color: "{colors.text}"),
                                 ],
                             ),
                         ],

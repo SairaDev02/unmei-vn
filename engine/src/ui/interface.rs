@@ -423,3 +423,111 @@ pub const SURFACES: &[SurfaceSpec] = &[
 pub fn surface(id: &str) -> Option<&'static SurfaceSpec> {
     SURFACES.iter().find(|spec| spec.id == id)
 }
+
+/// The slots and controls whose content is text the engine draws, so a plugin
+/// must give each a face and a tone (spec §4, "Engine text", rule 36).
+///
+/// A name is here when the engine draws words inside it. A row that shows its
+/// words through a sibling slot is not: a title row's label is
+/// `title.row.label`, and the row's control paints the focus ring and nothing
+/// else. The format page's `Shows` column describes the same content.
+const TEXT: &[&str] = &[
+    "pack.name",
+    "title.continue-reason",
+    "title.tagline",
+    "title.row.label",
+    "title.row.reason",
+    "prose",
+    "speaker",
+    "deciding",
+    "scene-end",
+    "choice.number",
+    "choice.text",
+    "play.save",
+    "play.load",
+    "play.auto",
+    "play.skip",
+    "play.menu",
+    "settings.heading",
+    "settings.key-state",
+    "settings.key-path",
+    "settings.key-placeholder",
+    "settings.copy-path-label",
+    "settings.audio.label",
+    "settings.audio.value",
+    "settings.mute",
+    "settings.reset-audio",
+    "settings.text-speed",
+    "settings.auto",
+    "settings.fullscreen",
+    "settings.reset-play",
+    "settings.key",
+    "settings.clear-key",
+    "settings.back",
+    "contents.scene",
+    "contents.section.label",
+    "contents.ledger.label",
+    "contents.ledger.detail",
+    "contents.ledger.saved-at",
+    "contents.ledger.action",
+    "overlay.resume",
+    "overlay.exit-to-title",
+    "gallery.empty",
+    "gallery.card.label",
+    "still.label",
+    "timeline.explanation",
+    "timeline.empty",
+    "timeline.card.label",
+    "legacy.heading",
+    "legacy.target.label",
+    "legacy.target.detail",
+    "legacy.cancel",
+    "confirm.prompt",
+    "confirm.accept-label",
+    "confirm.detail",
+    "confirm.no",
+];
+
+/// Whether the slot or control `name` shows text the engine draws.
+pub fn shows_text(name: &str) -> bool {
+    TEXT.contains(&name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::BTreeSet;
+
+    /// Every name a surface lists, as `(name, is_a_control)`.
+    fn listed() -> BTreeSet<&'static str> {
+        let mut names = BTreeSet::new();
+        for spec in SURFACES {
+            names.extend(spec.slots.iter().copied());
+            names.extend(spec.optional_slots.iter().copied());
+            names.extend(spec.controls.iter().copied());
+            for list in spec.lists {
+                names.extend(list.item_slots.iter().copied());
+                names.extend(list.optional_item_slots.iter().copied());
+                names.extend(list.item_controls.iter().copied());
+            }
+        }
+        names
+    }
+
+    #[test]
+    fn every_text_name_is_a_slot_or_control_of_a_surface() {
+        let listed = listed();
+        for name in TEXT {
+            assert!(
+                listed.contains(name),
+                "`{name}` is no surface's slot or control"
+            );
+        }
+    }
+
+    #[test]
+    fn the_text_list_holds_each_name_once() {
+        let unique: BTreeSet<&&str> = TEXT.iter().collect();
+        assert_eq!(unique.len(), TEXT.len(), "the text list repeats a name");
+    }
+}

@@ -5,7 +5,9 @@
 // A text slot takes a typography token and a tone (spec §4, "Engine text"), so the
 // faces §1, §3 and §6 state for engine content are here as roles the surfaces hand
 // to those slots: the 25px prose, the 64px wordmark, the 22px rows, the tab's
-// speaker and the 12px mono line.
+// speaker and the 12px mono line. §2's numbered options and the interiors' rows
+// are `option`, `badge`, `label` and `value`, and a component carries the pair its
+// text inherits, so most slots and controls name neither.
 (
     colors: {
         "ink": (r: 0.063, g: 0.071, b: 0.102, a: 0.95),
@@ -38,6 +40,13 @@
         "prose": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
         "row": (face: "IBM Plex Sans", weight: 400, size_px: 22.0, line_height_px: 28.0),
         "speaker": (face: "IBM Plex Sans", weight: 600, size_px: 16.0, line_height_px: 20.0),
+        // §2's numbered options and their badge, then the interiors' two faces:
+        // a Settings row and its value, and the mono machine lines beside them
+        // (Type system §2).
+        "option": (face: "IBM Plex Sans", weight: 400, size_px: 21.0, line_height_px: 28.0),
+        "badge": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0),
+        "label": (face: "IBM Plex Sans", weight: 400, size_px: 16.0, line_height_px: 20.0),
+        "value": (face: "Fira Mono", weight: 500, size_px: 16.0, line_height_px: 20.0),
     },
     rounded: {
         "box": 14.0,
@@ -128,6 +137,8 @@
         // A control's chrome. The 2px border is reserved so a focus ring adds no
         // width, exactly as the player's own buttons reserve it today.
         "button": (
+            typography: "{typography.label}",
+            color: "{colors.dim}",
             direction: "row",
             align_items: "center",
             gap: 8.0,
@@ -142,6 +153,8 @@
         ),
         // A Settings row: the label column, the track and the value.
         "row": (
+            typography: "{typography.label}",
+            color: "{colors.dim}",
             direction: "row",
             align_items: "center",
             gap: "{spacing.row-gap}",
@@ -151,6 +164,8 @@
             width: "{spacing.settings-width}",
         ),
         "key-row": (
+            typography: "{typography.value}",
+            color: "{colors.dim}",
             direction: "column",
             gap: 6.0,
             padding: (top: "{spacing.row-pad-y}", right: "{spacing.row-pad-x}", bottom: "{spacing.row-pad-y}", left: "{spacing.row-pad-x}"),
@@ -165,6 +180,8 @@
         ),
         // A dialog's panel, over the dimmer.
         "panel": (
+            typography: "{typography.label}",
+            color: "{colors.text}",
             direction: "column",
             padding: 20.0,
             gap: 12.0,
@@ -173,6 +190,8 @@
         ),
         // §4's page: a 420px left column, a hairline, and the right column.
         "rail": (
+            typography: "{typography.subheading}",
+            color: "{colors.dim}",
             width: "{spacing.rail-width}",
             height: "fill",
             direction: "column",
@@ -180,6 +199,8 @@
             gap: "{spacing.section-gap}",
         ),
         "column": (
+            typography: "{typography.label}",
+            color: "{colors.dim}",
             width: "fill",
             height: "fill",
             direction: "column",
@@ -211,6 +232,8 @@
         ),
         // A Gallery card and a Timeline card: the card fill, a reserved 2px ring.
         "card": (
+            typography: "{typography.legend}",
+            color: "{colors.dim}",
             direction: "column",
             gap: 10.0,
             padding: 10.0,
@@ -218,6 +241,8 @@
             fill: "{colors.card}",
         ),
         "timeline-card": (
+            typography: "{typography.legend}",
+            color: "{colors.dim}",
             direction: "column",
             height: "{spacing.card-height}",
             padding: "{spacing.card-padding}",

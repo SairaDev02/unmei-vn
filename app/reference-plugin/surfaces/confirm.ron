@@ -16,7 +16,9 @@
             width: 420.0,
             children: [
                 (kind: "slot", slot: "confirm.prompt"),
-                (kind: "slot", slot: "confirm.detail"),
+                (kind: "slot", slot: "confirm.detail",
+                    typography: "{typography.detail}",
+                    color: "{colors.dim}"),
                 (kind: "box",
                     direction: "row",
                     width: "fill",

@@ -12,6 +12,9 @@ use unmei_engine::ui::{self, NodeKind, PluginOutcome};
 const MANIFEST: &str = "(format_version: 1, name: \"Test\")";
 
 const TOKENS: &str = r#"(
+    colors: {
+        "ink": (r: 0.9, g: 0.9, b: 0.9, a: 1.0),
+    },
     typography: {
         "flourish": (face: "IBM Plex Sans", weight: 400, size_px: 40.0, line_height_px: 40.0),
     },
@@ -19,26 +22,26 @@ const TOKENS: &str = r#"(
 
 /// The interface a `play` tree must place: ticket #107's table as root children.
 const PLAY_INTERFACE: &str = r#"
-        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "prose", typography: "{typography.flourish}", color: "{colors.ink}"),
         (kind: "slot", slot: "advance-marker"),
         (kind: "slot", slot: "deciding-marker"),
         (kind: "list", list: "choices", item: (kind: "box", children: [
-            (kind: "slot", slot: "choice.number"),
-            (kind: "slot", slot: "choice.text"),
+            (kind: "slot", slot: "choice.number", typography: "{typography.flourish}", color: "{colors.ink}"),
+            (kind: "slot", slot: "choice.text", typography: "{typography.flourish}", color: "{colors.ink}"),
         ])),
         (kind: "slot", slot: "quick-row"),
-        (kind: "slot", slot: "play.save"),
-        (kind: "slot", slot: "play.load"),
-        (kind: "slot", slot: "play.auto"),
-        (kind: "slot", slot: "play.skip"),
-        (kind: "slot", slot: "play.menu")"#;
+        (kind: "slot", slot: "play.save", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.load", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.auto", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.skip", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.menu", typography: "{typography.flourish}", color: "{colors.ink}")"#;
 
 /// The interface a `title` tree must place, in the same form.
 const TITLE_INTERFACE: &str = r#"
-        (kind: "slot", slot: "pack.name"),
-        (kind: "slot", slot: "title.continue-reason"),
+        (kind: "slot", slot: "pack.name", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "title.continue-reason", typography: "{typography.flourish}", color: "{colors.ink}"),
         (kind: "list", list: "title.rows", item: (kind: "box", children: [
-            (kind: "slot", slot: "title.row.label"),
+            (kind: "slot", slot: "title.row.label", typography: "{typography.flourish}", color: "{colors.ink}"),
             (kind: "slot", slot: "title.continue"),
             (kind: "slot", slot: "title.new-game"),
             (kind: "slot", slot: "title.settings"),
@@ -48,17 +51,17 @@ const TITLE_INTERFACE: &str = r#"
 
 /// [`PLAY_INTERFACE`] without the two marker slots, for the one fixture that
 /// places those itself.
-const REST_OF_PLAY: &str = r#"(kind: "slot", slot: "prose"),
+const REST_OF_PLAY: &str = r#"(kind: "slot", slot: "prose", typography: "{typography.flourish}", color: "{colors.ink}"),
         (kind: "list", list: "choices", item: (kind: "box", children: [
-            (kind: "slot", slot: "choice.number"),
-            (kind: "slot", slot: "choice.text"),
+            (kind: "slot", slot: "choice.number", typography: "{typography.flourish}", color: "{colors.ink}"),
+            (kind: "slot", slot: "choice.text", typography: "{typography.flourish}", color: "{colors.ink}"),
         ])),
         (kind: "slot", slot: "quick-row"),
-        (kind: "slot", slot: "play.save"),
-        (kind: "slot", slot: "play.load"),
-        (kind: "slot", slot: "play.auto"),
-        (kind: "slot", slot: "play.skip"),
-        (kind: "slot", slot: "play.menu")"#;
+        (kind: "slot", slot: "play.save", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.load", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.auto", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.skip", typography: "{typography.flourish}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.menu", typography: "{typography.flourish}", color: "{colors.ink}")"#;
 
 fn load(surfaces: &[(&str, &str)]) -> PluginOutcome {
     let mut files = vec![
@@ -121,7 +124,10 @@ fn loop_ron(period_ms: u32, opacities: &[f32]) -> String {
 
 /// A glyph ornament; glyphs and images are the nodes a loop is for.
 fn glyph(extra: &str) -> String {
-    format!("(kind: \"glyph\", glyph: \"❧\", typography: \"{{typography.flourish}}\", {extra})")
+    format!(
+        "(kind: \"glyph\", glyph: \"❧\", typography: \"{{typography.flourish}}\", \
+         fill: \"{{colors.ink}}\", {extra})"
+    )
 }
 
 fn image(extra: &str) -> String {
