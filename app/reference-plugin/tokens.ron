@@ -46,6 +46,9 @@
         "option": (face: "IBM Plex Sans", weight: 400, size_px: 21.0, line_height_px: 28.0),
         "badge": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0),
         "label": (face: "IBM Plex Sans", weight: 400, size_px: 16.0, line_height_px: 20.0),
+        // The confirm's question line: the dialog keeps the overlay's own face
+        // (`docs/title-and-menu.md` § Timeline § Layout, the confirm row).
+        "dialog-title": (face: "IBM Plex Sans", weight: 600, size_px: 22.0, line_height_px: 28.0),
         "value": (face: "Fira Mono", weight: 500, size_px: 16.0, line_height_px: 20.0),
     },
     rounded: {
@@ -138,7 +141,7 @@
         // width, exactly as the player's own buttons reserve it today.
         "button": (
             typography: "{typography.label}",
-            color: "{colors.dim}",
+            color: "{colors.text}",
             direction: "row",
             align_items: "center",
             gap: 8.0,
@@ -154,7 +157,7 @@
         // A Settings row: the label column, the track and the value.
         "row": (
             typography: "{typography.label}",
-            color: "{colors.dim}",
+            color: "{colors.text}",
             direction: "row",
             align_items: "center",
             gap: "{spacing.row-gap}",

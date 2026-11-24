@@ -47,7 +47,7 @@ pub use self::caps::{
     MAX_TOTAL_BYTES,
 };
 pub use self::fonts::{embedded, EmbeddedFace, EMBEDDED_FACES};
-pub use self::interface::{surface, ListSpec, SurfaceSpec, SURFACES};
+pub use self::interface::{shows_text, surface, ListSpec, SurfaceSpec, SURFACES};
 pub use self::manifest::{FontDecl, ImageDecl, Manifest, Numbering, FORMAT_VERSION};
 pub use self::motion::{Easing, Keyframe, Motion, MAX_FLASHES_PER_SECOND, MIN_PERIOD_MS};
 pub use self::node::{

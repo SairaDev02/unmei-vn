@@ -14,12 +14,15 @@ pub(super) fn headless_app() -> App {
 /// Attach the embedded interface faces to a headless test world. The core test
 /// apps do not add `TextPlugin`, so this inserts a bare `Assets<Font>` and the
 /// [`crate::presentation::style::TextFaces`] resource the presentation systems read; no
-/// pack asset root is touched (`docs/title-and-menu.md` § Type system §1).
+/// pack asset root is touched (`docs/title-and-menu.md` § Type system §1). The
+/// renderer decodes a plugin's shipped images into their own store, which is
+/// bare here for the same reason: no `ImagePlugin` is added.
 pub(super) fn attach_text_faces(app: &mut App) {
     let mut fonts = bevy::asset::Assets::<bevy::text::Font>::default();
     let faces = crate::presentation::style::TextFaces::embed(&mut fonts);
     app.insert_resource(fonts);
     app.insert_resource(faces);
+    app.init_resource::<bevy::asset::Assets<bevy::image::Image>>();
 }
 
 /// A headless core app over an explicit pack root and resolver. `ButtonInput`
@@ -36,6 +39,10 @@ pub(super) fn boot_app_unstarted(
 /// [`boot_app_unstarted`], with the shared dev-mode gate set explicitly. Test
 /// fixtures that press F5/F9 pass `true` so a release test run protects the same
 /// shortcut behavior; the dev-off regressions pass `false`.
+///
+/// The renderer's boot and repaint systems live in the presentation plugin a
+/// session adds; a headless app registers them here, so a surface drawn from a
+/// plugin tree behaves as it does in the player.
 pub(super) fn boot_app_unstarted_dev(
     pack_root: PathBuf,
     decisions: Option<Arc<dyn DecisionResolver>>,
@@ -48,6 +55,7 @@ pub(super) fn boot_app_unstarted_dev(
         .insert_resource(RuntimeConfig::new(pack_root, decisions).with_dev_mode(dev_mode))
         .add_plugins(RuntimeCorePlugin);
     attach_text_faces(&mut app);
+    crate::presentation::render::register(&mut app);
     app
 }
 

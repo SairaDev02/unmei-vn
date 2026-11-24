@@ -67,18 +67,27 @@ pub const fn text(id: &str) -> &'static str {
 /// The text of `id` with each placeholder `values` supplies replaced by its
 /// value.
 ///
-/// One pass over the source text, so a substituted value is never read again: a
-/// copied path may hold `{`, and it must survive verbatim. A declared
-/// placeholder that `values` omits keeps its own `{name}`, which lets a caller
-/// fill a line in stages.
-///
 /// # Panics
 ///
 /// Panics on an id the table does not hold.
 pub fn render(id: &str, values: &[(&str, &str)]) -> String {
     let key = key(id).unwrap_or_else(|| panic!("unknown copy key: {id}"));
-    let mut rendered = String::with_capacity(key.text.len());
-    let mut rest = key.text;
+    fill(key.text, values)
+}
+
+/// `text` with each placeholder `values` supplies replaced by its value.
+///
+/// [`render`] is this function over the table's text. A plugin's copy override
+/// is the other caller: the override stands in for [`CopyKey::text`] and keeps
+/// the same placeholders (spec §5), so it fills the same way.
+///
+/// One pass over the source text, so a substituted value is never read again: a
+/// copied path may hold `{`, and it must survive verbatim. A declared
+/// placeholder that `values` omits keeps its own `{name}`, which lets a caller
+/// fill a line in stages.
+pub fn fill(text: &str, values: &[(&str, &str)]) -> String {
+    let mut rendered = String::with_capacity(text.len());
+    let mut rest = text;
     while let Some((before, after)) = rest.split_once('{') {
         rendered.push_str(before);
         let Some((name, tail)) = after.split_once('}') else {

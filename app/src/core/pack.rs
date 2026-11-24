@@ -10,6 +10,14 @@ use crate::menu::MenuState;
 use crate::Runtime;
 use crate::RuntimeConfig;
 
+/// The pack's `ui/` plugin outcome, as the one boot load found it (spec §8).
+///
+/// [`unmei_engine::load_pack`] already reads the folder, so nothing loads it a
+/// second time: the renderer picks the look in force from here, and the pack
+/// keeps playing whatever the outcome was.
+#[derive(Resource, Clone, Debug)]
+pub(crate) struct PackPlugin(pub unmei_engine::ui::PluginOutcome);
+
 /// Load the pack and start the runner. A bad pack no longer exits: record the
 /// canonicalised path, the whole error list and how the path was chosen for the
 /// startup error screen, report it once (row 1), and leave `Runtime` absent so
@@ -50,6 +58,7 @@ pub(crate) fn setup_pack(
         failures.report(Failure::new(FailureRow::PackWarning, warning.to_string()));
     }
 
+    commands.insert_resource(PackPlugin(loaded.plugin));
     let pack_root = loaded.pack.root.clone();
     let asset_root = config.asset_root.clone();
     let mut runtime = Runtime {

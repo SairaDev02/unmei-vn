@@ -29,7 +29,7 @@ pub use skip::SkipState;
 pub(crate) use auto::auto_dwell;
 pub(crate) use decision::poll_decision;
 pub(crate) use key_check::{poll_key_check, spawn_key_check};
-pub(crate) use pack::{park_at_entry, setup_pack};
+pub(crate) use pack::{park_at_entry, setup_pack, PackPlugin};
 pub(crate) use script::drive_script;
 #[cfg(test)]
 pub(crate) use skip::SKIP_DWELL_SECONDS;

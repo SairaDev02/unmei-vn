@@ -160,3 +160,18 @@ fn render_never_expands_a_value_it_substituted() {
         "a substituted `{{` cannot swallow the next placeholder"
     );
 }
+
+/// A plugin's copy override is filled the same way as the table's text, so an
+/// override that keeps `{slot}` reaches the screen with the slot in it.
+#[test]
+fn fill_substitutes_a_placeholder_in_a_template_that_is_not_the_table() {
+    assert_eq!(
+        fill("Replace the save in {slot}?", &[("slot", "Slot 2")]),
+        "Replace the save in Slot 2?"
+    );
+    assert_eq!(
+        fill("A { that no brace closes", &[("slot", "Slot 2")]),
+        "A { that no brace closes",
+        "the override's own text is read the same way the table's is"
+    );
+}

@@ -31,6 +31,7 @@ pub(in crate::presentation) fn build_title_settings(
     credentials: Option<&CredentialsState>,
     asset_server: Option<&AssetServer>,
     watch: Option<&mut AssetWatch>,
+    look: Option<&super::super::render::UiLook>,
 ) {
     let backdrop = runtime.runner.pack().manifest.title_backdrop.clone();
     commands
@@ -103,7 +104,7 @@ pub(in crate::presentation) fn build_title_settings(
             });
 
             if let Some(confirm) = menu.confirm {
-                confirm_dialog(root, faces, menu, confirm, credentials, runtime);
+                confirm_dialog(root, look, faces, confirm, credentials, runtime);
             }
         });
 }

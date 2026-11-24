@@ -67,6 +67,7 @@ mod monitor_reading;
 mod overlay;
 mod play_path;
 mod reading;
+mod render;
 mod save_slots;
 mod settings_file;
 mod support;

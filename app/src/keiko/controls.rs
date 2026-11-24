@@ -318,7 +318,13 @@ fn labels_by_action(world: &mut World) -> Vec<(MenuAction, String)> {
         .collect()
 }
 
+/// The label a control shows. A rendered control's words may be drawn by a
+/// sibling slot — the confirm's accept label is — so the renderer records them on
+/// the control itself and that is the label the gate reads.
 fn node_label(world: &World, entity: Entity) -> String {
+    if let Some(words) = world.get::<crate::presentation::render::ControlLabel>(entity) {
+        return words.0.clone();
+    }
     let mut label = String::new();
     collect_label(world, entity, &mut label, 0);
     label.split_whitespace().collect::<Vec<_>>().join(" ")

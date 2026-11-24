@@ -12,8 +12,11 @@
 //! compares [`FILES`] with the folder on disk, path for path and byte for byte,
 //! so an edit that skips either side fails the test rather than drifting.
 //!
-//! Nothing renders these trees yet: the renderer arrives in slice 2, and until
-//! then the plugin's only consumer is that test and the export.
+//! The player draws from these trees too: the renderer takes the surface it is
+//! drawing from the plugin in force, and the reference plugin's tree stands in
+//! for every surface a pack's plugin leaves alone. The confirm is the first
+//! surface drawn this way; the rest replace their hand-written trees ticket by
+//! ticket, and each one deletes the tree it replaced.
 
 use unmei_engine::ui::MemorySource;
 
