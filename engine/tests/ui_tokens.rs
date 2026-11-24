@@ -34,19 +34,19 @@ const TOKENS: &str = r#"(
 /// A case about a token appends it, so the tree is also one the interface pass
 /// accepts.
 const PLAY_INTERFACE: &str = r#"
-        (kind: "slot", slot: "prose"),
+        (kind: "slot", slot: "prose", typography: "{typography.body}", color: "{colors.ink}"),
         (kind: "slot", slot: "advance-marker"),
         (kind: "slot", slot: "deciding-marker"),
         (kind: "list", list: "choices", item: (kind: "box", children: [
-            (kind: "slot", slot: "choice.number"),
-            (kind: "slot", slot: "choice.text"),
+            (kind: "slot", slot: "choice.number", typography: "{typography.body}", color: "{colors.ink}"),
+            (kind: "slot", slot: "choice.text", typography: "{typography.body}", color: "{colors.ink}"),
         ])),
         (kind: "slot", slot: "quick-row"),
-        (kind: "slot", slot: "play.save"),
-        (kind: "slot", slot: "play.load"),
-        (kind: "slot", slot: "play.auto"),
-        (kind: "slot", slot: "play.skip"),
-        (kind: "slot", slot: "play.menu")"#;
+        (kind: "slot", slot: "play.save", typography: "{typography.body}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.load", typography: "{typography.body}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.auto", typography: "{typography.body}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.skip", typography: "{typography.body}", color: "{colors.ink}"),
+        (kind: "slot", slot: "play.menu", typography: "{typography.body}", color: "{colors.ink}")"#;
 
 /// Load a plugin whose only files are the manifest, `tokens` and `surfaces`.
 fn load(tokens: &str, surfaces: &[(&str, &str)]) -> PluginOutcome {
@@ -160,6 +160,9 @@ fn a_spacing_chain_resolves_and_a_node_overrides_its_component() {
     let tokens = r#"(
         colors: { "ink": (r: 0.1, g: 0.1, b: 0.1, a: 1.0),
                   "focus": (r: 0.9, g: 0.8, b: 0.5, a: 1.0) },
+        typography: {
+            "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        },
         spacing: { "a": "{spacing.b}", "b": 72.0 },
         rounded: { "box": "{rounded.panel}" , "panel": 9.0 },
         components: {
@@ -207,7 +210,14 @@ fn a_spacing_chain_resolves_and_a_node_overrides_its_component() {
 fn a_radius_may_name_a_spacing_token() {
     let tree =
         format!("(kind: \"box\", radius: \"{{spacing.inset}}\", children: [{PLAY_INTERFACE}])");
-    let outcome = load(r#"(spacing: { "inset": 3.0 })"#, &[("play", &tree)]);
+    let tokens = r#"(
+        colors: { "ink": (r: 0.9, g: 0.9, b: 0.9, a: 1.0) },
+        typography: {
+            "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        },
+        spacing: { "inset": 3.0 },
+    )"#;
+    let outcome = load(tokens, &[("play", &tree)]);
     let root = &plugin(&outcome).surfaces["play"];
     assert_eq!(root.style.paint.radius, Some(ui::Radius::Uniform(3.0)));
 }

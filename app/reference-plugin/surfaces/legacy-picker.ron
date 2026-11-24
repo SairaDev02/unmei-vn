@@ -14,7 +14,9 @@
             width: 460.0,
             gap: 10.0,
             children: [
-                (kind: "slot", slot: "legacy.heading"),
+                (kind: "slot", slot: "legacy.heading",
+                    typography: "{typography.heading}",
+                    color: "{colors.text}"),
                 (kind: "text",
                     text: "legacy-picker.prompt",
                     typography: "{typography.detail}",
@@ -31,7 +33,9 @@
                         fill: "{colors.button}",
                         children: [
                             (kind: "slot", slot: "legacy.target.label"),
-                            (kind: "slot", slot: "legacy.target.detail"),
+                            (kind: "slot", slot: "legacy.target.detail",
+                                typography: "{typography.legend}",
+                                color: "{colors.dim}"),
                             (kind: "slot", slot: "legacy.target.1",
                                 position: "absolute",
                                 left: 0.0,

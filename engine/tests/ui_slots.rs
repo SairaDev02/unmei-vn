@@ -19,8 +19,12 @@ use unmei_engine::ui::{self, ListSpec, Numbering, PluginOutcome, SurfaceSpec};
 /// The smallest manifest: the format version is the only required field.
 const MANIFEST: &str = "(format_version: 1)";
 
-/// One typography token, so a `text` node has a face to draw with.
+/// One typography token and one colour, so a `text` node or a text slot has a
+/// face and a tone to draw with.
 const TOKENS: &str = r#"(
+    colors: {
+        "ink": (r: 0.9, g: 0.9, b: 0.9, a: 1.0),
+    },
     typography: {
         "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
     },
@@ -77,8 +81,14 @@ fn spec(id: &str) -> &'static SurfaceSpec {
     ui::surface(id).unwrap_or_else(|| panic!("the table has a `{id}` surface"))
 }
 
+/// The root box, styled so every text slot the tables require resolves the
+/// face and tone a text show needs (spec §4, "Engine text").
 fn root(children: &[String]) -> String {
-    format!("(kind: \"box\", children: [{}])", children.join(", "))
+    format!(
+        "(kind: \"box\", typography: \"{{typography.body}}\", color: \"{{colors.ink}}\", \
+         children: [{}])",
+        children.join(", ")
+    )
 }
 
 fn slot(name: &str) -> String {
@@ -551,7 +561,7 @@ fn two_members_of_one_family_are_a_duplicate() {
 fn a_text_node_naming_its_surface_s_copy_key_loads() {
     let (tree, _) = tree_with(
         "play",
-        &["(kind: \"text\", text: \"play.help\", typography: \"{typography.body}\")".to_string()],
+        &["(kind: \"text\", text: \"play.help\", typography: \"{typography.body}\", fill: \"{colors.ink}\")".to_string()],
     );
     let outcome = load_one(MANIFEST, "play", &tree);
     assert_eq!(reported(&outcome), [], "{}", messages(&outcome));
@@ -562,7 +572,7 @@ fn a_text_node_naming_its_surface_s_copy_key_loads() {
 fn a_text_node_naming_an_unknown_copy_key_fails() {
     let (tree, index) = tree_with(
         "play",
-        &["(kind: \"text\", text: \"play.nope\", typography: \"{typography.body}\")".to_string()],
+        &["(kind: \"text\", text: \"play.nope\", typography: \"{typography.body}\", fill: \"{colors.ink}\")".to_string()],
     );
     let outcome = load_one(MANIFEST, "play", &tree);
     assert_eq!(
@@ -582,7 +592,7 @@ fn a_text_node_naming_another_surface_s_key_fails() {
     let (tree, index) = tree_with(
         "play",
         &[
-            "(kind: \"text\", text: \"confirm.quit.title\", typography: \"{typography.body}\")"
+            "(kind: \"text\", text: \"confirm.quit.title\", typography: \"{typography.body}\", fill: \"{colors.ink}\")"
                 .to_string(),
         ],
     );

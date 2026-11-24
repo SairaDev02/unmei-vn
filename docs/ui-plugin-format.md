@@ -137,7 +137,7 @@ A complete tree for `still`, whose interface is one list, looks like this:
 )
 ```
 
-A `box` lays its children out: `direction` (`row` or `column`), `gap`, `padding` (a length, or `top`, `right`, `bottom` and `left`), `align_items` (`start`, `center`, `end` or `stretch`), `justify_content` (`start`, `center`, `end` or `space-between`), and `children`.
+A `box` lays its children out: `direction` (`row` or `column`), `gap`, `padding` (a length, or `top`, `right`, `bottom` and `left`), `align_items` (`start`, `center`, `end` or `stretch`), `justify_content` (`start`, `center`, `end` or `space-between`), and `children`. It may also set `typography` and `color`, the text style every text inside it inherits. The nearest enclosing `box` that sets either property wins, so one box styles a whole group of rows.
 
 Any node takes `width`, `height` (a length, `auto` or `fill`), `position` (`relative` or `absolute`), `left`, `top`, `right` and `bottom` for an absolute node, `z_index`, `opacity`, `transform` (`x`, `y`, `scale`, `rotation_deg`) and `loop`.
 
@@ -145,9 +145,9 @@ A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}`
 
 A length is a number of pixels or a `{spacing.key}` token. A colour is `(r: 0.0, g: 0.0, b: 0.0, a: 1.0)` with channels from 0 to 1, or a `{colors.key}` token. A number may be written as an integer or a float. A name the format knows is a lowercase kebab-case string, for example `"ease-in-out"`; never a RON identifier.
 
-A `slot` names engine content. Its name is one of the surface's slots, or a Keiko control id. A control may carry the four state overrides `focused`, `disabled`, `lit` and `current`, each a set of paint and text properties, and so may a `list`. A state that is not authored keeps the node's own paint.
+A `slot` names engine content. Its name is one of the surface's slots, or a Keiko control id. A control may carry the four state overrides `focused`, `disabled`, `lit` and `current`, each a set of paint and text properties, and so may a `list`. Every node inside a list item may carry them too, and they follow the state of the item's control, so a row's label can turn white when its control is focused. A node outside a list item carries them only as a control slot or a `list`. A state that is not authored keeps the node's own paint.
 
-A `slot` that shows text takes `typography` (a `{typography.key}` token) and `color`, the tone the engine's words are drawn in; the words are the engine's and only their look is the plugin's. A slot that names neither takes the surface root's. Its state overrides may change both, so a `lit` label can change tone while its text stays the engine's.
+A `slot` or control that shows text takes `typography` (a `{typography.key}` token) and `color`, the tone the engine's words are drawn in; the words are the engine's and only their look is the plugin's. One that sets neither takes the nearest enclosing `box` that does. A `text` or `glyph` node inherits the same way and draws its tone from its own `fill`. A node that shows text and finds no face or no tone, on itself or on an enclosing `box`, fails with `ui.text.unstyled`: every word has a look before the layout rules measure it. State overrides may change both, so a `lit` label can change tone while its text stays the engine's.
 
 Two slots carry the plugin's own nodes instead of engine content: `advance-marker` and `deciding-marker` on `play`. A slot other than those two takes no content, and content inside one is `ui.slot.unknown`.
 
@@ -186,10 +186,11 @@ Every finding carries one of these ids and the plugin file, plus the RON field p
 | `ui.font.unknown` | A face the pack neither embeds nor ships. |
 | `ui.motion.forbidden` | A loop outside the places it is allowed, or under the 400 ms period floor. |
 | `ui.motion.flash` | More than 3 flashes a second. |
+| `ui.text.unstyled` | A text slot, control, `text` node or `glyph` whose `typography` or tone is set neither on itself nor on an enclosing `box`. |
 
 ## 8. The interface, surface by surface
 
-One table per surface lists what a tree for that surface places.
+One table per surface lists what a tree for that surface places. A row whose `Shows` column is words rather than art names a slot or control that needs a face and a tone: section 5 says how a box passes them down, and `ui.text.unstyled` names one that finds neither.
 
 | Kind | Meaning |
 | --- | --- |

@@ -87,10 +87,11 @@ pub struct Style {
     pub offsets: Offsets,
     pub z_index: i32,
     pub motion: Option<Motion>,
+    pub text: TextStyle,
 }
 
 impl Style {
-    pub(super) fn resolve(component: &Component) -> Style {
+    pub(super) fn resolve(component: &Component, text: TextStyle) -> Style {
         Style {
             paint: Paint {
                 fill: component.fill.clone(),
@@ -111,6 +112,33 @@ impl Style {
             },
             z_index: component.z_index.unwrap_or(0),
             motion: component.motion.clone(),
+            text,
+        }
+    }
+}
+
+/// The face and tone a node's text draws with: the node's own values over the
+/// nearest enclosing `Box`'s (spec §4, "Engine text").
+///
+/// Either half may be absent on a node that shows no text, because the value
+/// still flows to its children; a node that shows text must resolve both, which
+/// [`super::text`] judges.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TextStyle {
+    pub typography: Option<Typography>,
+    pub color: Option<Color>,
+}
+
+impl TextStyle {
+    /// `self` with `winner`'s values laid over it: a node's own face and tone
+    /// beat the enclosing `Box`'s, which beats the one outside it.
+    pub(super) fn over(&self, winner: &TextStyle) -> TextStyle {
+        TextStyle {
+            typography: winner
+                .typography
+                .clone()
+                .or_else(|| self.typography.clone()),
+            color: winner.color.or(self.color),
         }
     }
 }

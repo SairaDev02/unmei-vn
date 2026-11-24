@@ -4,9 +4,10 @@
 // requires.
 //
 // The control labels are engine content: the engine resolves a control's own
-// words from the copy table, so this tree styles the rows and leaves the text to
-// it. The audio list is the exception it is in the format — its label and value
-// are per-item slots, so a row places them.
+// words from the copy table. The rows, buttons and the key row carry the face and
+// tone each label and value draws with, so the controls inside them name neither.
+// The audio list is the exception it is in the format: its label and value are
+// per-item slots, so a row places them.
 (
     kind: "box",
     direction: "column",
@@ -15,7 +16,9 @@
     padding: "{spacing.page-padding}",
     gap: "{spacing.section-gap}",
     children: [
-        (kind: "slot", slot: "settings.heading"),
+        (kind: "slot", slot: "settings.heading",
+            typography: "{typography.heading}",
+            color: "{colors.text}"),
         // Audio: the three slider rows, Mute and Reset audio.
         (kind: "text",
             text: "settings.group.audio",
@@ -29,7 +32,9 @@
                 children: [
                     (kind: "slot", slot: "settings.audio.label", width: "{spacing.settings-label}"),
                     (kind: "box", component: "track"),
-                    (kind: "slot", slot: "settings.audio.value"),
+                    (kind: "slot", slot: "settings.audio.value",
+                        typography: "{typography.value}",
+                        color: "{colors.text}"),
                     // The row's own control covers it, so the focus ring frames
                     // the row the engine shows rather than one child of it.
                     (kind: "slot", slot: "settings.master",
@@ -127,12 +132,15 @@
             component: "key-row",
             children: [
                 (kind: "slot", slot: "settings.key-state"),
-                (kind: "slot", slot: "settings.key-placeholder"),
+                (kind: "slot", slot: "settings.key-placeholder",
+                    color: "{colors.faint}"),
                 (kind: "slot", slot: "settings.key",
                     focused: (border: (width: 2.0, color: "{colors.focus}"))),
             ],
         ),
-        (kind: "slot", slot: "settings.key-path"),
+        (kind: "slot", slot: "settings.key-path",
+            typography: "{typography.value}",
+            color: "{colors.faint}"),
         (kind: "box",
             component: "row",
             children: [

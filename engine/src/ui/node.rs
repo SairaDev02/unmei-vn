@@ -13,8 +13,10 @@ use crate::finding::{rules, Finding};
 
 use super::caps::{MAX_DEPTH, MAX_NODES};
 use super::paint::{self, StateOverrides};
-use super::style::{self, AlignItems, Component, Direction, JustifyContent, Padding, Style};
-use super::tokens::{self, Color, Tokens, Typography};
+use super::style::{
+    self, AlignItems, Component, Direction, JustifyContent, Padding, Style, TextStyle,
+};
+use super::tokens::{self, Tokens};
 use super::value::{self, Fields, Report};
 
 /// The most characters a glyph may hold (spec §4, rule 11).
@@ -25,6 +27,10 @@ pub const MAX_GLYPH_CHARS: usize = 8;
 pub struct Node {
     pub style: Style,
     pub kind: NodeKind,
+    /// The state overrides the node carries. A control slot and a list always
+    /// may; every node inside a list item may, and follows the item's control
+    /// (spec §4, "States inside a list item").
+    pub states: ControlStates,
 }
 
 /// What the node is and what it holds besides its style.
@@ -71,14 +77,12 @@ pub enum Fit {
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphNode {
     pub glyph: String,
-    pub typography: Typography,
 }
 
 /// The text of one copy key. Ticket #107 checks that the key exists.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextNode {
     pub text: String,
-    pub typography: Typography,
 }
 
 /// One named piece of engine content, or one control.
@@ -91,15 +95,12 @@ pub struct TextNode {
 ///
 /// A slot that shows text takes the face and the tone the engine's own text is
 /// drawn in, because the words are the engine's and only their look is the
-/// plugin's (spec §4, "Engine text"). Both are optional: a slot that names
-/// neither takes the surface root's.
+/// plugin's (spec §4, "Engine text"). [`super::text`] judges that, and the
+/// resolved pair lives on [`Node::style`].
 #[derive(Clone, Debug, PartialEq)]
 pub struct SlotNode {
     pub slot: String,
     pub children: Vec<Node>,
-    pub states: ControlStates,
-    pub typography: Option<Typography>,
-    pub color: Option<Color>,
 }
 
 /// One engine list and its item template. The engine supplies the items in
@@ -108,7 +109,6 @@ pub struct SlotNode {
 pub struct ListNode {
     pub list: String,
     pub item: Box<Node>,
-    pub states: ControlStates,
 }
 
 /// The paint a control or a list item applies in each state. A state that was
@@ -170,7 +170,16 @@ pub(super) fn parse_tree(
 ) -> Option<Node> {
     let mut report = Report::new(file, findings);
     let mut budget = Budget::default();
-    let node = parse_node(value, "root", 1, &mut budget, tokens, &mut report)?;
+    let node = parse_node(
+        value,
+        "root",
+        1,
+        &mut budget,
+        tokens,
+        &mut report,
+        &TextStyle::default(),
+        false,
+    )?;
     if !matches!(node.kind, NodeKind::Box(_)) {
         report.claim("root.kind", "a tree's root is a `box`");
         return None;
@@ -178,6 +187,10 @@ pub(super) fn parse_tree(
     Some(node)
 }
 
+#[allow(
+    clippy::too_many_arguments,
+    reason = "one node walk passes its distinct facts straight through: the value, its path, the depth, the node budget, the token table, the findings report, the text style the enclosing boxes set and whether the node sits in a list item"
+)]
 fn parse_node(
     value: ron::Value,
     path: &str,
@@ -185,6 +198,8 @@ fn parse_node(
     budget: &mut Budget,
     tokens: &Tokens,
     report: &mut Report,
+    inherited: &TextStyle,
+    inside_item: bool,
 ) -> Option<Node> {
     if depth > MAX_DEPTH {
         report.cap(format!(
@@ -235,10 +250,22 @@ fn parse_node(
     };
     let own = style::parse(&mut fields, tokens, report)?;
     let merged = base.over(&own);
+    let text = inherited.over(&TextStyle {
+        typography: merged.typography.clone(),
+        color: merged.color,
+    });
 
     let kind = match shape {
         Shape::Box => {
-            let children = parse_children(&mut fields, depth, budget, tokens, report)?;
+            let children = parse_children(
+                &mut fields,
+                depth,
+                budget,
+                tokens,
+                report,
+                &text,
+                inside_item,
+            )?;
             NodeKind::Box(BoxNode {
                 direction: merged.direction.unwrap_or_default(),
                 gap: merged.gap.unwrap_or_default(),
@@ -280,25 +307,24 @@ fn parse_node(
                 );
                 return None;
             }
-            let typography = required_typography(&mut fields, &merged, report)?;
-            NodeKind::Glyph(GlyphNode { glyph, typography })
+            NodeKind::Glyph(GlyphNode { glyph })
         }
         Shape::Text => {
-            let text = take_string(&mut fields, "text", report)?;
-            let typography = required_typography(&mut fields, &merged, report)?;
-            NodeKind::Text(TextNode { text, typography })
+            let key = take_string(&mut fields, "text", report)?;
+            NodeKind::Text(TextNode { text: key })
         }
         Shape::Slot => {
             let slot = take_string(&mut fields, "slot", report)?;
-            let children = parse_children(&mut fields, depth, budget, tokens, report)?;
-            let states = parse_states(&mut fields, path, tokens, report)?;
-            NodeKind::Slot(SlotNode {
-                slot,
-                children,
-                states,
-                typography: merged.typography.clone(),
-                color: merged.color,
-            })
+            let children = parse_children(
+                &mut fields,
+                depth,
+                budget,
+                tokens,
+                report,
+                &text,
+                inside_item,
+            )?;
+            NodeKind::Slot(SlotNode { slot, children })
         }
         Shape::List => {
             let list = take_string(&mut fields, "list", report)?;
@@ -310,16 +336,21 @@ fn parse_node(
                 budget,
                 tokens,
                 report,
+                inherited,
+                true,
             )?;
-            let states = parse_states(&mut fields, path, tokens, report)?;
             NodeKind::List(ListNode {
                 list,
                 item: Box::new(item),
-                states,
             })
         }
     };
 
+    let states = if inside_item || matches!(shape, Shape::Slot | Shape::List) {
+        parse_states(&mut fields, path, tokens, report)?
+    } else {
+        ControlStates::default()
+    };
     if !fields.finish(report, &format!(" on a `{}` node", shape.name())) {
         return None;
     }
@@ -327,8 +358,9 @@ fn parse_node(
         return None;
     }
     Some(Node {
-        style: Style::resolve(&merged),
+        style: Style::resolve(&merged, text),
         kind,
+        states,
     })
 }
 
@@ -338,6 +370,8 @@ fn parse_children(
     budget: &mut Budget,
     tokens: &Tokens,
     report: &mut Report,
+    inherited: &TextStyle,
+    inside_item: bool,
 ) -> Option<Vec<Node>> {
     let mut children = Vec::new();
     if let Some(value) = fields.take("children") {
@@ -345,7 +379,16 @@ fn parse_children(
         let items = value::seq(value, &property, report)?;
         for (index, item) in items.into_iter().enumerate() {
             let child_path = format!("{property}[{index}]");
-            let child = parse_node(item, &child_path, depth + 1, budget, tokens, report)?;
+            let child = parse_node(
+                item,
+                &child_path,
+                depth + 1,
+                budget,
+                tokens,
+                report,
+                inherited,
+                inside_item,
+            )?;
             children.push(child);
         }
     }
@@ -356,21 +399,6 @@ fn take_string(fields: &mut Fields, name: &str, report: &mut Report) -> Option<S
     let path = fields.path(name);
     let value = value::require(fields.take(name), path.clone(), name, report)?;
     value::string(value, &path, report)
-}
-
-fn required_typography(
-    fields: &mut Fields,
-    merged: &Component,
-    report: &mut Report,
-) -> Option<Typography> {
-    if let Some(typography) = &merged.typography {
-        return Some(typography.clone());
-    }
-    report.claim(
-        &fields.path("typography"),
-        "this node requires `typography`",
-    );
-    None
 }
 
 fn parse_states(
@@ -441,10 +469,10 @@ fn check_kind(component: &Component, shape: Shape, path: &str, report: &mut Repo
             ok &= reject(component.align_items.is_some(), "align_items");
             ok &= reject(component.justify_content.is_some(), "justify_content");
         }
-        if !matches!(shape, Shape::Text | Shape::Glyph | Shape::Slot) {
+        if !matches!(shape, Shape::Text | Shape::Glyph | Shape::Slot | Shape::Box) {
             ok &= reject(component.typography.is_some(), "typography");
         }
-        if shape != Shape::Slot {
+        if !matches!(shape, Shape::Slot | Shape::Box) {
             ok &= reject(component.color.is_some(), "color");
         }
         match shape {

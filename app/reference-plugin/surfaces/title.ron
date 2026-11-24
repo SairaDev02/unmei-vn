@@ -5,11 +5,11 @@
 // and the control paints the focus ring. One item template serves all five rows,
 // which is why it places all five controls (format reference §8).
 //
-// Two values §3 names have no expression here: the 12px x 2px FOCUS bar (only a
-// control or a list can paint on focus, and the control has to stay the whole
-// clickable row) and the focused row's white label (a label's tone is engine
-// content). `Quit`'s 14px separation is the third: one template cannot space its
-// fifth item differently.
+// One value §3 names has no expression here: the 12px x 2px FOCUS bar, because
+// only the control paints on focus and it has to stay the whole clickable row.
+// `Quit`'s 14px separation is the second: one template cannot space its fifth
+// item differently. The focused row's white label is the label slot's `focused`
+// override, which follows the row control's state.
 (
     kind: "box",
     component: "page",
@@ -64,7 +64,8 @@
                                 children: [
                                     (kind: "slot", slot: "title.row.label",
                                         typography: "{typography.row}",
-                                        color: "{colors.dim}"),
+                                        color: "{colors.dim}",
+                                        focused: (color: "{colors.text}")),
                                     (kind: "slot", slot: "title.continue",
                                         position: "absolute",
                                         left: 0.0,

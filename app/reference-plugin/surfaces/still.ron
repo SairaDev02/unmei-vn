@@ -32,7 +32,9 @@
                         gap: "{spacing.caption-gap}",
                         padding: (top: 16.0, right: 0.0, bottom: 0.0, left: 0.0),
                         children: [
-                            (kind: "slot", slot: "still.label"),
+                            (kind: "slot", slot: "still.label",
+                                typography: "{typography.value}",
+                                color: "{colors.text}"),
                         ],
                     ),
                 ],
