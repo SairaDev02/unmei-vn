@@ -561,7 +561,7 @@ fn two_members_of_one_family_are_a_duplicate() {
 fn a_text_node_naming_its_surface_s_copy_key_loads() {
     let (tree, _) = tree_with(
         "play",
-        &["(kind: \"text\", text: \"play.help\", typography: \"{typography.body}\", fill: \"{colors.ink}\")".to_string()],
+        &["(kind: \"text\", text: \"play.quick.save\", typography: \"{typography.body}\", fill: \"{colors.ink}\")".to_string()],
     );
     let outcome = load_one(MANIFEST, "play", &tree);
     assert_eq!(reported(&outcome), [], "{}", messages(&outcome));
@@ -640,6 +640,25 @@ fn an_override_with_an_unknown_key_fails() {
             "ui.copy.unknown".to_string()
         )]
     );
+}
+
+/// Rule 40: the help line and corner cues are removed, so an override of one
+/// fails with `ui.copy.unknown`.
+#[test]
+fn an_override_of_a_removed_play_key_fails() {
+    for removed in ["play.help", "play.cue.auto", "play.cue.skip"] {
+        let manifest = manifest_with_copy(&format!("\"{removed}\": \"text\""));
+        let outcome = load_one(&manifest, "play", &spec_tree(spec("play"), false, &[]));
+        assert_eq!(
+            reported(&outcome),
+            [(
+                "ui/plugin.ron".to_string(),
+                format!("copy[\"{removed}\"]"),
+                "ui.copy.unknown".to_string()
+            )],
+            "{removed}"
+        );
+    }
 }
 
 /// An override that drops a placeholder the key declares fails with

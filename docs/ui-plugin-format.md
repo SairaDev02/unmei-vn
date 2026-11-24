@@ -330,9 +330,11 @@ The play frame: the dialogue box, the name tab, the prose, the two markers, the 
 | list | `choices` | — | — | One button per option, in script order. |
 | item slot | `choice.number` | `choices` | — | The option's number, in the manifest's numbering style. |
 | item slot | `choice.text` | `choices` | — | The option's text. |
-| copy key | `play.help` | — | — | `Space/Enter/click advance · Tab skip · Ctrl skip all · 1-9 or click choose · A auto · F11 fullscreen · Esc menu` |
-| copy key | `play.cue.auto` | — | — | `AUTO` |
-| copy key | `play.cue.skip` | — | — | `SKIP` |
+| copy key | `play.quick.save` | — | — | `Save` |
+| copy key | `play.quick.load` | — | — | `Load` |
+| copy key | `play.quick.auto` | — | — | `Auto A` |
+| copy key | `play.quick.skip` | — | — | `Skip Tab` |
+| copy key | `play.quick.menu` | — | — | `Menu Esc` |
 | copy key | `play.deciding` | — | `npc` | `{npc} is deciding…` |
 | copy key | `play.end-of-scene` | — | — | `— end of scene —` |
 

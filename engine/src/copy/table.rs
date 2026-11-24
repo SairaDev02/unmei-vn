@@ -56,19 +56,29 @@ pub const KEYS: &[CopyKey] = &[
         text: "{scene} \u{00b7} {saved_at}",
     },
     CopyKey {
-        id: "play.help",
+        id: "play.quick.save",
         placeholders: &[],
-        text: "Space/Enter/click advance \u{00b7} Tab skip \u{00b7} Ctrl skip all \u{00b7} 1-9 or click choose \u{00b7} A auto \u{00b7} F11 fullscreen \u{00b7} Esc menu",
+        text: "Save",
     },
     CopyKey {
-        id: "play.cue.auto",
+        id: "play.quick.load",
         placeholders: &[],
-        text: "AUTO",
+        text: "Load",
     },
     CopyKey {
-        id: "play.cue.skip",
+        id: "play.quick.auto",
         placeholders: &[],
-        text: "SKIP",
+        text: "Auto A",
+    },
+    CopyKey {
+        id: "play.quick.skip",
+        placeholders: &[],
+        text: "Skip Tab",
+    },
+    CopyKey {
+        id: "play.quick.menu",
+        placeholders: &[],
+        text: "Menu Esc",
     },
     CopyKey {
         id: "play.deciding",
