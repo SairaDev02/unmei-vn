@@ -203,6 +203,7 @@ fn register_frame_schedules(app: &mut App) {
                     // defensive hold; `skip_input` honours the hold for
                     // `Tab` itself.
                     input::skip_input,
+                    input::quick_row_input,
                     (input::advance_say_input, input::choice_input)
                         .chain()
                         .run_if(core::not_held),

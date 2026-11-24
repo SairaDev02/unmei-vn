@@ -105,6 +105,14 @@ pub enum MenuFocus {
     TitleGallery,
     /// The title's `Quit` row.
     TitleQuit,
+    /// The play frame's quick row: `Save`, `Load`, `Auto A`, `Skip Tab` and
+    /// `Menu Esc`. The row is clicked, not walked, so no focus rests on one
+    /// (`docs/title-and-menu.md` §1).
+    QuickSave,
+    QuickLoad,
+    QuickAuto,
+    QuickSkip,
+    QuickMenu,
     /// The overlay top bar's `Timeline` control, immediately left of `Gallery`
     /// and rendered only while the slot grid is up
     /// (`docs/title-and-menu.md` § Timeline §1).

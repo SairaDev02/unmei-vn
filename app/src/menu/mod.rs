@@ -61,3 +61,4 @@ pub use state::{
     exit_to_title_shown, legacy_slot, legacy_visible, live_session, menu_closed, ConfirmKind,
     LegacyPicker, MenuFocus, MenuMode, MenuOrigin, MenuState, MenuView, LEGACY_TARGETS,
 };
+pub(crate) use transition::open_slots;

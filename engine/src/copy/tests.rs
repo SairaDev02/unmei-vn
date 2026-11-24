@@ -110,8 +110,24 @@ fn an_unknown_id_has_no_key() {
 
 #[test]
 fn text_hands_back_the_declared_text() {
-    assert_eq!(text("play.cue.auto"), "AUTO");
+    assert_eq!(text("play.quick.auto"), "Auto A");
     assert_eq!(text("settings.text-speed.slowest"), "Slowest");
+}
+
+#[test]
+fn the_quick_rows_labels_are_default_looks_words() {
+    for (id, words) in [
+        ("play.quick.save", "Save"),
+        ("play.quick.load", "Load"),
+        ("play.quick.auto", "Auto A"),
+        ("play.quick.skip", "Skip Tab"),
+        ("play.quick.menu", "Menu Esc"),
+    ] {
+        assert_eq!(text(id), words);
+    }
+    for removed in ["play.help", "play.cue.auto", "play.cue.skip"] {
+        assert_eq!(key(removed), None, "`{removed}` is removed from the table");
+    }
 }
 
 #[test]

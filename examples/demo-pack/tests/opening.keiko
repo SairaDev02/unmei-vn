@@ -7,6 +7,13 @@ setting play.text_speed 0
 new-game
 expect surface play
 expect scene first_meeting
+# The quick row is reached by its Keiko ids and draws the copy table's words
+# (spec rule 40).
+expect control play.save label "Save"
+expect control play.load label "Load"
+expect control play.auto label "Auto A"
+expect control play.skip label "Skip Tab"
+expect control play.menu label "Menu Esc"
 expect speaker "Narrator"
 expect revealed
 advance

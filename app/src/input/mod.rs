@@ -13,6 +13,6 @@ mod quarantine;
 mod shortcuts;
 
 pub use ownership::{InputClaim, InputOwnership, InputOwnershipSet};
-pub(crate) use play::{advance_say_input, choice_input, skip_input};
+pub(crate) use play::{advance_say_input, choice_input, quick_row_input, skip_input};
 pub(crate) use quarantine::{app_input_ready, track_quarantine, InputQuarantine};
 pub(crate) use shortcuts::{auto_input, fullscreen_input, save_load_input};

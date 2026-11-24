@@ -33,6 +33,7 @@ mod source;
 mod style;
 mod surface;
 mod text;
+mod text_names;
 mod tokens;
 mod value;
 
