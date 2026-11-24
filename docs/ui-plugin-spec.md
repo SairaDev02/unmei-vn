@@ -48,7 +48,7 @@ A plugin is the pack's `ui/` folder:
 | `ui/plugin.ron` | The manifest: `format_version`, a display `name`, the `fonts` and `images` declarations (§11), the `numbering` style (§5) and the optional `copy` overrides (§5). |
 | `ui/tokens.ron` | The token groups (§3). |
 | `ui/surfaces/<surface>.ron` | One tree per restyled surface (§4, §5). A surface with no file keeps the reference plugin's tree (R8). |
-| any other file under `ui/` | Fonts, images and license texts, named from the manifest. |
+| any other file under `ui/` | Fonts, PNG images and license texts, named from the manifest. *(PNG only: amended 2026-11-24, §11.)* |
 
 - **Absent and failed.** A pack with no `ui/` has no plugin, which is not a failure. A `ui/` with no `plugin.ron` is a failed plugin (§10).
 - **Format version.** `format_version` starts at **1** and is matched exactly. It is a [format version](../GLOSSARY.md#distribution) beside the save and read-log versions. Any other value fails the plugin with `ui.version`, and the message names the expected version. The reference plugin is always at the player's version. R26 and R27 decide what bumps it.
@@ -174,6 +174,7 @@ The tables are derived from what each surface shows today and from variant E. Ev
   | `ui.contrast`, `ui.text.size` | error | §9. |
   | `ui.contrast.unknown` | warning | §9. |
   | `ui.text.unstyled` | error | §4, Engine text. *(Added 2026-11-21.)* |
+  | `ui.image.format` | error | §11, Images are PNG. *(Added 2026-11-24.)* |
 
 - **The plugin outcome, not a load error.** `load_pack` returns the loaded pack with a plugin outcome: absent, loaded, or failed with its findings (*decided 2026-11-20*). A failed plugin never makes `load_pack` fail, because the pack still plays (R14). One loader serves the check, the preview and the boot (R24).
 - **In the check.** `--check` reports the plugin's findings in its normal order. Plugin errors count as errors, so a pack with a failed plugin exits 1.
@@ -204,6 +205,7 @@ The placement rules (`ui.slot.missing`, `ui.slot.duplicate`) are static, so the 
 
 - **The renderer** turns a surface's resolved tree into Bevy UI nodes, and binds each slot and list to its surface owner's state. Each surface keeps its one owner ([ADR 0013](adr/0013-presentation-surface-partition.md)): the owner asks the renderer for its tree, then fills slots as it fills hand-built nodes today. Focus, walks, actions and confirms stay in the existing menu and input code, keyed by control id, never by node.
 - **Fonts and images.** The player reads plugin files as bytes through the engine's confined paths and adds them to Bevy's asset stores directly. The pack's `assets/` root is unchanged.
+- **Images are PNG.** Every image the manifest declares has a `.png` name and PNG bytes, which is the one image format the player decodes and the same format as pack art. Any other name, or a `.png` file whose bytes are not PNG, is `ui.image.format`, and the message names the file. The check and the boot then agree on every image (rule 25). No plugin has shipped yet, so narrowing the accepted images keeps format version 1. *(Amended 2026-11-24, after the #112 review: slice 1 accepted `.jpg`, `.jpeg`, `.webp` and `.bmp` too, which the player silently skipped.)*
 - **Fonts are declared.** Each font the plugin ships names a family, a weight, a license and a license-text file in the manifest. A font file with no declaration, or whose license-text file is missing, is `ui.font.license`. A typography token that names a family neither shipped nor embedded is `ui.font.unknown`. The five embedded faces are usable by name without shipping them (R19, R20).
 - **The reference plugin.** Variant E is written as plain plugin files in the repository and embedded in the player at build time. It renders [Default look](title-and-menu.md#default-look) §1–§6: the dialogue box, name tab and quick row (without `Log` until the Backlog is built), the centred choices with the question kept, the title's left column and veil, the contents page with its ledger and Exit to title at its foot, and the Monitor drawer at y 212–500. The card grid is removed. The Settings, Gallery and Timeline interiors keep their current views, rewritten as reference-plugin trees. It sets a face and a tone for every text it shows, Default look §6's table included: the choice option text (21 px, sans) and its number badge (mono), and the contents page's section entries (SemiBold) and their `current` state, as well as the slots slice 1 already styled. *(Amended 2026-11-21.)* The reference plugin passes every rule it imposes.
 - **Fullscreen.** A plugin lays out at the 1280×720 reference. In borderless fullscreen it is placed exactly as today's surfaces are, with no scaling (*decided 2026-11-20*; [Player comfort](runtime-hardening.md#player-comfort) §5).
@@ -295,6 +297,10 @@ An unreachable state stays a `preview.state.unreachable` warning. A pack whose p
 36. A text slot with no `typography` or no `color`, on itself or on any enclosing `Box`, fails with `ui.text.unstyled`. A `Text` node or `Glyph` without them fails the same way.
 37. A label slot inside a list item may carry a `focused` override of `color`, and it parses. Drawn, the label takes that color when the item's control is focused.
 38. The reference plugin, with faces on the choice option text, the number badge and the section entries, still passes every static rule.
+
+**Images, added 2026-11-24** *(static, and lands on the integration branch before #118)*
+
+39. An image declared as `ornament/arch.jpg`, and a declared `ornament/arch.png` whose bytes are a JPEG, each fail with `ui.image.format`, and the message names the file. A declared PNG passes, and the reference plugin still passes every static rule.
 
 ## 16. Out of scope
 
