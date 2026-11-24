@@ -334,5 +334,8 @@ jobs:
       - name: cargo clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
+      - name: cargo clippy (unmei-engine alone, default features)
+        run: cargo clippy --locked -p unmei-engine --all-targets -- -D warnings
+
       - name: cargo test
         run: cargo test --locked --workspace
