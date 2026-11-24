@@ -84,7 +84,7 @@ pub(crate) fn check_panel(world: &mut World, harness: &mut Harness, label: &str)
     );
     harness
         .report
-        .near("log body height", geometry.body, 293.0, SIZE_TOLERANCE);
+        .near("log body height", geometry.body, 221.0, SIZE_TOLERANCE);
     harness.report.near(
         "footer height",
         geometry.footer,

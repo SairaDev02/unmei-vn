@@ -1082,10 +1082,6 @@ fn chrome_app(staging: StagingState) -> App {
         .init_resource::<TextReveal>()
         .insert_resource(AudioChannel::<Bgm>::default());
     attach_text_faces(&mut app);
-    app.world_mut()
-        .spawn((DialogueText, Text::new("a stale line")));
-    app.world_mut()
-        .spawn((HelpLine, Text::new("a stale help line")));
     app
 }
 
@@ -1188,7 +1184,7 @@ fn the_titles_sub_views_keep_the_title_silent() {
 }
 
 #[test]
-fn no_play_frame_is_drawn_while_the_title_is_up() {
+fn no_play_sprites_are_drawn_while_the_title_is_up() {
     let mut app = chrome_app(StagingState {
         background: Some("school_gate".into()),
         sprites: [("ace".to_string(), "neutral".to_string())].into(),
@@ -1197,9 +1193,6 @@ fn no_play_frame_is_drawn_while_the_title_is_up() {
 
     app.world_mut()
         .run_system_once(crate::presentation::play::sync_staging_visuals)
-        .unwrap();
-    app.world_mut()
-        .run_system_once(crate::presentation::play::sync_wait_ui)
         .unwrap();
     let sprites = |app: &App| {
         app.world()
@@ -1220,19 +1213,7 @@ fn no_play_frame_is_drawn_while_the_title_is_up() {
     app.world_mut()
         .run_system_once(crate::presentation::play::sync_staging_visuals)
         .unwrap();
-    app.world_mut()
-        .run_system_once(crate::presentation::play::sync_wait_ui)
-        .unwrap();
     assert_eq!(sprites(&app), 0, "no sprite is drawn behind the title");
-    let texts = all_texts(&app);
-    assert!(
-        !texts.iter().any(|text| text == "a stale line"),
-        "the dialogue box is cleared"
-    );
-    assert!(
-        !texts.iter().any(|text| text == "a stale help line"),
-        "the in-play help line is cleared"
-    );
 }
 
 #[test]
@@ -1261,7 +1242,6 @@ fn pointer_and_keyboard_agree_on_the_title_rows() {
 fn the_title_freezes_the_reveal_and_the_auto_dwell() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let _node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.04);
     enable_auto(&mut app);
     render_dialogue(&mut app);
@@ -1303,38 +1283,6 @@ fn leaving_the_titles_settings_flushes_a_dirty_file() {
     assert_eq!(menu(&app).view, MenuView::Title);
     assert!(settings_path(&app).exists(), "leaving flushes the file");
     assert!(audio(&app).muted);
-}
-
-#[test]
-fn the_title_copy_survives_the_play_ui_writer() {
-    let mut app = temp_title_app();
-    app.init_resource::<crate::presentation::MenuBuilt>();
-    build_menu_ui(&mut app);
-    let name = app
-        .world()
-        .resource::<Runtime>()
-        .runner
-        .pack()
-        .manifest
-        .name
-        .clone();
-
-    // The per-frame play-UI writer runs after the title is built; it must not
-    // blank the title's own text nodes.
-    app.world_mut()
-        .run_system_once(crate::presentation::play::sync_wait_ui)
-        .expect("sync_wait_ui runs");
-    let texts = all_texts(&app);
-    assert!(texts.contains(&name), "the wordmark survives: {texts:?}");
-    assert!(
-        texts.iter().any(|text| text == menu::TITLE_LEGEND),
-        "the legend survives"
-    );
-    assert_eq!(
-        title_label(&app, MenuAction::Gallery).as_deref(),
-        Some("Gallery"),
-        "Gallery's caption-free row survives"
-    );
 }
 
 #[test]
@@ -1384,7 +1332,6 @@ fn an_answer_arriving_while_the_title_is_up_is_held_until_continue() {
 fn continue_resumes_a_mid_reveal_line_where_it_stopped() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let _node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.04);
     render_dialogue(&mut app);
     advance_time(&mut app, 0.5);
@@ -1424,7 +1371,6 @@ fn live_continue_resumes_the_remaining_auto_dwell_and_disarms_skip() {
     // Arm a real (non-instant) reveal and let it finish, so the reveal clock is
     // a live, observable value the resumed Continue has to preserve.
     set_text_speed(&mut app, 0.04);
-    let _node = spawn_dialogue(&mut app);
     render_dialogue(&mut app);
     enable_auto(&mut app);
     advance_time(&mut app, 3.0); // finish the reveal
@@ -2135,7 +2081,6 @@ fn exit_to_title_renders_from_the_overlay_rail_with_its_confirm_copy() {
 fn cancelling_exit_to_title_changes_nothing() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let _node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.04);
     render_dialogue(&mut app);
     advance_time(&mut app, 0.5);

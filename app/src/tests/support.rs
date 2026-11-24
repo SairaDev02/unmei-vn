@@ -685,20 +685,21 @@ pub(super) fn settings_switch_text(app: &mut App, kind: SettingsLabelKind) -> St
         .clone()
 }
 
-/// A dialogue node built through the production helper, so the test fixture and
-/// the app's span layout cannot drift (`docs/title-and-menu.md` § Type system
-/// §4).
-pub(super) fn spawn_dialogue(app: &mut App) -> Entity {
-    let faces = app
-        .world()
-        .resource::<crate::presentation::style::TextFaces>()
-        .clone();
-    let node = {
-        let mut commands = app.world_mut().commands();
-        crate::presentation::play::spawn_dialogue(&mut commands, &faces)
-    };
-    app.world_mut().flush();
-    node
+/// The prose the play frame drew this frame, empty when it draws none.
+pub(super) fn drawn_prose(app: &App) -> String {
+    app.world()
+        .get_resource::<crate::presentation::play::PlayFrame>()
+        .and_then(|frame| frame.prose())
+        .unwrap_or_default()
+        .to_string()
+}
+
+/// The name tab's speaker, when the frame draws one: narration has no tab.
+pub(super) fn drawn_speaker(app: &App) -> Option<String> {
+    app.world()
+        .get_resource::<crate::presentation::play::PlayFrame>()
+        .and_then(|frame| frame.speaker())
+        .map(str::to_string)
 }
 
 /// A text block's root `Text` plus its `TextSpan` children, concatenated in
@@ -721,10 +722,6 @@ pub(super) fn flattened_text(app: &App, root: Entity) -> String {
     out
 }
 
-pub(super) fn dialogue_text(app: &App, node: Entity) -> String {
-    flattened_text(app, node)
-}
-
 /// The parked say-wait, as `(speaker, text)`.
 pub(super) fn say_parts(app: &App) -> (String, String) {
     match app.world().resource::<Runtime>().runner.wait() {
@@ -733,11 +730,23 @@ pub(super) fn say_parts(app: &App) -> (String, String) {
     }
 }
 
-/// Run the presentation's one dialogue writer over the current park.
+/// Draw the play frame over the current park, through the same four systems the
+/// player's `Update` runs in this order. The headless harness registers the
+/// renderer but not the presentation plugin, so a test renders on demand.
 pub(super) fn render_dialogue(app: &mut App) {
+    use crate::presentation::play;
     app.world_mut()
-        .run_system_once(crate::presentation::play::sync_wait_ui)
-        .expect("sync_wait_ui runs");
+        .run_system_once(play::spawn_play_frame)
+        .expect("spawn_play_frame runs");
+    app.world_mut()
+        .run_system_once(play::read_play_frame)
+        .expect("read_play_frame runs");
+    app.world_mut()
+        .run_system_once(play::sync_play_options)
+        .expect("sync_play_options runs");
+    app.world_mut()
+        .run_system_once(play::sync_play_frame)
+        .expect("sync_play_frame runs");
 }
 
 /// Age the simulated clock and the reveal; the app is never slept on.
@@ -794,31 +803,6 @@ pub(super) fn build_ui(app: &mut App) {
     app.world_mut()
         .run_system_once(crate::presentation::play::setup_ui)
         .expect("setup_ui runs");
-}
-
-/// The rendered `AUTO` cue, read through the same `sync_auto_cue` the app runs.
-pub(super) fn auto_cue_text(app: &mut App) -> String {
-    app.world_mut()
-        .run_system_once(crate::presentation::play::sync_auto_cue)
-        .expect("sync_auto_cue runs");
-    let world = app.world_mut();
-    let mut query = world.query::<(&crate::presentation::play::AutoCue, &Text)>();
-    query
-        .iter(world)
-        .map(|(_, text)| text.0.clone())
-        .next()
-        .expect("the AUTO cue exists")
-}
-
-/// The always-visible in-play help line text.
-pub(super) fn help_line(app: &mut App) -> String {
-    let world = app.world_mut();
-    let mut query = world.query::<&Text>();
-    query
-        .iter(world)
-        .map(|text| text.0.clone())
-        .find(|text| text.contains("advance"))
-        .expect("the in-play help line exists")
 }
 
 /// A copied pack kept alive for the test app's lifetime, so a title test never

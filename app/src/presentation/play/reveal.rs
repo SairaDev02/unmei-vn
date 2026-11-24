@@ -1,7 +1,8 @@
-//! The typewriter reveal for the parked say-line, and the two halves of the one
-//! dialogue text node it renders.
+//! The typewriter reveal for the parked say-line: where it has drawn to, and the
+//! speaker and prose the play frame shows for it.
 
 use bevy::prelude::*;
+#[cfg(test)]
 use unmei_engine::copy;
 use unmei_engine::runner::Wait;
 
@@ -122,11 +123,38 @@ impl TextReveal {
     }
 }
 
+/// A parked say-line as the frame draws it: the speaker the name tab shows and
+/// the prose revealed at `speed`. A narration line carries no speaker, so its
+/// prose is drawn alone (Default look §1); a park that is not a say-line answers
+/// `None` and draws its own line.
+pub(crate) fn say_parts(
+    wait: &Wait,
+    reveal: &TextReveal,
+    speed: f32,
+) -> Option<(Option<String>, String)> {
+    let Wait::Say { speaker, text } = wait else {
+        return None;
+    };
+    let shown = if reveal.is_current(wait) {
+        reveal.chars_shown(speed)
+    } else {
+        text.chars().count()
+    };
+    let prose: String = text.chars().take(shown).collect();
+    let speaker = (speaker != NARRATOR).then(|| speaker.clone());
+    Some((speaker, prose))
+}
+
+/// The speaker a say-line attributes itself to when nobody speaks: the app draws
+/// no tab for it (Default look §1).
+pub(crate) const NARRATOR: &str = "Narrator";
+
 /// The dialogue band's two halves for a wait: the mono root text and the sans
 /// prose span. A say-line's root is the complete `Speaker: ` prefix and its
 /// span is the revealed `chars()` of the prose; every non-say wait renders
 /// whole in the root with an empty span
 /// (`docs/title-and-menu.md` § Type system §4).
+#[cfg(test)]
 pub(crate) fn rendered_line_parts(
     wait: &Option<Wait>,
     reveal: &TextReveal,

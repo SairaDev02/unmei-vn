@@ -12,6 +12,7 @@
 //! either ships, read as bytes through the engine's confined source.
 
 pub(crate) mod look;
+mod motion;
 mod paint;
 mod states;
 mod text;
@@ -29,6 +30,12 @@ use bevy::prelude::*;
 
 use crate::presentation::{sync_menu_ui, PresentationSet};
 
+/// The repaint systems, which write a node's own components. A surface that
+/// shows and hides its slots' nodes itself orders before them, because both
+/// answer for the same components.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub(crate) struct Repaint;
+
 /// Register the renderer: the look once the pack is loaded, the state repaints
 /// every frame, and the image fits after layout.
 pub(crate) fn register(app: &mut App) {
@@ -41,4 +48,10 @@ pub(crate) fn register(app: &mut App) {
     );
     states::register(app);
     tree::register(app);
+    app.add_systems(
+        Update,
+        motion::sync_loops
+            .after(Repaint)
+            .in_set(crate::presentation::PresentationSet),
+    );
 }

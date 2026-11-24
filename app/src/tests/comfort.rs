@@ -6,12 +6,17 @@ use crate::settings::TrackControl;
 fn at_instant_the_say_line_is_whole_on_the_first_frame_and_a_press_advances() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     let (speaker, text) = say_parts(&app);
     assert_eq!(app.world().resource::<SettingsState>().text_speed(), 0.0);
 
     render_dialogue(&mut app);
-    assert_eq!(dialogue_text(&app, node), format!("{speaker}: {text}"));
+    assert_eq!(drawn_prose(&app), text);
+    assert_eq!(
+        drawn_speaker(&app),
+        None,
+        "a narration line draws no name tab"
+    );
+    assert_eq!(speaker, "Narrator");
     assert!(
         app.world().resource::<TextReveal>().is_complete(0.0),
         "Instant positions the whole line with no partial state"
@@ -30,32 +35,25 @@ fn at_instant_the_say_line_is_whole_on_the_first_frame_and_a_press_advances() {
 fn a_reveal_advances_with_simulated_time_and_keeps_the_prefix_whole() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
     let (speaker, full) = say_parts(&app);
     assert_eq!(speaker, "Narrator", "the entry line is narration");
-    let prefix = format!("{speaker}: ");
 
     render_dialogue(&mut app);
-    assert_eq!(
-        dialogue_text(&app, node),
-        prefix,
-        "the first frame shows the name plate and no text"
-    );
+    assert_eq!(drawn_prose(&app), "", "the first frame reveals nothing");
+    assert_eq!(drawn_speaker(&app), None, "narration draws no name tab");
 
     advance_time(&mut app, 0.5);
     render_dialogue(&mut app);
-    let partial = dialogue_text(&app, node);
+    let partial = drawn_prose(&app);
     assert!(
-        partial.starts_with(&prefix),
-        "the prefix is whole: {partial}"
+        !partial.is_empty() && full.starts_with(&partial),
+        "a char prefix: {partial}"
     );
-    let body = partial.strip_prefix(&prefix).unwrap();
-    assert!(!body.is_empty() && full.starts_with(body), "a char prefix");
 
     advance_time(&mut app, 2.0);
     render_dialogue(&mut app);
-    assert_eq!(dialogue_text(&app, node), format!("{speaker}: {full}"));
+    assert_eq!(drawn_prose(&app), full);
 }
 
 #[test]
@@ -107,7 +105,6 @@ fn a_fifty_char_reveal_takes_about_a_second_and_never_splits_a_codepoint() {
 fn a_press_mid_reveal_completes_the_line_and_is_consumed() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
 
     let before = app.world().resource::<Runtime>().runner.wait().cloned();
@@ -122,7 +119,7 @@ fn a_press_mid_reveal_completes_the_line_and_is_consumed() {
         "the completing press is consumed, never an advance"
     );
     render_dialogue(&mut app);
-    assert!(dialogue_text(&app, node).ends_with(&full));
+    assert_eq!(drawn_prose(&app), full);
 
     press_and_update(&mut app, KeyCode::Space);
     assert_ne!(
@@ -136,7 +133,6 @@ fn a_press_mid_reveal_completes_the_line_and_is_consumed() {
 fn a_left_click_mid_reveal_completes_and_is_consumed_like_a_key() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
 
     let before = app.world().resource::<Runtime>().runner.wait().cloned();
@@ -150,7 +146,7 @@ fn a_left_click_mid_reveal_completes_and_is_consumed_like_a_key() {
         "the click completes rather than advances"
     );
     render_dialogue(&mut app);
-    assert!(dialogue_text(&app, node).ends_with(&full));
+    assert_eq!(drawn_prose(&app), full);
 
     click_and_update(&mut app);
     assert_ne!(
@@ -189,23 +185,22 @@ fn the_decision_placeholder_and_end_marker_never_reveal() {
 fn a_say_wait_restored_from_a_slot_re_reveals_from_the_first_character() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
 
     press_and_update(&mut app, KeyCode::Space);
     render_dialogue(&mut app);
     advance_time(&mut app, 0.5);
     render_dialogue(&mut app);
-    let (speaker, full) = say_parts(&app);
-    let partial = dialogue_text(&app, node);
-    assert_ne!(partial, format!("{speaker}: {full}"), "mid-reveal");
+    let (_, full) = say_parts(&app);
+    let partial = drawn_prose(&app);
+    assert_ne!(partial, full, "mid-reveal");
 
     press_and_update(&mut app, KeyCode::F5);
     press_and_update(&mut app, KeyCode::F9);
     render_dialogue(&mut app);
     assert_eq!(
-        dialogue_text(&app, node),
-        format!("{speaker}: "),
+        drawn_prose(&app),
+        "",
         "a load re-arms the reveal at the first character"
     );
     assert!(!app.world().resource::<TextReveal>().is_complete(0.02));
@@ -215,13 +210,12 @@ fn a_say_wait_restored_from_a_slot_re_reveals_from_the_first_character() {
 fn the_overlay_freezes_the_reveal_and_resumes_where_it_stopped() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
 
     render_dialogue(&mut app);
     advance_time(&mut app, 0.5);
     render_dialogue(&mut app);
-    let frozen_text = dialogue_text(&app, node);
+    let frozen_text = drawn_prose(&app);
     let shown_before = app.world().resource::<TextReveal>().chars_shown(0.02);
     assert!(shown_before > 0);
 
@@ -234,7 +228,7 @@ fn the_overlay_freezes_the_reveal_and_resumes_where_it_stopped() {
         shown_before,
         "the reveal clock is frozen while the overlay is open"
     );
-    assert_eq!(dialogue_text(&app, node), frozen_text);
+    assert_eq!(drawn_prose(&app), frozen_text);
 
     esc(&mut app);
     assert!(!menu(&app).open);
@@ -682,24 +676,16 @@ fn auto_survives_a_choice_pick_and_a_load() {
 }
 
 #[test]
-fn the_auto_cue_flips_with_the_hotkey_and_the_help_line_carries_the_hotkeys() {
+fn the_auto_preference_flips_with_the_hotkey() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     build_ui(&mut app);
 
-    assert_eq!(auto_cue_text(&mut app), "", "the cue is absent by default");
+    assert!(!auto_on(&app), "auto is off by default");
     press_and_update(&mut app, KeyCode::KeyA);
     assert!(auto_on(&app));
-    assert_eq!(auto_cue_text(&mut app), "AUTO", "the cue appears with A");
     press_and_update(&mut app, KeyCode::KeyA);
     assert!(!auto_on(&app));
-    assert_eq!(auto_cue_text(&mut app), "", "the cue disappears with A");
-
-    let help = help_line(&mut app);
-    assert!(help.contains("A auto"), "{help}");
-    assert!(help.contains("F11 fullscreen"), "{help}");
-    assert!(!help.contains("F5"), "{help}");
-    assert!(!help.contains("F9"), "{help}");
 }
 
 #[test]

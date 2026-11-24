@@ -9,7 +9,7 @@ use crate::menu::{
 use crate::presentation::assets::AssetWatch;
 use crate::presentation::play::{
     report_silent_degradations, sync_audio, sync_staging_visuals, AppliedAudio, AppliedUi,
-    AppliedVisuals, Bgm, DialogueText, HelpLine, Sfx, TextReveal,
+    AppliedVisuals, Bgm, Sfx, TextReveal,
 };
 use crate::presentation::settings_view::{SettingsLabel, SettingsLabelKind};
 use crate::session::{LoadOrigin, LoadOutcome, ReadOutcome, SessionInput};
@@ -65,6 +65,7 @@ mod key_row;
 mod monitor_drawer;
 mod monitor_reading;
 mod overlay;
+mod play_frame;
 mod play_path;
 mod reading;
 mod render;

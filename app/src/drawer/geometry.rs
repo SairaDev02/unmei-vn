@@ -17,7 +17,7 @@ pub(crate) const PROJECTION_SCAN_BUDGET: usize = 128;
 pub(crate) const TEXT_WORK_BUDGET: usize = 128;
 
 /// The newest logical rows kept materialized while following. The body shows
-/// roughly fifteen single-line rows; the extra headroom keeps wrapped lines
+/// about eleven single-line rows; the extra headroom keeps wrapped lines
 /// filling it. It is a display window over [`MonitorProjection`]'s rows, not a
 /// second history: the projection itself is bounded by the shared 1,000-line
 /// retained cap.
@@ -25,10 +25,10 @@ pub(crate) const DISPLAY_ROWS: usize = 32;
 
 /// Estimated display lines one full viewport of the fixed-height log body
 /// holds. A single-line row is 12 × 1.45 + 2 × 1 = 19.4px, and the body is
-/// 360 − 52 − 13 − 2 = 293px, so about fifteen single-line rows fit. The
+/// 288 − 52 − 13 − 2 = 221px, so about eleven single-line rows fit. The
 /// estimate is only a navigation/scrollbar unit; the anchor identity is the
 /// retained admission sequence.
-pub(super) const VISIBLE_LINES: f32 = 15.0;
+pub(super) const VISIBLE_LINES: f32 = 11.0;
 
 /// Display lines one wheel notch moves, and one page key moves by one viewport.
 pub(super) const WHEEL_LINES: f32 = 3.0;
@@ -60,8 +60,8 @@ const FALLBACK_COLUMNS: f32 = 113.0;
 /// → Layout). Every value is px at every resolution: the drawer widens with the
 /// window and keeps this height and the dialogue reservation.
 pub(crate) const PANEL_SIDE_INSET: f32 = 24.0;
-pub(crate) const PANEL_HEIGHT: f32 = 360.0;
-pub(crate) const PANEL_BOTTOM_RESERVATION: f32 = 148.0;
+pub(crate) const PANEL_HEIGHT: f32 = 288.0;
+pub(crate) const PANEL_BOTTOM_RESERVATION: f32 = 220.0;
 pub(crate) const HEADER_HEIGHT: f32 = 52.0;
 pub(crate) const FOOTER_HEIGHT: f32 = 13.0;
 pub(crate) const ROW_ELAPSED_WIDTH: f32 = 72.0;

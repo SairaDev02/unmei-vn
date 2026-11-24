@@ -6,33 +6,7 @@ use std::collections::BTreeMap;
 use unmei_engine::runner::Wait;
 
 #[derive(Component)]
-pub(crate) struct DialogueText;
-
-/// The say-line's prose span — the sans half of the one dialogue text node,
-/// whose root is the mono speaker prefix (`docs/title-and-menu.md`
-/// § Type system §4). [`sync_wait_ui`] updates it as the reveal advances.
-#[derive(Component)]
-pub(crate) struct DialogueProse;
-
-/// The in-play help line. Hidden while the title is up, so no play HUD is drawn
-/// behind the neutral backdrop.
-#[derive(Component)]
-pub(crate) struct HelpLine;
-
-#[derive(Component)]
 pub(crate) struct NoticeText;
-
-/// The dim `AUTO` cue at the dialogue band's bottom-right, shown while
-/// `play.auto` is on and skip is not running.
-#[derive(Component)]
-pub(crate) struct AutoCue;
-
-/// The dim warm `SKIP` cue in `AUTO`'s exclusive bottom-right slot, shown
-/// whenever either skip mode is effective — the `Tab` toggle or a held `Ctrl`,
-/// including while the hold waits at a choice, a decision or scene end
-/// (`docs/runtime-hardening.md` § Text skip §7).
-#[derive(Component)]
-pub(crate) struct SkipCue;
 
 #[derive(Component)]
 pub(crate) struct ErrorScreen;
@@ -120,6 +94,11 @@ impl FromWorld for AppliedVisuals {
 pub(crate) struct AppliedUi {
     pub(super) wait: Option<Wait>,
     pub(super) ready: bool,
+    /// The say-line the player last read, kept so a choice-wait can show the
+    /// question its options answer (Default look §2). A load clears it with the
+    /// rest of the replay caches, so a save restored onto a choice-wait shows an
+    /// empty box.
+    pub(super) say: Option<(String, String)>,
 }
 
 impl FromWorld for AppliedUi {
@@ -127,6 +106,7 @@ impl FromWorld for AppliedUi {
         AppliedUi {
             wait: None,
             ready: false,
+            say: None,
         }
     }
 }
@@ -181,5 +161,6 @@ pub(crate) fn request_replay(
     *ui = AppliedUi {
         wait: None,
         ready: false,
+        say: None,
     };
 }

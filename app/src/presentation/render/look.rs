@@ -48,6 +48,11 @@ impl UiLook {
             .or_else(|| self.reference.surfaces.get(surface))
     }
 
+    /// How a choice's number displays: the plugin in force's own style (spec §5).
+    pub(crate) fn numbering(&self) -> unmei_engine::ui::Numbering {
+        self.plugin.manifest.numbering
+    }
+
     /// The shipped face `family` at `weight`, when the plugin ships one.
     pub(crate) fn shipped_face(&self, family: &str, weight: u16) -> Option<Handle<Font>> {
         self.fonts.get(&(family.to_string(), weight)).cloned()
@@ -72,12 +77,16 @@ impl UiLook {
 
     /// The words `word` names, with each placeholder filled.
     pub(crate) fn words(&self, word: &Words) -> String {
-        let values: Vec<(&str, &str)> = word
-            .values
-            .iter()
-            .map(|(name, value)| (*name, value.as_str()))
-            .collect();
-        unmei_engine::copy::fill(self.copy(word.key), &values)
+        match word {
+            Words::Text(words) => words.clone(),
+            Words::Key { key, values } => {
+                let values: Vec<(&str, &str)> = values
+                    .iter()
+                    .map(|(name, value)| (*name, value.as_str()))
+                    .collect();
+                unmei_engine::copy::fill(self.copy(key), &values)
+            }
+        }
     }
 }
 

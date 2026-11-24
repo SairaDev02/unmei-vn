@@ -151,6 +151,8 @@ A `slot` or control that shows text takes `typography` (a `{typography.key}` tok
 
 Two slots carry the plugin's own nodes instead of engine content: `advance-marker` and `deciding-marker` on `play`. A slot other than those two takes no content, and content inside one is `ui.slot.unknown`.
 
+The engine draws a slot it has nothing to show in as absent, and a `box` whose children are all absent draws nothing either: that is how the name tab goes away with a narration line and how a marker appears only when the engine says so. An optional slot your tree places is therefore always in the tree and sometimes not on screen.
+
 An unknown property, a property the node kind does not take, and a `glyph` of more than 8 characters are each `ui.parse` at the field that holds them.
 
 ## 6. Copy overrides

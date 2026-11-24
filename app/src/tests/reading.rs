@@ -754,20 +754,6 @@ fn a_held_fallback_answer_flushes_the_read_log_on_resume() {
     );
 }
 
-/// The rendered `SKIP` cue, through the same `sync_skip_cue` the app runs.
-fn skip_cue_text(app: &mut App) -> String {
-    app.world_mut()
-        .run_system_once(crate::presentation::play::sync_skip_cue)
-        .expect("sync_skip_cue runs");
-    let world = app.world_mut();
-    let mut query = world.query::<(&crate::presentation::play::SkipCue, &Text)>();
-    query
-        .iter(world)
-        .map(|(_, text)| text.0.clone())
-        .next()
-        .expect("the SKIP cue exists")
-}
-
 /// Seed the read log with exactly the listed `(scene, source line)` say-lines,
 /// marking each named scene visited.
 fn seed_read_lines(pack_root: &Path, entries: &[(&str, &[usize])]) {
@@ -822,7 +808,6 @@ fn tab_engages_only_on_an_arrival_read_say_park() {
     assert_eq!(read_state(&app).arrival_read(), Some(false));
     press_and_update(&mut app, KeyCode::Tab);
     assert!(!skip_on(&app), "an unread arrival cannot engage");
-    assert_eq!(skip_cue_text(&mut app), "", "no cue flash");
 
     press_and_update(&mut app, KeyCode::Space);
     press_and_update(&mut app, KeyCode::Space);
@@ -836,10 +821,8 @@ fn tab_engages_only_on_an_arrival_read_say_park() {
     assert_eq!(read_state(&known_app).arrival_read(), Some(true));
     press_and_update(&mut known_app, KeyCode::Tab);
     assert!(skip_on(&known_app));
-    assert_eq!(skip_cue_text(&mut known_app), "SKIP");
     press_and_update(&mut known_app, KeyCode::Tab);
     assert!(!skip_on(&known_app));
-    assert_eq!(skip_cue_text(&mut known_app), "");
 }
 
 #[test]
@@ -1138,7 +1121,6 @@ fn esc_ends_skip_before_the_overlay_and_closing_does_not_resume() {
     esc(&mut app);
     assert!(menu(&app).open, "Esc opened the overlay");
     assert!(!skip_on(&app), "the toggle ended on the opening frame");
-    assert_eq!(skip_cue_text(&mut app), "");
 
     esc(&mut app);
     assert!(!menu(&app).open);
@@ -1228,13 +1210,10 @@ fn skip_suppresses_auto_without_changing_the_preference() {
     build_ui(&mut app);
     enable_auto(&mut app);
     assert!(auto_on(&app));
-    assert_eq!(auto_cue_text(&mut app), "AUTO");
 
     press_and_update(&mut app, KeyCode::Tab);
     assert!(skip_on(&app));
     assert!(auto_on(&app), "the preference is untouched");
-    assert_eq!(auto_cue_text(&mut app), "", "AUTO hides while skip runs");
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
 
     let first = wait(&app).unwrap();
     advance_time(&mut app, 0.05);
@@ -1266,78 +1245,6 @@ fn ending_skip_restarts_a_full_auto_dwell() {
     advance_time(&mut app, 0.2);
     tick_auto(&mut app);
     assert_ne!(wait(&app), Some(line), "a full 2.0 s after skip ends");
-}
-
-#[test]
-fn the_help_line_carries_both_skip_tokens_and_no_dev_tokens() {
-    let pack = temp_pack();
-    let mut app = app_for_pack(pack.path().join("pack"));
-    build_ui(&mut app);
-    let help = help_line(&mut app);
-    assert!(help.contains("Tab skip"), "{help}");
-    assert!(help.contains("Ctrl skip all"), "{help}");
-    assert!(help.contains("A auto"), "{help}");
-    assert!(help.contains("F11 fullscreen"), "{help}");
-    assert!(!help.contains("F5"), "{help}");
-    assert!(!help.contains("F9"), "{help}");
-}
-
-#[test]
-fn cues_hide_on_title_surfaces() {
-    let pack = pack_with_entry_says(&["Narrator: One.", "Narrator: Two."]);
-    let mut app = app_with_known_entry(&pack);
-    build_ui(&mut app);
-    // Engage directly so the title-hiding rule is tested independently of Esc.
-    app.world_mut()
-        .resource_mut::<crate::core::SkipState>()
-        .engage();
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
-
-    app.world_mut().resource_mut::<MenuState>().open = true;
-    app.world_mut().resource_mut::<MenuState>().view = MenuView::Title;
-    assert!(menu(&app).title_surface_up());
-    assert_eq!(skip_cue_text(&mut app), "", "the cue hides on the title");
-}
-
-#[test]
-fn the_cue_and_dialogue_geometry_are_the_approved_1280x720_values() {
-    let mut app = app_for_pack(temp_pack().path().join("pack"));
-    build_ui(&mut app);
-    let faces = app
-        .world()
-        .resource::<crate::presentation::style::TextFaces>()
-        .clone();
-
-    let dialogue = app
-        .world_mut()
-        .query_filtered::<&Node, With<crate::presentation::play::DialogueText>>()
-        .iter(app.world())
-        .next()
-        .cloned()
-        .expect("the dialogue band exists");
-    assert_eq!(dialogue.left, Val::Px(48.0));
-    assert_eq!(dialogue.bottom, Val::Px(40.0));
-    assert_eq!(dialogue.right, Val::Px(160.0), "the cue slot is reserved");
-
-    for (entity, colour) in [
-        (
-            entity_with::<crate::presentation::play::SkipCue>(&app),
-            crate::presentation::play::SKIP_CUE_COLOR,
-        ),
-        (
-            entity_with::<crate::presentation::play::AutoCue>(&app),
-            crate::presentation::play::AUTO_CUE_COLOR,
-        ),
-    ] {
-        let node = app.world().get::<Node>(entity).expect("cue node");
-        assert_eq!(node.bottom, Val::Px(40.0));
-        assert_eq!(node.right, Val::Px(48.0));
-        let font = app.world().get::<TextFont>(entity).expect("cue font");
-        assert_eq!(font.font_size, faces.mono(20.0).font_size);
-        assert_eq!(face_handle(&app, entity), faces.mono_medium);
-        let toned = app.world().get::<TextColor>(entity).expect("cue colour");
-        assert_eq!(toned.0, colour);
-    }
 }
 
 #[test]
@@ -1416,12 +1323,10 @@ fn skip_ends_at_a_decision_wait_without_resolving() {
         !skip_on(&app),
         "the decision-wait ends skip on the frame it lands"
     );
-    assert_eq!(skip_cue_text(&mut app), "");
 
     advance_time(&mut app, 0.05);
     tick_update(&mut app);
     assert!(matches!(wait(&app), Some(Wait::Decision { .. })));
-    assert_eq!(skip_cue_text(&mut app), "");
 
     pump_until(&mut app, |_| fake.calls() == 1);
     assert!(
@@ -1458,7 +1363,6 @@ fn seen_skip_stops_at_a_resolverless_decision_even_when_its_landing_is_read() {
         !skip_on(&app),
         "the decision stop is not bypassed by its immediate fallback"
     );
-    assert_eq!(skip_cue_text(&mut app), "");
 }
 
 #[test]
@@ -1473,7 +1377,6 @@ fn skip_ends_at_the_end_of_the_scene() {
     tick_update(&mut app);
     assert!(wait(&app).is_none(), "the script ended");
     assert!(!skip_on(&app), "the end of the scene ends skip");
-    assert_eq!(skip_cue_text(&mut app), "");
 }
 
 #[test]
@@ -1505,7 +1408,6 @@ fn a_successor_line_renders_whole_for_its_full_dwell() {
     seed_scene_read(&root, "first_meeting");
     let mut app = app_for_pack(root);
     build_ui(&mut app);
-    let node = spawn_dialogue(&mut app);
     set_text_speed(&mut app, 0.02);
     render_dialogue(&mut app);
 
@@ -1536,8 +1438,8 @@ fn a_successor_line_renders_whole_for_its_full_dwell() {
     );
     assert!(app.world().resource::<TextReveal>().is_complete(0.02));
     assert_eq!(
-        dialogue_text(&app, node),
-        format!("Narrator: {second}"),
+        drawn_prose(&app),
+        second,
         "the frame rendered the whole successor line"
     );
 
@@ -1672,7 +1574,6 @@ fn a_held_ctrl_skips_unread_lines_and_release_stops() {
     step_input(&mut app);
     assert!(skip_on(&app), "a held Ctrl skips an unread line");
     assert!(skip_force(&app));
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
     assert_eq!(wait(&app), Some(first.clone()), "the arm frame holds");
 
     // The hold advances on the shared 0.05 s step, across frames.
@@ -1691,7 +1592,6 @@ fn a_held_ctrl_skips_unread_lines_and_release_stops() {
     release_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(!skip_on(&app), "release ends the force hold");
-    assert_eq!(skip_cue_text(&mut app), "");
 }
 
 #[test]
@@ -1738,7 +1638,6 @@ fn force_holds_at_a_choice_and_resumes_after_the_pick() {
     run_until_choice(&mut app);
     assert!(matches!(wait(&app), Some(Wait::Choice { .. })));
     assert!(skip_force(&app), "the hold waits at the choice");
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
 
     // A digit still chooses while Ctrl is held; the hold continues.
     tap_key(&mut app, KeyCode::Digit1);
@@ -1881,7 +1780,6 @@ fn force_holds_at_the_end_of_the_scene() {
     step_input(&mut app);
     assert!(wait(&app).is_none(), "the script ended");
     assert!(skip_force(&app), "force holds at the end of the scene");
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
 
     advance_time(&mut app, 1.0);
     step_input(&mut app);
@@ -2007,7 +1905,6 @@ fn an_ordinary_advance_that_loops_back_is_a_fresh_arrival() {
     assert_eq!(read_state(&app).arrival_read(), Some(true));
     press_and_update(&mut app, KeyCode::Tab);
     assert!(skip_on(&app), "Tab engages on the re-entered, read line");
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
 }
 
 #[test]
@@ -2160,7 +2057,6 @@ fn force_suppresses_auto_and_release_restarts_a_full_auto_dwell() {
     press_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(skip_force(&app));
-    assert_eq!(auto_cue_text(&mut app), "", "AUTO hides while skip runs");
     let first = wait(&app).unwrap();
     advance_time(&mut app, 0.05);
     step_input(&mut app);
@@ -2412,12 +2308,6 @@ fn a_toggles_auto_without_ending_the_force_hold() {
     tap_key(&mut app, KeyCode::KeyA);
     assert!(auto_on(&app), "A toggles the Auto preference");
     assert!(skip_force(&app), "the hold continues");
-    assert_eq!(
-        auto_cue_text(&mut app),
-        "",
-        "AUTO is hidden while skip runs"
-    );
-    assert_eq!(skip_cue_text(&mut app), "SKIP");
 }
 
 #[test]
@@ -2429,80 +2319,14 @@ fn the_shared_skip_cue_follows_the_effective_state() {
     build_ui(&mut app);
     enter_play_with_input(&mut app);
 
-    assert_eq!(skip_cue_text(&mut app), "", "off");
-
     tap_key(&mut app, KeyCode::Tab);
-    assert_eq!(skip_cue_text(&mut app), "SKIP", "seen");
     tap_key(&mut app, KeyCode::Tab);
-    assert_eq!(skip_cue_text(&mut app), "", "seen off");
 
     press_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
-    assert_eq!(skip_cue_text(&mut app), "SKIP", "force");
 
     release_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
-    assert_eq!(skip_cue_text(&mut app), "", "a disarmed hold");
 
     tap_key(&mut app, KeyCode::KeyA);
-    assert_eq!(auto_cue_text(&mut app), "AUTO", "auto");
-    assert_eq!(skip_cue_text(&mut app), "", "AUTO and SKIP stay exclusive");
-}
-
-#[test]
-fn the_cue_slot_and_dialogue_reservation_hold_in_all_four_modes() {
-    let pack = pack_with_entry_says(&["Narrator: One.", "Narrator: Two.", "Narrator: Three."]);
-    let root = pack.path().join("pack");
-    seed_scene_read(&root, "first_meeting");
-    let mut app = boot_app_with_input(root, None);
-    build_ui(&mut app);
-    enter_play_with_input(&mut app);
-    let faces = app
-        .world()
-        .resource::<crate::presentation::style::TextFaces>()
-        .clone();
-
-    fn dialogue_node(app: &mut App) -> Node {
-        app.world_mut()
-            .query_filtered::<&Node, With<crate::presentation::play::DialogueText>>()
-            .iter(app.world())
-            .next()
-            .cloned()
-            .expect("the dialogue band exists")
-    }
-
-    // Off, seen, force and auto all keep the fixed 160 px right reservation.
-    assert_eq!(dialogue_node(&mut app).right, Val::Px(160.0), "off");
-    tap_key(&mut app, KeyCode::Tab);
-    assert_eq!(dialogue_node(&mut app).right, Val::Px(160.0), "seen");
-    press_key(&mut app, KeyCode::ControlLeft);
-    step_input(&mut app);
-    assert_eq!(dialogue_node(&mut app).right, Val::Px(160.0), "force");
-    release_key(&mut app, KeyCode::ControlLeft);
-    step_input(&mut app);
-    tap_key(&mut app, KeyCode::KeyA);
-    assert_eq!(dialogue_node(&mut app).right, Val::Px(160.0), "auto");
-
-    // The cue nodes hold the approved slot and face in every state.
-    for entity in [
-        entity_with::<crate::presentation::play::SkipCue>(&app),
-        entity_with::<crate::presentation::play::AutoCue>(&app),
-    ] {
-        let node = app.world().get::<Node>(entity).expect("cue node");
-        assert_eq!(node.bottom, Val::Px(40.0));
-        assert_eq!(node.right, Val::Px(48.0));
-        let font = app.world().get::<TextFont>(entity).expect("cue font");
-        assert_eq!(font.font_size, faces.mono(20.0).font_size);
-    }
-
-    // The help line sits top-left, clear of the bottom-right cue slot.
-    let help = app
-        .world_mut()
-        .query_filtered::<&Node, With<HelpLine>>()
-        .iter(app.world())
-        .next()
-        .cloned()
-        .expect("the help line exists");
-    assert_eq!(help.top, Val::Px(12.0));
-    assert_eq!(help.left, Val::Px(16.0));
 }

@@ -15,7 +15,6 @@ use unmei_engine::StateValue;
 
 use crate::failure::StartupFailure;
 use crate::menu::MenuState;
-use crate::presentation::play::DialogueProse;
 use crate::HeldDecision;
 use crate::PendingDecision;
 use crate::Runtime;
@@ -468,11 +467,10 @@ pub fn observe(app: &mut App, log: Vec<LogLine>, live: bool) -> Observation {
     }
 }
 
-/// The revealed prose the player sees, when a dialogue node exists.
+/// The revealed prose the player sees, as the play frame last drew it.
 fn drawn_prose(world: &mut World) -> Option<String> {
-    let mut query = world.query_filtered::<&bevy::text::TextSpan, With<DialogueProse>>();
-    let mut spans = query.iter(world);
-    spans.next().map(|span| span.0.clone())
+    let frame = world.get_resource::<crate::presentation::play::PlayFrame>()?;
+    frame.prose().map(str::to_string)
 }
 
 /// The parked position's 1-based source line and nearest preceding label.

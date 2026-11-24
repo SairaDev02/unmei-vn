@@ -54,12 +54,12 @@ pub(crate) fn report(
     let (position, size) = place(nodes, panel);
     let (x, y, w, h) = (position.x, position.y, size.x, size.y);
     println!("[{label}] panel: x {x:.1} y {y:.1} w {w:.1} h {h:.1}");
-    // Fixed px anchoring: 24px side insets, 360px height, 148px bottom
+    // Fixed px anchoring: 24px side insets, 288px height, 220px bottom
     // reservation at every size (1232px at 1280, 1872px at 1920).
     check("panel left", x, 24.0, POSITION_TOLERANCE);
-    check("panel top", y, height - 148.0 - 360.0, POSITION_TOLERANCE);
+    check("panel top", y, height - 220.0 - 288.0, POSITION_TOLERANCE);
     check("panel width", w, width - 48.0, SIZE_TOLERANCE);
-    check("panel height", h, 360.0, SIZE_TOLERANCE);
+    check("panel height", h, 288.0, SIZE_TOLERANCE);
     check(
         "panel right inset",
         width - (x + w),
@@ -69,7 +69,7 @@ pub(crate) fn report(
     check(
         "bottom reservation",
         height - (y + h),
-        148.0,
+        220.0,
         POSITION_TOLERANCE,
     );
 
@@ -81,7 +81,7 @@ pub(crate) fn report(
         body_size.y
     );
     check("header height", px(header_height), 52.0, POSITION_TOLERANCE);
-    check("log body height", body_size.y, 293.0, 3.0);
+    check("log body height", body_size.y, 221.0, 3.0);
     check("footer height", px(footer_height), 13.0, POSITION_TOLERANCE);
 
     let rows = drawer_row_entities(nodes, texts, children);

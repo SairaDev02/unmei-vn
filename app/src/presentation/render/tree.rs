@@ -13,7 +13,7 @@
 use std::collections::BTreeMap;
 
 use bevy::prelude::*;
-use bevy::ui::UiSystems;
+use bevy::ui::{Display, UiSystems};
 use unmei_engine::ui::{
     shows_text, AlignItems as EngineAlign, ControlStates, Dimension, Direction,
     JustifyContent as EngineJustify, Node as PluginNode, NodeKind, Padding, Position,
@@ -23,23 +23,28 @@ use crate::menu::MenuAction;
 use crate::presentation::style::TextFaces;
 
 use super::look::UiLook;
+use super::motion;
 use super::paint;
 use super::states::UiStates;
 use super::text;
 
 /// The words a slot or control draws: a copy key and the values its
 /// placeholders take, so a plugin's copy override fills the same way the table's
-/// text does (spec §5).
+/// text does (spec §5), or text the pack itself supplies — a say-line, an
+/// option — which no plugin override touches.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Words {
-    pub key: &'static str,
-    pub values: Vec<(&'static str, String)>,
+pub(crate) enum Words {
+    Key {
+        key: &'static str,
+        values: Vec<(&'static str, String)>,
+    },
+    Text(String),
 }
 
 impl Words {
     /// The words of one key, with no placeholder to fill.
     pub(crate) fn new(key: &'static str) -> Self {
-        Self {
+        Self::Key {
             key,
             values: Vec::new(),
         }
@@ -47,13 +52,18 @@ impl Words {
 
     /// The words of one key and the values its placeholders take.
     pub(crate) fn with(key: &'static str, values: &[(&'static str, &str)]) -> Self {
-        Self {
+        Self::Key {
             key,
             values: values
                 .iter()
                 .map(|(name, value)| (*name, (*value).to_string()))
                 .collect(),
         }
+    }
+
+    /// The pack's own text, drawn as written.
+    pub(crate) fn text(words: String) -> Self {
+        Self::Text(words)
     }
 }
 
@@ -74,6 +84,13 @@ pub(crate) trait Bind {
         None
     }
 
+    /// Whether the engine has anything to show in the slot `name` now. A slot
+    /// that shows nothing is hidden with its layout, and a box left with no
+    /// visible child is hidden with it, so a name tab goes away with narration.
+    fn shows(&self, _name: &str) -> bool {
+        true
+    }
+
     /// The action the control `name` carries, when the owner knows it.
     fn action(&self, _name: &str) -> Option<MenuAction> {
         None
@@ -85,8 +102,10 @@ pub(crate) trait Bind {
     }
 }
 
-/// The entities one spawned surface holds: its root, its slots and controls by
-/// name, and each list's item template for the owner's own binding.
+/// The entities one spawned surface holds: its root, each text slot's words by
+/// name, its controls, each list's own node and item template for the owner's
+/// binding, and the tree with its nodes in spawn order so the owner can decide
+/// again what shows.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Rendered {
     pub root: Option<Entity>,
@@ -94,6 +113,8 @@ pub(crate) struct Rendered {
     pub controls: BTreeMap<String, Entity>,
     pub lists: BTreeMap<String, Entity>,
     pub items: BTreeMap<String, PluginNode>,
+    pub tree: Option<PluginNode>,
+    pub nodes: Vec<Entity>,
 }
 
 /// The words a control stands for: a reader that asks what a control is labelled
@@ -122,30 +143,33 @@ impl Surface<'_> {
     pub(crate) fn spawn(&self, id: &str, parent: &mut ChildSpawnerCommands) -> Option<Rendered> {
         let tree = self.look.surface(id)?.clone();
         let mut out = Rendered::default();
-        spawn_node(self, &tree, parent, &mut out);
+        spawn_node(self, self.bind, &tree, parent, &mut out);
+        out.tree = Some(tree);
         Some(out)
     }
 
-    /// Spawn one copy of a list's item template under `parent`: the owner binds
-    /// the engine's items, one call each. The confirm has no list; the first
-    /// surface that binds one is the contents page's ledger.
-    #[allow(
-        dead_code,
-        reason = "the format's list kind, bound by the contents page next"
-    )]
+    /// Spawn one copy of a list's item template under `parent`, filled by that
+    /// item's own binding: the owner binds the engine's items, one call each.
     pub(crate) fn spawn_item(
         &self,
         item: &PluginNode,
         parent: &mut ChildSpawnerCommands,
-    ) -> Entity {
+        bind: &dyn Bind,
+    ) -> Rendered {
         let mut out = Rendered::default();
-        spawn_node(self, item, parent, &mut out);
-        out.root.expect("every spawned node has an entity")
+        spawn_node(self, bind, item, parent, &mut out);
+        out.tree = Some(item.clone());
+        out
     }
 }
 
+/// Spawn one node and its subtree. A `text` or `glyph` node's `fill` is the tone
+/// its letters draw in, so it becomes a `TextColor` and never a background behind
+/// them (spec §4); a glyph is one piece of art, so its words never wrap — `•••` is
+/// three marks in a row, not three lines (spec §5's eight-character cap).
 fn spawn_node(
     surface: &Surface<'_>,
+    bind: &dyn Bind,
     node: &PluginNode,
     parent: &mut ChildSpawnerCommands,
     out: &mut Rendered,
@@ -163,30 +187,32 @@ fn spawn_node(
         entity.insert(ZIndex(node.style.z_index));
     }
     out.root.get_or_insert(entity.id());
-    if let Some(background) = paint.background {
-        entity.insert(background);
-    }
-    if let Some(gradient) = paint.gradient {
-        entity.insert(gradient);
+    let fills = !matches!(node.kind, NodeKind::Text(_) | NodeKind::Glyph(_));
+    if fills {
+        if let Some(background) = paint.background {
+            entity.insert(background);
+        }
+        if let Some(gradient) = paint.gradient {
+            entity.insert(gradient);
+        }
     }
     if let Some(border) = paint.border_color {
         entity.insert(border);
     }
-    if let Some(shadow) = paint.shadow {
-        entity.insert(shadow);
+    if let Some(shadow) = &paint.shadow {
+        entity.insert(shadow.clone());
     }
     if let Some(transform) = paint.transform {
         entity.insert(transform);
     }
 
+    out.nodes.push(entity.id());
     let name = match &node.kind {
         NodeKind::Slot(slot) => Some(slot.slot.as_str()),
         _ => None,
     };
-    let action = name.and_then(|name| surface.bind.action(name));
-    let state = name
-        .map(|name| surface.bind.state(name))
-        .unwrap_or_default();
+    let action = name.and_then(|name| bind.action(name));
+    let state = name.map(|name| bind.state(name)).unwrap_or_default();
     if let Some(action) = action {
         entity.insert(action);
         entity.insert(Button);
@@ -204,12 +230,25 @@ fn spawn_node(
     if let Some(states) = &states {
         entity.insert(states.clone());
     }
+    if let Some(motion) = &node.style.motion {
+        entity.insert(motion::UiLoop::new(
+            motion,
+            text::tone_color(&node.style),
+            paint.background.filter(|_| fills).map(|fill| fill.0),
+            paint.border_color.map(|edge| edge.top),
+            paint
+                .shadow
+                .as_ref()
+                .map(|drawn| drawn.0.iter().map(|style| style.color).collect())
+                .unwrap_or_default(),
+        ));
+    }
 
     match &node.kind {
         NodeKind::Box(kind) => {
             entity.with_children(|children| {
                 for child in &kind.children {
-                    spawn_node(surface, child, children, out);
+                    spawn_node(surface, bind, child, children, out);
                 }
             });
         }
@@ -238,47 +277,108 @@ fn spawn_node(
         NodeKind::Glyph(kind) => {
             entity.insert(Text::new(kind.glyph.clone()));
             text::style(&mut entity, surface, &node.style);
+            entity.insert(TextLayout {
+                linebreak: bevy::text::LineBreak::NoWrap,
+                ..default()
+            });
         }
         NodeKind::Text(kind) => {
             entity.insert(Text::new(surface.look.copy(&kind.text).to_string()));
             text::style(&mut entity, surface, &node.style);
         }
         NodeKind::Slot(kind) => {
-            out.slots.insert(kind.slot.clone(), entity.id());
             if action.is_some() {
                 out.controls.insert(kind.slot.clone(), entity.id());
-                if let Some(word) = surface.bind.words(&kind.slot) {
+                if let Some(word) = bind.words(&kind.slot) {
                     entity.insert(ControlLabel(surface.look.words(&word)));
                 }
             }
-            let words = if shows_text(&kind.slot) {
-                surface
-                    .bind
-                    .words(&kind.slot)
+            let words = shows_text(&kind.slot).then(|| {
+                bind.words(&kind.slot)
                     .map(|word| surface.look.words(&word))
-            } else {
-                None
-            };
+                    .unwrap_or_default()
+            });
             let style = node.style.clone();
             let states = states.clone();
+            let mut drawn = None;
             entity.with_children(|children| {
                 if let Some(words) = words {
-                    let mut text = children.spawn(Text::new(words));
-                    text::style(&mut text, surface, &style);
+                    let mut child = children.spawn(Text::new(words));
+                    text::style(&mut child, surface, &style);
                     if let Some(states) = states.clone() {
-                        text.insert(states);
+                        child.insert(states);
                     }
+                    drawn = Some(child.id());
                 }
-                for child in &kind.children {
-                    spawn_node(surface, child, children, out);
+                for authored in &kind.children {
+                    spawn_node(surface, bind, authored, children, out);
                 }
             });
+            if let Some(drawn) = drawn {
+                out.slots.insert(kind.slot.clone(), drawn);
+            }
         }
         NodeKind::List(kind) => {
             out.lists.insert(kind.list.clone(), entity.id());
             out.items.insert(kind.list.clone(), (*kind.item).clone());
         }
     }
+}
+
+/// Show or hide each node of a spawned surface from the owner's current answer.
+/// A slot the owner has nothing for is hidden with its layout, and a box whose
+/// authored children are all hidden is hidden with them, so the name tab goes
+/// away with narration without the plugin naming a condition. The tree and its
+/// nodes are recorded in the same pre-order walk, so the two stay aligned.
+pub(crate) fn sync_visibility(nodes: &mut Query<&mut Node>, bound: &Rendered, bind: &dyn Bind) {
+    let Some(tree) = &bound.tree else {
+        return;
+    };
+    if bound.nodes.is_empty() {
+        return;
+    }
+    let mut index = 0;
+    apply_visibility(nodes, tree, bind, &bound.nodes, &mut index);
+}
+
+/// Hide or show one node and its subtree, returning whether it shows. The index
+/// advances over the recorded nodes in the order [`spawn_node`] recorded them:
+/// the node itself, then a slot's authored children or a box's children.
+fn apply_visibility(
+    containers: &mut Query<&mut Node>,
+    node: &PluginNode,
+    bind: &dyn Bind,
+    nodes: &[Entity],
+    index: &mut usize,
+) -> bool {
+    let entity = nodes.get(*index).copied();
+    *index += 1;
+    let shows = match &node.kind {
+        NodeKind::Slot(slot) => {
+            let shows = bind.shows(&slot.slot);
+            for child in &slot.children {
+                apply_visibility(containers, child, bind, nodes, index);
+            }
+            shows
+        }
+        NodeKind::Box(kind) => {
+            let mut any = kind.children.is_empty();
+            for child in &kind.children {
+                any |= apply_visibility(containers, child, bind, nodes, index);
+            }
+            any
+        }
+        _ => true,
+    };
+    if let Some(entity) = entity {
+        if let Ok(mut container) = containers.get_mut(entity) {
+            let want = if shows { Display::Flex } else { Display::None };
+            if container.display != want {
+                container.display = want;
+            }
+        }
+    }
+    shows
 }
 
 fn carries_state(states: &ControlStates) -> bool {

@@ -22,6 +22,7 @@ use crate::presentation::PresentationSet;
 use super::look::UiLook;
 use super::paint;
 use super::text;
+use super::Repaint;
 
 /// The states in the order they win.
 const STATES: usize = 4;
@@ -226,6 +227,7 @@ pub(crate) fn register(app: &mut App) {
         Update,
         (sync_paint_states, sync_text_states)
             .chain()
-            .in_set(PresentationSet),
+            .in_set(PresentationSet)
+            .in_set(Repaint),
     );
 }

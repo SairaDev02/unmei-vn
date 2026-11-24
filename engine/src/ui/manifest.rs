@@ -88,6 +88,101 @@ impl Numbering {
             .position(|(_, style)| *style == authored)?;
         Some(Numbering::ALL[index].0)
     }
+
+    /// How the one-based `number` displays in this style, for a choice's number
+    /// badge. The keys that pick it stay `1`–`9` whatever the style (spec §5), so
+    /// a roman badge reads `IV` while `4` still chooses it. A zero is shown as
+    /// the first of the style, because no option is numbered zero.
+    pub fn label(self, number: usize) -> String {
+        let number = number.max(1);
+        match self {
+            Numbering::Arabic => number.to_string(),
+            Numbering::RomanUpper => roman(number),
+            Numbering::RomanLower => roman(number).to_lowercase(),
+            Numbering::AlphaUpper => alpha(number),
+            Numbering::AlphaLower => alpha(number).to_lowercase(),
+        }
+    }
+}
+
+/// `number` in upper-case roman numerals, the subtractive form a reader expects
+/// (`IV`, `IX`, `XL`).
+fn roman(number: usize) -> String {
+    const PLACES: [(usize, &str); 13] = [
+        (1000, "M"),
+        (900, "CM"),
+        (500, "D"),
+        (400, "CD"),
+        (100, "C"),
+        (90, "XC"),
+        (50, "L"),
+        (40, "XL"),
+        (10, "X"),
+        (9, "IX"),
+        (5, "V"),
+        (4, "IV"),
+        (1, "I"),
+    ];
+    let mut left = number;
+    let mut out = String::new();
+    for (value, glyph) in PLACES {
+        while left >= value {
+            out.push_str(glyph);
+            left -= value;
+        }
+    }
+    out
+}
+
+/// `number` in upper-case letters, one letter for 1–26 and two for 27–52
+/// (`A`, `Z`, `AA`), the spreadsheet convention a reader recognises.
+fn alpha(number: usize) -> String {
+    let mut left = number;
+    let mut out = String::new();
+    while left > 0 {
+        let letter = (left - 1) % 26;
+        out.insert(0, char::from(b'A' + letter as u8));
+        left = (left - 1) / 26;
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Numbering;
+
+    /// The five styles' first three numbers, and the two the roman and letter
+    /// forms spell differently from a digit (spec rule 22).
+    #[test]
+    fn a_choice_number_displays_in_each_style() {
+        let shown = |style: &str, number: usize| Numbering::parse(style).unwrap().label(number);
+        assert_eq!(
+            (1..=3).map(|n| shown("arabic", n)).collect::<Vec<_>>(),
+            ["1", "2", "3"]
+        );
+        assert_eq!(
+            (1..=3).map(|n| shown("roman-upper", n)).collect::<Vec<_>>(),
+            ["I", "II", "III"]
+        );
+        assert_eq!(
+            (1..=3).map(|n| shown("roman-lower", n)).collect::<Vec<_>>(),
+            ["i", "ii", "iii"]
+        );
+        assert_eq!(shown("roman-upper", 4), "IV");
+        assert_eq!(shown("roman-upper", 9), "IX");
+        assert_eq!(shown("roman-upper", 14), "XIV");
+        assert_eq!(
+            (1..=3).map(|n| shown("alpha-upper", n)).collect::<Vec<_>>(),
+            ["A", "B", "C"]
+        );
+        assert_eq!(
+            (1..=3).map(|n| shown("alpha-lower", n)).collect::<Vec<_>>(),
+            ["a", "b", "c"]
+        );
+        assert_eq!(shown("alpha-upper", 26), "Z");
+        assert_eq!(shown("alpha-upper", 27), "AA");
+        assert_eq!(shown("arabic", 0), "1", "no option is numbered zero");
+    }
 }
 
 impl<'de> serde::Deserialize<'de> for Numbering {

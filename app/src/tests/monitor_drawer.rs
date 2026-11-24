@@ -1954,8 +1954,8 @@ fn drawer_geometry_is_the_settled_pixels() {
     };
     assert_eq!(panel.left, Val::Px(24.0));
     assert_eq!(panel.right, Val::Px(24.0));
-    assert_eq!(panel.bottom, Val::Px(148.0));
-    assert_eq!(panel.height, Val::Px(360.0));
+    assert_eq!(panel.bottom, Val::Px(220.0));
+    assert_eq!(panel.height, Val::Px(288.0));
     assert_eq!(panel.border, UiRect::all(Val::Px(1.0)));
     assert_eq!(panel.flex_direction, FlexDirection::Column);
 
@@ -2106,6 +2106,24 @@ fn drawer_geometry_is_the_settled_pixels() {
         vec!["[ ] Show everything", "Follow latest", "Close"],
         "the settled control order and labels"
     );
+}
+
+/// At the 1280x720 reference the drawer spans y 212-500: 288px tall, 220px
+/// above the bottom edge. Default look §1 puts the dialogue box 178px tall and
+/// 28px above the bottom edge, so its top is y 514, and the Notice keeps a line
+/// at y 12..28; the drawer ends above the one and starts below the other
+/// (`docs/title-and-menu.md` Default look §5).
+#[test]
+fn the_drawer_keeps_the_play_frame_and_the_notice_clear() {
+    const REFERENCE_HEIGHT: f32 = 720.0;
+    let top = REFERENCE_HEIGHT - drawer::PANEL_BOTTOM_RESERVATION - drawer::PANEL_HEIGHT;
+    let bottom = REFERENCE_HEIGHT - drawer::PANEL_BOTTOM_RESERVATION;
+    assert_eq!((top, bottom), (212.0, 500.0), "the drawer's own span");
+    let box_top = REFERENCE_HEIGHT - 28.0 - 178.0;
+    assert_eq!(box_top, 514.0);
+    assert!(bottom < box_top, "the drawer ends above the dialogue box");
+    let notice_bottom = 12.0 + 16.0;
+    assert!(top > notice_bottom, "the drawer starts below the Notice");
 }
 
 /// Fullscreen keeps fixed px anchoring: no proportional inset, height or
