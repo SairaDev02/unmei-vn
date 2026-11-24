@@ -36,8 +36,6 @@ pub fn run(pack_root: &Path, format: Format) -> u8 {
         }
         Err(errors) => {
             findings.extend(errors);
-            // The plugin belongs to the pack's folder, not to the load, so its
-            // rules run even when the pack itself fails to load.
             findings.extend_from_slice(unmei_engine::ui::load(pack_root).findings());
             None
         }

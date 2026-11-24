@@ -150,8 +150,6 @@ const PLAY_INTERFACE: &str = r#"
 /// The nodes [`PLAY_INTERFACE`] adds, its ten root children included.
 const PLAY_INTERFACE_NODES: usize = 13;
 
-// --- The six node kinds -----------------------------------------------------
-
 const ALL_KINDS: &str = r#"(
     kind: "box",
     component: "panel",
@@ -312,8 +310,6 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     assert_eq!(label.slot, "choice.number");
 }
 
-// --- Node findings carry the node path -------------------------------------
-
 #[test]
 fn a_finding_inside_a_tree_names_the_node_path() {
     let tree = r#"(
@@ -352,8 +348,6 @@ fn a_list_item_path_stays_under_item() {
         )]
     );
 }
-
-// --- The glyph limit -------------------------------------------------------
 
 fn glyph(text: &str) -> String {
     format!(
@@ -539,8 +533,6 @@ fn an_image_path_outside_the_folder_escapes() {
     );
 }
 
-// --- Surfaces --------------------------------------------------------------
-
 #[test]
 fn a_tree_for_an_unknown_surface_fails() {
     let outcome = load("()", &[("hero", "(kind: \"box\")")]);
@@ -588,8 +580,6 @@ fn a_surface_with_no_tree_file_is_not_a_failure() {
     assert!(plugin.surfaces.contains_key("play"));
     assert!(!plugin.surfaces.contains_key("title"));
 }
-
-// --- The tree caps ---------------------------------------------------------
 
 #[test]
 fn the_node_count_cap_passes_at_the_limit_and_fails_one_over() {

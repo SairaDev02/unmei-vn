@@ -492,6 +492,8 @@ fn export_ui_is_a_mode_of_its_own() {
     );
 }
 
+/// A modifier that belongs to another mode, like `--keep` or `--format`, still
+/// needs that mode, so it is a usage error beside `--export-ui` too.
 #[test]
 fn export_ui_is_exclusive_with_every_other_mode_and_with_dev() {
     for args in [
@@ -506,8 +508,6 @@ fn export_ui_is_exclusive_with_every_other_mode_and_with_dev() {
         vec!["--explore", "--export-ui"],
         vec!["--dev", "--export-ui"],
         vec!["--export-ui", "--dev"],
-        // A modifier that belongs to another mode, like `--keep` or `--format`,
-        // still needs that mode rather than the export.
         vec!["--export-ui", "--keep"],
         vec!["--export-ui", "--format", "json"],
     ] {

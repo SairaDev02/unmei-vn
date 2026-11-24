@@ -247,8 +247,6 @@ pub mod rules {
 
     pub const PREVIEW_STATE_UNREACHABLE: &str = "preview.state.unreachable";
 
-    // The pack's UI plugin (ui-plugin spec §8). Later plugin tickets add their
-    // own ids to this family.
     pub const UI_FILE_READ: &str = "ui.file.read";
     pub const UI_PARSE: &str = "ui.parse";
     pub const UI_VERSION: &str = "ui.version";

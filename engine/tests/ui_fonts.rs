@@ -74,8 +74,6 @@ fn write(root: &Path, rel: &str, text: &str) {
     fs::write(path, text).expect("the file");
 }
 
-// --- Rule 8: every font file is declared, with its license text -------------
-
 /// A file with a font's extension and no declaration naming it is the plugin
 /// shipping a font nobody licensed.
 #[test]
@@ -184,8 +182,6 @@ fn a_declaration_without_a_license_field_is_ui_parse() {
         [("ui/plugin.ron", String::new(), "ui.parse")]
     );
 }
-
-// --- Rule 11: a typography token names a face the player can draw -----------
 
 /// The five embedded faces are addressable by family and weight with no font
 /// shipped (R19, R20).
@@ -304,8 +300,6 @@ fn a_declared_face_with_no_font_file_is_ui_font_unknown() {
         )]
     );
 }
-
-// --- The folder a player's pack holds --------------------------------------
 
 /// A folder source reaches the same font rules as a memory source, so the check
 /// and the boot accept exactly the same plugins (R24).

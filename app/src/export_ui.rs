@@ -6,8 +6,10 @@
 //! the same static rules. Whether the folder may be written at all is the
 //! launch's rule ([`crate::launch::export_target`]), which runs first.
 //!
-//! This is the only writer of a pack's `ui/` folder. It opens no window and reads
-//! nothing: no pack load, no sidecar, no credential file.
+//! This is the only writer of a pack's `ui/` folder. Like `--check` and the Keiko
+//! modes it is not a play session: it opens no window and writes no setting, save
+//! slot, read log or session log, and reads no sidecar or credential file
+//! (spec §1).
 //!
 //! A write that fails part-way leaves the files already written behind, because
 //! the folder is not staged and renamed. The spec's recovery is then the same as
