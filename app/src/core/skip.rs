@@ -31,7 +31,7 @@ pub(crate) const SKIP_DWELL_SECONDS: f32 = 0.05;
 /// pipeline executes the commands and jumps after it.
 #[derive(Resource, Debug)]
 pub struct SkipState {
-    /// The `Tab` toggle is engaged — the cue and auto suppression read this.
+    /// The `Tab` toggle is engaged — the lit label and auto suppression read this.
     seen: bool,
     /// A fresh `Ctrl` press was observed in play and no release or discontinuity
     /// has happened since. This distinguishes a live hold from a key that was
@@ -39,7 +39,7 @@ pub struct SkipState {
     /// title never starts a skip.
     force_armed: bool,
     /// The force hold is effective this frame: armed **and** physically down.
-    /// The cue and auto suppression read this through [`Self::is_on`].
+    /// The lit label and auto suppression read this through [`Self::is_on`].
     force_active: bool,
     /// The park the reveal has been completed for: `(scene id, pc)`. `None`
     /// before the first step at a park, so the reveal is completed exactly once
@@ -90,8 +90,8 @@ impl SkipState {
         self.force_active
     }
 
-    /// Whether either mode is effective: the `SKIP` cue shows and the auto dwell
-    /// is suppressed while this is true.
+    /// Whether either mode is effective: the row's `Skip Tab` label is lit and
+    /// the auto dwell is suppressed while this is true.
     pub fn is_on(&self) -> bool {
         self.seen || self.force_active
     }

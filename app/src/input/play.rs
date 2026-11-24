@@ -160,10 +160,14 @@ pub(crate) fn toggle_seen_skip(skip: &mut SkipState, read_log: &ReadLogState) {
 /// row is the plugin's `play` surface, so the click reaches the control's own
 /// [`MenuAction`]; the overlay's input never sees these while it is open.
 /// `Auto A` is the `A` key's body — it ends the seen toggle and is inert at a
-/// choice-wait — and `Skip Tab` is `Tab`'s rule under the same guard.
+/// choice-wait — and `Skip Tab` is `Tab`'s rule under the same guard. Both modes
+/// are inert under a defensive hold, and the three doors end the seen toggle as
+/// `Esc` does, leaving the force hold alone
+/// (`docs/runtime-hardening.md` § Text skip §3/§5).
 pub(crate) fn quick_row_input(
     mut interactions: Query<(&Interaction, &MenuAction), Changed<Interaction>>,
     runtime: Res<Runtime>,
+    hold: Res<DefensiveHold>,
     mut settings: Option<ResMut<SettingsState>>,
     read_log: Option<Res<ReadLogState>>,
     mut menu: ResMut<MenuState>,
@@ -175,15 +179,21 @@ pub(crate) fn quick_row_input(
         }
         match action {
             MenuAction::QuickSave => {
-                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save)
+                skip.end();
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save);
             }
             MenuAction::QuickLoad => {
-                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Load)
+                skip.end();
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Load);
             }
             MenuAction::QuickMenu => {
-                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save)
+                skip.end();
+                menu::open_slots(&mut menu, runtime.runner.pack(), MenuMode::Save);
             }
             MenuAction::QuickAuto => {
+                if hold.0 {
+                    continue;
+                }
                 skip.end();
                 let choice_wait = matches!(runtime.runner.wait(), Some(Wait::Choice { .. }));
                 if choice_wait {
@@ -194,10 +204,11 @@ pub(crate) fn quick_row_input(
                 }
             }
             MenuAction::QuickSkip => {
+                if hold.0 || skip.is_force_active() {
+                    continue;
+                }
                 if let Some(read_log) = read_log.as_deref() {
-                    if !skip.is_force_active() {
-                        toggle_seen_skip(&mut skip, read_log);
-                    }
+                    toggle_seen_skip(&mut skip, read_log);
                 }
             }
             _ => {}

@@ -90,7 +90,7 @@ pub(crate) fn drive_script(
     // A decision park is not a say-park: the seen toggle cannot pass it. It
     // ends here, before an offline author fallback resolves and runs to its
     // landing in this same frame, so the decision stop is never bypassed and
-    // the cue never shows a mode the next frame would refuse
+    // the lit label never shows a mode the next frame would refuse
     // (`docs/runtime-hardening.md` § Text skip §3). A *force* hold suspends the
     // seen toggle without changing it, so only the toggle is ended here, and
     // only when no hold is effective: a held `Ctrl` still waits at the park

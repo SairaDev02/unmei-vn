@@ -195,7 +195,7 @@ pub(crate) fn observe_parks(
     }
     // A park the seen toggle cannot pass — a choice, a decision, the end of the
     // scene or an arrival-unread say-line — ends it on the frame the park lands,
-    // so the cue follows the effective state instead of lagging a frame
+    // so the lit label follows the effective state instead of lagging a frame
     // (`docs/runtime-hardening.md` § Text skip §3/§7). A force hold is left
     // alone: it suspends the seen toggle without changing it, waits at these
     // parks and resumes on the next say-line; a release ends the toggle on that

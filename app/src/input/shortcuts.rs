@@ -68,7 +68,7 @@ pub(crate) fn fullscreen_input(
 }
 
 /// The in-play `A` auto-mode toggle: flip `play.auto` and mark the settings
-/// dirty; the presentation flips the `AUTO` cue from the same field. Inert at a
+/// dirty; the presentation lights the row's `Auto A` label from the same field. Inert at a
 /// choice-wait — the digits own that park — and never runs while the overlay is
 /// open (its run condition) or while a defensive hold blocks the runner. It
 /// shares [`SettingsState::toggle_auto`] with the Settings switch, so there is
