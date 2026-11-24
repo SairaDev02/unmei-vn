@@ -31,10 +31,6 @@ fn reason_text(resolved: &ResolvedDecision) -> Option<String> {
     resolved.fallback_reason.as_ref().map(ToString::to_string)
 }
 
-// ---------------------------------------------------------------------------
-// Log capture
-// ---------------------------------------------------------------------------
-
 /// One captured `log` record: level, target, rendered message.
 #[derive(Clone, Default)]
 struct Captured(Arc<Mutex<Vec<(log::Level, String, String)>>>);
@@ -78,10 +74,6 @@ fn logs_contain(captured: &Captured, needle: &str) -> bool {
         .iter()
         .any(|(_, _, message)| message.contains(needle))
 }
-
-// ---------------------------------------------------------------------------
-// Loopback fixtures
-// ---------------------------------------------------------------------------
 
 /// Read one complete HTTP/1.1 request: headers, then exactly `Content-Length`
 /// bytes of body.
@@ -211,9 +203,7 @@ fn choice_body(model: &str, choice: &str) -> String {
     )
 }
 
-// ---------------------------------------------------------------------------
 // Diagnostics never retain response-controlled text
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn non_success_body_is_never_retained() {
@@ -310,10 +300,6 @@ async fn transport_failure_on_a_secret_bearing_path_is_categorical() {
     assert!(!logs_contain(&captured, KEY));
 }
 
-// ---------------------------------------------------------------------------
-// Model pin and echoed legend
-// ---------------------------------------------------------------------------
-
 #[tokio::test]
 async fn matching_pin_is_kept_and_labelled_as_requested() {
     let captured = capture();
@@ -382,9 +368,7 @@ async fn echoed_legend_is_absent_from_provenance_and_logs() {
     assert!(!logs_contain(&captured, KEY));
 }
 
-// ---------------------------------------------------------------------------
 // Redirects are never followed
-// ---------------------------------------------------------------------------
 
 #[tokio::test]
 async fn redirects_are_not_followed_and_location_is_never_logged() {

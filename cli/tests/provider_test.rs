@@ -299,10 +299,6 @@ fn author_file_allows_comments_and_omitted_fields() {
     assert_eq!(file.model.as_deref(), Some("author/m1"));
 }
 
-// ---------------------------------------------------------------------------
-// The seam object-safety + real-translation shape
-// ---------------------------------------------------------------------------
-
 /// RED: the real provider implements the same trait tests inject fakes for.
 #[test]
 fn openai_chat_completes_the_seam() {

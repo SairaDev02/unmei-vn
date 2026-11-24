@@ -81,8 +81,6 @@ class FactsTests(unittest.TestCase):
             facts.sums_text([(sums[-1][0], sums[-1][1])]).encode("utf-8"))
         return directory
 
-    # --- sums files -------------------------------------------------------
-
     def test_sums_round_trip_sorts_by_name_and_uses_two_spaces(self) -> None:
         text = facts.sums_text([("b" * 64, "unmei-play.exe"), ("a" * 64, "unmei.crate")])
         # By name, as `sha256sums_text` in package_lib sorts it: '-' precedes '.'.
@@ -94,8 +92,6 @@ class FactsTests(unittest.TestCase):
         with self.assertRaises(facts.Refusal) as raised:
             facts.parse_sums("deadbeef  unmei.crate\n")
         self.assertIn("not a sha256sum line", str(raised.exception))
-
-    # --- archives ---------------------------------------------------------
 
     def test_only_executable_members_are_taken_from_either_archive_format(self) -> None:
         for suffix in (".zip", ".tar.gz"):
@@ -109,8 +105,6 @@ class FactsTests(unittest.TestCase):
             found = facts.archive_executables(archive)
             expected = "unmei-play.exe" if suffix == ".zip" else "unmei-play"
             self.assertEqual([name for name, _digest, _size in found], [expected])
-
-    # --- hashes and rechecks ---------------------------------------------
 
     def test_every_staged_file_and_archived_executable_is_hashed(self) -> None:
         directory = self.packaging_dir("packaging-windows", "unmei-play.exe", ".zip")
@@ -142,8 +136,6 @@ class FactsTests(unittest.TestCase):
         problems = facts.sums_problems("packaging-linux", directory)
         self.assertTrue(any("unmei-0.1.0.crate is summed in SHA256SUMS but absent" in item
                             for item in problems))
-
-    # --- slot files -------------------------------------------------------
 
     def test_a_slot_file_may_hold_one_slot_or_several(self) -> None:
         single = self.root / "deny-slot.json"
@@ -229,8 +221,6 @@ class FactsTests(unittest.TestCase):
         self.assertEqual(facts.conclusion_slot("cancelled")["status"], "not-run")
         self.assertEqual(facts.conclusion_slot("timed_out")["status"], "failed")
 
-    # --- API filters ------------------------------------------------------
-
     def test_artifacts_are_limited_to_this_attempt_and_its_newest_upload(self) -> None:
         api = {"artifacts": [
             {"id": 1, "name": "packaging-linux-" + SHA + "-attempt1",
@@ -270,8 +260,6 @@ class FactsTests(unittest.TestCase):
             {"name": "packaging-linux", "run_attempt": 1, "conclusion": "success"},
         ]}
         self.assertEqual(facts.earlier_failures(api, 2), {"gate": ["attempt 1: failure"]})
-
-    # --- the facts file ---------------------------------------------------
 
     def test_the_facts_file_carries_every_staged_hash_and_cites_it_from_its_slot(self) -> None:
         windows = self.packaging_dir("packaging-windows", "unmei-play.exe", ".zip")
@@ -324,8 +312,6 @@ class FactsTests(unittest.TestCase):
         self.assertEqual(built["slots"]["packaging-windows"]["status"], "failed")
         self.assertEqual(built["slots"]["packaging-linux"]["status"], "failed")
         self.assertEqual(built["slots"]["gate"]["status"], "passed")
-
-    # --- observations and the earlier record -------------------------------
 
     def observation_env(self, **overrides):
         env = {"GITHUB_SHA": "b" * 40, "GITHUB_RUN_ID": "77", "GITHUB_RUN_ATTEMPT": "2",
@@ -415,12 +401,14 @@ class FactsTests(unittest.TestCase):
                           "unmei-play-0.1.0-x86_64-windows.zip"])
 
     def test_a_crate_both_jobs_staged_appears_once_and_a_parity_break_is_refused(self) -> None:
-        staged = lambda digest: {"hashes": [
-            {"job": "packaging-windows", "name": "unmei-0.1.0.crate", "kind": "crate",
-             "sha256": digest, "bytes": 10},
-            {"job": "packaging-linux", "name": "unmei-0.1.0.crate", "kind": "crate",
-             "sha256": digest, "bytes": 10},
-        ]}
+        def staged(digest):
+            return {"hashes": [
+                {"job": "packaging-windows", "name": "unmei-0.1.0.crate", "kind": "crate",
+                 "sha256": digest, "bytes": 10},
+                {"job": "packaging-linux", "name": "unmei-0.1.0.crate", "kind": "crate",
+                 "sha256": digest, "bytes": 10},
+            ]}
+
         parsed = facts.parse_sums(facts.release_sums(staged("a" * 64)))
         self.assertEqual(parsed, [("a" * 64, "unmei-0.1.0.crate")])
         broken = {"hashes": staged("a" * 64)["hashes"]

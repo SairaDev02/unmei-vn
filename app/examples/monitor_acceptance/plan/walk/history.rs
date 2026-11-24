@@ -4,7 +4,6 @@ use crate::prelude::*;
 
 pub(crate) fn history_steps() -> Vec<Step> {
     vec![
-        // --- nearest-earlier fallback ----------------------------------------
         Step::new("anchor: a tall middle pair and 1,000 more events")
             .at(0, |world, harness| {
                 // The widened view is up from the flip-back check.
@@ -196,7 +195,6 @@ pub(crate) fn history_steps() -> Vec<Step> {
                     .report
                     .check("End cleared the expiry acknowledgement", !status.expired);
             }),
-        // --- the style fixtures at the retained tail ------------------------
         Step::new("styles: tone, escape, Unicode and truncation fixtures arrive")
             .at(0, |_world, harness| {
                 fixture::emit_styles();

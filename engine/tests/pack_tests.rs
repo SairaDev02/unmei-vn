@@ -192,7 +192,6 @@ fn demo_pack_epilogue_loads_and_branches_on_collected_state() {
     assert!(loaded.warnings.is_empty(), "{:?}", loaded.warnings);
     let pack = loaded.pack;
 
-    // `reunion`'s final label reaches the epilogue scene file.
     let reunion = &pack.scenes["reunion"];
     let end = reunion
         .label_index("end_reunion")
@@ -771,8 +770,6 @@ fn unknown_npc_field_fails() {
     );
 }
 
-// --- conditionals ---------------------------------------------------------
-
 #[test]
 fn conditional_scene_loads() {
     let tmp = tempfile::tempdir().unwrap();
@@ -910,8 +907,6 @@ fn lowercase_if_reads_as_a_conditional_not_a_say_line() {
     assert!(errs.iter().any(|e| e.message.contains("`if`")), "{errs:?}");
 }
 
-// --- nesting and control flow inside arms --------------------------------
-
 #[test]
 fn nested_conditional_scene_loads() {
     let tmp = tempfile::tempdir().unwrap();
@@ -960,8 +955,6 @@ fn label_nested_in_an_arm_is_a_load_error() {
         .expect("nested label error");
     assert_eq!(err.path, Location::Line(3));
 }
-
-// --- fixed state kinds and numeric ordering ------------------------------
 
 #[test]
 fn set_of_the_wrong_kind_is_a_load_error() {
@@ -1110,8 +1103,6 @@ fn demo_pack_all_five_set_lines_kind_match_and_load_clean() {
     assert_eq!(sets, 5, "all five demo `set` lines survive kind validation");
 }
 
-// --- manifest tagline ----------------------------------------------------
-
 /// A valid pack whose manifest is replaced wholesale, for tagline shape tests.
 fn pack_with_manifest(manifest: &str) -> (tempfile::TempDir, std::path::PathBuf) {
     let tmp = tempfile::tempdir().unwrap();
@@ -1240,8 +1231,6 @@ fn unknown_manifest_field_still_fails() {
     );
 }
 
-// --- manifest title backdrop ---------------------------------------------
-
 #[test]
 fn demo_pack_declares_a_title_backdrop() {
     let loaded = load_pack(&demo_pack()).expect("demo pack loads");
@@ -1299,8 +1288,6 @@ fn malformed_title_backdrop_id_is_a_load_error() {
         );
     }
 }
-
-// --- manifest declared scene order ---------------------------------------
 
 /// Write a real temp pack with the given scene ids and a raw manifest `scenes`
 /// field. Every scene is a one-line say except ids in `bodies`, which use the
@@ -1658,8 +1645,6 @@ fn order_errors_come_out_in_spec_order() {
     );
 }
 
-// --- state RON bridge diagnostics and optional-string consumers -----------
-
 /// Every state read failure is surfaced once, verbatim from the bridge, with
 /// `state.ron` context and no line number. The rules that read the vocabulary
 /// are skipped rather than guessed (spec §3), so a pack that is otherwise valid
@@ -1814,8 +1799,6 @@ fn a_byte_order_mark_inside_the_text_is_kept() {
     );
 }
 
-// --- Wait-free jump cycles ---------------------------------------------------
-
 /// Load the synthetic pack with `scenes` (pack-relative path, source) in place
 /// of `scene_a`.
 fn load_with_scenes(
@@ -1880,8 +1863,6 @@ fn a_loop_that_exits_through_an_if_loads() {
         "label top\nif met_ace\njump out\nendif\nset met_ace = true\njump top\nlabel out\nNarrator: Out.\n";
     load_with_scenes(&[("scenes/scene_a.unmei", src)]).unwrap();
 }
-
-// --- state numbers must be finite ------------------------------------------
 
 /// The authored spellings of a non-finite number: RON's `NaN` / `inf` /
 /// `-inf`, and an exponent too large for `f64`, which overflows to infinity.

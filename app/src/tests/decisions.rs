@@ -24,10 +24,6 @@ fn decision_without_a_client_takes_the_author_fallback() {
     assert!(app.world().resource::<PendingDecision>().0.is_none());
 }
 
-// ---------------------------------------------------------------------------
-// Test-local key check
-// ---------------------------------------------------------------------------
-
 #[test]
 fn a_model_answered_decision_writes_the_autosave_once() {
     let fake = FakeResolver::new(model_answer("warm"));
@@ -144,16 +140,11 @@ fn dropping_the_pending_decision_cancels_the_fake_future() {
     app.world_mut().resource_mut::<PendingDecision>().0 = None;
     fake.wait_until_dropped();
     assert_eq!(fake.dropped(), 1, "dropping the task must drop the future");
-    // The runner is still parked where the cancelled request left it.
     assert!(matches!(
         app.world().resource::<Runtime>().runner.wait(),
         Some(Wait::Decision { .. })
     ));
 }
-
-// ---------------------------------------------------------------------------
-// Held answers while the overlay is open
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_model_answer_arriving_while_open_is_held_until_resume() {
@@ -161,14 +152,11 @@ fn a_model_answer_arriving_while_open_is_held_until_resume() {
     let (mut app, _dir) = app_parked_on_decision(&fake);
     let parked = parked_position(&app);
 
-    // Open the overlay while the request is in flight, then let it answer.
     esc(&mut app);
     assert!(menu(&app).open);
     fake.release();
     pump_until(&mut app, held);
 
-    // Held: `pc` and the parked wait are unchanged, the request completed, and
-    // nothing was written.
     assert_eq!(parked_position(&app), parked, "the answer is not applied");
     assert!(matches!(
         app.world().resource::<Runtime>().runner.wait(),
@@ -233,14 +221,11 @@ fn loading_discards_the_held_answer_and_refires_the_decide_line() {
     let fake = FakeResolver::new(model_answer("warm"));
     let (mut app, _dir) = app_parked_on_decision(&fake);
 
-    // Save the parked decision-wait, open the overlay, and let it hold an answer.
     press_and_update(&mut app, KeyCode::F5);
     esc(&mut app);
     fake.release();
     pump_until(&mut app, held);
 
-    // Load through the overlay: the held answer is discarded, the request is
-    // cancelled, and the restored decision-wait re-fires `decide`.
     switch_mode(&mut app, MenuMode::Load);
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::Card(0);
     press_and_update(&mut app, KeyCode::Enter); // confirm

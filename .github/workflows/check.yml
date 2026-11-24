@@ -123,31 +123,26 @@ jobs:
             -pyflakes= \
             -shellcheck="$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck"
 
-      # Lint the gate's own scripts and the hook, so a defect in the tooling
+      # Lint every repository script and the hook, so a defect in the tooling
       # cannot pass review just because the Rust gate is green.
       # Ruff reads only: `E4,E7,E9,F` are import, syntax and pyflakes defects,
       # selected explicitly so a Ruff default change cannot widen the gate, and
       # there is no `--fix`, formatter, preview rule or config file to drift.
       # `--isolated --no-cache` makes the run depend on the pinned binary and the
-      # file contents alone. The listed files are `check-invariants.py` plus the
-      # modules the 20,000-byte authored-file limit made it split into, so the
-      # rule covers the same code whichever file it lives in. ShellCheck runs the
-      # hook as POSIX `sh`, the shell its shebang declares.
+      # file contents alone. Ruff takes the whole `scripts/` folder, so a new
+      # script is linted without a change to this step.
+      # ShellCheck runs the hook as POSIX `sh`, the shell its shebang declares.
       #
-      # Measured on a Windows host against these files: Ruff 73 ms and ShellCheck
+      # Measured on a Windows host against `scripts/`: Ruff 28 ms and ShellCheck
       # 71 ms warm, so the pair stays far inside the roughly 60-second budget for
       # this job. Treat the budget as review-triggering, not as an assertion.
-      - name: Lint the gate scripts and the commit hook
+      - name: Lint the scripts and the commit hook
         run: |
           "$RUNNER_TEMP/ruff-x86_64-unknown-linux-gnu/ruff" check \
             --no-cache \
             --isolated \
             --select E4,E7,E9,F \
-            scripts/doctor.py \
-            scripts/check-invariants.py \
-            scripts/invariants_core.py \
-            scripts/invariants_eol.py \
-            scripts/license_policy.py
+            scripts/
 
           "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
             -s sh \
@@ -157,11 +152,23 @@ jobs:
     name: fmt, clippy, test
     runs-on: ubuntu-latest
     steps:
-      # Same `ref` rule as the `actionlint` job above: the candidate SHA when
-      # called, the triggering commit otherwise.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Source-size check on the changed files
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BASE}" ] || \
+             [ "${BASE}" = "0000000000000000000000000000000000000000" ] || \
+             ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            BASE="$(git merge-base origin/main HEAD)"
+            echo "source-size: no reachable event base; comparing against origin/main (${BASE})"
+          fi
+          python3 scripts/check-staged-token-limit.py --base "${BASE}"
 
       # The documentation tooling is deterministic, standard library only and
       # costs seconds, so it runs before the Linux dependency install and never
@@ -231,6 +238,14 @@ jobs:
       - name: Coverage slot logic tests
         run: python3 scripts/test-coverage-slot.py
 
+      - name: Source-size logic tests
+        run: |
+          python3 scripts/test-staged-token-limit.py
+          python3 scripts/test-audit-source-size.py
+
+      - name: Comment gate logic tests
+        run: python3 scripts/test-comments.py
+
       # Advisory documentation complexity report. It never blocks this
       # job: `continue-on-error` keeps a finding from turning the gate red, the
       # report itself exits 0 for findings, and the step runs after the hard
@@ -253,9 +268,9 @@ jobs:
           # with the suite's status so a failing suite shows as a failed step
           # while `continue-on-error` keeps the job green. The report's own
           # status is deliberately dropped, so the advisory report never blocks.
-          python3 scripts/test-docs-report.py
-          suite=$?
-          python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY"
+          suite=0
+          python3 scripts/test-docs-report.py || suite=$?
+          python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY" || true
           exit "$suite"
 
       # Bevy links ALSA (audio) and udev (gamepads) on Linux; its default
@@ -295,6 +310,10 @@ jobs:
           python3 scripts/check-invariants.py --rules eol
           python3 scripts/check-invariants.py --rules licenses
 
+      # Policy: `docs/agents/comments.md` § Budget gate.
+      - name: No new comments
+        run: python3 scripts/no-new-comments.py
+
       # The path rules read `git ls-files`, so an ignored local scratch
       # directory cannot fail them, and they describe what lands on `main`. A
       # `prototype/<issue>-<name>` branch carries tracked `app/prototype/`
@@ -314,6 +333,9 @@ jobs:
       # because it neither resolves nor builds dependencies.
       - name: cargo clippy
         run: cargo clippy --locked --workspace --all-targets -- -D warnings
+
+      - name: cargo clippy (unmei-engine alone, default features)
+        run: cargo clippy --locked -p unmei-engine --all-targets -- -D warnings
 
       - name: cargo test
         run: cargo test --locked --workspace

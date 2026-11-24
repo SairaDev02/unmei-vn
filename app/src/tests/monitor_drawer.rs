@@ -65,7 +65,6 @@ fn field_caret_and_selection(app: &App, field: Entity) -> (usize, std::ops::Rang
     (selection.focus().index(), selection.text_range())
 }
 
-//
 // The F3 drawer's safety is proven through the production-shaped harnesses
 // above wherever a key, pointer or text path is involved:
 // `boot_widget_input_app` runs the real `InputPlugin`, focus dispatch,
@@ -73,10 +72,6 @@ fn field_caret_and_selection(app: &App, field: Entity) -> (usize, std::ops::Rang
 // `RuntimeCorePlugin`; `boot_app_with_input` gives a held key a genuine
 // multi-frame `ButtonInput` life. Projection, budget and layout checks use the
 // real plugin systems over a deterministically seeded retained history.
-
-// ---------------------------------------------------------------------------
-// Monitor drawer
-// ---------------------------------------------------------------------------
 
 fn drawer_claim_held(app: &App) -> bool {
     app.world().resource::<InputOwnership>().claimed_by() == Some(MONITOR_CLAIM)
@@ -169,7 +164,6 @@ fn dev_enabled_starts_closed_and_f3_opens_over_play() {
 /// hold — the drawer never depends on a loaded `Runtime` or a closed menu.
 #[test]
 fn f3_reaches_every_surface() {
-    // Title.
     let pack = temp_pack();
     let mut app = boot_app_with_input(pack.path().join("pack"), None);
     tap_key(&mut app, KeyCode::F3);
@@ -177,7 +171,6 @@ fn f3_reaches_every_surface() {
     tap_key(&mut app, KeyCode::F3);
     assert!(!drawer_open(&app), "F3 closes over the title");
 
-    // Esc menu.
     enter_play_with_input(&mut app);
     tap_key(&mut app, KeyCode::Escape);
     assert!(menu(&app).open, "the overlay is up");
@@ -189,7 +182,6 @@ fn f3_reaches_every_surface() {
         "Esc dismisses only Monitor"
     );
 
-    // Startup error screen, no Runtime.
     let (mut broken, _window) = boot_widget_input_app(PathBuf::from("definitely/not/a/pack"));
     assert!(broken.world().get_resource::<StartupFailure>().is_some());
     tap_key(&mut broken, KeyCode::F3);
@@ -198,7 +190,6 @@ fn f3_reaches_every_surface() {
         "F3 opens over the startup error screen"
     );
 
-    // Defensive hold.
     let mut held_app = app_with_missing_decide_npc(&FakeResolver::new(model_answer("warm")));
     held_app.update();
     assert!(on_hold(&held_app), "the runner is on a defensive hold");
@@ -222,7 +213,6 @@ fn esc_dismisses_only_monitor_and_the_next_fresh_esc_acts() {
     assert!(!menu(&app).open, "Esc did not also open the overlay");
     assert_eq!(wait(&app), parked, "Esc did not also advance play");
 
-    // A fresh Esc after the release is the ordinary overlay key again.
     tap_key(&mut app, KeyCode::Escape);
     assert!(menu(&app).open, "a fresh Esc opens the overlay");
 }
@@ -247,7 +237,6 @@ fn f3_and_esc_on_one_frame_toggle_once() {
     );
     assert!(!menu(&app).open, "Esc did not leak into the overlay");
 
-    // Now open, F3+Esc closes once.
     press_key(&mut app, KeyCode::F3);
     press_key(&mut app, KeyCode::Escape);
     step_input(&mut app);
@@ -414,7 +403,6 @@ fn closing_monitor_alone_does_not_apply_a_held_answer() {
     app.update();
     pump_until(&mut app, |_| fake.calls() == 1);
 
-    // Overlay up, Monitor up, then the answer lands.
     tap_key(&mut app, KeyCode::Escape);
     assert!(menu(&app).open);
     tap_key(&mut app, KeyCode::F3);
@@ -514,7 +502,6 @@ fn held_space_across_close_never_types_into_the_suspended_draft() {
         "the quarantined tail drained the queued inserts"
     );
 
-    // Release and a fresh press is ordinary editing again.
     release_key(&mut app, KeyCode::Space);
     step_input(&mut app);
     assert!(
@@ -646,7 +633,6 @@ fn draft_caret_and_selection_survive_monitor_focus_movement_and_close() {
     );
     let row_before = app.world().resource::<CredentialsState>().row.clone();
 
-    // Open Monitor and move focus across every control with real presses.
     tap_key(&mut app, KeyCode::F3);
     assert!(drawer_open(&app));
     assert_eq!(drawer_focus(&app), MonitorControl::ShowEverything);
@@ -924,7 +910,6 @@ fn opening_cancels_an_active_settings_drag() {
         "the last applied value is preserved, with no rollback or flush"
     );
 
-    // The held pointer cannot resume the drag after close.
     tap_key(&mut app, KeyCode::Escape);
     assert!(!drawer_open(&app));
     app.world_mut()
@@ -999,7 +984,6 @@ fn filter_control_toggles_and_follow_latest_is_idempotent() {
     activate_control(&mut app, MonitorControl::ShowEverything);
     assert_eq!(drawer_view(&app), MonitorView::UnmeiOnly);
 
-    // Close is a control too.
     activate_control(&mut app, MonitorControl::Close);
     assert!(!drawer_open(&app));
 }
@@ -1084,7 +1068,6 @@ fn prearmed_ctrl_keeps_running_under_monitor_and_a_new_ctrl_never_arms() {
     release_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(!skip_force(&app));
-    // A fresh press in play after the release arms again.
     press_key(&mut app, KeyCode::ControlLeft);
     step_input(&mut app);
     assert!(skip_force(&app), "a fresh press in play arms again");
@@ -1446,13 +1429,20 @@ fn filter_change_cancels_obsolete_work_and_never_mixes_predicates() {
         "only the current predicate is displayed mid-refresh"
     );
 
-    // Everything is a real second predicate: mid-refresh it may hold both
-    // target families (all of them match it).
     activate_control(&mut app, MonitorControl::ShowEverything);
-    assert!(app
-        .world()
-        .resource::<crate::drawer::MonitorProjection>()
-        .is_updating());
+    let projection = app.world().resource::<crate::drawer::MonitorProjection>();
+    assert!(projection.is_updating());
+    let sequences = projection.sequences();
+    assert!(
+        sequences.windows(2).all(|pair| pair[1] == pair[0] + 1),
+        "one everything pass materializes a contiguous admission run; rows kept \
+         from the unmei:: pass would leave gaps: {sequences:?}"
+    );
+    let targets = projection.targets();
+    assert!(
+        targets.iter().any(|target| target == "dep::noise"),
+        "the everything predicate admits dependency rows mid-refresh: {targets:?}"
+    );
     // Switching back cancels that obsolete pass: no dependency row from it may
     // survive into the `unmei::` view.
     activate_control(&mut app, MonitorControl::ShowEverything);
@@ -1705,7 +1695,7 @@ fn captured_history_and_counters_survive_live_session_transitions() {
         }
         tracing::info!(target: "unmei::seq", "{}", "y".repeat(9000));
     });
-    step_input(&mut app); // ingest the admitted events
+    step_input(&mut app);
 
     assert_eq!(
         app.world()
@@ -2408,11 +2398,9 @@ fn controls_activate_by_fresh_keyboard_press_once() {
     release_key(&mut app, KeyCode::Enter);
     step_input(&mut app);
 
-    // Space activates the focused control too.
     tap_key(&mut app, KeyCode::Space);
     assert_eq!(drawer_view(&app), MonitorView::UnmeiOnly);
 
-    // Tab moves focus to Follow latest; Space is idempotent there.
     tap_key(&mut app, KeyCode::Tab);
     assert_eq!(drawer_focus(&app), MonitorControl::FollowLatest);
     tap_key(&mut app, KeyCode::Space);
@@ -2693,7 +2681,6 @@ fn a_paste_while_monitor_is_open_never_reaches_the_draft() {
         "the claimed paste was never replayed"
     );
 
-    // Release and a fresh paste is the ordinary path again.
     paste(&mut app, window);
     assert_eq!(
         field_value(&app, field),

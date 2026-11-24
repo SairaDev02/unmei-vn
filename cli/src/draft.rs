@@ -162,9 +162,7 @@ pub fn render_list(runs: &[Run]) -> String {
         .collect()
 }
 
-// ---------------------------------------------------------------------------
 // The layer-1 drafting gate (contract §4)
-// ---------------------------------------------------------------------------
 
 /// The canonical narration speaker (contract §7): always an allowed speaker.
 pub const NARRATOR: &str = "Narrator";
@@ -351,9 +349,7 @@ pub fn speaker_list(allowed: &HashSet<String>) -> String {
     names.join(", ")
 }
 
-// ---------------------------------------------------------------------------
 // The run-region splice (contract §6)
-// ---------------------------------------------------------------------------
 
 /// Replace the run's source lines with `replacement`, returning the new scene
 /// text. Every line outside the run — its first say-line through its last,

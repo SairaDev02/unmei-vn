@@ -1,6 +1,6 @@
 ---
 title: Code comment policy and its review classification
-summary: When a code comment earns its place, the REMOVE, SHORTEN, KEEP and REFACTOR outcomes, the protected contracts and the review procedure.
+summary: When a code comment earns its place, the REMOVE, SHORTEN, KEEP and REFACTOR outcomes, the protected contracts, the review procedure and the budget gate.
 keywords:
   - code-comments
   - repository-upkeep
@@ -45,9 +45,25 @@ For Unmei behavior, use [domain.md](domain.md), the specs, the ADRs and the test
 
 ## Review and verification
 
-An explicitly requested comment review is **report-only** by default. It covers the requested paths, or the current diff when no paths are named. Each proposed change names the location, the classification, the source context that supports it and any behavior or documentation risk. Do not optimize a comment ratio, and do not add a CI gate or a test suite for comments.
+An explicitly requested comment review is **report-only** by default. It covers the requested paths, or the current diff when no paths are named. Each proposed change names the location, the classification, the source context that supports it and any behavior or documentation risk. Do not optimize a comment ratio.
+
+A bulk sweep runs in two passes. The second pass is adversarial: it rechecks every `REMOVE` from the first pass and keeps the comment when the evidence is uncertain. Issue #133 recorded a sample of what such a second pass keeps. Most of it was context the code does not show, such as UI state after a key press, a spec row number or an action's version pin, so keep this pass. The exception is banner rule lines made only of dashes: they are the decorative headers that the policy names, so a sweep removes the rule lines. A sweep judges each banner title separately. A title that points to a spec or groups a contract stays. A title that only restates the code that follows goes.
 
 Edit comments only after the requester authorizes the change. Deleting an ambiguous contract and refactoring application code each need their own approval. For an edit, follow [`docs/testing.md`](../testing.md) and run only the checks that could detect a plausible regression. A documentation-only change does not need a Cargo test by default. Report exactly what you verified and what you did not.
+
+## Budget gate
+
+[`scripts/no-new-comments.py`](../../scripts/no-new-comments.py) runs in the per-push gate. It fails when a change adds a comment or swaps one comment for another. It compares each file against the per-comment digests in the checked-in [`.comment-baseline.json`](../../.comment-baseline.json), and it names where the content belongs instead: an ADR, an issue, or nowhere. [ADR 0016](../adr/0016-comment-baseline-holds-digests.md) records why the baseline holds digests rather than counts. Rustdoc, Python docstrings and tool directives are exempt, because they carry the API contract, the reading, or an instruction a tool obeys. So is a trailing YAML comment whose whole body is a version tag, such as `# v2.9.3` on a pinned `uses:` line. Dependabot rewrites the tag when it bumps the pin, so the comment is tool-maintained: counting it would fail every Dependabot pull request.
+
+The baseline only shrinks. `--tighten` drops the comments the tree no longer holds and refuses a new one, so a sweep lands as a smaller budget rather than a looser one. A file new to the baseline takes `--tighten --admit PATH`. A deliberate `SHORTEN` takes `--tighten --reword PATH`, which accepts the new wording only while that file's count does not rise. The reworded entry then shows in the baseline diff for review. This gate enforces the budget, not the judgement above: a comment the policy protects still belongs in the code.
+
+Run `python3 scripts/no-new-comments.py` before you push any change to a file the gate covers. What you do next depends on the change:
+
+- **The gate fails:** it lists each comment it does not recognize. Move the reason into a name, a type, a test, an ADR or an issue, then delete the comment. If the comment is a `SHORTEN` of an existing one, use `--reword` as above.
+- **You deleted comments:** run `--tighten` and commit `.comment-baseline.json` in the same change. Until then, the deleted text is still in the baseline, and it can come back.
+- **You added or renamed a file with comments:** the gate fails on it, and `--tighten` refuses it, until you run `--tighten --admit PATH`. Check each comment against the [policy](#policy) first, because `--admit` takes in all of them. For a rename, the old path's entry drops out in the same run. The new baseline entry is where review sees them.
+
+The gate covers `.rs`, `.py`, `.toml`, `.yml`, `.yaml` and `.sh` files, plus the scripts in `.githooks/`. Markdown is out of scope on purpose: an HTML comment in a doc is prose, and [`LANGUAGE.md`](../../LANGUAGE.md) and the docs checks govern prose. [`scripts/test-comments.py`](../../scripts/test-comments.py) proves the gate's behaviour, including the Rust `/* */` path, which no file in the tree currently uses.
 
 ## References
 

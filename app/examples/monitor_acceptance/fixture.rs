@@ -169,10 +169,6 @@ fn copy_asset(name: &str, target: &Path) {
         .unwrap_or_else(|error| panic!("copying {}: {error}", source.display()));
 }
 
-// ---------------------------------------------------------------------------
-// Controlled diagnostics
-// ---------------------------------------------------------------------------
-
 /// Real diagnostics emitted through the installed global logger and therefore
 /// through the production Monitor capture layer.
 pub fn emit_styles() {

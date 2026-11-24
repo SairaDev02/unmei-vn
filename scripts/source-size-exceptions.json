@@ -2,9 +2,15 @@
  "exceptions": [
   {
    "path": "app/src/credentials.rs",
-   "bytes": 49941,
+   "bytes": 53704,
    "reason": "Credential-handling owner. A path-based credential-source read guard blocked the split in the delegated runtime, so the maintainer declared this single file a non-blocking exception instead of relaxing the 20,000-byte rule.",
-   "authorization": "Maintainer decision, 2026-11-01: the audit's own authorization record names the blocked split, so this one file is exempt until the guard allows the split"
+   "authorization": "Maintainer decision, 2026-11-23, issue #164: the ceiling is raised to the file's current 53,704 bytes because the recorded blocker still applies; the four other oversized files are split instead, under #166"
+  },
+  {
+   "path": ".comment-baseline.json",
+   "bytes": 47000,
+   "reason": "Machine-written by scripts/no-new-comments.py: one 8-hex digest per frozen comment (ADR 0016). --tighten only shrinks it, except when --admit takes in a file the baseline has never counted.",
+   "authorization": "Maintainer decision, 2026-11-21, issue #133: a size exception was chosen over sharding the baseline or exempting it from the size gate"
   }
  ]
 }

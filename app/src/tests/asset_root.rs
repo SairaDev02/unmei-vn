@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// The configured asset root (Keiko prefactor)
-// ---------------------------------------------------------------------------
-
 /// Play reads every pack asset from [`RuntimeConfig`]'s one asset root, never
 /// from `<pack_root>/assets` joined on the side (`docs/keiko-spec.md` §4.2).
 ///

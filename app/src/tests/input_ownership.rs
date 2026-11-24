@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// App-input ownership seam
-// ---------------------------------------------------------------------------
-
 #[test]
 fn a_claimed_frame_suppresses_play_shortcuts_and_queued_text() {
     let pack = temp_pack();
@@ -14,8 +10,6 @@ fn a_claimed_frame_suppresses_play_shortcuts_and_queued_text() {
     assert!(parked.is_some(), "in play on a say-line");
     assert!(!manual_path(&app).exists());
 
-    // Claim: the play path, the F5 shortcut and the focused-text path are all
-    // frozen for the frame.
     app.world_mut()
         .resource_mut::<InputOwnership>()
         .claim(InputClaim("seam-test"));
@@ -27,8 +21,6 @@ fn a_claimed_frame_suppresses_play_shortcuts_and_queued_text() {
     assert_eq!(wait(&app), parked, "claimed Space did not advance");
     assert!(!manual_path(&app).exists(), "claimed F5 did not save");
 
-    // Release: ordinary input works again, and the claimed keystroke does not
-    // replay — one character, not two.
     app.world_mut().resource_mut::<InputOwnership>().release();
     type_character(&mut app, window, 'k');
     assert_eq!(
@@ -81,7 +73,6 @@ fn a_claimed_frame_blocks_the_outside_press_discard() {
     assert!(menu(&app).key_editing, "the focused field is being edited");
     let outside = app.world_mut().spawn_empty().id();
 
-    // A claimed outside press leaves the draft and edit mode alone.
     app.world_mut()
         .resource_mut::<InputOwnership>()
         .claim(InputClaim("seam-test"));
@@ -96,7 +87,6 @@ fn a_claimed_frame_blocks_the_outside_press_discard() {
         "claimed press did not leave the field"
     );
 
-    // Release: the ordinary outside press discards the draft.
     app.world_mut().resource_mut::<InputOwnership>().release();
     outside_press(&mut app, outside);
     assert_eq!(field_value(&app, field), "", "release restores the discard");
@@ -112,7 +102,6 @@ fn a_claimed_frame_freezes_the_settings_drag_start() {
         .resource_mut::<ButtonInput<MouseButton>>()
         .press(MouseButton::Left);
 
-    // Claimed: a fresh pressed interaction starts no drag.
     app.world_mut()
         .resource_mut::<InputOwnership>()
         .claim(InputClaim("seam-test"));
@@ -323,7 +312,6 @@ fn a_claimed_frame_ignores_an_os_repeat_and_needs_a_fresh_press() {
         "a held repeat did not save after release"
     );
 
-    // Release and a fresh press does act.
     release_key(&mut app, KeyCode::F5);
     step_input(&mut app);
     press_key(&mut app, KeyCode::F5);

@@ -32,7 +32,6 @@ pub(crate) fn check_style_fixtures(world: &mut World, harness: &mut Harness) {
         );
     }
 
-    // The escaped/control/Unicode fixtures render as one logical line each.
     for (needle, name) in [
         (fixture::ESCAPED_FIXTURE, "escaped"),
         (fixture::UNICODE_FIXTURE, "Unicode"),
@@ -62,7 +61,6 @@ pub(crate) fn check_style_fixtures(world: &mut World, harness: &mut Harness) {
         );
     }
 
-    // The oversized fixture collapses the grid with a visible suffix.
     let truncated = snap
         .rows()
         .into_iter()
@@ -80,7 +78,7 @@ pub(crate) fn check_style_fixtures(world: &mut World, harness: &mut Harness) {
     }
 
     // The long module path renders whole and wraps inside the fixed target
-    // column (B5): no ordinary display ellipsis, and the row grows past one
+    // column: no ordinary display ellipsis, and the row grows past one
     // line.
     let long_target = snap.rows().into_iter().find(|row| {
         !row.truncated
@@ -114,7 +112,6 @@ pub(crate) fn check_style_fixtures(world: &mut World, harness: &mut Harness) {
             .fail("the long-target fixture renders a whole target"),
     }
 
-    // The grid columns of a normal single-line row, and the settled row metrics.
     if let Some(row) = row_with_body(&snap, fixture::SHORT_FIXTURE) {
         let widths = column_widths(&snap, &row);
         println!("  short fixture row widths: {widths:?}");

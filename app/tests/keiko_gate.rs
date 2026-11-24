@@ -50,9 +50,7 @@ fn the_demo_packs_cases_pass() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Spec §15 rule 1: the launch grammar
-// ---------------------------------------------------------------------------
 
 #[test]
 fn keiko_usage_errors_exit_two_before_startup() {
@@ -77,9 +75,7 @@ fn keiko_usage_errors_exit_two_before_startup() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Spec §15 rule 2: a take never touches the user's files
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_take_never_reads_or_writes_the_users_files() {
@@ -143,9 +139,7 @@ fn copy_dir(from: &Path, to: &Path) {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Spec §15 rules 3 and 4: version, header order and references
-// ---------------------------------------------------------------------------
 
 fn case_pack(dir: &Path, case: &str) -> PathBuf {
     let pack = dir.join(format!("pack-{}", case.len()));
@@ -218,9 +212,7 @@ fn an_unknown_reference_fails_before_a_take() {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Spec §15 rule 5: determinism
-// ---------------------------------------------------------------------------
 
 #[test]
 fn the_same_case_run_twice_is_byte_identical() {
@@ -232,9 +224,7 @@ fn the_same_case_run_twice_is_byte_identical() {
     assert_eq!(stdout(&first), stdout(&second));
 }
 
-// ---------------------------------------------------------------------------
 // Spec §15 rule 22: the sandbox is cleaned up
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_take_leaves_no_sandbox_unless_kept() {

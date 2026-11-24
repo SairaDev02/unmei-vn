@@ -64,7 +64,6 @@ pub(crate) fn broken_plan() -> Vec<Step> {
                     }
                     None => harness.report.fail("the error list is rendered"),
                 }
-                // The failure log carries the whole list.
                 let root = world.resource::<RuntimeConfig>().pack_root.clone();
                 let name = unmei_app::failure::session_log_file_name(&root);
                 let log = root.join(format!("../{name}"));

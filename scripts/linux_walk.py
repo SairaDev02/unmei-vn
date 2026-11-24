@@ -31,11 +31,6 @@ DEFAULT_DISPLAY = ":99"
 PACK_NAME = "demo-pack"
 SCENES = ("first_meeting", "reunion", "epilogue")
 
-# `Exit to title` is the rail's fourth child: 240 px rail, 20 px padding, 22/14/16
-# px text above it (`app/src/presentation/overlay/chrome.rs`). `MenuFocus` has no
-# stop for it, so keys cannot reach it — this click is the only way back.
-EXIT_TO_TITLE_POINT = (120, 167)
-
 # `unmei author draft first_meeting --list`, byte for byte (`cli/tests/draft_test.rs`).
 CLI_LIST_EXPECTED = (
     "  start       L7     Narrator: Morning light. A folded letter on the ground,"
@@ -85,7 +80,7 @@ def is_allowed_failure(line):
 
 class Walk:
     def __init__(self, runner, extracted, work_dir=None,
-                 exit_point=EXIT_TO_TITLE_POINT, openbox=False, keep=False):
+                 openbox=False, keep=False):
         self.runner = runner
         # Absolute, because every launch runs from `work_dir`, not from here.
         self.extracted = Path(extracted).absolute()
@@ -95,7 +90,6 @@ class Walk:
         self.sandbox = Path(tempfile.mkdtemp(prefix="unmei-walk-sandbox-"))
         # The player's stdout and stderr, every launch appended, for a failure's tail.
         self.output_path = self.sandbox / "player-output.txt"
-        self.exit_point = exit_point
         self.openbox = openbox
         self.keep = keep
         self.player = self._find("unmei-play")
@@ -232,9 +226,6 @@ class Walk:
     def press(self, key):
         self.act(lambda: self.runner.hold_key(self.env, key))
 
-    def click(self, point):
-        self.act(lambda: self.runner.click(self.env, self.window, point))
-
     def launch_player(self):
         # Kept so the next launch can prove the log it reads is its own: the log
         # is truncated per launch, so a previous session's text cannot be new.
@@ -338,12 +329,13 @@ class Walk:
         for _ in range(5):
             self.press("Tab")     # Save, Load, Timeline, Gallery, Settings
         self.press("Return")      # open the Settings view
-        self.click(self.exit_point)   # the rail's click-only `Exit to title`
+        self.press("Up")          # the rail's `Exit to title`
         self.press("Return")      # its confirmation, Yes focused
+        self.press("Return")
         for _ in range(4):
             self.press("Down")    # Continue, New Game, Settings, Gallery, Quit
         self.press("Return")      # Quit, which asks while a session is live
-        self.press("Return")      # Yes
+        self.press("Return")
 
     def quit(self):
         self.quit_to_title(overlay_open=True)
@@ -363,7 +355,7 @@ class Walk:
         self.press("Return")  # switch the grid to load mode
         self.press("1")
         self.press("Return")  # Load asks once
-        self.press("Return")  # Yes
+        self.press("Return")
         name = re.escape(self.slot1_path.name)
         self.wait_log(rf"^.*unmei: loaded .*{name}$",
                       f"`loaded {self.slot1_path.name}`")
@@ -398,20 +390,16 @@ def parse_args(argv):
     parser.add_argument("extracted", type=Path,
                         help="the extracted player and CLI archives' directory")
     parser.add_argument("--work-dir", type=Path, help="launch from here (default: temp)")
-    parser.add_argument("--exit-point", default=None, metavar="X,Y",
-                        help="the rail's `Exit to title` click, in window pixels")
     parser.add_argument("--openbox", action="store_true", help="the tested fallback")
     parser.add_argument("--keep", action="store_true", help="keep sandbox and work dir")
     args = parser.parse_args(argv)
-    args.exit_point = (tuple(int(part) for part in args.exit_point.split(","))
-                       if args.exit_point else EXIT_TO_TITLE_POINT)
     return args
 
 
 def main(argv=None):
     args = parse_args(argv)
     walk = Walk(Runner(), args.extracted, work_dir=args.work_dir,
-                exit_point=args.exit_point, openbox=args.openbox, keep=args.keep)
+                openbox=args.openbox, keep=args.keep)
     try:
         completed = walk.run()
     except StepFailure as failure:

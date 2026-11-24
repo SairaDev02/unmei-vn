@@ -7,24 +7,21 @@
 //! One group is the exception: the play frame's quick row has its ids, because a
 //! plugin places and checks them, and the player builds no control behind them
 //! until the quick row ships. [`CONTROL_IDS_WITHOUT_FOCUS`] names that group, so
-//! the one-to-one map starts at the first id the player does have.
+//! the one-to-one map starts at the first id the player does have. `play.log`
+//! stays reserved for the Backlog, which is not built, so it has no id here.
 
 /// The fixed control ids, in the player's walk order where one exists.
 pub const CONTROL_IDS: &[&str] = &[
-    // Title
     "title.continue",
     "title.new-game",
     "title.settings",
     "title.gallery",
     "title.quit",
-    // Play frame quick row. `play.log` stays reserved for the Backlog, which is
-    // not built, so it has no id here.
     "play.save",
     "play.load",
     "play.auto",
     "play.skip",
     "play.menu",
-    // Pause overlay
     "overlay.save-tab",
     "overlay.load-tab",
     "overlay.slot.1",
@@ -37,12 +34,10 @@ pub const CONTROL_IDS: &[&str] = &[
     "overlay.gallery",
     "overlay.timeline",
     "overlay.legacy",
-    // Legacy picker
     "legacy.target.1",
     "legacy.target.2",
     "legacy.target.3",
     "legacy.cancel",
-    // Settings
     "settings.back",
     "settings.master",
     "settings.music",
@@ -56,7 +51,6 @@ pub const CONTROL_IDS: &[&str] = &[
     "settings.key",
     "settings.copy-path",
     "settings.clear-key",
-    // Confirm
     "confirm.yes",
     "confirm.no",
 ];

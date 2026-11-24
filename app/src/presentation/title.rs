@@ -180,7 +180,6 @@ pub(super) fn build_title(
                 );
             });
 
-            // The foot row: Continue's reason line left, the legend right.
             root.spawn(Node {
                 width: Val::Px(TITLE_PANEL_WIDTH),
                 max_width: Val::Percent(92.0),

@@ -11,8 +11,8 @@ name: candidate
 # The run fails only on an eligibility, gate, packaging or hash failure. The
 # dependency and boot checks are called with `record_only`, so their verdicts
 # land in the record's `deny` and `linux-shipping-boot` slots and the called jobs
-# stay green; their own push, PR, scheduled and manual runs still fail on a bad
-# verdict.
+# stay green; their own pushes, PRs and manual runs still fail on a bad
+# verdict, except `boot.yml`, which runs only on dispatch.
 
 on:
   workflow_dispatch:
@@ -151,8 +151,6 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       artifact: packaging-linux-${{ inputs.sha }}-attempt${{ github.run_attempt }}
-    # A cold release build alone took 38 minutes on windows-2025 (run
-    # 42455736603: the whole job 48), and every Cargo.lock change is cold.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

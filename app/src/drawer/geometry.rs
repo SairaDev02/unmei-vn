@@ -116,10 +116,6 @@ pub(super) const DIM: Color = Color::srgba(0.80, 0.80, 0.85, 0.62);
 pub(super) const SCROLLBAR_TRACK: Color = Color::srgba(0.80, 0.80, 0.85, 0.06);
 pub(super) const SCROLLBAR_THUMB: Color = Color::srgba(0.80, 0.80, 0.85, 0.30);
 
-// ---------------------------------------------------------------------------
-// Reader geometry: the window-derived column capacity and metric inputs
-// ---------------------------------------------------------------------------
-
 /// The message column's character capacity at the current window width, or the
 /// 1280px reference when a headless world has no window.
 pub(super) fn reader_columns(windows: &Query<&Window, With<PrimaryWindow>>) -> f32 {

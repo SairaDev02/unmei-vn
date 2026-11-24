@@ -117,10 +117,6 @@ impl<'de> Deserialize<'de> for AuthorFile {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Config resolution
-// ---------------------------------------------------------------------------
-
 pub struct ConfigInput<'a> {
     pub pack_root: &'a Path,
     /// `--model` flag, when given.
@@ -216,10 +212,6 @@ fn resolve_decision_pin(flag: Option<&str>, file: Option<String>) -> Result<Stri
     }
     Ok(pin)
 }
-
-// ---------------------------------------------------------------------------
-// The chat seam + OpenAI translation
-// ---------------------------------------------------------------------------
 
 /// One chat message. `role` is `system` | `user` | `assistant` (OpenAI wire).
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]

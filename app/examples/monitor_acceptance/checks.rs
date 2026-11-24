@@ -104,7 +104,6 @@ pub(crate) fn check_panel(world: &mut World, harness: &mut Harness, label: &str)
         );
     }
 
-    // The header controls, left to right.
     let controls = snap.header_controls();
     let labels: Vec<String> = controls.iter().map(|(label, _)| label.clone()).collect();
     println!("  {label} header: {labels:?}");
@@ -176,7 +175,3 @@ pub(crate) fn error_list_bounds(snap: &Snap) -> Option<(f32, f32)> {
         .reduce(f32::max)?;
     Some((top, bottom))
 }
-
-// ---------------------------------------------------------------------------
-// The walk plans
-// ---------------------------------------------------------------------------

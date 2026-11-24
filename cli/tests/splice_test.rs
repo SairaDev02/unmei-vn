@@ -91,7 +91,6 @@ fn replace_preserves_comments() {
     )
     .unwrap();
     let after = std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap();
-    // Every comment line in the original survives.
     for line in before.lines().filter(|l| l.trim_start().starts_with("//")) {
         assert!(
             after.contains(line),
@@ -105,7 +104,6 @@ fn replace_preserves_comments() {
 #[test]
 fn replace_touches_only_the_named_question() {
     let (_dir, root) = temp_pack();
-    // Give ace a second decision first.
     let npc: Npc =
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
     let mut two = npc.clone();
@@ -126,7 +124,6 @@ fn replace_touches_only_the_named_question() {
     .unwrap();
     let after: Npc =
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
-    // farewell untouched, greet updated.
     assert_eq!(
         after.decisions.get("farewell"),
         two.decisions.get("farewell")
@@ -256,13 +253,11 @@ fn splice_survives_parens_quotes_and_comments_in_strings() {
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
 
     apply_candidate(&root, &npc, "greet", &thorny, CreateMode::Replace).unwrap();
-    // The written file parses and matches the candidate exactly.
     let after: Npc =
         ron::from_str(&std::fs::read_to_string(root.join("npcs/ace.ron")).unwrap()).unwrap();
     assert_eq!(after.decisions.get("greet"), Some(&thorny));
     unmei_engine::load_pack(&root).unwrap();
 
-    // And a second splice into the thorny file still works (add + replace).
     apply_candidate(
         &root,
         &after,
@@ -327,7 +322,6 @@ fn serialized_choice_omits_type_but_typed_configs_emit_it() {
     assert!(rendered.contains("fallback:false"), "{rendered}");
     // The `noul` criteria map is a map, not RON's `Some({...})` wrapper.
     assert!(!rendered.contains("Some("), "{rendered}");
-    // And the rendered form round-trips back into the typed representation.
     let reparsed: DecisionConfig = ron::from_str(&rendered).unwrap();
     assert_eq!(reparsed, noul);
 }
@@ -469,7 +463,6 @@ fn apply_candidate_accepts_an_unusual_ordinary_id_and_writes_only_its_file() {
     assert!(created.contains("id: \"act.one\""), "{created}");
     unmei_engine::load_pack(&root).unwrap();
 
-    // Replace the same file: its comments survive and only it changes.
     let before_replace = std::fs::read_to_string(&written).unwrap();
     apply_candidate(
         &root,

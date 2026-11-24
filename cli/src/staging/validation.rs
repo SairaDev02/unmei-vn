@@ -407,7 +407,6 @@ mod tests {
         let parent = tempfile::TempDir::new().unwrap();
         let parent = parent.path();
 
-        // Success.
         let before = snapshot(source.path());
         run_npc_core(
             parent,
@@ -420,7 +419,6 @@ mod tests {
         assert_parent_released(parent);
         assert_eq!(snapshot(source.path()), before, "authored bytes unchanged");
 
-        // Loader rejection.
         let before = snapshot(source.path());
         run_npc_core(
             parent,

@@ -21,8 +21,8 @@ ALLOWED = {
     "related",
 }
 
-# The 39 approved terms are loaded from policy.json at run time; this list is
-# only used to build fixtures and is asserted against that file.
+# A copy of the 39 approved terms, used only to build fixtures. The checker reads
+# scripts/docs-policy.json, and test-docs-parser.py asserts this copy matches it.
 APPROVED = [
     "content-format", "content-pack", "dialogue-dsl", "decisions", "decision-point",
     "authoring-cli", "pack-validation", "credentials", "terminal-mask",
@@ -44,7 +44,6 @@ def doc(body: str) -> str:
 
 
 CASES = [
-    # --- accepted documents -------------------------------------------------
     dict(
         id="A01-published-example",
         area="accept",
@@ -441,7 +440,6 @@ CASES = [
             ),
         ),
     ),
-    # --- rejected: syntax ---------------------------------------------------
     dict(
         id="R01-missing-frontmatter",
         area="syntax",
@@ -1020,7 +1018,6 @@ CASES = [
         ),
         expect=dict(accept=False, stage="syntax", field="summary"),
     ),
-    # --- rejected: schema ---------------------------------------------------
     dict(
         id="S01-unknown-field",
         area="schema",

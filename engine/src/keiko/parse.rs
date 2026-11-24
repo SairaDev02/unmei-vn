@@ -195,7 +195,6 @@ fn parse_header(
             }
         }
         "state" => {
-            // `state <key> = <value>`
             let [key, equals, value] = rest else {
                 return Err(syntax(file, line, "state <key> = <value>"));
             };

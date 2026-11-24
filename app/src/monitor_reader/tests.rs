@@ -68,8 +68,6 @@ fn assert_close(actual: f32, expected: f32) {
     );
 }
 
-// -- Navigation and the one metric derivation -------------------------
-
 /// Three display lines older from a fractional position consume the
 /// starting offset exactly once (finding A08), and newer motion returns to
 /// the same fractional position.
@@ -131,7 +129,6 @@ fn newer_motion_resumes_following_only_at_the_deliberate_bottom() {
     assert_eq!(anchor.offset_lines, 0.0);
     assert!(!reader.is_following());
 
-    // Newer motion back onto the bottom view resumes following.
     reader.move_newer(&frame, 18.0);
     assert!(reader.is_following());
     assert_eq!(reader.anchor(), None);
@@ -165,7 +162,6 @@ fn metric_extents_wrap_per_column_and_count_wide_glyphs() {
         2.0,
     );
 
-    // A byte-truncated event keeps its preserved single warm line.
     let mut truncated = with_body(6, "unmei::seq", &"x".repeat(500));
     Arc::make_mut(&mut truncated).truncated = true;
     assert_close(metrics.text_lines(&truncated), 1.0);
@@ -247,8 +243,6 @@ fn the_view_maps_the_anchored_range_to_the_scrollbar() {
     assert!(!view.expired);
     assert!(!view.pending);
 }
-
-// -- Reconciliation ----------------------------------------------------
 
 /// A surviving anchor keeps its event identity and fractional offset
 /// through arrivals, and follow stays off.
@@ -333,7 +327,6 @@ fn the_expiry_acknowledgement_clears_only_deliberately() {
     assert_eq!(reader.anchor().map(|anchor| anchor.sequence), Some(80));
     assert!(!reader.is_following());
 
-    // A repeated eviction keeps it set.
     let later = rows(200..300);
     let frame = ReaderFrame::new(&later, metrics, Some(200), false, true);
     reader.reconcile(&frame);
@@ -375,7 +368,6 @@ fn filter_fallbacks_keep_same_first_newer_then_nearest_earlier() {
     reader.place_scrollbar(&frame, 0.725); // event 65, no fractional offset
     assert_eq!(reader.anchor().map(|anchor| anchor.sequence), Some(65));
 
-    // A matching anchor survives unchanged.
     reader.reconcile(&frame);
     assert_eq!(reader.anchor().map(|anchor| anchor.sequence), Some(65));
 

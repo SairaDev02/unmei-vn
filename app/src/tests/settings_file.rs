@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Settings file + the Settings view audio group
-// ---------------------------------------------------------------------------
-
 /// The temporary sibling the atomic settings write uses.
 fn settings_tmp_path(app: &App) -> PathBuf {
     settings_path(app).with_extension("ron.tmp")
@@ -62,7 +58,6 @@ fn settings_round_trip_persists_four_audio_values_and_no_play_key() {
     assert_eq!(reloaded.audio.sfx, 0.95);
     assert!(reloaded.audio.muted);
 
-    // A fresh app over the same pack reads the same values.
     let fresh = app_for_pack(pack_root);
     assert_eq!(audio(&fresh), reloaded.audio);
 }
@@ -134,9 +129,9 @@ fn mute_then_leave_then_unmute_restores_levels_and_only_muted_changes() {
     open_settings(&mut app);
     step_slider(&mut app, KeyCode::ArrowLeft);
     step_slider(&mut app, KeyCode::ArrowLeft); // master 90
-    focus_down(&mut app, 3); // Master -> Mute
+    focus_down(&mut app, 3);
     assert_eq!(menu(&app).focus, MenuFocus::AudioMute);
-    press_and_update(&mut app, KeyCode::Enter); // mute on
+    press_and_update(&mut app, KeyCode::Enter);
 
     press_and_update(&mut app, KeyCode::Escape); // leave -> flush
     let muted_file = settings::load(&pack_root).settings;
@@ -145,7 +140,7 @@ fn mute_then_leave_then_unmute_restores_levels_and_only_muted_changes() {
 
     open_settings(&mut app);
     focus_down(&mut app, 3);
-    press_and_update(&mut app, KeyCode::Enter); // unmute
+    press_and_update(&mut app, KeyCode::Enter);
     press_and_update(&mut app, KeyCode::Escape);
 
     let unmuted_file = settings::load(&pack_root).settings;
@@ -168,19 +163,17 @@ fn audio_reset_confirms_once_resets_only_audio_and_never_deletes_the_file() {
     let mut app = app_for_pack(pack_root.clone());
 
     open_settings(&mut app);
-    focus_down(&mut app, 4); // Master -> Reset
+    focus_down(&mut app, 4);
     assert_eq!(menu(&app).focus, MenuFocus::AudioReset);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::ResetAudio));
 
-    // Cancelling changes nothing.
     press_and_update(&mut app, KeyCode::Escape);
     assert_eq!(menu(&app).confirm, None);
     assert_eq!(audio(&app).master, 0.5);
     assert!(audio(&app).muted);
     assert_eq!(menu(&app).view, MenuView::Settings);
 
-    // Accepting resets the audio section only.
     press_and_update(&mut app, KeyCode::Enter);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, None);
@@ -203,14 +196,12 @@ fn fullscreen_boot_reads_the_play_section_into_the_created_window() {
     let pack = dir.path().join("pack");
     let path = settings::settings_path_for(&pack);
 
-    // `fullscreen: true` -> borderless primary.
     std::fs::write(&path, "(play: (fullscreen: true))").unwrap();
     assert_eq!(
         settings::window_mode(settings::load(&pack).settings.play.fullscreen),
         WindowMode::BorderlessFullscreen(MonitorSelection::Primary)
     );
 
-    // `false` -> windowed.
     std::fs::write(&path, "(play: (fullscreen: false))").unwrap();
     assert_eq!(
         settings::window_mode(settings::load(&pack).settings.play.fullscreen),
@@ -474,12 +465,11 @@ fn play_reset_confirms_once_resets_only_play_and_persists_on_leave() {
     let mut app = app_for_pack(pack_root.clone());
 
     open_settings(&mut app);
-    focus_down(&mut app, 8); // Master -> PlayReset
+    focus_down(&mut app, 8);
     assert_eq!(menu(&app).focus, MenuFocus::PlayReset);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, Some(ConfirmKind::ResetPlay));
 
-    // Cancelling changes nothing.
     press_and_update(&mut app, KeyCode::Escape);
     assert_eq!(menu(&app).confirm, None);
     assert_eq!(menu(&app).view, MenuView::Settings);
@@ -488,7 +478,6 @@ fn play_reset_confirms_once_resets_only_play_and_persists_on_leave() {
     assert!(state.fullscreen());
     assert_eq!(state.settings.play.text_speed, 0.04);
 
-    // Accepting resets the play section only.
     press_and_update(&mut app, KeyCode::Enter);
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(menu(&app).confirm, None);
@@ -626,14 +615,12 @@ fn the_settings_keyboard_model_moves_controls_and_steps_sliders() {
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::AudioMaster);
 
-    // Enter toggles mute while it is focused.
     focus_down(&mut app, 3);
     press_and_update(&mut app, KeyCode::Enter);
     assert!(audio(&app).muted);
     press_and_update(&mut app, KeyCode::Enter);
     assert!(!audio(&app).muted);
 
-    // Space is the same toggle.
     press_and_update(&mut app, KeyCode::Space);
     assert!(audio(&app).muted);
     assert_eq!(menu(&app).focus, MenuFocus::AudioMute);

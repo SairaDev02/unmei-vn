@@ -120,9 +120,7 @@ fn assert_fail_with(pack: &Path, id: &str, needle: &str) {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Rule 6: the reveal
-// ---------------------------------------------------------------------------
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
@@ -161,9 +159,7 @@ fn an_advance_finishes_the_reveal_and_a_second_one_moves_on() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 7: auto's dwell under a virtual clock
-// ---------------------------------------------------------------------------
 
 #[test]
 fn auto_waits_its_dwell_and_not_a_frame_less() {
@@ -192,9 +188,7 @@ fn auto_waits_its_dwell_and_not_a_frame_less() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 8: the Notice's lifetime under a virtual clock
-// ---------------------------------------------------------------------------
 
 /// A Notice lives `NOTICE_SECONDS` (5 s) of unpaused time. Steps that move no
 /// time leave it up; `wait` is what spends it. The menu pauses play, so the
@@ -218,9 +212,7 @@ fn a_notice_expires_under_wait_and_not_without_it() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 13, 15 and 16: decisions, offline and faulted
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_case_landing_wins_and_an_unset_decision_takes_the_fallback() {
@@ -342,9 +334,7 @@ advance
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 19 and 20: asset faults and a broken pack
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_missing_asset_logs_its_row_without_a_notice() {
@@ -378,9 +368,7 @@ fn a_missing_manifest_reaches_the_error_screen() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 21: fixtures
-// ---------------------------------------------------------------------------
 
 #[test]
 fn a_take_without_fixtures_starts_with_no_slots_and_continue_disabled() {
@@ -399,9 +387,7 @@ fn a_take_without_fixtures_starts_with_no_slots_and_continue_disabled() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 25 and 26: stepping and observing
-// ---------------------------------------------------------------------------
 
 #[test]
 fn step_appends_only_what_passed_and_observe_never_writes() {
@@ -409,33 +395,28 @@ fn step_appends_only_what_passed_and_observe_never_writes() {
     let pack = pack(&dir, &[]);
     let case = pack.join("tests/stepped.keiko");
 
-    // A missing case is created with its version line plus the step.
     let output = run(&pack, &["--step", "stepped", "new-game"]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let text = std::fs::read_to_string(&case).unwrap();
     assert_eq!(text, "keiko 1\nnew-game\n");
 
-    // A failing step leaves the file byte-identical.
     let before = std::fs::read(&case).unwrap();
     let output = run(&pack, &["--step", "stepped", "expect speaker \"Nobody\""]);
     assert_eq!(output.status.code(), Some(1));
     assert_eq!(std::fs::read(&case).unwrap(), before, "no write on failure");
 
-    // A passing step is appended.
     let output = run(&pack, &["--step", "stepped", "expect speaker \"Narrator\""]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     assert!(std::fs::read_to_string(&case)
         .unwrap()
         .ends_with("expect speaker \"Narrator\"\n"));
 
-    // `--observe` prints and never writes.
     let before = std::fs::read(&case).unwrap();
     let output = run(&pack, &["--observe", "stepped"]);
     assert_eq!(output.status.code(), Some(0));
     assert!(stdout(&output).contains("Narrator"));
     assert_eq!(std::fs::read(&case).unwrap(), before);
 
-    // The built case passes under `--take` unchanged.
     assert_pass(&pack, "stepped");
     let _ = std::fs::remove_dir_all(dir);
 }
@@ -454,9 +435,7 @@ fn a_header_as_a_step_is_refused_once_the_case_has_steps() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 33: start at a scene with chosen state
-// ---------------------------------------------------------------------------
 
 #[test]
 fn start_reaches_a_scene_top_with_the_cases_state() {
@@ -475,9 +454,7 @@ fn start_reaches_a_scene_top_with_the_cases_state() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rule 32: live needs the environment key
-// ---------------------------------------------------------------------------
 
 #[test]
 fn live_without_the_environment_key_is_a_usage_error() {
@@ -491,9 +468,7 @@ fn live_without_the_environment_key_is_a_usage_error() {
     assert!(String::from_utf8_lossy(&output.stderr).contains("NANOGPT_API_KEY"));
 }
 
-// ---------------------------------------------------------------------------
 // Rules 27, 29, 30 and 31: exploration on the demo pack
-// ---------------------------------------------------------------------------
 
 #[test]
 fn exploration_reaches_every_branch_and_saves_no_finding() {
@@ -541,7 +516,6 @@ fn a_saved_finding_is_a_case_that_fails_and_then_passes() {
     )
     .unwrap();
     std::fs::write(pack.join("state.ron"), "(met: false,)").unwrap();
-    // A staged sprite with no asset, then a scene that loops forever.
     // A staged sprite with no asset file (row 4), a walk to a scene that loops,
     // and a line that never changes.
     std::fs::write(
@@ -574,7 +548,6 @@ jump quiet
         "{text}"
     );
 
-    // Rerunning writes nothing new.
     let before = std::fs::read_dir(pack.join("tests/findings"))
         .unwrap()
         .count();
@@ -701,7 +674,6 @@ jump spin
         "the line the jump skips is the one that counts as unreached"
     );
 
-    // A rerun adds no file.
     let findings_dir = pack.join("tests/findings");
     let before = std::fs::read_dir(&findings_dir).unwrap().count();
     let _ = explore(&pack);
@@ -973,8 +945,6 @@ expect slot 1 scene first_meeting
     let name = pack.file_name().unwrap().to_string_lossy().to_string();
     let slot = |kept: &Path| kept.join(format!("{name}.slot1.save.ron"));
 
-    // The blocked save: the take passes, the Notice names the lost save, the
-    // slot still describes the fixture's park, and its bytes are unchanged.
     let output = run(&pack, &["--take", "blocked", "--keep"]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let kept = kept_path(&output);
@@ -985,7 +955,6 @@ expect slot 1 scene first_meeting
     );
     let _ = std::fs::remove_dir_all(&kept);
 
-    // After `unblock`, the same save writes the new park over the old one.
     let output = run(&pack, &["--take", "recovered", "--keep"]);
     assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
     let kept = kept_path(&output);
@@ -1176,15 +1145,12 @@ fn a_stuck_finding_without_a_later_say_line_saves_no_case() {
         .map(|entries| entries.flatten().count())
         .unwrap_or(0);
     assert_eq!(files, 0, "no case was written");
-    // The text form says it is unsaved.
     let output = run(&pack, &["--explore", "--budget", "200"]);
     assert!(stdout(&output).contains("unsaved"), "{}", stdout(&output));
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // The cycle, rules 11, 12 and 17, and the K2–K4 credential cases
-// ---------------------------------------------------------------------------
 
 /// The case's observation of one control, so a test can read the label the
 /// player actually rendered.
@@ -1576,10 +1542,6 @@ fn an_unblocked_credential_write_lands() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
-// The overlay Settings rail's Exit to title (the tenth pass's control id)
-// ---------------------------------------------------------------------------
-
 /// The overlay's Settings walk reaches the rail's `Exit to title` control, its
 /// cancel returns focus to it, confirming runs to the title and Continue resumes
 /// the live park; the title's door draws no such control.
@@ -1701,9 +1663,7 @@ expect surface settings
     let _ = std::fs::remove_dir_all(dir);
 }
 
-// ---------------------------------------------------------------------------
 // Rules 35-37: the render path (slice 2)
-// ---------------------------------------------------------------------------
 
 fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()

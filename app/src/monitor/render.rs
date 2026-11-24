@@ -77,7 +77,7 @@ pub(super) fn render_with(
     }
     let truncated = line.truncated;
     // The whole escaped target is rendered; the fixed 224px target column wraps
-    // a long target instead of shortening it under an ellipsis (finding B5).
+    // a long target instead of shortening it under an ellipsis.
     // Only a genuine byte-cap truncation collapses the row to the warm line.
     let target_display = line.text[target_start..target_end].to_string();
     Some(MonitorLine {

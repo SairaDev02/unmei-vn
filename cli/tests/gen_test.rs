@@ -77,9 +77,7 @@ impl AuthorChat for FakeChat {
     }
 }
 
-// ---------------------------------------------------------------------------
 // Prompt assembly (§6)
-// ---------------------------------------------------------------------------
 
 /// RED: the prompt carries the state vocabulary with types + bucketing guidance.
 #[tokio::test]
@@ -90,7 +88,6 @@ async fn prompt_includes_state_vocabulary() {
     let joined: String = messages.iter().map(|m| m.content.as_str()).collect();
     assert!(joined.contains("affinity_level"), "{joined}");
     assert!(joined.contains("letters_found"), "{joined}");
-    // Types and bucketing guidance are present.
     assert!(joined.to_lowercase().contains("bucketed"), "{joined}");
     assert!(joined.to_lowercase().contains("string"), "{joined}");
 }
@@ -105,7 +102,6 @@ async fn prompt_includes_existing_config_when_replacing() {
     let messages = assemble_prompt(&data);
     let joined: String = messages.iter().map(|m| m.content.as_str()).collect();
     assert!(joined.contains("existing warm config"), "{joined}");
-    // And says this replaces an existing config.
     assert!(joined.to_lowercase().contains("replac"), "{joined}");
 }
 
@@ -159,9 +155,7 @@ async fn prompt_includes_brief() {
     assert!(joined.contains("her farewell softens"), "{joined}");
 }
 
-// ---------------------------------------------------------------------------
 // Retries + validation gate (§3/§5)
-// ---------------------------------------------------------------------------
 
 /// RED: a valid model response parses, validates against the demo pack, and is
 /// returned as accepted.
@@ -211,7 +205,6 @@ async fn invalid_json_retries_with_correction() {
     let attempt = unmei::gen::generate_once(&input).await.unwrap();
     assert!(matches!(attempt, AttemptOutcome::Accepted { .. }));
     let calls = chat.calls();
-    // The correction references the failure and repeats the shape demand.
     let retry_correction = calls[1].last().unwrap();
     assert_eq!(
         retry_correction.role, "user",
@@ -227,7 +220,7 @@ async fn invalid_json_retries_with_correction() {
         "correction: {}",
         retry_correction.content
     );
-    // And the conversation carries the failed assistant reply for continuity.
+    // And the conversation carries the empty failed-reply marker for continuity.
     assert_eq!(
         calls[1].len(),
         calls[0].len() + 2,
@@ -372,10 +365,6 @@ async fn schema_fixups_strip_npid_and_trim() {
         other => panic!("expected Accepted, got {other:?}"),
     }
 }
-
-// ---------------------------------------------------------------------------
-// Typed generation: `--type noul` / `--type score`
-// ---------------------------------------------------------------------------
 
 /// RED: the prompt asks for the `noul` shape — boolean fallback, both
 /// `true`/`false` criteria keys — when the type is noul.
@@ -543,9 +532,7 @@ async fn typed_loader_rejection_is_a_correction() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Accepted implies the candidate was installed and loader-validated
-// ---------------------------------------------------------------------------
 
 /// A `choice` config whose `state_keys` names an undeclared key, so the real
 /// loader rejects it wherever it is actually installed and validated.
@@ -928,10 +915,6 @@ async fn non_snake_case_fallback_is_a_correction() {
     );
 }
 
-// ---------------------------------------------------------------------------
-// Contract constants
-// ---------------------------------------------------------------------------
-
 /// RED: the retry limit is 3 attempts (contract §5).
 #[test]
 fn retry_limit_is_three() {
@@ -947,9 +930,7 @@ fn public_surface_is_pipeline_shaped() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Drafting one run of prose (contract §3/§4)
-// ---------------------------------------------------------------------------
 
 /// The demo pack plus the exact source bytes of one scene.
 fn demo_draft_setup(scene_id: &str) -> (unmei_engine::Pack, unmei_engine::Scene, String) {
@@ -1143,9 +1124,7 @@ fn validate_edited_scene_accepts_good_and_reports_loader_errors() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Structured output, retry and free-text fallback (contract §7)
-// ---------------------------------------------------------------------------
 
 /// A fake with explicit structured-output behaviour: scripted replies for
 /// `complete_structured` and `complete`, plus the messages each received.
@@ -1517,9 +1496,7 @@ async fn draft_retries_layer_2_loader_failures() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // The interactive `-i` session core (contract §5/§7)
-// ---------------------------------------------------------------------------
 
 /// Build the per-round input the interactive session rebuilds each loop.
 fn draft_input<'a, C: AuthorChat>(
@@ -1725,9 +1702,7 @@ async fn draft_session_updates_the_feedback_referent_each_regeneration() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Terminal target preflight (author-cli contract §10)
-// ---------------------------------------------------------------------------
 
 /// A `GEN` reply the demo pack validates, used as the forbidden later success
 /// on the refusal paths.

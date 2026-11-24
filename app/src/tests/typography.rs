@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// The embedded interface typefaces
-// ---------------------------------------------------------------------------
-
 /// The five interface faces are embedded in the binary and resolve with no
 /// pack asset root: the asset root here points at a directory that does not
 /// exist, so nothing can come from disk (`docs/title-and-menu.md`
@@ -36,7 +32,6 @@ fn the_five_interface_faces_are_embedded_and_load_without_a_pack_asset_root() {
 
     let faces = app.world().resource::<TextFaces>().clone();
 
-    // One distinct asset per face.
     let ids = [
         faces.sans_regular.id(),
         faces.sans_semibold.id(),
@@ -47,8 +42,6 @@ fn the_five_interface_faces_are_embedded_and_load_without_a_pack_asset_root() {
     let unique: std::collections::HashSet<_> = ids.iter().collect();
     assert_eq!(unique.len(), 5, "the five faces are distinct: {ids:?}");
 
-    // Each handle is the embedded file for its named face, so
-    // `mono_medium` is Fira Mono Medium and `mono_regular` Fira Mono Regular.
     let font_bytes = |handle: &Handle<Font>| {
         app.world()
             .resource::<Assets<Font>>()
@@ -74,10 +67,6 @@ fn the_five_interface_faces_are_embedded_and_load_without_a_pack_asset_root() {
         );
     }
 }
-
-// ---------------------------------------------------------------------------
-// The sans/mono type split
-// ---------------------------------------------------------------------------
 
 /// The five face handles, for membership checks.
 fn face_handles(app: &App) -> Vec<Handle<bevy::text::Font>> {

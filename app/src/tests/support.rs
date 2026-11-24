@@ -163,10 +163,6 @@ pub(super) fn click_and_update(app: &mut App) {
         .reset_all();
 }
 
-// ---------------------------------------------------------------------------
-// Test-local decision resolver
-// ---------------------------------------------------------------------------
-
 /// The shared control surface of [`FakeResolver`]: it withholds a resolution
 /// until [`FakeResolver::release`] and counts how many of its futures were
 /// dropped **before producing an answer** (the signal a load cancels the
@@ -1270,7 +1266,6 @@ pub(super) fn seed_visited(pack_root: &Path, visited: &[&str]) {
     seed_read_log(pack_root, &log);
 }
 
-//
 // The seam is one resource (`InputOwnership`) read by `input_unclaimed`. These
 // tests drive the real Bevy input/focus/text/clipboard pipeline end to end —
 // `KeyboardInput` messages through focus dispatch, `EditableText.pending_edits`
@@ -1571,7 +1566,6 @@ pub(super) fn has_component<T: Component>(app: &mut App) -> bool {
     query.iter(world).next().is_some()
 }
 
-//
 // The reader is driven through the production paths: real `KeyboardInput`
 // press/release/repeat for paging and Home/End, real `MouseWheel` messages
 // hit-tested against the log body's own laid-out rect, and the real widget
@@ -1609,6 +1603,37 @@ pub(super) fn seed_numbered_monitor(app: &mut App, range: std::ops::Range<u64>, 
             .map(|i| test_monitor_line(i, target, log::Level::Info, &format!("event {i}")))
             .collect(),
     );
+}
+
+/// Admit numbered `unmei::seq` lines through the production capture layer and
+/// let the real ingest path hand them to retained history.
+///
+/// The capture assigns the admission identities, so a range that starts where
+/// the previous call stopped keeps them consecutive. Each chunk is ingested
+/// before the next is admitted: admitting more than
+/// [`crate::monitor::INGEST_PER_UPDATE`] at once would overflow the pending
+/// budget and lose lines that the caller meant to retain.
+pub(super) fn capture_numbered_monitor(
+    app: &mut App,
+    capture: &crate::monitor::MonitorCapture,
+    range: std::ops::Range<u64>,
+) {
+    use bevy::log::tracing;
+    use bevy::log::tracing_subscriber::prelude::*;
+
+    let mut next = range.start;
+    while next < range.end {
+        let chunk_end = (next + crate::monitor::INGEST_PER_UPDATE as u64).min(range.end);
+        let subscriber =
+            bevy::log::tracing_subscriber::registry().with(crate::monitor::capture_layer(capture));
+        tracing::subscriber::with_default(subscriber, || {
+            for index in next..chunk_end {
+                tracing::info!(target: "unmei::seq", "event {index}");
+            }
+        });
+        step_input(app);
+        next = chunk_end;
+    }
 }
 
 /// The materialized rows' admission sequences in display order, top row first

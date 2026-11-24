@@ -112,7 +112,6 @@ fn successors<'a>(pack: &'a Pack, scene_id: &'a str, idx: usize) -> Vec<(&'a str
     let scene = &pack.scenes[scene_id];
     let next = (scene_id, idx + 1);
     match &scene.lines[idx] {
-        // A `jump` flows only to its target.
         Line::Jump(target) => target_position(pack, scene, target).into_iter().collect(),
         // A `choice` or `decide` flows to each of its targets, never to the
         // line after the block: the block only ever moves to a target.

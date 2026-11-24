@@ -129,7 +129,6 @@ pub(crate) fn sync_panel_rows(
         }
     }
 
-    // Despawn rows that left the display window.
     for (sequence, entity) in &existing {
         if !desired.contains(sequence) {
             commands.entity(*entity).despawn();

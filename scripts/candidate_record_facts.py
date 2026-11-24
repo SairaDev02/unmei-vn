@@ -61,8 +61,6 @@ def require_digest(value, label, pattern=SHA256_RE):
         raise Refusal(f"{label} {value!r} is not a SHA-256")
     return value
 
-# --- facts validation ---------------------------------------------------
-
 
 def require_mapping(value, label):
     if not isinstance(value, dict):

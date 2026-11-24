@@ -130,6 +130,10 @@ lockfile fails the check instead of being rewritten) and the license-sync rule
 between `deny.toml` and `packaging/about.toml` on every branch and PR, and the
 two tracked-path rules on pushes to `main` and PRs into it.
 
+The same job runs the comment budget gate, `python3 scripts/no-new-comments.py`, and its logic
+suite, `python3 scripts/test-comments.py`
+([`docs/agents/comments.md` § Budget gate](agents/comments.md#budget-gate)).
+
 The `boot` workflow (below) additionally exercises the shipped path; it runs on
 demand, not on every push.
 

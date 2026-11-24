@@ -56,6 +56,10 @@ class AuditSourceSizeTests(unittest.TestCase):
     def size(self, name: str, size: int) -> None:
         self.write(name, "x" * size)
 
+    def commit(self, message: str = "commit") -> None:
+        self.git("add", "-A")
+        self.git("commit", "-qm", message)
+
     def audit(self, rev: str = "HEAD") -> tuple[subprocess.CompletedProcess[str], dict]:
         json_path = self.root / "inventory.json"
         result = subprocess.run(
@@ -113,12 +117,13 @@ class AuditSourceSizeTests(unittest.TestCase):
         # by the repository's live checker, so this proves the policy is pinned.
         self.assertTrue(inventory["policy"].endswith(":scripts/check-staged-token-limit.py"))
         self.assertIn(inventory["revision"], inventory["policy"])
-        self.assertIn("engine/src/production.rs", result.stdout)
-        self.assertIn("app/examples/harness.rs", result.stdout)
-        violations = result.stdout.split("out of scope:")[0]
-        self.assertNotIn("app/src/tests.rs", violations)
-        self.assertNotIn("docs/guide.md", violations)
-        self.assertNotIn("docs/evidence/run.log", violations)
+        violations = result.stdout.split("authorized exceptions:")[0]
+        for path in (
+            "engine/src/production.rs", "app/examples/harness.rs", "app/src/tests.rs",
+            "docs/guide.md", "docs/evidence/run.log",
+        ):
+            with self.subTest(path=path):
+                self.assertIn(path, violations, "the audit's scope is the hook's")
         self.assertNotIn("checker-exempt/big.rs", violations)
 
     def test_real_policy_audits_document_named_production_source(self) -> None:
@@ -220,6 +225,35 @@ class AuditSourceSizeTests(unittest.TestCase):
         self.assertEqual(without.returncode, 1)
         self.assertEqual(newer["exceptions"], [])
 
+    def test_config_files_are_in_scope_because_the_hook_checks_them(self) -> None:
+        self.size(".comment-baseline.json", 30_000)
+        self.size(".github/workflows/candidate.yml", 30_000)
+        self.commit("config over budget")
 
+        result, inventory = self.audit()
+
+        self.assertEqual(result.returncode, 1, result.stdout)
+        categories = {f["path"]: f["category"] for f in inventory["files"]}
+        self.assertEqual(categories[".comment-baseline.json"], "config")
+        self.assertFalse(inventory["files"][0]["checker_excluded"])
+        self.assertIn("in-scope config violations: 2", result.stdout)
+        self.assertIn(".comment-baseline.json", result.stdout)
+        self.assertIn(".github/workflows/candidate.yml", result.stdout)
+
+    def test_a_config_exception_is_applied_not_stale(self) -> None:
+        self.size(".comment-baseline.json", 30_000)
+        self.exceptions((".comment-baseline.json", 30_000))
+        self.commit("config with an exception")
+
+        result, inventory = self.audit()
+
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(
+            [e["path"] for e in inventory["exceptions"]],
+            [".comment-baseline.json"],
+            "an exception the hook relies on is applied, not stale",
+        )
+        self.assertEqual(inventory["stale_exceptions"], [])
+        self.assertIn("in-scope config violations: 0", result.stdout)
 if __name__ == "__main__":
     unittest.main()

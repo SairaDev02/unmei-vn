@@ -18,7 +18,6 @@ import io
 import os
 import pathlib
 import shutil
-import sys
 import tempfile
 import unittest
 
@@ -95,8 +94,6 @@ class Player:
         self.read = {}
         self.visited = []
 
-    # -- evidence -----------------------------------------------------------
-
     def write(self, suffix, text):
         self.files[str(self.pack.parent / f"{self.pack.name}.{suffix}")] = text
 
@@ -136,8 +133,6 @@ class Player:
     def autosave_scene(self):
         return "epilogue"
 
-    # -- process ------------------------------------------------------------
-
     def start(self):
         self.handle = FakeHandle()
         self.surface, self.scene, self.presses = "title", None, 0
@@ -152,8 +147,6 @@ class Player:
     def exit(self, code):
         self.handle.code = code
 
-    # -- input --------------------------------------------------------------
-
     def key(self, key):
         if self.handle.code is not None:
             return
@@ -163,11 +156,6 @@ class Player:
             self.on_play(key)
         else:
             self.on_overlay(key)
-
-    def click(self, point):
-        if (self.surface == "overlay" and self.view == "settings"
-                and tuple(point) == walk.EXIT_TO_TITLE_POINT):
-            self.confirm = "exit"
 
     def on_title(self, key):
         if self.confirm == "quit":
@@ -254,6 +242,10 @@ class Player:
         if self.view == "settings":
             if key == "Escape":
                 self.view = "slots"
+            elif key == "Up":
+                self.focus = "exit-to-title"
+            elif key == "Return" and self.focus == "exit-to-title":
+                self.confirm = "exit"
             return
         if key == "Escape":
             self.surface = "play"
@@ -291,7 +283,6 @@ class FakeRunner:
         self.clock = clock
         self.sleep = clock.sleep
         self.keys = []
-        self.clicks = []
         self.focuses = 0
         self.window_manager = None
         self.display = None
@@ -334,10 +325,6 @@ class FakeRunner:
     def hold_key(self, env, key):
         self.keys.append(key)
         self.player.key(key)
-
-    def click(self, env, window, point):
-        self.clicks.append(tuple(point))
-        self.player.click(point)
 
     def stop(self, handle):
         if handle is not None and handle.poll() is None:

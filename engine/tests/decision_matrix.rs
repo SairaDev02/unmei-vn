@@ -326,14 +326,19 @@ fn read_full_request(stream: &mut std::net::TcpStream) {
 /// [`Server::answering`] replies to every request with one canned response;
 /// [`Server::stalling`] reads every request and answers none, so only the
 /// shipped client timeout can end the exchange. Both count their connections,
-/// so "no retry" is observed rather than assumed, and dropping the server
-/// releases its sockets and joins the worker — fixture cleanup stays bounded
-/// even when an assertion panics first.
+/// so "no retry" is observed rather than assumed, and [`Server::quiesce`] reads
+/// that count only once the listener has drained, so no retry can be in flight
+/// and uncounted. Dropping the server releases its sockets and joins the worker
+/// — fixture cleanup stays bounded even when an assertion panics first.
 struct Server {
     endpoint: String,
-    connections: Arc<AtomicUsize>,
-    stop: mpsc::Sender<()>,
+    commands: mpsc::Sender<Command>,
     thread: Option<std::thread::JoinHandle<()>>,
+}
+
+enum Command {
+    Stop,
+    Drain(mpsc::Sender<usize>),
 }
 
 impl Server {
@@ -353,48 +358,27 @@ impl Server {
         let addr = listener.local_addr().expect("local addr");
         let connections = Arc::new(AtomicUsize::new(0));
         let thread_connections = Arc::clone(&connections);
-        let (stop, stopped) = mpsc::channel::<()>();
+        let (commands, incoming) = mpsc::channel::<Command>();
         let thread = std::thread::spawn(move || {
             // An unanswered request is held open so a retry would be accepted
             // and counted rather than queued behind a closed door.
             let mut held: Vec<std::net::TcpStream> = Vec::new();
             loop {
-                if stopped.try_recv().is_ok() {
-                    break;
-                }
-                match listener.accept() {
-                    Ok((mut stream, _)) => {
-                        thread_connections.fetch_add(1, Ordering::SeqCst);
-                        // An accepted socket may inherit the listener's
-                        // non-blocking state; read in blocking mode with a
-                        // timeout so a partial request bounds shutdown instead
-                        // of blocking the worker (and `Drop`'s join) forever.
-                        let _ = stream.set_nonblocking(false);
-                        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
-                        read_full_request(&mut stream);
-                        match answer {
-                            Some((status, body)) => {
-                                let response = format!(
-                                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                                    body.len()
-                                );
-                                let _ = stream.write_all(response.as_bytes());
-                                let _ = stream.flush();
-                            }
-                            None => held.push(stream),
-                        }
+                match incoming.recv_timeout(Duration::from_millis(5)) {
+                    Ok(Command::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                    Ok(Command::Drain(reply)) => {
+                        accept_queued(&listener, &mut held, answer, &thread_connections);
+                        let _ = reply.send(thread_connections.load(Ordering::SeqCst));
+                        continue;
                     }
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                        std::thread::sleep(Duration::from_millis(5));
-                    }
-                    Err(_) => break,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
                 }
+                accept_queued(&listener, &mut held, answer, &thread_connections);
             }
         });
         Server {
             endpoint: format!("http://{addr}/decisions"),
-            connections,
-            stop,
+            commands,
             thread: Some(thread),
         }
     }
@@ -403,14 +387,57 @@ impl Server {
         &self.endpoint
     }
 
-    fn connections(&self) -> usize {
-        self.connections.load(Ordering::SeqCst)
+    /// Accept every connection the kernel has already queued, then return how
+    /// many the server has served in total.
+    ///
+    /// A caller that awaits the client's future first cannot miss a retry: the
+    /// client holds no socket it could still open, and the drain takes every
+    /// handshake the kernel completed, including one the poll loop had not yet
+    /// accepted.
+    fn quiesce(&self) -> usize {
+        let (reply, counted) = mpsc::channel();
+        self.commands
+            .send(Command::Drain(reply))
+            .expect("the fixture's worker outlives the server handle");
+        counted
+            .recv()
+            .expect("the fixture's worker answers a drain request")
+    }
+}
+
+/// Serve every connection the kernel has queued.
+fn accept_queued(
+    listener: &std::net::TcpListener,
+    held: &mut Vec<std::net::TcpStream>,
+    answer: Option<(&'static str, &'static str)>,
+    connections: &AtomicUsize,
+) {
+    while let Ok((mut stream, _)) = listener.accept() {
+        connections.fetch_add(1, Ordering::SeqCst);
+        // An accepted socket may inherit the listener's
+        // non-blocking state; read in blocking mode with a
+        // timeout so a partial request bounds shutdown instead
+        // of blocking the worker (and `Drop`'s join) forever.
+        let _ = stream.set_nonblocking(false);
+        let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+        read_full_request(&mut stream);
+        match answer {
+            Some((status, body)) => {
+                let response = format!(
+                    "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+            None => held.push(stream),
+        }
     }
 }
 
 impl Drop for Server {
     fn drop(&mut self) {
-        let _ = self.stop.send(());
+        let _ = self.commands.send(Command::Stop);
         if let Some(thread) = self.thread.take() {
             let _ = thread.join();
         }
@@ -465,11 +492,8 @@ async fn assert_failure_row(status: &'static str, body: &'static str, expected: 
         },
     );
 
-    // An immediate retry would race the fixture's accept loop, and a short
-    // backoff would arrive inside this window; either opens a second connection.
-    std::thread::sleep(Duration::from_millis(200));
     assert_eq!(
-        server.connections(),
+        server.quiesce(),
         1,
         "a failed decision call must not be retried"
     );
@@ -687,9 +711,7 @@ fn stalled_loopback_exhausts_the_production_timeout_then_progresses() {
         },
     );
 
-    // A retry would open a second connection to the still-listening fixture.
-    std::thread::sleep(Duration::from_millis(200));
-    assert_eq!(stalled.connections(), 1, "a timed-out call is not retried");
+    assert_eq!(stalled.quiesce(), 1, "a timed-out call is not retried");
     // Dropping the fixture releases the held socket and joins its thread.
     drop(stalled);
 }

@@ -374,7 +374,7 @@ async fn npc_preparation_failure_ends_the_interactive_session_without_feedback()
     let fx = fixture();
     let ace = fx.root.join("npcs/ace.ron");
     // The pack is loaded before `run_npc`; removing a source file afterwards
-    // makes the staged transplant fail, exactly as the D2/D3 witnesses do.
+    // makes the staged transplant fail.
     std::fs::remove_file(&ace).unwrap();
     let chat = Chat::free(vec![Ok(valid_npc_reply())]);
     let mut io = Io::new("this feedback must never be read\n");
@@ -671,9 +671,7 @@ async fn draft_writer_refuses_backslash_and_colon_scene_stems_on_native_windows(
     }
 }
 
-// ---------------------------------------------------------------------------
 // The decision pin (N25) and the missing-pin note (N26)
-// ---------------------------------------------------------------------------
 
 const NOTE_ACE: &str = "note: npc `ace` has decision configs but no model pin, so its decision points always take the fallback";
 const NOTE_ZED: &str = "note: npc `zed` has decision configs but no model pin, so its decision points always take the fallback";
@@ -789,7 +787,6 @@ async fn replace_leaves_the_pin_alone() {
     );
     assert!(!written.contains("pin/other"), "{written}");
 
-    // An unpinned NPC stays unpinned.
     let mut fx = fixture();
     unpin_pack(&mut fx);
     let chat = Chat::free(vec![Ok(valid_npc_reply())]);

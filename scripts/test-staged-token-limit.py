@@ -14,7 +14,7 @@ from pathlib import Path
 CHECKER = Path(__file__).with_name("check-staged-token-limit.py")
 
 
-class StagedLimitTests(unittest.TestCase):
+class SizeLimitTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
         self.addCleanup(self.tempdir.cleanup)
@@ -42,6 +42,16 @@ class StagedLimitTests(unittest.TestCase):
             [sys.executable, str(CHECKER)], cwd=self.root, env=self.env,
             capture_output=True, text=True,
         )
+
+    def check_range(self, base: str, head: str = "HEAD") -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, str(CHECKER), "--base", base, "--head", head],
+            cwd=self.root, env=self.env, capture_output=True, text=True,
+        )
+
+    def commit(self, message: str = "commit") -> None:
+        self.git("add", "-A")
+        self.git("commit", "-qm", message)
 
     def exceptions(self, *entries: tuple[str, int], text: str | None = None) -> None:
         if text is None:
@@ -222,6 +232,114 @@ class StagedLimitTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("cannot check staged file sizes", result.stderr)
 
+
+    def test_range_mode_passes_when_the_change_touches_no_oversized_file(self) -> None:
+        self.write("engine/src/small.rs", "x" * 100)
+        self.commit("baseline")
+        self.write("engine/src/small.rs", "x" * 200)
+        self.commit("grow a small file")
+        self.assertEqual(self.check_range("HEAD~1").returncode, 0)
+
+    def test_range_mode_a_file_grown_past_the_limit_fails_and_names_it(self) -> None:
+        self.write("engine/src/small.rs", "x" * 100)
+        self.commit("baseline")
+        self.write("engine/src/small.rs", "x" * 20_001)
+        self.commit("grow past the limit")
+        result = self.check_range("HEAD~1")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("engine/src/small.rs", result.stderr)
+        self.assertIn("20,001 bytes", result.stderr)
+
+    def test_range_mode_growth_past_a_recorded_ceiling_fails_and_names_the_ceiling(self) -> None:
+        self.write("app/src/credentials.rs", "x" * 49_941)
+        self.exceptions(("app/src/credentials.rs", 49_941))
+        self.commit("baseline with an exception")
+        self.write("app/src/credentials.rs", "x" * 49_942)
+        self.commit("grow past the ceiling")
+        result = self.check_range("HEAD~1")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("past its recorded 49,941 bytes", result.stderr)
+
+    def test_range_mode_a_covered_exception_passes(self) -> None:
+        self.write("engine/src/small.rs", "x" * 10)
+        self.commit("baseline")
+        self.write("app/src/credentials.rs", "x" * 30_000)
+        self.exceptions(("app/src/credentials.rs", 30_000))
+        self.commit("oversized with an exception")
+        result = self.check_range("HEAD~1")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("recorded exception", result.stderr)
+
+    def test_range_mode_the_exception_list_comes_from_the_checked_revision(self) -> None:
+        self.write("engine/src/small.rs", "x" * 10)
+        self.commit("baseline")
+        self.write("app/src/credentials.rs", "x" * 30_000)
+        self.commit("oversized with no exception")
+        self.exceptions(("app/src/credentials.rs", 30_000))
+        result = self.check_range("HEAD~1")
+        self.assertEqual(result.returncode, 1, result.stderr)
+        self.assertIn("app/src/credentials.rs", result.stderr)
+
+    def test_range_mode_the_hooks_exemptions_apply(self) -> None:
+        self.write("engine/src/small.rs", "x" * 10)
+        self.commit("baseline")
+        self.write("docs/spec.md", "x" * 30_000)
+        self.write("engine/tests/big.rs", "x" * 30_000)
+        self.write("Cargo.lock", "x" * 30_000)
+        self.commit("exempt files")
+        self.assertEqual(self.check_range("HEAD~1").returncode, 0)
+
+    def test_range_mode_a_deleted_oversized_file_passes(self) -> None:
+        self.write("engine/src/big.rs", "x" * 30_000)
+        self.commit("oversized baseline")
+        (self.root / "engine/src/big.rs").unlink()
+        self.commit("delete it")
+        self.assertEqual(self.check_range("HEAD~1").returncode, 0)
+
+    def test_range_mode_the_range_and_the_index_agree_on_the_same_change(self) -> None:
+        self.write("engine/src/small.rs", "x" * 10)
+        self.commit("baseline")
+        self.write("engine/src/big.rs", "x" * 20_001)
+        self.write("docs/spec.md", "x" * 30_000)
+        self.write("engine/src/small.rs", "x" * 11)
+        self.git("add", "-A")
+        staged = self.check()
+        self.assertEqual(staged.returncode, 1)
+        self.commit("oversized")
+        ranged = self.check_range("HEAD~1")
+        self.assertEqual(ranged.returncode, 1)
+        for result in (staged, ranged):
+            with self.subTest(mode=result.args[1:2]):
+                self.assertIn("engine/src/big.rs", result.stderr)
+                self.assertNotIn("docs/spec.md", result.stderr)
+                self.assertNotIn("engine/src/small.rs", result.stderr)
+
+    def test_range_mode_a_base_of_several_commits_back_covers_them_all(self) -> None:
+        self.write("engine/src/one.rs", "x" * 10)
+        self.commit("baseline")
+        self.write("engine/src/one.rs", "x" * 20_001)
+        self.commit("first")
+        self.write("engine/src/two.rs", "x" * 20_001)
+        self.commit("second")
+        result = self.check_range("HEAD~2")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("engine/src/one.rs", result.stderr)
+        self.assertIn("engine/src/two.rs", result.stderr)
+
+    def test_range_mode_head_without_a_base_is_a_usage_error(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(CHECKER), "--head", "HEAD"], cwd=self.root, env=self.env,
+            capture_output=True, text=True,
+        )
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("--head needs --base", result.stderr)
+
+    def test_range_mode_an_unreadable_revision_fails_closed(self) -> None:
+        self.write("engine/src/small.rs", "x" * 10)
+        self.commit("baseline")
+        result = self.check_range("no-such-revision")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("cannot check", result.stderr)
 
 if __name__ == "__main__":
     unittest.main()

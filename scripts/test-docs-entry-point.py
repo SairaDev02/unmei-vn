@@ -7,7 +7,6 @@ states. Exit 0 is success, 1 is findings, 2 is a tool error.
 """
 
 import os
-import subprocess
 import tempfile
 import unittest
 from pathlib import Path

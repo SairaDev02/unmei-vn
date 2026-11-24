@@ -59,7 +59,6 @@ impl<'a> Parser<'a> {
             let line_no = i + 1;
             let trimmed = src[i].trim();
 
-            // Comments and blank lines.
             if trimmed.is_empty() || trimmed.starts_with('#') {
                 i += 1;
                 continue;
@@ -169,7 +168,6 @@ impl<'a> Parser<'a> {
                 continue;
             }
 
-            // Say-line fallback: `Speaker: text`.
             if let Some((speaker, text)) = split_say_line(trimmed) {
                 validate_interpolation(&text).map_err(|m| self.err(line_no, m))?;
                 lines.push(Line::Say { speaker, text });
@@ -218,12 +216,10 @@ mod tests {
         assert!(scene.labels.contains_key("ask_letter"));
         assert!(scene.labels.contains_key("silence"));
         assert!(scene.labels.contains_key("converge"));
-        // A say-line from Ace exists.
         assert!(scene
             .lines
             .iter()
             .any(|l| matches!(l, Line::Say { speaker, .. } if speaker == "Ace")));
-        // Choice block has two options.
         assert!(scene
             .lines
             .iter()

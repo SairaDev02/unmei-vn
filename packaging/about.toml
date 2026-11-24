@@ -55,12 +55,13 @@ ignore-dev-dependencies = true
 # additionally drops any member that is `publish = false` (`unmei-app`).
 private = { ignore = true }
 
-# Built-in clarifications. `ring` packages four license texts in one `LICENSE`
-# file and declares a `license` expression that does not match them, so its text
-# is bound by hash inside the tool (docs: cli/generate/workarounds.md).
+# Built-in clarifications. `ring` splits its license texts across `LICENSE`,
+# `LICENSE-BoringSSL` and `LICENSE-other-bits` and declares a `license`
+# expression that does not match them, so its text is bound by hash inside the
+# tool (docs: cli/generate/workarounds.md).
 workarounds = ["ring"]
 
-# Crate-specific clarifications (research 0026 §3.3). Each one binds a license
+# Crate-specific clarifications. Each one binds a license
 # text from the crate's own repository at the commit it was published from, and
 # fails closed: a version bump that changes the file drops the clarification, the
 # crate is re-scanned, and `--fail` rejects a crate that then has no usable text.

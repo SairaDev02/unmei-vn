@@ -143,7 +143,7 @@ pub(crate) fn project_monitor(
     // Prune before the visibility check: dropping an evicted `Arc` reference is
     // not text work and must happen while hidden too, or a previously full
     // projection would keep a second copy of evicted payloads alive until the
-    // drawer reopens (finding A02).
+    // drawer reopens.
     let oldest = history.as_deref().and_then(MonitorHistory::oldest_sequence);
     projection.prune_evicted(oldest);
 
@@ -226,7 +226,7 @@ pub(crate) fn project_monitor(
             // Extend **upward** from the examined ceiling, oldest-of-the-new
             // first. A batch larger than the budget therefore resumes from
             // exactly where the last pass stopped, leaving no unexamined hole
-            // above the band (finding A05).
+            // above the band.
             if let Some(newest) = newest {
                 let lines = history.lines();
                 let mut index = lines.partition_point(|line| line.sequence <= existing_ceiling);

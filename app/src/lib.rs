@@ -61,10 +61,6 @@ pub use failure::DefensiveHold;
 #[cfg(test)]
 pub(crate) use plugins::register_ownership_gated_presentation;
 
-// ---------------------------------------------------------------------------
-// Configuration + resources
-// ---------------------------------------------------------------------------
-
 /// What the runtime needs before it can start: which pack to play, how that pack
 /// was chosen, whether a Decisions resolver is configured, and the one
 /// app-lifetime dev-mode value.
@@ -161,10 +157,6 @@ pub struct Runtime {
     pub asset_root: PathBuf,
 }
 
-// ---------------------------------------------------------------------------
-// System sets
-// ---------------------------------------------------------------------------
-
 /// Pack load, script stepping, input, decision polling, save/load.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct RuntimeCoreSet;
@@ -189,10 +181,6 @@ pub(crate) struct NoticeSet;
 /// while a `Runtime` exists.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct MonitorDrawerSet;
-
-// ---------------------------------------------------------------------------
-// Plugins
-// ---------------------------------------------------------------------------
 
 /// Headless-capable core: safe to add under `MinimalPlugins` in tests.
 pub struct RuntimeCorePlugin;

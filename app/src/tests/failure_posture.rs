@@ -1,9 +1,5 @@
 use super::*;
 
-// ---------------------------------------------------------------------------
-// Failure posture: the Notice and the startup error screen
-// ---------------------------------------------------------------------------
-
 #[test]
 fn an_active_notice_does_not_consume_input() {
     let pack = temp_pack();
@@ -157,8 +153,6 @@ fn a_defensive_failure_holds_the_runner_and_shows_the_notice() {
     );
     assert!(on_hold(&app), "rows 11–13 set the defensive hold");
 
-    // Esc opens the overlay under the hold; the play path stays frozen and the
-    // missing label never re-fires the request.
     let parked = parked_position(&app);
     esc(&mut app);
     assert!(menu(&app).open, "Esc opens the overlay under a hold");
@@ -321,9 +315,7 @@ fn an_unwritable_log_reports_without_a_notice_and_the_pack_still_plays() {
     );
 }
 
-// ---------------------------------------------------------------------------
 // Silent asset degradation (rows 3–6)
-// ---------------------------------------------------------------------------
 
 /// A presentation-only app rooted at `asset_root`, with the demo pack's runner
 /// held but undriven, so the real load sites and the watcher run with no
@@ -426,7 +418,6 @@ fn missing_background_sprite_and_music_each_warn_once_and_play_continues() {
         "a repeated staging command must not warn again"
     );
 
-    // Play continues: the runner still reaches its next wait.
     let mut runtime = app.world_mut().resource_mut::<Runtime>();
     let outcome = runtime.runner.run().unwrap();
     runtime.staging.apply_all(&outcome.staged);
@@ -543,7 +534,6 @@ fn an_undecodable_sprite_warns_while_the_valid_background_still_loads() {
     );
     assert!(!app.world().resource::<Notice>().is_showing());
 
-    // The other visual stayed: the valid background decoded and is resident.
     let server = app.world().resource::<bevy::asset::AssetServer>().clone();
     let handle = server
         .get_handle::<Image>("backgrounds/school_gate.png")

@@ -20,9 +20,8 @@ use crate::content::{DecisionConfig, StateValue};
 
 use super::{
     build_decision_request, decision_from_body, is_openrouter_key, resolve_or_fallback,
-    verdict_from_status, verified_model, Decision, DecisionError, DecisionRequest,
-    DecisionResolver, KeyCheck, KeyVerdict, ResolvedDecision, DEFAULT_ENDPOINT, KEY_CHECK_TIMEOUT,
-    KEY_ENDPOINT,
+    verified_model, Decision, DecisionError, DecisionRequest, DecisionResolver, ResolvedDecision,
+    DEFAULT_ENDPOINT,
 };
 
 /// Environment variable holding the NanoGPT API key. A non-empty value is
@@ -73,7 +72,7 @@ impl DecisionsClient {
                 // A permissive `RUST_LOG` must never authorize a raw wire dump:
                 // reqwest's serialized bytes contain the Authorization header.
                 // Enabling this (or hyper/h2 tracing) requires renewed
-                // credential-safety validation (research 0007).
+                // credential-safety validation.
                 .connection_verbose(false)
                 // Q16: a redirect's `Location` is response-controlled and can
                 // reflect the credential into the next connection's logged
@@ -186,8 +185,8 @@ fn decision_request(
     api_key: &str,
     request: &DecisionRequest,
 ) -> reqwest::RequestBuilder {
-    // `bearer_auth` builds a sensitive `HeaderValue` (research 0007 item 1), so
-    // the typed header renders as `Sensitive` rather than the key.
+    // `bearer_auth` builds a sensitive `HeaderValue`, so the typed header
+    // renders as `Sensitive` rather than the key.
     http.post(endpoint).bearer_auth(api_key).json(request)
 }
 
@@ -255,7 +254,7 @@ async fn send_decision(
 /// Shared rather than per-client: `reqwest` needs a reactor, callers may be on
 /// any executor (Bevy's compute task pool is not one), and a runtime dropped
 /// inside an async context panics — a `'static` one is never dropped at all.
-fn shared_runtime() -> &'static tokio::runtime::Runtime {
+pub(super) fn shared_runtime() -> &'static tokio::runtime::Runtime {
     static RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
     RUNTIME.get_or_init(|| {
         tokio::runtime::Builder::new_multi_thread()
@@ -266,92 +265,16 @@ fn shared_runtime() -> &'static tokio::runtime::Runtime {
     })
 }
 
-// ---------------------------------------------------------------------------
-// Key validation
-// ---------------------------------------------------------------------------
+mod key_check;
 
-/// The real [`KeyCheck`]: `GET https://api.nano-gpt.com/api/v1/api-keys/current` with
-/// `Authorization: Bearer <key>` and a [`KEY_CHECK_TIMEOUT`] bound
-/// (`docs/title-and-menu.md` § Decisions settings §3). The URL is fixed — it
-/// deliberately ignores `UNMEI_DECISIONS_URL` — and the key never reaches a log
-/// line: the only data leaving this module is the request itself.
-#[derive(Clone)]
-pub struct HttpKeyCheck {
-    http: reqwest::Client,
-}
-
-impl std::fmt::Debug for HttpKeyCheck {
-    /// Opaque for the same reason as [`DecisionsClient`]: HTTP-client internals
-    /// are configuration, and the key travels in a request header.
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("HttpKeyCheck").finish_non_exhaustive()
-    }
-}
-
-impl HttpKeyCheck {
-    /// Build with the 5-second ping timeout.
-    pub fn new() -> Self {
-        HttpKeyCheck {
-            http: reqwest::Client::builder()
-                .timeout(KEY_CHECK_TIMEOUT)
-                // See [`DecisionsClient::new`]: wire dumps and redirects both
-                // have to stay off for the credential to stay safe.
-                .connection_verbose(false)
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .expect("static reqwest client config always builds"),
-        }
-    }
-}
-
-impl Default for HttpKeyCheck {
-    fn default() -> Self {
-        HttpKeyCheck::new()
-    }
-}
-
-impl KeyCheck for HttpKeyCheck {
-    fn check<'a>(&'a self, key: &'a str) -> Pin<Box<dyn Future<Output = KeyVerdict> + Send + 'a>> {
-        let http = self.http.clone();
-        let key = key.to_string();
-        // An OpenRouter-format key is never sent (N10): no network at all.
-        if is_openrouter_key(&key) {
-            return Box::pin(async { KeyVerdict::OpenRouterKey });
-        }
-        // Run on the shared runtime: `reqwest` needs a reactor, and the app
-        // polls this future from Bevy's compute task pool.
-        Box::pin(async move {
-            shared_runtime()
-                .spawn(send_key_check(http, KEY_ENDPOINT, key))
-                .await
-                .unwrap_or(KeyVerdict::Unreachable)
-        })
-    }
-}
-
-/// Build one key-validation request builder. Kept separate from
-/// [`send_key_check`] so a test can inspect the constructed request (the bearer
-/// header must be marked sensitive).
-fn key_check_request(http: &reqwest::Client, endpoint: &str, key: &str) -> reqwest::RequestBuilder {
-    // `bearer_auth` marks the header sensitive; the body is never read.
-    http.get(endpoint).bearer_auth(key)
-}
-
-/// One ping: any transport error or non-`2xx`/`401`/`403` status — including a
-/// `3xx`, which is never followed — resolves [`KeyVerdict::Unreachable`], never
-/// a rejection. The body and any `Location` are never read.
-async fn send_key_check(http: reqwest::Client, endpoint: &str, key: String) -> KeyVerdict {
-    let response = key_check_request(&http, endpoint, &key).send().await;
-    match response {
-        Ok(response) => verdict_from_status(response.status().as_u16()),
-        Err(_) => KeyVerdict::Unreachable,
-    }
-}
+pub use key_check::HttpKeyCheck;
 
 #[cfg(test)]
 mod tests {
+    use super::key_check::{key_check_request, send_key_check};
     use super::*;
     use crate::content::{Criteria, Fallback, QuestionType};
+    use crate::decision::{KeyCheck, KeyVerdict, KEY_ENDPOINT};
     use std::collections::HashMap;
     use std::io::{Read, Write};
     use std::net::TcpListener;

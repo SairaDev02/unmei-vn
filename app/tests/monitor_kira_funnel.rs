@@ -68,7 +68,6 @@ fn the_kira_upstream_warning_reaches_the_funnel_once_through_the_real_layer() {
     // Update ingests both admitted events into the shared history.
     app.update();
 
-    // The observer saw the upstream warning.
     assert_eq!(
         app.world()
             .resource::<AudioSetupFailure>()
@@ -122,7 +121,6 @@ fn the_kira_upstream_warning_reaches_the_funnel_once_through_the_real_layer() {
         funnel[0].body()
     );
 
-    // Two distinct events: the source is admitted before its funnel mirror.
     assert_ne!(sources[0].target, funnel[0].target);
     assert!(
         sources[0].sequence < funnel[0].sequence,

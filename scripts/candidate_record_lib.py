@@ -11,15 +11,14 @@ drive all of it without a run.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import NamedTuple
 
-from package_lib import (Refusal, indented, sha256_bytes, sha256_file,
-                         workspace_version)
+from package_lib import (Refusal, indented, sha256_bytes as sha256_bytes,
+                         sha256_file as sha256_file, workspace_version)
 from candidate_record_facts import (RESIDUALS, SLOTS, hash_key, hash_ref,
                                     is_sha, require_digest, require_entries,
                                     require_facts, require_hashes,
@@ -64,8 +63,6 @@ def version_at(manifest_text):
     """The `[workspace.package] version` of a root `Cargo.toml`, by packaging's rule."""
     return workspace_version(manifest_text)
 
-
-# --- eligibility --------------------------------------------------------
 
 
 def shape_refusals(sha, ref):
@@ -116,8 +113,6 @@ def eligibility_result(sha, version, coordinator_revision):
         "coordinator_revision": coordinator_revision,
     }
 
-
-# --- the record ---------------------------------------------------------
 
 
 def normalized_hashes(hashes):
@@ -330,8 +325,6 @@ def require_record(record, path="the record"):
 def slot_of(record, name):
     return next(slot for slot in record["slots"] if slot["name"] == name)
 
-
-# --- staged payload and SHA256SUMS -------------------------------------
 
 
 def staged_crate(record, crate):
