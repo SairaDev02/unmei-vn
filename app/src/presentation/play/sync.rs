@@ -1,19 +1,16 @@
 //! The play surface's sync systems: staging visuals, the mix, audio playback,
-//! the silent-degradation report, the reveal clock and the dialogue band.
+//! the silent-degradation report and the reveal clock. The frame's words are
+//! [`super::frame`]'s.
 
 use bevy::prelude::*;
 use bevy_kira_audio::{AudioChannel, AudioControl as AudioPlaybackControl};
-use unmei_engine::runner::Wait;
 
 use super::super::assets::{
     audio_asset_path, background_asset_path, sprite_asset_path, AssetWatch,
 };
-use super::super::style::TextFaces;
-use super::chrome::HELP_LINE;
-use super::reveal::{rendered_line_parts, TextReveal};
+use super::reveal::TextReveal;
 use super::state::{
-    AppliedAudio, AppliedUi, AppliedVisuals, AppliedVolume, BackgroundSprite, Bgm, ChoiceButton,
-    DialogueProse, DialogueText, HelpLine, NpcSprite, Sfx,
+    AppliedAudio, AppliedVisuals, AppliedVolume, BackgroundSprite, Bgm, NpcSprite, Sfx,
 };
 use crate::failure::{Failure, FailureRow, Failures};
 use crate::menu::MenuState;
@@ -197,108 +194,6 @@ pub(crate) fn report_silent_degradations(
 ) {
     for (row, path, error) in watch.settle(&asset_server) {
         failures.report(Failure::new(row, format!("`{path}`: {error}")));
-    }
-}
-
-/// Rebuild dialogue text and choice buttons whenever the parked wait changes, and
-/// repaint the revealed slice every frame in between. This is the only writer of
-/// the [`DialogueText`] root and its [`DialogueProse`] span — the two components
-/// are disjoint, so the reveal never races another system for them. The root
-/// carries the mono speaker prefix (or a whole non-say line) and the span the
-/// sans prose (`docs/title-and-menu.md` § Type system §4).
-#[allow(clippy::too_many_arguments)]
-pub(crate) fn sync_wait_ui(
-    mut commands: Commands,
-    faces: Res<TextFaces>,
-    runtime: Res<Runtime>,
-    menu: Option<Res<MenuState>>,
-    settings: Option<Res<SettingsState>>,
-    mut applied: ResMut<AppliedUi>,
-    mut reveal: ResMut<TextReveal>,
-    mut dialogue: Query<&mut Text, (With<DialogueText>, Without<HelpLine>)>,
-    mut prose: Query<&mut TextSpan, With<DialogueProse>>,
-    mut help: Query<&mut Text, (With<HelpLine>, Without<DialogueText>)>,
-    choices: Query<Entity, With<ChoiceButton>>,
-) {
-    // No dialogue box, choice button or scene chip is drawn while a title
-    // surface is up. Only the play chrome is cleared: the `AppliedUi`
-    // bookkeeping and the reveal clock are deliberately left alone, so a
-    // live-session Continue resumes the line where it stopped rather than
-    // restarting it.
-    if menu.as_deref().is_some_and(MenuState::title_surface_up) {
-        for entity in &choices {
-            commands.entity(entity).despawn();
-        }
-        for mut text in &mut dialogue {
-            if !text.is_empty() {
-                **text = String::new();
-            }
-        }
-        for mut span in &mut prose {
-            if !span.0.is_empty() {
-                span.0.clear();
-            }
-        }
-        for mut text in &mut help {
-            if !text.is_empty() {
-                **text = String::new();
-            }
-        }
-        return;
-    }
-
-    for mut text in &mut help {
-        if **text != HELP_LINE {
-            **text = HELP_LINE.to_string();
-        }
-    }
-
-    let wait = runtime.runner.wait().cloned();
-    let speed = settings::effective_text_speed(settings.as_deref());
-
-    // The reveal is armed on a *new* park only. The comparison is the whole
-    // `Wait`, so two consecutive identical say-lines do not re-reveal (the
-    // recorded pre-existing quirk); a load resets `AppliedUi`, which re-arms.
-    if !applied.ready || applied.wait != wait {
-        reveal.arm(&wait, speed);
-
-        for entity in &choices {
-            commands.entity(entity).despawn();
-        }
-
-        if let Some(Wait::Choice { options }) = &wait {
-            for (index, (text, _)) in options.iter().enumerate() {
-                commands.spawn((
-                    ChoiceButton { index },
-                    Button,
-                    Node {
-                        position_type: PositionType::Absolute,
-                        top: Val::Px(140.0 + index as f32 * 48.0),
-                        left: Val::Px(80.0),
-                        padding: UiRect::all(Val::Px(8.0)),
-                        ..default()
-                    },
-                    Text::new(format!("{}. {text}", index + 1)),
-                    faces.sans(28.0),
-                    TextColor::from(Color::srgb(0.80, 0.40, 0.25)),
-                ));
-            }
-        }
-
-        applied.wait = wait.clone();
-        applied.ready = true;
-    }
-
-    let (root, prose_text) = rendered_line_parts(&wait, &reveal, speed);
-    for mut text in &mut dialogue {
-        if **text != root {
-            **text = root.clone();
-        }
-    }
-    for mut span in &mut prose {
-        if span.0 != prose_text {
-            span.0 = prose_text.clone();
-        }
     }
 }
 

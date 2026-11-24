@@ -27,10 +27,15 @@ pub(super) fn style(entity: &mut EntityCommands<'_>, surface: &Surface<'_>, styl
         linebreak: LineBreak::WordOrCharacter,
         ..default()
     });
-    let opacity = style.paint.opacity;
-    if let Some(tone) = tone(style) {
-        entity.insert(TextColor::from(paint::color(tone, opacity)));
+    if let Some(tone) = tone_color(style) {
+        entity.insert(TextColor::from(tone));
     }
+}
+
+/// The colour a node's words draw in, opacity included: the tone a loop dims.
+pub(super) fn tone_color(style: &Style) -> Option<bevy::prelude::Color> {
+    let opacity = style.paint.opacity;
+    tone(style).map(|tone| paint::color(tone, opacity))
 }
 
 /// The tone a node draws its text in: a `text` or `glyph` node's own `fill`,

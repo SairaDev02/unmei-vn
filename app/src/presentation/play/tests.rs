@@ -103,6 +103,7 @@ fn one_replay_request_resets_audio_visuals_and_ui_together() {
             text: "one.".to_string(),
         }),
         ready: true,
+        say: Some(("A".to_string(), "one.".to_string())),
     };
 
     request_replay(&mut audio, &mut visuals, &mut ui);
@@ -116,5 +117,6 @@ fn one_replay_request_resets_audio_visuals_and_ui_together() {
         "the sprites rebuild from the staging snapshot"
     );
     assert_eq!(ui.wait, None);
-    assert!(!ui.ready, "the dialogue band and choice buttons rebuild");
+    assert_eq!(ui.say, None, "the previous say-line is forgotten");
+    assert!(!ui.ready, "the play frame re-arms on the restored park");
 }

@@ -14,8 +14,8 @@
 //!
 //! The player draws from these trees too: the renderer takes the surface it is
 //! drawing from the plugin in force, and the reference plugin's tree stands in
-//! for every surface a pack's plugin leaves alone. The confirm is the first
-//! surface drawn this way; the rest replace their hand-written trees ticket by
+//! for every surface a pack's plugin leaves alone. The confirm and the play
+//! frame are drawn this way; the rest replace their hand-written trees ticket by
 //! ticket, and each one deletes the tree it replaced.
 
 use unmei_engine::ui::MemorySource;

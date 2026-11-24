@@ -21,7 +21,7 @@ Sections so far:
 - **Type system** — settled 2026-10-04.
 - **Timeline** — settled 2026-10-08 (behaviour), prototype-validated: roomier layout A.
 - **Gallery** — settled 2026-10-05, prototype-validated; layout B, the framed-card grid.
-- **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. Not built.
+- **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. **Partly built** (§1, §2 and §5 through the plugin renderer; §3 and §4 are not).
 - **Backlog** — settled 2026-11-14: the session scrollback the quick row's `Log` opens. Not built.
 
 The Settings view these sections extend — its shape, its pause doctrine and its focus conventions — is [Menu overlay](runtime-hardening.md#menu-overlay)'s and is inherited, not re-decided here.
@@ -816,7 +816,7 @@ Locked focus deliberately communicates **progression and relative position**, ne
 
 ## Default look
 
-Settled 2026-11-14. **Not built.** Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
+Settled 2026-11-14. **Partly built** — §1, §2 and §5 are drawn through the plugin renderer (issue #113); §3 and §4 are not. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
 
 This section is the one owner of the default look of the play frame, the title and the Esc menu, for the improved demo pack and every default install. Where an earlier layout rule disagrees, this section wins, and that rule carries a dated pointer here. Behaviour — the title's states and confirms, the pause doctrine, the skip and auto rules, the slot actions, the Timeline and Gallery contracts — is unchanged unless a numbered point below says otherwise. Faces follow [Type system](#type-system) as amended by §6.
 

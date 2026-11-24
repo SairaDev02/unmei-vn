@@ -159,93 +159,6 @@ fn the_titles_faces_follow_the_type_system() {
     assert_every_text_names_a_bundled_face(&app);
 }
 
-/// The say-line's root is the mono speaker prefix and its child span the sans
-/// prose, and the reveal writes the span only
-/// (`docs/title-and-menu.md` § Type system §4/§5).
-#[test]
-fn the_say_line_splits_into_a_mono_prefix_and_a_sans_prose_span() {
-    let pack = temp_pack();
-    let mut app = app_for_pack(pack.path().join("pack"));
-    let node = spawn_dialogue(&mut app);
-    set_text_speed(&mut app, 0.02);
-    let faces = app
-        .world()
-        .resource::<crate::presentation::style::TextFaces>()
-        .clone();
-    let (speaker, full) = say_parts(&app);
-    let prefix = format!("{speaker}: ");
-
-    render_dialogue(&mut app);
-    let prose = app
-        .world()
-        .get::<Children>(node)
-        .and_then(|children| children.first().copied())
-        .expect("the dialogue node has one prose span");
-    let root_text = |app: &App| app.world().get::<Text>(node).expect("root").0.clone();
-    let prose_text = |app: &App| app.world().get::<TextSpan>(prose).expect("span").0.clone();
-
-    assert_eq!(root_text(&app), prefix, "the root is the whole prefix");
-    assert_eq!(prose_text(&app), "", "the span starts empty");
-    assert_eq!(
-        face_handle(&app, node),
-        faces.mono_medium,
-        "the speaker prefix is mono"
-    );
-    assert_eq!(
-        face_handle(&app, prose),
-        faces.sans_regular,
-        "the prose span is sans"
-    );
-    assert_ne!(
-        face_handle(&app, node),
-        face_handle(&app, prose),
-        "the two halves use different faces"
-    );
-
-    advance_time(&mut app, 0.5);
-    render_dialogue(&mut app);
-    let shown = prose_text(&app);
-    assert!(
-        !shown.is_empty() && full.starts_with(&shown),
-        "the reveal fills the prose span: {shown:?}"
-    );
-    assert_eq!(
-        root_text(&app),
-        prefix,
-        "the reveal never rewrites the mono prefix"
-    );
-}
-
-/// A headless UI world with the embedded faces and no pack asset root renders
-/// the dialogue split (`docs/title-and-menu.md` § Type system §5).
-#[test]
-fn a_headless_ui_world_renders_the_dialogue_split_without_a_pack_asset_root() {
-    let mut app = App::new();
-    app.add_plugins(MinimalPlugins);
-    attach_text_faces(&mut app);
-    app.world_mut()
-        .run_system_once(crate::presentation::play::setup_ui)
-        .expect("setup_ui runs");
-
-    let root = app
-        .world()
-        .iter_entities()
-        .find_map(|entity| entity.get::<DialogueText>().map(|_| entity.id()))
-        .expect("the dialogue node exists");
-    let faces = app
-        .world()
-        .resource::<crate::presentation::style::TextFaces>()
-        .clone();
-    assert_eq!(face_handle(&app, root), faces.mono_medium);
-    let prose = app
-        .world()
-        .get::<Children>(root)
-        .and_then(|children| children.first().copied())
-        .expect("the dialogue node has a prose span");
-    assert_eq!(face_handle(&app, prose), faces.sans_regular);
-    assert_ne!(face_handle(&app, root), face_handle(&app, prose));
-}
-
 /// The slot card splits into a sans label root, mono machine spans and a sans
 /// action-label span, each with its own colour
 /// (`docs/title-and-menu.md` § Type system §4/§5).
@@ -489,8 +402,31 @@ fn the_choice_options_are_sans() {
                 .map(|_| entity.id())
         })
         .expect("a choice button exists");
+    let option_text = app
+        .world()
+        .iter_entities()
+        .filter(|entity| {
+            entity
+                .get::<Text>()
+                .is_some_and(|text| text.0.chars().count() > 3)
+        })
+        .map(|entity| entity.id())
+        .find(|entity| {
+            let mut parent = *entity;
+            for _ in 0..4 {
+                match app.world().get::<ChildOf>(parent) {
+                    Some(child_of) => parent = child_of.parent(),
+                    None => return false,
+                }
+                if parent == button {
+                    return true;
+                }
+            }
+            false
+        })
+        .expect("the option's words live inside its button");
     assert_eq!(
-        face_handle(&app, button),
+        face_handle(&app, option_text),
         faces.sans_regular,
         "the choice option text is sans"
     );

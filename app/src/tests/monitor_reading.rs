@@ -1,5 +1,13 @@
 use super::*;
 
+/// The log body's own rect at the 1280x720 reference: the drawer's 288px less
+/// the 52px header, the 13px footer and the 1px border on each side, sitting
+/// under the header (`docs/title-and-menu.md` Default look §5).
+const BODY_HEIGHT: f32 = 221.0;
+const BODY_TOP: f32 = 212.0;
+const BODY_CENTER_Y: f32 = BODY_TOP + BODY_HEIGHT / 2.0;
+const TRACK_X: f32 = 1251.0;
+
 fn reader_anchor(app: &App) -> Option<drawer::MonitorAnchor> {
     drawer_panel(app).anchor()
 }
@@ -73,9 +81,17 @@ fn send_reader_wheel(app: &mut App, y: f32, unit: bevy::input::mouse::MouseScrol
 /// cursor's landing place is the position, and the release ends it.
 fn drag_reader_to(app: &mut App, track_fraction: f32) {
     let track = scrollbar_track_entity(app);
-    place_reader_rect(app, track, Vec2::new(1251.0, 358.5), Vec2::new(10.0, 293.0));
+    place_reader_rect(
+        app,
+        track,
+        Vec2::new(TRACK_X, BODY_CENTER_Y),
+        Vec2::new(10.0, BODY_HEIGHT),
+    );
     let thumb = reader_node(app, drawer::MonitorReaderNode::Thumb);
-    set_reader_cursor(app, Vec2::new(1251.0, 212.0 + track_fraction * 293.0));
+    set_reader_cursor(
+        app,
+        Vec2::new(TRACK_X, BODY_TOP + track_fraction * BODY_HEIGHT),
+    );
     app.world_mut()
         .resource_mut::<ButtonInput<MouseButton>>()
         .press(MouseButton::Left);
@@ -118,8 +134,8 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
     place_reader_rect(
         &mut app,
         body,
-        Vec2::new(640.0, 358.5),
-        Vec2::new(1232.0, 293.0),
+        Vec2::new(640.0, BODY_CENTER_Y),
+        Vec2::new(1232.0, BODY_HEIGHT),
     );
 
     set_reader_cursor(&mut app, Vec2::new(40.0, 40.0));
@@ -133,7 +149,7 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
 
     // Hit-tested to the body, one notch moves three display lines older and
     // disables following; the anchor is a retained admission identity.
-    set_reader_cursor(&mut app, Vec2::new(640.0, 358.5));
+    set_reader_cursor(&mut app, Vec2::new(640.0, BODY_CENTER_Y));
     send_reader_wheel(&mut app, 1.0, bevy::input::mouse::MouseScrollUnit::Line);
     step_input(&mut app);
     assert!(
@@ -141,10 +157,10 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
         "scrolling away disables following"
     );
     let anchor = reader_anchor(&app).expect("the reader anchored");
-    assert_eq!(anchor.sequence, 82, "the 15-line tail minus a 3-line notch");
+    assert_eq!(anchor.sequence, 86, "the 11-line tail minus a 3-line notch");
     assert_eq!(
         drawer_window(&mut app).first().copied(),
-        Some(82),
+        Some(86),
         "the anchor is the top visible event"
     );
     assert!(drawer_status(&mut app).contains("reading older lines"));
@@ -159,10 +175,10 @@ fn wheel_scrolls_only_when_hit_tested_to_the_log_body() {
     );
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(82),
+        Some(86),
         "the same event stays anchored"
     );
-    assert_eq!(drawer_window(&mut app).first().copied(), Some(82));
+    assert_eq!(drawer_window(&mut app).first().copied(), Some(86));
 
     for _ in 0..3 {
         send_reader_wheel(&mut app, -1.0, bevy::input::mouse::MouseScrollUnit::Line);
@@ -191,8 +207,8 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     step_input(&mut app);
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(170),
-        "200 events minus a 15-line bottom viewport, one page older"
+        Some(178),
+        "200 events minus an 11-line bottom viewport, one page older"
     );
     assert!(!drawer_panel(&app).is_following());
 
@@ -200,14 +216,14 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
     step_input(&mut app);
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(170),
+        Some(178),
         "no repeat before the paging cadence"
     );
     advance_time(&mut app, 0.12);
     step_input(&mut app);
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(155),
+        Some(167),
         "the held key repeats"
     );
     // A repeat moves the reader like any other change: the drawn window starts
@@ -223,7 +239,7 @@ fn page_home_end_and_conflicting_navigation_follow_the_contract() {
 
     // PgDn moves newer; reaching the bottom resumes following.
     tap_key(&mut app, KeyCode::PageDown);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(170));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(178));
     assert!(!drawer_panel(&app).is_following());
 
     tap_key(&mut app, KeyCode::Home);
@@ -299,14 +315,14 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
     place_reader_rect(
         &mut app,
         track,
-        Vec2::new(1251.0, 358.5),
-        Vec2::new(10.0, 293.0),
+        Vec2::new(TRACK_X, BODY_CENTER_Y),
+        Vec2::new(10.0, BODY_HEIGHT),
     );
     let thumb = reader_node(&mut app, drawer::MonitorReaderNode::Thumb);
 
     // A fresh press on the thumb starts a drag; the thumb centre follows the
-    // cursor to the track's middle: event 42 with half a line read into it.
-    set_reader_cursor(&mut app, Vec2::new(1251.0, 358.5));
+    // cursor to the track's middle: event 44 with half a line read into it.
+    set_reader_cursor(&mut app, Vec2::new(TRACK_X, BODY_CENTER_Y));
     app.world_mut()
         .resource_mut::<ButtonInput<MouseButton>>()
         .press(MouseButton::Left);
@@ -315,7 +331,7 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
         .insert(Interaction::Pressed);
     step_input(&mut app);
     let anchor = reader_anchor(&app).expect("the drag anchored the reader");
-    assert_eq!(anchor.sequence, 42);
+    assert_eq!(anchor.sequence, 44);
     assert!(
         (anchor.offset_lines - 0.5).abs() < 0.01,
         "the within-row offset is half the anchor row: {}",
@@ -325,7 +341,7 @@ fn scrollbar_drag_positions_the_reader_and_cancels_safely() {
     assert!(scroll_drag_active(&app));
 
     // Dragging to the bottom of the travel is a deliberate bottom arrival.
-    set_reader_cursor(&mut app, Vec2::new(1251.0, 505.0));
+    set_reader_cursor(&mut app, Vec2::new(TRACK_X, BODY_TOP + BODY_HEIGHT));
     step_input(&mut app);
     assert!(
         drawer_panel(&app).is_following(),
@@ -471,7 +487,7 @@ fn a_reading_anchor_survives_hide_reopen_and_clamps_to_its_rewrap() {
     // A production scrollbar drag into the wrapped event establishes a
     // fractional reading position: the mid travel over 100 single-line rows
     // lands on event 42, and the four-line row admits an offset past one line.
-    drag_reader_to(&mut app, 0.5);
+    drag_reader_to(&mut app, 0.48);
     let anchor = reader_anchor(&app).expect("the drag anchored the reader");
     assert_eq!(anchor.sequence, 42);
     assert!(
@@ -569,7 +585,7 @@ fn an_evicted_anchor_clamps_to_the_oldest_match_and_acknowledges_expiry() {
     settle_reader(&mut app);
 
     tap_key(&mut app, KeyCode::PageUp);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(70));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(78));
 
     // Retention evicts the anchored event.
     seed_numbered_monitor(&mut app, 80..180, "unmei::seq");
@@ -695,27 +711,27 @@ fn filter_changes_keep_or_fall_back_to_matching_anchors() {
     );
 
     // A non-matching anchor falls back to the first surviving matching newer
-    // event. The drag lands on odd event 65: 100 rows give the mid-lower track
-    // a position just inside 65 across the 85-line bottom range.
+    // event. The drag lands on odd event 67: 100 rows give the mid-lower track
+    // a position just inside 67 across the bottom range.
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     drag_reader_to(&mut app, 0.726);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(65));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(67));
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(66),
+        Some(68),
         "the first surviving matching newer event"
     );
     assert!(!drawer_panel(&app).is_following());
 
-    // ...else the nearest preceding match. Event 83 is past the last match at
+    // ...else the nearest preceding match. Event 85 is past the last match at
     // 82, so no newer match survives.
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     drag_reader_to(&mut app, 0.91);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(83));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(85));
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     assert_eq!(
@@ -741,11 +757,11 @@ fn an_empty_filter_view_stays_empty_and_later_matches_never_enable_follow() {
 
     // Anchor a dependency event under Show everything, then switch the display
     // predicate to `unmei::` only: there is no match at all. The drag's mid
-    // travel over the 100 rows lands on event 42.
+    // travel over the 100 rows lands on event 44.
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     drag_reader_to(&mut app, 0.5);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(42));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(44));
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     assert_eq!(reader_anchor(&app), None, "no matches, no anchor");
@@ -809,16 +825,16 @@ fn a_filter_refresh_never_shows_a_false_empty_state_while_locating_the_anchor() 
     tap_key(&mut app, KeyCode::F3);
     settle_reader(&mut app);
     tap_key(&mut app, KeyCode::PageUp);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(70));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(78));
 
     // Show everything keeps the matching anchor.
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(70));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(78));
 
     // Back to `unmei::` only: the restart's first pass examines the newest 128
     // entries — all dependency noise — so there are zero current-predicate rows
-    // while the retained anchor (70) is still unscanned.
+    // while the retained anchor (78) is still unscanned.
     let control = drawer_control_entity(&mut app, MonitorControl::ShowEverything);
     app.world_mut()
         .entity_mut(control)
@@ -847,7 +863,7 @@ fn a_filter_refresh_never_shows_a_false_empty_state_while_locating_the_anchor() 
     settle_reader(&mut app);
     assert_eq!(
         reader_anchor(&app).map(|anchor| anchor.sequence),
-        Some(70),
+        Some(78),
         "the anchor survived the refresh"
     );
     assert!(!drawer_panel(&app).is_pending());
@@ -876,14 +892,14 @@ fn a_pending_refresh_never_presents_the_matching_tail_as_the_olders_location() {
     tap_key(&mut app, KeyCode::F3);
     settle_reader(&mut app);
     // The drag's travel over the 500 matching rows is 485 lines deep, so a
-    // track fraction of 0.2155 lands just inside the 100th match — retained
-    // event 200.
+    // track fraction of 0.2155 lands just inside a matching row — retained
+    // event 204.
     drag_reader_to(&mut app, 0.2155);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(200));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(204));
 
     // Toggle the view to restart the pass: its first window is the newest 128
     // retained entries (872..999), which hold positive `unmei::` matches, while
-    // the retained anchor 200 is still unscanned.
+    // the retained anchor 204 is still unscanned.
     activate_control(&mut app, MonitorControl::ShowEverything);
     let projection = app.world().resource::<crate::drawer::MonitorProjection>();
     assert!(projection.is_updating(), "the restarted pass is incomplete");
@@ -908,8 +924,8 @@ fn a_pending_refresh_never_presents_the_matching_tail_as_the_olders_location() {
 
     settle_reader(&mut app);
     assert!(!drawer_panel(&app).is_pending());
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(200));
-    assert_eq!(drawer_window(&mut app).first().copied(), Some(200));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(204));
+    assert_eq!(drawer_window(&mut app).first().copied(), Some(204));
 }
 
 #[test]
@@ -932,13 +948,13 @@ fn automatic_clamps_never_enable_follow() {
     settle_reader(&mut app);
 
     // Anchor a noise event past every match under Show everything (the drag
-    // lands near event 80), then switch back: the nearest preceding match is
+    // lands near event 82), then switch back: the nearest preceding match is
     // the projection's newest row — the automatic fallback must not enable
     // follow.
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     drag_reader_to(&mut app, 0.88);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(80));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(82));
     activate_control(&mut app, MonitorControl::ShowEverything);
     settle_reader(&mut app);
     assert_eq!(
@@ -1050,7 +1066,7 @@ fn reader_position_and_expiry_survive_session_transitions() {
     tap_key(&mut app, KeyCode::F3);
     settle_reader(&mut app);
     tap_key(&mut app, KeyCode::PageUp);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(70));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(78));
     seed_numbered_monitor(&mut app, 80..180, "unmei::seq");
     settle_reader(&mut app);
     assert!(drawer_panel(&app).is_expired());
@@ -1133,7 +1149,7 @@ fn reader_position_and_expiry_survive_a_timeline_jump() {
     tap_key(&mut app, KeyCode::F3);
     settle_reader(&mut app);
     tap_key(&mut app, KeyCode::PageUp);
-    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(70));
+    assert_eq!(reader_anchor(&app).map(|anchor| anchor.sequence), Some(78));
     seed_numbered_monitor(&mut app, 80..180, "unmei::seq");
     settle_reader(&mut app);
     assert!(drawer_panel(&app).is_expired());

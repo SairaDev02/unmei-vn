@@ -53,8 +53,8 @@ pub const NEWEST_WASH: Color = Color::srgba(230.0 / 255.0, 158.0 / 255.0, 92.0 /
 
 // The fixed geometry the approved layout pins.
 pub const PANEL_SIDE_INSET: f32 = 24.0;
-pub const PANEL_HEIGHT: f32 = 360.0;
-pub const PANEL_BOTTOM_RESERVATION: f32 = 148.0;
+pub const PANEL_HEIGHT: f32 = 288.0;
+pub const PANEL_BOTTOM_RESERVATION: f32 = 220.0;
 pub const HEADER_HEIGHT: f32 = 52.0;
 pub const FOOTER_HEIGHT: f32 = 13.0;
 pub const ROW_ELAPSED_WIDTH: f32 = 72.0;
