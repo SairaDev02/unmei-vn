@@ -272,6 +272,12 @@ fn a_restyled_confirm_draws_the_packs_tree_font_image_and_copy() {
 
     click(&mut app, MenuAction::ConfirmCancel);
     assert_eq!(app.world().resource::<MenuState>().confirm, None);
+
+    app.world_mut().resource_mut::<MenuState>().confirm =
+        Some(menu::ConfirmKind::Overwrite(Slot::Manual(1)));
+    build_pause_tree(&mut app);
+    esc(&mut app);
+    assert_eq!(app.world().resource::<MenuState>().confirm, None);
 }
 
 /// The handle a face was built with.
