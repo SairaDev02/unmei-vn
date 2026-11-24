@@ -15,7 +15,9 @@
             component: "panel",
             width: 420.0,
             children: [
-                (kind: "slot", slot: "confirm.prompt"),
+                (kind: "slot", slot: "confirm.prompt",
+                    typography: "{typography.dialog-title}",
+                    color: "{colors.text}"),
                 (kind: "slot", slot: "confirm.detail",
                     typography: "{typography.detail}",
                     color: "{colors.dim}"),

@@ -17,6 +17,7 @@ pub(crate) mod assets;
 pub(crate) mod gallery;
 pub(crate) mod overlay;
 pub(crate) mod play;
+pub(crate) mod render;
 pub(crate) mod settings_view;
 pub(crate) mod style;
 pub(crate) mod timeline;
@@ -89,6 +90,7 @@ pub(crate) fn sync_menu_ui(
     asset_server: Option<Res<AssetServer>>,
     read_log: Option<Res<crate::read_log::ReadLogState>>,
     bodies: Query<&ScrollPosition, With<TimelineBody>>,
+    look: Option<Res<render::UiLook>>,
     mut watch: Option<ResMut<AssetWatch>>,
     mut built: ResMut<MenuBuilt>,
     roots: Query<Entity, With<MenuRoot>>,
@@ -138,6 +140,7 @@ pub(crate) fn sync_menu_ui(
                     &runtime,
                     asset_server.as_deref(),
                     watch,
+                    look.as_deref(),
                 ),
                 MenuView::Settings if menu.settings_origin == menu::MenuOrigin::Title => {
                     build_title_settings(
@@ -149,6 +152,7 @@ pub(crate) fn sync_menu_ui(
                         credentials.as_deref(),
                         asset_server.as_deref(),
                         watch,
+                        look.as_deref(),
                     );
                 }
                 MenuView::Gallery if menu.gallery_origin == menu::MenuOrigin::Title => {
@@ -171,6 +175,7 @@ pub(crate) fn sync_menu_ui(
                     asset_server.as_deref(),
                     watch,
                     read_log.as_deref(),
+                    look.as_deref(),
                     restored_scroll,
                 ),
             }
@@ -184,7 +189,7 @@ pub(crate) fn sync_menu_ui(
 /// open confirmation.
 pub(crate) fn sync_menu_focus(
     menu: Res<MenuState>,
-    mut buttons: Query<(&MenuAction, &mut BorderColor)>,
+    mut buttons: Query<(&MenuAction, &mut BorderColor), Without<render::UiStates>>,
 ) {
     if !menu.open {
         return;
@@ -210,6 +215,7 @@ pub(crate) fn register(app: &mut App) {
             .chain()
             .in_set(PresentationSet),
     );
+    render::register(app);
     play::register(app);
     title::register(app);
     gallery::register(app);

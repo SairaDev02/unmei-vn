@@ -1,0 +1,231 @@
+//! The four state overrides a tree authors: `focused`, `disabled`, `lit` and
+//! `current` (spec §4).
+//!
+//! A tree paints a control in the state it is in, and focus changes without a
+//! rebuild, so one system repaints every rendered node whose state moved. The
+//! precedence is fixed because the format lets several states be true at once and
+//! says nothing about their order: focused, then disabled, then lit, then
+//! current. The focused state wins because it is the one the player moved to.
+//!
+//! Each state's face and tone are resolved once, when the tree is spawned: the
+//! repaint only copies the components a state selects.
+
+use bevy::prelude::*;
+use bevy::text::LineHeight;
+use bevy::ui::{BackgroundGradient, BoxShadow, UiTransform};
+use unmei_engine::ui::{Color, ControlStates, Paint, StateOverrides, Style};
+
+use crate::menu::{self, MenuAction, MenuState};
+use crate::presentation::style::TextFaces;
+use crate::presentation::PresentationSet;
+
+use super::look::UiLook;
+use super::paint;
+use super::text;
+
+/// The states in the order they win.
+const STATES: usize = 4;
+const FOCUSED: usize = 0;
+const DISABLED: usize = 1;
+const LIT: usize = 2;
+
+/// The state a rendered node's overrides follow, so a repaint reads one
+/// component instead of the whole surface.
+#[derive(Component, Clone, Debug)]
+pub(crate) struct UiStates {
+    pub action: Option<MenuAction>,
+    pub disabled: bool,
+    pub lit: bool,
+    pub current: bool,
+    /// The paint the node draws with when no state is in force.
+    pub paint: Paint,
+    /// The overrides the tree authored, and each one's face and tone resolved.
+    pub states: ControlStates,
+    fonts: [Option<TextFont>; STATES],
+    lines: [Option<LineHeight>; STATES],
+    colors: [Option<Color>; STATES],
+}
+
+impl UiStates {
+    /// The state facts of one rendered node, with every override's face and tone
+    /// resolved through the look in force.
+    pub(crate) fn new(
+        action: Option<MenuAction>,
+        state: super::tree::ControlState,
+        states: &ControlStates,
+        style: &Style,
+        look: &UiLook,
+        faces: &TextFaces,
+    ) -> Self {
+        let mut resolved = Self {
+            action,
+            disabled: state.disabled,
+            lit: state.lit,
+            current: state.current,
+            paint: style.paint.clone(),
+            states: states.clone(),
+            fonts: std::array::from_fn(|_| None),
+            lines: std::array::from_fn(|_| None),
+            colors: std::array::from_fn(|_| None),
+        };
+        let authored = [
+            states.focused.as_ref(),
+            states.disabled.as_ref(),
+            states.lit.as_ref(),
+            states.current.as_ref(),
+        ];
+        for (index, overrides) in authored.into_iter().enumerate() {
+            if let Some(typography) = overrides.and_then(|overrides| overrides.typography.as_ref())
+            {
+                resolved.fonts[index] = Some(text::font(look, faces, typography));
+                resolved.lines[index] = Some(LineHeight::Px(typography.line_height_px));
+            }
+            resolved.colors[index] = overrides.and_then(|overrides| overrides.color);
+        }
+        resolved
+    }
+}
+
+/// Repaint the paint of every rendered node whose state moved.
+#[allow(
+    clippy::type_complexity,
+    reason = "one node's paint is the six components Bevy carries it in"
+)]
+pub(crate) fn sync_paint_states(
+    menu: Res<MenuState>,
+    mut nodes: Query<(
+        &UiStates,
+        &mut Node,
+        Option<&mut BackgroundColor>,
+        Option<&mut BackgroundGradient>,
+        Option<&mut BorderColor>,
+        Option<&mut BoxShadow>,
+        Option<&mut UiTransform>,
+    )>,
+) {
+    for (states, mut node, background, gradient, border, shadow, transform) in &mut nodes {
+        let Some(index) = active(&menu, states) else {
+            continue;
+        };
+        let drawn = effective(&states.paint, overrides_at(&states.states, index));
+        let (fill_background, fill_gradient) = match &drawn.fill {
+            Some(fill) => {
+                let (value, value_gradient) = paint::background(fill, drawn.opacity);
+                (Some(value), value_gradient)
+            }
+            None => (None, None),
+        };
+        if let (Some(mut component), Some(value)) = (background, fill_background) {
+            *component = value;
+        }
+        if let Some(mut component) = gradient {
+            *component = fill_gradient.unwrap_or(BackgroundGradient(Vec::new()));
+        }
+        if let (Some(mut component), Some(value)) = (border, drawn.border) {
+            let (value, _) = paint::border(value, drawn.opacity);
+            *component = value;
+        }
+        node.border = match drawn.border {
+            Some(value) => UiRect::all(Val::Px(value.width)),
+            None => UiRect::ZERO,
+        };
+        node.border_radius = drawn.radius.map(paint::radius).unwrap_or_default();
+        if let Some(mut component) = shadow {
+            *component = paint::shadows(&drawn.shadows, drawn.opacity);
+        }
+        if let Some(mut component) = transform {
+            *component = paint::transform(drawn.transform);
+        }
+    }
+}
+
+/// Repaint the face and tone of every rendered label whose state moved.
+#[allow(
+    clippy::type_complexity,
+    reason = "a label's face, tone and line height are the three components Bevy carries them in"
+)]
+pub(crate) fn sync_text_states(
+    menu: Res<MenuState>,
+    mut labels: Query<(
+        &UiStates,
+        Option<&mut TextFont>,
+        Option<&mut LineHeight>,
+        Option<&mut TextColor>,
+    )>,
+) {
+    for (states, font, line, color) in &mut labels {
+        let Some(index) = active(&menu, states) else {
+            continue;
+        };
+        if let (Some(mut component), Some(value)) = (font, states.fonts[index].clone()) {
+            *component = value;
+        }
+        if let (Some(mut component), Some(value)) = (line, states.lines[index]) {
+            *component = value;
+        }
+        if let (Some(mut component), Some(value)) = (color, states.colors[index]) {
+            *component = TextColor::from(paint::color(value, states.paint.opacity));
+        }
+    }
+}
+
+/// The index of the state in force, if any.
+fn active(menu: &MenuState, states: &UiStates) -> Option<usize> {
+    let focused = states
+        .action
+        .is_some_and(|action| menu::action_for_focus(menu.focus) == action);
+    if focused && states.states.focused.is_some() {
+        return Some(FOCUSED);
+    }
+    for (index, (set, authored)) in [
+        (states.disabled, states.states.disabled.is_some()),
+        (states.lit, states.states.lit.is_some()),
+        (states.current, states.states.current.is_some()),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        if set && authored {
+            return Some(index + 1);
+        }
+    }
+    None
+}
+
+fn overrides_at(states: &ControlStates, index: usize) -> Option<&StateOverrides> {
+    match index {
+        FOCUSED => states.focused.as_ref(),
+        DISABLED => states.disabled.as_ref(),
+        LIT => states.lit.as_ref(),
+        _ => states.current.as_ref(),
+    }
+}
+
+/// The paint a node draws with when `overrides` are in force: each property the
+/// override sets replaces the base's.
+fn effective(base: &Paint, overrides: Option<&StateOverrides>) -> Paint {
+    let Some(overrides) = overrides else {
+        return base.clone();
+    };
+    Paint {
+        fill: overrides.fill.clone().or_else(|| base.fill.clone()),
+        border: overrides.border.or(base.border),
+        radius: overrides.radius.or(base.radius),
+        shadows: overrides
+            .shadows
+            .clone()
+            .unwrap_or_else(|| base.shadows.clone()),
+        opacity: overrides.opacity.unwrap_or(base.opacity),
+        transform: overrides.transform.unwrap_or(base.transform),
+    }
+}
+
+/// Register the repaint systems, after the tree that spawns the nodes.
+pub(crate) fn register(app: &mut App) {
+    app.add_systems(
+        Update,
+        (sync_paint_states, sync_text_states)
+            .chain()
+            .in_set(PresentationSet),
+    );
+}

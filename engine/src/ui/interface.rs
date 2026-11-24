@@ -493,10 +493,90 @@ pub fn shows_text(name: &str) -> bool {
     TEXT.contains(&name)
 }
 
+/// The names a surface lists that draw no words of the engine's, sorted by why.
+///
+/// Two families: a container — a list, a row, a marker slot or the backdrop —
+/// holds other nodes and draws nothing itself, and a control is a hit area whose
+/// words are drawn by a slot beside it, such as the title rows' labels or a
+/// slider's value. [`TEXT`] holds the rest, so a name added to a surface has to
+/// land in one of the two lists before [`every_name_draws_text_or_is_listed_here`]
+/// passes.
+#[cfg(test)]
+const NOT_TEXT: &[&str] = &[
+    "advance-marker",
+    "choices",
+    "confirm.yes",
+    "contents.ledger",
+    "contents.sections",
+    "deciding-marker",
+    "gallery.card.<n>",
+    "gallery.card.art",
+    "gallery.cards",
+    "legacy.target.1",
+    "legacy.target.2",
+    "legacy.target.3",
+    "legacy.targets",
+    "overlay.gallery",
+    "overlay.legacy",
+    "overlay.load-tab",
+    "overlay.save-tab",
+    "overlay.settings",
+    "overlay.slot.1",
+    "overlay.slot.2",
+    "overlay.slot.3",
+    "overlay.slot.autosave",
+    "overlay.timeline",
+    "quick-row",
+    "settings.audio-rows",
+    "settings.copy-path",
+    "settings.master",
+    "settings.music",
+    "settings.sfx",
+    "still.art",
+    "still.entry",
+    "timeline.card.<n>",
+    "timeline.cards",
+    "title.backdrop",
+    "title.continue",
+    "title.gallery",
+    "title.new-game",
+    "title.quit",
+    "title.rows",
+    "title.settings",
+];
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+
+    /// Every slot and control name a surface lists is either one the engine
+    /// draws words into or one [`NOT_TEXT`] says it does not, so adding a surface
+    /// name forces the choice instead of silently skipping the rule.
+    #[test]
+    fn every_name_draws_text_or_is_listed_here() {
+        let mut listed = BTreeSet::new();
+        for spec in SURFACES {
+            listed.extend(spec.slots.iter().copied());
+            listed.extend(spec.optional_slots.iter().copied());
+            listed.extend(spec.controls.iter().copied());
+            for list in spec.lists {
+                listed.insert(list.slot);
+                listed.extend(list.item_slots.iter().copied());
+                listed.extend(list.optional_item_slots.iter().copied());
+                listed.extend(list.item_controls.iter().copied());
+            }
+        }
+        let text: BTreeSet<&str> = TEXT.iter().copied().collect();
+        let silent: BTreeSet<&str> = NOT_TEXT.iter().copied().collect();
+        assert!(
+            text.is_disjoint(&silent),
+            "a name is in both lists: {:?}",
+            text.intersection(&silent).collect::<Vec<_>>()
+        );
+        let sorted: BTreeSet<&str> = text.union(&silent).copied().collect();
+        assert_eq!(listed, sorted, "every listed name is in TEXT or NOT_TEXT");
+    }
 
     /// Every name a surface lists, as `(name, is_a_control)`.
     fn listed() -> BTreeSet<&'static str> {

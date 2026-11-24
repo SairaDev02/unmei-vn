@@ -14,9 +14,9 @@ pub(crate) struct TextFaces {
     pub(crate) sans_regular: Handle<Font>,
     pub(crate) sans_semibold: Handle<Font>,
     pub(crate) sans_bold: Handle<Font>,
-    /// Fira Mono Regular ships available but no rule currently uses it
-    /// (`docs/title-and-menu.md` § Type system §3).
-    #[allow(dead_code)]
+    /// Fira Mono Regular ships available; the renderer resolves a plugin's
+    /// `Fira Mono` at weight 400 with it (`docs/title-and-menu.md` § Type
+    /// system §3).
     pub(crate) mono_regular: Handle<Font>,
     pub(crate) mono_medium: Handle<Font>,
 }
@@ -70,6 +70,20 @@ impl TextFaces {
     /// Regular ships available but is deliberately unused.
     pub(crate) fn mono(&self, size: f32) -> TextFont {
         self.font(self.mono_medium.clone(), size)
+    }
+
+    /// The embedded face `family` at `weight`, when the player embeds it: the
+    /// renderer resolves a plugin's typography through this before falling back
+    /// (`docs/keiko-spec.md` § UI plugins' five faces).
+    pub(crate) fn embedded(&self, family: &str, weight: u16) -> Option<Handle<Font>> {
+        match (family, weight) {
+            ("IBM Plex Sans", 400) => Some(self.sans_regular.clone()),
+            ("IBM Plex Sans", 600) => Some(self.sans_semibold.clone()),
+            ("IBM Plex Sans", 700) => Some(self.sans_bold.clone()),
+            ("Fira Mono", 400) => Some(self.mono_regular.clone()),
+            ("Fira Mono", 500) => Some(self.mono_medium.clone()),
+            _ => None,
+        }
     }
 
     fn font(&self, face: Handle<Font>, size: f32) -> TextFont {

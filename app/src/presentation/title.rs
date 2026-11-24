@@ -47,6 +47,7 @@ pub(super) fn build_title(
     runtime: &Runtime,
     asset_server: Option<&AssetServer>,
     watch: Option<&mut AssetWatch>,
+    look: Option<&super::render::UiLook>,
 ) {
     let manifest = &runtime.runner.pack().manifest;
     let pack_name = manifest.name.clone();
@@ -205,7 +206,7 @@ pub(super) fn build_title(
             });
 
             if let Some(confirm) = menu.confirm {
-                confirm_dialog(root, faces, menu, confirm, None, runtime);
+                confirm_dialog(root, look, faces, confirm, None, runtime);
             }
         });
 }

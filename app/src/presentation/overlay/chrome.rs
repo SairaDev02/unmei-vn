@@ -8,11 +8,13 @@ use bevy::ui_widgets::ScrollArea;
 
 use super::super::assets::AssetWatch;
 use super::super::gallery::gallery_surface;
+use super::super::render::UiLook;
 use super::super::settings_view::{settings_body, SettingsBody};
 use super::super::style::{TextFaces, BUTTON_BG, CARD_BG, DIM, PANEL_BG, TEXT};
 use super::super::timeline::timeline_surface;
 use super::super::{focus_border, MenuRoot};
-use super::dialogs::{confirm_dialog, legacy_picker};
+use super::confirm::confirm_dialog;
+use super::dialogs::legacy_picker;
 use crate::credentials::CredentialsState;
 use crate::menu::{self, MenuAction, MenuState, MenuView};
 use crate::settings::SettingsState;
@@ -34,6 +36,7 @@ pub(in crate::presentation) fn build_overlay(
     asset_server: Option<&AssetServer>,
     watch: Option<&mut AssetWatch>,
     read_log: Option<&crate::read_log::ReadLogState>,
+    look: Option<&UiLook>,
     timeline_scroll: Option<Vec2>,
 ) {
     let pack_name = runtime.runner.pack().manifest.name.clone();
@@ -290,7 +293,7 @@ pub(in crate::presentation) fn build_overlay(
                 }
 
                 if let Some(confirm) = menu.confirm {
-                    confirm_dialog(main, faces, menu, confirm, credentials, runtime);
+                    confirm_dialog(main, look, faces, confirm, credentials, runtime);
                 }
                 if menu.picker.is_some() {
                     legacy_picker(main, faces, menu);

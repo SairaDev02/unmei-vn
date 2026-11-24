@@ -5,10 +5,11 @@
 //! writes the embedded reference plugin into the pack's `ui/` folder as an
 //! author's starting point ([`crate::export_ui`]).
 //!
-//! The grammar never touches the filesystem, so the one rule that needs it — the
-//! folder must be absent or empty, because an export never mixes the reference
-//! plugin into an author's own files — is a separate step that runs where the
-//! pack root is resolved ([`export_target`]).
+//! The grammar never touches the filesystem, so the rules that need it are a
+//! separate step that runs where the pack root is resolved ([`export_target`]):
+//! the pack folder must exist, and its `ui/` folder must be absent or empty,
+//! because an export never mixes the reference plugin into an author's own files
+//! (ui-plugin spec §1's export rule and §2's folder rule).
 
 use std::path::{Path, PathBuf};
 

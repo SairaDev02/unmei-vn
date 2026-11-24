@@ -141,7 +141,7 @@ A `box` lays its children out: `direction` (`row` or `column`), `gap`, `padding`
 
 Any node takes `width`, `height` (a length, `auto` or `fill`), `position` (`relative` or `absolute`), `left`, `top`, `right` and `bottom` for an absolute node, `z_index`, `opacity`, `transform` (`x`, `y`, `scale`, `rotation_deg`) and `loop`.
 
-A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width` and `color`), `radius` (a number of pixels, a `{rounded.key}` or `{spacing.key}` token, or one per corner) and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `radius` rounds the node, so a filled box that draws no border rounds the same way. A `text` or `glyph` takes `typography` and `fill`.
+A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width` and `color`), `radius` (a number of pixels, a `{rounded.key}` or `{spacing.key}` token, or one per corner) and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `linear` gradient is `(angle_deg: 0.0, stops: [...])`, where 0 runs left to right and 90 top to bottom, and a stop is `(at: 0.0, color: ...)` with `at` from 0 to 1. A `radius` rounds the node, so a filled box that draws no border rounds the same way. A `text` or `glyph` takes `typography` and `fill`.
 
 A length is a number of pixels or a `{spacing.key}` token. A colour is `(r: 0.0, g: 0.0, b: 0.0, a: 1.0)` with channels from 0 to 1, or a `{colors.key}` token. A number may be written as an integer or a float. A name the format knows is a lowercase kebab-case string, for example `"ease-in-out"`; never a RON identifier.
 
@@ -531,11 +531,11 @@ One tree for every confirm kind. The kind's prompt, detail and accept label are 
 
 | Kind | Name | In list | Placeholders | Shows |
 | --- | --- | --- | --- | --- |
-| required slot | `confirm.prompt` | — | — | The kind's prompt: what it asks, with the slot, scene or path it names. |
+| required slot | `confirm.prompt` | — | — | The kind's question, drawn from its `title` copy key. |
 | required slot | `confirm.accept-label` | — | — | The accept control's label, which differs by kind. |
 | required slot | `confirm.yes` | — | — | The accept control. |
 | required slot | `confirm.no` | — | — | The cancel control. |
-| optional slot | `confirm.detail` | — | — | The kind's detail line, when it has one. |
+| optional slot | `confirm.detail` | — | — | The kind's consequence, drawn from its `prompt` copy key, or `detail` for the Timeline jump. |
 | required control | `confirm.yes` | — | — | Accepts the confirm. |
 | required control | `confirm.no` | — | — | Cancels the confirm. |
 | copy key | `confirm.overwrite.title` | — | — | `Overwrite` |
