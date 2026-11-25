@@ -12,13 +12,13 @@
 //! The passes run in one order — the paths a source lists, the folder's caps,
 //! the manifest and its copy overrides, the tokens, the fonts and the images,
 //! then each surface tree and its interface, then the face and tone its text
-//! shows — and each
-//! pass ends the plugin when it found an error, so a folder that breaks a cap is
-//! never read on, a token table that failed is never resolved in a tree and a
-//! font that no file carries never reaches the renderer. A tree's loops are
-//! judged by §6 while its surface parses it, which is where the tree and the
-//! surface id meet; its slots are judged against the surface's table once every
-//! tree has parsed, because a table speaks about a whole tree.
+//! shows — and each pass ends the plugin when it found an error, so a folder
+//! that breaks a cap is never read on, a token table that failed is never
+//! resolved in a tree and a font that no file carries never reaches the
+//! renderer. A tree's loops are judged by §6 while its surface parses it, which
+//! is where the tree and the surface id meet; its slots are judged against the
+//! surface's table once every tree has parsed, because a table speaks about a
+//! whole tree.
 
 mod caps;
 mod file;
