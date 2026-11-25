@@ -23,11 +23,13 @@ A plugin lives in `ui/`, beside the pack's `pack.ron`.
 | `ui/plugin.ron` | yes | The manifest: the format version and the plugin's declarations. |
 | `ui/tokens.ron` | no | The five token groups. A plugin without it has no tokens. |
 | `ui/surfaces/<id>.ron` | no | One surface's node tree. A surface without a tree keeps the reference look. |
-| `ui/<any other file>` | no | Font and image files the manifest declares. |
+| `ui/<any other file>` | no | Font files and the PNG images the manifest declares. |
 
 The ten surface ids are `title`, `title-settings`, `play`, `contents`, `settings`, `gallery`, `still`, `timeline`, `legacy-picker` and `confirm`. A tree file for any other id is `ui.surface.unknown`.
 
 Every path the plugin names is relative and stays inside `ui/`. A path that is empty, absolute, names `..`, or leaves the folder once symlinks are followed is `ui.path.escape`, and no file outside `ui/` is read.
+
+Every image the manifest declares is a PNG: its file name ends `.png` and its bytes are a PNG, the one image format the player decodes. Any other name, or a `.png` file whose bytes are not a PNG, is `ui.image.format`, and the message names the file.
 
 Each cap is an error whose limit is inclusive, so a value at the limit passes:
 
@@ -63,7 +65,7 @@ Each cap is an error whose limit is inclusive, so a value at the limit passes:
 | `name` | no | The plugin's display name. |
 | `numbering` | no | The style of a choice number. Section 3 lists the values. |
 | `fonts` | no | A list of shipped faces: `family`, `weight`, `file`, `license` and `license_file`. |
-| `images` | no | A list of shipped art files, each `(file: "…")`. |
+| `images` | no | A list of shipped PNG art files, each `(file: "…")`. |
 | `copy` | no | Copy-key overrides. Section 6 lists the rules. |
 
 The engine embeds five faces, and a pack addresses them by family and weight with no file of its own: `IBM Plex Sans` at 400, 600 and 700, and `Fira Mono` at 400 and 500. Any other face belongs to a font file the plugin ships and declares, and an undeclared or unlicensed face is `ui.font.unknown` or `ui.font.license`.

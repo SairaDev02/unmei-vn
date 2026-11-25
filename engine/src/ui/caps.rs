@@ -1,9 +1,9 @@
-//! Spec §7's file-level caps and the image headers they read.
+//! Spec §7's file-level caps and the PNG header the image cap reads.
 //!
 //! A cap is an error naming the cap and the value found, and each one is
 //! inclusive: a file at 16 MiB passes and its next byte fails. The folder's
 //! count and its totals come from the source's sizes, so an oversized plugin is
-//! rejected without loading its files; only a shipped image is opened, because
+//! rejected without loading its files; only a shipped PNG is opened, because
 //! its dimensions sit in its header. The other three caps count what a file
 //! holds — 2,000 nodes and depth 32 in one surface tree, 512 characters in one
 //! copy override — so they belong to the passes that parse those files
@@ -12,7 +12,8 @@
 
 use crate::finding::{rules, Finding, Location};
 
-use super::source::{extension, Source};
+use super::images::{is_png, PNG_SIGNATURE};
+use super::source::Source;
 
 /// Files in the plugin folder.
 pub const MAX_FILES: usize = 256;
@@ -34,12 +35,6 @@ pub const MAX_DEPTH: usize = 32;
 
 /// Characters in one copy override, the smallest of the caps.
 pub const MAX_COPY_CHARS: usize = 512;
-
-const PNG_SIGNATURE: [u8; 8] = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
-
-/// The image files a plugin may ship, by extension (spec §2's "any other file",
-/// named from the manifest).
-const IMAGE_EXTENSIONS: [&str; 5] = ["png", "jpg", "jpeg", "webp", "bmp"];
 
 pub(super) fn check(source: &dyn Source, findings: &mut Vec<Finding>) {
     let paths = source.paths();
@@ -64,7 +59,7 @@ pub(super) fn check(source: &dyn Source, findings: &mut Vec<Finding>) {
             continue;
         }
         total += size;
-        if is_image(path) {
+        if is_png(path) {
             check_image(source, path, findings);
         }
         if total > MAX_TOTAL_BYTES {
@@ -92,9 +87,7 @@ fn check_image(source: &dyn Source, path: &str, findings: &mut Vec<Finding>) {
             return;
         }
     };
-    let Some((width, height)) = image_size(path, &bytes) else {
-        // A header this build cannot measure is no cap finding. A plugin image
-        // no decoder reads is the renderer's rule, not this pass's.
+    let Some((width, height)) = png_size(&bytes) else {
         return;
     };
     if width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE {
@@ -109,32 +102,6 @@ fn cap(file: String, message: String) -> Finding {
     Finding::new(file, Location::File, rules::UI_CAP, message)
 }
 
-fn is_image(path: &str) -> bool {
-    extension(path).is_some_and(|extension| {
-        IMAGE_EXTENSIONS
-            .iter()
-            .any(|known| known.eq_ignore_ascii_case(extension))
-    })
-}
-
-/// An image's pixel dimensions from its header, without a decoder. Every
-/// extension [`is_image`] recognises is measured, because §7 caps an image's
-/// size whichever format it ships in.
-fn image_size(path: &str, bytes: &[u8]) -> Option<(u32, u32)> {
-    let extension = extension(path)?;
-    if extension.eq_ignore_ascii_case("png") {
-        png_size(bytes)
-    } else if extension.eq_ignore_ascii_case("jpg") || extension.eq_ignore_ascii_case("jpeg") {
-        jpeg_size(bytes)
-    } else if extension.eq_ignore_ascii_case("webp") {
-        webp_size(bytes)
-    } else if extension.eq_ignore_ascii_case("bmp") {
-        bmp_size(bytes)
-    } else {
-        None
-    }
-}
-
 /// A PNG's width and height are the IHDR chunk's first eight payload bytes, at
 /// offsets 16 and 20 of the file: signature, chunk length, chunk type.
 fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
@@ -145,117 +112,6 @@ fn png_size(bytes: &[u8]) -> Option<(u32, u32)> {
     let width = u32::from_be_bytes([header[16], header[17], header[18], header[19]]);
     let height = u32::from_be_bytes([header[20], header[21], header[22], header[23]]);
     Some((width, height))
-}
-
-/// A JPEG's dimensions are in its first start-of-frame segment: height then
-/// width, after the two length bytes. The segments before it are skipped by
-/// their own length.
-fn jpeg_size(bytes: &[u8]) -> Option<(u32, u32)> {
-    if bytes.get(..2)? != [0xFF, 0xD8] {
-        return None;
-    }
-    let mut offset = 2;
-    loop {
-        if *bytes.get(offset)? != 0xFF {
-            return None;
-        }
-        let mut marker = *bytes.get(offset + 1)?;
-        // `0xFF` may repeat before a marker as fill bytes.
-        while marker == 0xFF {
-            offset += 1;
-            marker = *bytes.get(offset + 1)?;
-        }
-        offset += 2;
-        match marker {
-            // Markers with no length of their own.
-            0xD8 | 0xD9 | 0x01 | 0xD0..=0xD7 => continue,
-            // A start of frame: precision, height, width. C4, C8 and CC hold
-            // other tables and follow the length rule below.
-            0xC0..=0xCF if !matches!(marker, 0xC4 | 0xC8 | 0xCC) => {
-                let height = u16::from_be_bytes([*bytes.get(offset + 3)?, *bytes.get(offset + 4)?]);
-                let width = u16::from_be_bytes([*bytes.get(offset + 5)?, *bytes.get(offset + 6)?]);
-                return Some((u32::from(width), u32::from(height)));
-            }
-            _ => {
-                let length = u16::from_be_bytes([*bytes.get(offset)?, *bytes.get(offset + 1)?]);
-                // A length counts itself, so anything shorter would not advance
-                // and the scan would never end.
-                if length < 2 {
-                    return None;
-                }
-                offset += usize::from(length);
-            }
-        }
-    }
-}
-
-/// A WEBP's canvas is in its first chunk, in one of three forms: `VP8 ` for a
-/// lossy image, `VP8L` for a lossless one, and `VP8X` for an extended file,
-/// which states the canvas in its own payload.
-fn webp_size(bytes: &[u8]) -> Option<(u32, u32)> {
-    let riff = bytes.get(..12)?;
-    if &riff[..4] != b"RIFF" || &riff[8..12] != b"WEBP" {
-        return None;
-    }
-    // The chunk's fourCC sits after the RIFF size and `WEBP`; its payload
-    // follows the chunk's own four-byte length.
-    match bytes.get(12..16)? {
-        b"VP8 " => {
-            let payload = bytes.get(20..30)?;
-            // A key frame's start code follows its three-byte frame tag.
-            if payload[3..6] != [0x9D, 0x01, 0x2A] {
-                return None;
-            }
-            let width = u16::from_le_bytes([payload[6], payload[7]]) & 0x3FFF;
-            let height = u16::from_le_bytes([payload[8], payload[9]]) & 0x3FFF;
-            Some((u32::from(width), u32::from(height)))
-        }
-        b"VP8L" => {
-            let payload = bytes.get(20..25)?;
-            if payload[0] != 0x2F {
-                return None;
-            }
-            // Four bytes hold the width less one and the height less one, 14
-            // bits each.
-            let bits = u32::from_le_bytes([payload[1], payload[2], payload[3], payload[4]]);
-            Some(((bits & 0x3FFF) + 1, ((bits >> 14) & 0x3FFF) + 1))
-        }
-        b"VP8X" => {
-            // Flags, three reserved bytes, then the canvas less one in a 24-bit
-            // little-endian width and height.
-            let payload = bytes.get(20..30)?;
-            let width = u32::from_le_bytes([payload[4], payload[5], payload[6], 0]) + 1;
-            let height = u32::from_le_bytes([payload[7], payload[8], payload[9], 0]) + 1;
-            Some((width, height))
-        }
-        _ => None,
-    }
-}
-
-/// A BMP's dimensions are in its DIB header, whose size is the first field
-/// after the 14-byte file header. A 12-byte core header states them as 16-bit
-/// values; every later header states them as 32-bit ones, where a negative
-/// height only means the rows run top-down. The OS/2 form that calls the 32-bit
-/// pair unsigned reads the same here: a value past the cap is past it either
-/// way.
-fn bmp_size(bytes: &[u8]) -> Option<(u32, u32)> {
-    if bytes.get(..2)? != b"BM" {
-        return None;
-    }
-    let header_size = u32::from_le_bytes(bytes.get(14..18)?.try_into().ok()?);
-    match header_size {
-        12 => {
-            let width = u16::from_le_bytes(bytes.get(18..20)?.try_into().ok()?);
-            let height = u16::from_le_bytes(bytes.get(20..22)?.try_into().ok()?);
-            Some((u32::from(width), u32::from(height)))
-        }
-        size if size >= 40 => {
-            let width = i32::from_le_bytes(bytes.get(18..22)?.try_into().ok()?);
-            let height = i32::from_le_bytes(bytes.get(22..26)?.try_into().ok()?);
-            Some((width.unsigned_abs(), height.unsigned_abs()))
-        }
-        _ => None,
-    }
 }
 
 #[cfg(test)]
@@ -279,104 +135,5 @@ mod tests {
         bytes.extend_from_slice(&[0; 16]);
         assert_eq!(png_size(&bytes), None);
         assert_eq!(png_size(b"not a png at all, not even close"), None);
-    }
-
-    /// The frame header sits after a segment the scan must skip by its length.
-    #[test]
-    fn a_jpeg_header_skips_the_segments_before_the_frame() {
-        let mut bytes = vec![0xFF, 0xD8];
-        // An APP0 segment of six bytes, length included.
-        bytes.extend_from_slice(&[0xFF, 0xE0, 0x00, 0x06, 1, 2, 3, 4]);
-        // A start of frame: length, precision, height, width.
-        bytes.extend_from_slice(&[0xFF, 0xC0, 0x00, 0x11, 8]);
-        bytes.extend_from_slice(&720u16.to_be_bytes());
-        bytes.extend_from_slice(&1280u16.to_be_bytes());
-        bytes.extend_from_slice(&[0; 8]);
-        assert_eq!(jpeg_size(&bytes), Some((1280, 720)));
-        assert_eq!(jpeg_size(b"not a jpeg"), None);
-    }
-
-    /// A segment whose length cannot advance the scan ends it instead of
-    /// looping forever.
-    #[test]
-    fn a_jpeg_segment_with_no_length_ends_the_scan() {
-        let bytes = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x00, 0x00, 0x00];
-        assert_eq!(jpeg_size(&bytes), None);
-    }
-
-    /// `webp` and `bmp` are recognised image files, and an extension alone does
-    /// not make a file an image.
-    #[test]
-    fn an_extension_alone_does_not_make_a_file_an_image() {
-        assert_eq!(image_size("a/b.webp", &[0; 32]), None);
-        assert_eq!(image_size("a/b.bmp", &[0; 32]), None);
-        assert_eq!(image_size("plugin.ron", &[0; 32]), None);
-        assert!(is_image("ornament/arch.png"));
-        assert!(!is_image("fonts/plex.ttf"));
-    }
-
-    /// A lossy WEBP states the 14-bit pair after its start code.
-    #[test]
-    fn a_lossy_webp_header_gives_its_dimensions() {
-        let mut bytes = b"RIFF".to_vec();
-        bytes.extend_from_slice(&0u32.to_le_bytes());
-        bytes.extend_from_slice(b"WEBPVP8 ");
-        bytes.extend_from_slice(&10u32.to_le_bytes());
-        bytes.extend_from_slice(&[0, 0, 0, 0x9D, 0x01, 0x2A]);
-        bytes.extend_from_slice(&(4096u16 | 0xC000).to_le_bytes());
-        bytes.extend_from_slice(&(2048u16 | 0xC000).to_le_bytes());
-        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
-    }
-
-    /// A lossless WEBP packs the pair, each less one, into four bytes.
-    #[test]
-    fn a_lossless_webp_header_gives_its_dimensions() {
-        let mut bytes = b"RIFF".to_vec();
-        bytes.extend_from_slice(&0u32.to_le_bytes());
-        bytes.extend_from_slice(b"WEBPVP8L");
-        bytes.extend_from_slice(&5u32.to_le_bytes());
-        bytes.push(0x2F);
-        bytes.extend_from_slice(&(4095u32 | (2047 << 14)).to_le_bytes());
-        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
-    }
-
-    /// An extended WEBP states its canvas less one in two 24-bit fields.
-    #[test]
-    fn an_extended_webp_header_gives_its_dimensions() {
-        let mut bytes = b"RIFF".to_vec();
-        bytes.extend_from_slice(&0u32.to_le_bytes());
-        bytes.extend_from_slice(b"WEBPVP8X");
-        bytes.extend_from_slice(&10u32.to_le_bytes());
-        bytes.push(0);
-        bytes.extend_from_slice(&[0; 3]);
-        bytes.extend_from_slice(&4095u32.to_le_bytes()[..3]);
-        bytes.extend_from_slice(&2047u32.to_le_bytes()[..3]);
-        assert_eq!(webp_size(&bytes), Some((4096, 2048)));
-        assert_eq!(webp_size(b"not a webp, not even close"), None);
-    }
-
-    /// A 32-bit DIB header states the pair as signed values, and a negative
-    /// height only means the rows run top-down.
-    #[test]
-    fn a_bmp_header_gives_its_dimensions() {
-        let mut bytes = b"BM".to_vec();
-        bytes.extend_from_slice(&[0; 12]);
-        bytes.extend_from_slice(&40u32.to_le_bytes());
-        bytes.extend_from_slice(&4096i32.to_le_bytes());
-        bytes.extend_from_slice(&(-2048i32).to_le_bytes());
-        bytes.extend_from_slice(&[0; 24]);
-        assert_eq!(bmp_size(&bytes), Some((4096, 2048)));
-        assert_eq!(bmp_size(b"not a bmp, not even close"), None);
-    }
-
-    /// A 12-byte core header states the pair as 16-bit values.
-    #[test]
-    fn a_bmp_core_header_gives_its_dimensions() {
-        let mut bytes = b"BM".to_vec();
-        bytes.extend_from_slice(&[0; 12]);
-        bytes.extend_from_slice(&12u32.to_le_bytes());
-        bytes.extend_from_slice(&1280u16.to_le_bytes());
-        bytes.extend_from_slice(&720u16.to_le_bytes());
-        assert_eq!(bmp_size(&bytes), Some((1280, 720)));
     }
 }

@@ -183,7 +183,7 @@ fn shipped_images(
                 continue;
             }
         };
-        match decode(&declaration.file, &bytes) {
+        match decode(&bytes) {
             Ok(image) => {
                 let size = image.size_f32();
                 handles.insert(declaration.file.clone(), (images.add(image), size));
@@ -197,14 +197,14 @@ fn shipped_images(
     handles
 }
 
-/// One image file as a texture. The format accepts five extensions (spec §2);
-/// one this build cannot decode is logged and skipped rather than drawn as a
-/// wrong-size texture.
-fn decode(file: &str, bytes: &[u8]) -> Result<Image, String> {
-    let extension = file.rsplit('.').next().unwrap_or("").to_ascii_lowercase();
+/// One image file as a texture. The static pass admits PNG only (spec §11), so
+/// a loaded plugin's images are PNG by the time they reach here; one this build
+/// still cannot decode is logged and skipped rather than drawn as a wrong-size
+/// texture.
+fn decode(bytes: &[u8]) -> Result<Image, String> {
     Image::from_buffer(
         bytes,
-        ImageType::Extension(&extension),
+        ImageType::Extension("png"),
         CompressedImageFormats::all(),
         true,
         ImageSampler::Default,

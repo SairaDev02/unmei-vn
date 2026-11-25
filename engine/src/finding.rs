@@ -265,6 +265,7 @@ pub mod rules {
     pub const UI_MOTION_FORBIDDEN: &str = "ui.motion.forbidden";
     pub const UI_MOTION_FLASH: &str = "ui.motion.flash";
     pub const UI_TEXT_UNSTYLED: &str = "ui.text.unstyled";
+    pub const UI_IMAGE_FORMAT: &str = "ui.image.format";
 
     /// The finding rule a failure row the pack causes is filed under.
     pub fn log_row(row: u32) -> String {
@@ -508,5 +509,6 @@ mod tests {
         assert_eq!(rules::UI_MOTION_FORBIDDEN, "ui.motion.forbidden");
         assert_eq!(rules::UI_MOTION_FLASH, "ui.motion.flash");
         assert_eq!(rules::UI_TEXT_UNSTYLED, "ui.text.unstyled");
+        assert_eq!(rules::UI_IMAGE_FORMAT, "ui.image.format");
     }
 }

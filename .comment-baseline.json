@@ -214,7 +214,7 @@
   "engine/src/save/tests/resume.rs": "06292bc7 0bd1b52a 34bc3c07 73efc55d 7dd9001b 899f93cf 91fe88e9 97c9bc8e 9a1bdea3 afb5d4e3 c000a99a df9e8ad7 e02d5a26 ea5864ee f38f8941 fd2210b5",
   "engine/src/save/tests/slots.rs": "69f0a359 72fb9068 805a028d 8e9942e8 9e5425be b94686c3",
   "engine/src/sidecar.rs": "18f24738 21588e72 89c8547a 89dfc26b e54b52a1 ff21baed",
-  "engine/src/ui/caps.rs": "086099fd 24237d68 33a826fe 3d249d94 4a7b0ffd 54b83225 5b83843a 70c372de 7ca1557e 840e4f31 875ce44b 877913ef 8ae502c6 90f4fcd2 a89e0673 d6a76625 dc46c0e1 e50974c2 ea96a5c7",
+  "engine/src/ui/caps.rs": "086099fd a89e0673",
   "engine/src/ui/manifest.rs": "1441fbcf 50ff7942 6b81fec1 8c525dd7 b77ece59 e4f535af e89e461c",
   "engine/src/ui/mod.rs": "4a12ad37 82a14d33 8e81341b 91a98efc a5b62a4e bdb0180b dbc5c3ab",
   "engine/src/ui/motion.rs": "2619de6d 4e2d3c29",
