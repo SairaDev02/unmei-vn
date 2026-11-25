@@ -863,16 +863,17 @@ pub(super) fn title_asset_app_with_assets(manifest: Option<&str>, extra: &[(&str
         .init_resource::<AssetWatch>()
         .init_resource::<crate::presentation::MenuBuilt>()
         .insert_resource(RuntimeConfig::new(pack_root, None).with_dev_mode(true))
-        .add_plugins(RuntimeCorePlugin)
-        .add_systems(
-            Update,
-            (
-                crate::presentation::sync_menu_ui,
-                crate::presentation::title::fit_title_backdrop,
-                report_silent_degradations,
-            )
-                .chain(),
-        );
+        .add_plugins(RuntimeCorePlugin);
+    crate::presentation::render::register(&mut app);
+    app.add_systems(
+        Update,
+        (
+            crate::presentation::sync_menu_ui,
+            crate::presentation::title::fit_title_backdrop,
+            report_silent_degradations,
+        )
+            .chain(),
+    );
     app.world_mut().spawn((
         // The real window config, so the title-layout tests target the size and
         // floor the shipping primary window carries.
@@ -908,15 +909,22 @@ pub(super) fn all_texts(app: &App) -> Vec<String> {
         .collect()
 }
 
-/// The label rendered beside one title action, if the title is built: the sans
-/// root plus any mono caption span, so Gallery reads back as one two-line
-/// string.
+/// The label rendered beside one title action, if the title is built: the
+/// control's recorded label when a sibling slot draws it, otherwise the sans
+/// root plus any mono caption span, so a hand-built row reads back as one
+/// two-line string.
 pub(super) fn title_label(app: &App, action: MenuAction) -> Option<String> {
     app.world().iter_entities().find_map(|entity| {
-        match (entity.get::<MenuAction>(), entity.get::<Text>()) {
-            (Some(found), Some(_)) if *found == action => Some(flattened_text(app, entity.id())),
-            _ => None,
+        if entity.get::<MenuAction>() != Some(&action) {
+            return None;
         }
+        if let Some(label) = entity.get::<crate::presentation::render::ControlLabel>() {
+            return Some(label.0.clone());
+        }
+        entity
+            .get::<Text>()
+            .is_some()
+            .then(|| flattened_text(app, entity.id()))
     })
 }
 

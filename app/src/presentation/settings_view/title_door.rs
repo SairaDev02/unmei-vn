@@ -8,7 +8,9 @@ use bevy::ui_widgets::ScrollArea;
 use super::super::assets::AssetWatch;
 use super::super::overlay::confirm_dialog;
 use super::super::style::{TextFaces, FAINT, PANEL_BG};
-use super::super::title::{spawn_title_backdrop, title_gradient, TITLE_SETTINGS_WIDTH};
+use super::super::title::{
+    spawn_title_backdrop, title_gradient, veil_gradient, TITLE_SETTINGS_WIDTH,
+};
 use super::super::MenuRoot;
 use super::groups::settings_body;
 use super::SettingsBody;
@@ -20,7 +22,9 @@ use unmei_engine::copy;
 
 /// The title door's Settings view: the same groups as the overlay's, in a
 /// top-anchored panel, with `← Back to title` and no rail, Resume or
-/// `Exit to title`. It keeps the title's backdrop.
+/// `Exit to title`. It keeps the title's backdrop, and Default look §3's veil
+/// stands over it — the same stops the `title` tree authors — until #117 draws
+/// this door's own page.
 #[allow(clippy::too_many_arguments)]
 pub(in crate::presentation) fn build_title_settings(
     commands: &mut Commands,
@@ -54,6 +58,17 @@ pub(in crate::presentation) fn build_title_settings(
             // The same pack backdrop stands behind Settings opened from the
             // title (`docs/title-and-menu.md` § Title layout §5).
             spawn_title_backdrop(root, backdrop.as_deref(), asset_server, watch);
+            root.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    top: Val::Px(0.0),
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                veil_gradient(),
+            ));
             root.spawn((
                 Node {
                     width: Val::Px(TITLE_SETTINGS_WIDTH),

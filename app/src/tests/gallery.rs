@@ -2059,18 +2059,19 @@ fn gallery_asset_app(remove: &[&str]) -> App {
         .init_resource::<AppliedVisuals>()
         .init_resource::<crate::presentation::MenuBuilt>()
         .insert_resource(RuntimeConfig::new(pack_root, None).with_dev_mode(true))
-        .add_plugins(RuntimeCorePlugin)
-        .add_systems(
-            Update,
-            (
-                crate::presentation::play::sync_staging_visuals,
-                crate::presentation::sync_menu_ui,
-                crate::presentation::gallery::sync_gallery_art,
-                crate::presentation::gallery::sync_gallery_still,
-                report_silent_degradations,
-            )
-                .chain(),
-        );
+        .add_plugins(RuntimeCorePlugin);
+    crate::presentation::render::register(&mut app);
+    app.add_systems(
+        Update,
+        (
+            crate::presentation::play::sync_staging_visuals,
+            crate::presentation::sync_menu_ui,
+            crate::presentation::gallery::sync_gallery_art,
+            crate::presentation::gallery::sync_gallery_still,
+            report_silent_degradations,
+        )
+            .chain(),
+    );
     app.world_mut()
         .spawn((settings::window_config(), PrimaryWindow));
     attach_text_faces(&mut app);

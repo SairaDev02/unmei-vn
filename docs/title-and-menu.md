@@ -816,7 +816,7 @@ Locked focus deliberately communicates **progression and relative position**, ne
 
 ## Default look
 
-Settled 2026-11-14. **Partly built** — §1, §2 and §5 are drawn through the plugin renderer (issue #113); §3 and §4 are not. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
+Settled 2026-11-14. **Partly built** — §1, §2, §3's title and §5 are drawn through the plugin renderer (issues #113 and #115); §4's page and §3's Settings door are not. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
 
 This section is the one owner of the default look of the play frame, the title and the Esc menu, for the improved demo pack and every default install. Where an earlier layout rule disagrees, this section wins, and that rule carries a dated pointer here. Behaviour — the title's states and confirms, the pause doctrine, the skip and auto rules, the slot actions, the Timeline and Gallery contracts — is unchanged unless a numbered point below says otherwise. Faces follow [Type system](#type-system) as amended by §6.
 

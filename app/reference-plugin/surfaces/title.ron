@@ -1,15 +1,16 @@
 // Default look §3: the title's left column, the rows and the veil.
 //
-// The rows are text-only, so a row is its label plus the row's own control
-// laid over it: the engine shows the row's own control and hides the other four,
-// and the control paints the focus ring. One item template serves all five rows,
-// which is why it places all five controls (format reference §8).
+// The rows are text-only, so a row is its FOCUS bar, its label, and the row's
+// own control laid over them: the engine shows the row's own control and hides
+// the other four, and one item template serves all five rows, which is why it
+// places all five (format reference §8). A focused row is white, and the bar
+// beside it lights: every node inside an item follows the item's control, so the
+// bar's own `focused` override and the label's fire together without the control
+// painting a border.
 //
-// One value §3 names has no expression here: the 12px x 2px FOCUS bar, because
-// only the control paints on focus and it has to stay the whole clickable row.
-// `Quit`'s 14px separation is the second: one template cannot space its fifth
-// item differently. The focused row's white label is the label slot's `focused`
-// override, which follows the row control's state.
+// `Quit`'s 14px separation is left out by decision, not by oversight: one
+// template cannot space its fifth item differently, the five rows are evenly
+// spaced instead, and the format gains no property for it.
 (
     kind: "box",
     component: "page",
@@ -62,45 +63,49 @@
                                 width: "fill",
                                 padding: (top: "{spacing.row-pad-y}", right: 0.0, bottom: "{spacing.row-pad-y}", left: 0.0),
                                 children: [
+                                    // §3's focus marker: 12x2, transparent until
+                                    // its row is the focused one.
+                                    (kind: "box",
+                                        width: "{spacing.focus-bar-width}",
+                                        height: "{spacing.focus-bar-height}",
+                                        fill: "{colors.focus}",
+                                        opacity: 0.0,
+                                        focused: (opacity: 1.0)),
                                     (kind: "slot", slot: "title.row.label",
                                         typography: "{typography.row}",
                                         color: "{colors.dim}",
-                                        focused: (color: "{colors.text}")),
+                                        focused: (color: "{colors.text}"),
+                                        disabled: (color: "{colors.faint}")),
                                     (kind: "slot", slot: "title.continue",
                                         position: "absolute",
                                         left: 0.0,
                                         top: 0.0,
                                         width: "fill",
-                                        height: "fill",
-                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                        height: "fill"),
                                     (kind: "slot", slot: "title.new-game",
                                         position: "absolute",
                                         left: 0.0,
                                         top: 0.0,
                                         width: "fill",
-                                        height: "fill",
-                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                        height: "fill"),
                                     (kind: "slot", slot: "title.settings",
                                         position: "absolute",
                                         left: 0.0,
                                         top: 0.0,
                                         width: "fill",
-                                        height: "fill",
-                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                        height: "fill"),
                                     (kind: "slot", slot: "title.gallery",
                                         position: "absolute",
                                         left: 0.0,
                                         top: 0.0,
                                         width: "fill",
-                                        height: "fill",
-                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                        height: "fill"),
                                     (kind: "slot", slot: "title.quit",
                                         position: "absolute",
                                         left: 0.0,
                                         top: 0.0,
                                         width: "fill",
-                                        height: "fill",
-                                        focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                                        height: "fill"),
                                 ],
                             ),
                         ),
