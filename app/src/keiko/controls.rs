@@ -190,7 +190,7 @@ pub fn surface_ids(
             .into_iter()
             .map(str::to_string)
             .collect();
-            // The rail's session-scoped stop, past the Decisions group
+            // The page's session-scoped stop, past the Decisions group
             // (`docs/title-and-menu.md` §4).
             if crate::menu::exit_to_title_shown(menu) {
                 ids.push("overlay.exit-to-title".to_string());
@@ -208,11 +208,27 @@ pub fn surface_ids(
     }
 }
 
-/// Whether a control can be activated right now.
+/// Whether a control can be activated right now. A ledger row whose action is
+/// disabled — an empty autosave in Save, an unreadable slot in Load — is drawn
+/// muted and does nothing (`docs/title-and-menu.md` § Default look §4).
 pub fn is_enabled(menu: &MenuState, id: &str, world: &World) -> bool {
     match id {
         "title.continue" => menu.continue_enabled,
         "overlay.legacy" => menu.legacy_importable,
+        id if id.starts_with("overlay.slot.") || id == "overlay.legacy" => {
+            let slot = match id {
+                "overlay.slot.1" => Slot::Manual(1),
+                "overlay.slot.2" => Slot::Manual(2),
+                "overlay.slot.3" => Slot::Manual(3),
+                "overlay.slot.autosave" => Slot::Autosave,
+                _ => return true,
+            };
+            menu.slots
+                .iter()
+                .find(|info| info.slot == slot)
+                .map(|info| crate::menu::card_action(info, menu.mode).action.is_some())
+                .unwrap_or(false)
+        }
         "settings.clear-key" => world
             .get_resource::<crate::credentials::CredentialsState>()
             .is_some_and(|state| !state.row.is_from_environment()),

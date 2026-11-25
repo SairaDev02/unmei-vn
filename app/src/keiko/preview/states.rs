@@ -27,7 +27,7 @@ mod trail;
 /// The speaker id a narration line carries; every other speaker is a character.
 const NARRATOR: &str = "Narrator";
 
-/// The key names the case grammar uses for the two taps the rail needs.
+/// The key names the case grammar uses for the taps the section column needs.
 const TAB: &str = "Tab";
 const ENTER: &str = "Enter";
 
@@ -70,8 +70,8 @@ pub fn slate(pack: &Pack, request: &PreviewRequest) -> Vec<Fixture> {
         steps.push(activate("gallery.card.1"));
         slate.reached(&steps, &[surface("still")], "still")
     };
-    // The overlay's settings door, the rail's one session-scoped stop, the
-    // title it returns to, and the title's two confirming rows.
+    // The page's Settings section, its session-scoped Exit to title, the title
+    // it returns to, and the title's two confirming rows.
     let settings = rail(SETTINGS_TABS);
     let mut exit = settings.clone();
     exit.push(activate("overlay.exit-to-title"));

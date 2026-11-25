@@ -119,6 +119,7 @@
         "section-gap": 16.0,
         "entry-gap": 4.0,
         "ledger-label": 96.0,
+        "ledger-status": 92.0,
         "ledger-action": 110.0,
         "button-pad-x": 14.0,
         "button-pad-y": 6.0,
@@ -249,7 +250,7 @@
             padding: "{spacing.page-padding}",
             gap: "{spacing.section-gap}",
         ),
-        "divider": (width: 1.0, height: "fill", fill: "{colors.faint}"),
+        "divider": (width: 1.0, height: "fill", fill: "{colors.hairline}"),
         "spacer": (width: "fill", height: "fill"),
         "heading-row": (
             direction: "row",

@@ -367,6 +367,7 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | item control | `overlay.settings` | `contents.sections` | — | The row's control; the engine shows the row's own. |
 | list | `contents.ledger` | — | — | One row per save slot in slot order, with the legacy entry last in save mode. |
 | item slot | `contents.ledger.label` | `contents.ledger` | — | The slot's label. |
+| optional item slot | `contents.ledger.status` | `contents.ledger` | — | The slot's status: ok, empty or unreadable. |
 | item slot | `contents.ledger.detail` | `contents.ledger` | — | The scene the save holds, the reason it cannot be read, or the empty mark. |
 | item slot | `contents.ledger.saved-at` | `contents.ledger` | — | When the save was written. |
 | item slot | `contents.ledger.action` | `contents.ledger` | — | What activating the row does: save here, overwrite, load, or load only. |
@@ -403,6 +404,8 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | copy key | `contents.action.overwrite` | — | — | `Overwrite` |
 | copy key | `contents.action.load` | — | — | `Load` |
 | copy key | `contents.action.load-only` | — | — | `Load-only` |
+
+Two of the copy keys keep the names of the pieces §4 replaced: `contents.rail.scene` (the deleted rail's scene line) and `contents.card.legacy-import` (the deleted card grid's entry, which the ledger's legacy row draws). Both stay at format version 1; nothing draws the first.
 
 ### `settings`
 

@@ -72,8 +72,8 @@ pub(super) fn escape(
         return;
     }
 
-    // Timeline backs out to the slot grid (its only door) before the next Esc
-    // closes the overlay (`docs/title-and-menu.md` § Timeline §1).
+    // Timeline backs out to the ledger (the page is its only door) before the
+    // next Esc closes it (`docs/title-and-menu.md` § Timeline §1).
     if menu.view == MenuView::Timeline {
         back_out_of_timeline(menu);
         return;
@@ -111,10 +111,9 @@ pub(super) fn back_out_of_gallery(menu: &mut MenuState) {
     back_out_to_origin(menu, menu.gallery_origin);
 }
 
-/// Open the Timeline from the overlay's slot grid, its only door. Focus starts
-/// at the first visited card in declared order, otherwise the first declared
-/// card; an empty order has no cards
-/// (`docs/title-and-menu.md` § Timeline §1/§2). Opening reads no slot and
+/// Open the Timeline from the page, its only door. Focus starts at the first
+/// visited card in declared order, otherwise the first declared card; an empty
+/// order has no cards (`docs/title-and-menu.md` § Timeline §1/§2). Opening reads no slot and
 /// writes nothing.
 pub(super) fn open_timeline(menu: &mut MenuState, session: &SessionInput) {
     menu.view = MenuView::Timeline;
@@ -124,8 +123,8 @@ pub(super) fn open_timeline(menu: &mut MenuState, session: &SessionInput) {
     menu.focus = first_timeline_focus(session);
 }
 
-/// Back out of the Timeline to the slot grid's first card, without re-reading
-/// slot metadata (`docs/title-and-menu.md` § Timeline §1).
+/// Back out of the Timeline to the ledger's first row, without re-reading slot
+/// metadata (`docs/title-and-menu.md` § Timeline §1).
 pub(super) fn back_out_of_timeline(menu: &mut MenuState) {
     menu.view = MenuView::Slots;
     menu.focus = MenuFocus::Card(0);

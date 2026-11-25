@@ -77,6 +77,12 @@ impl PlayFrame {
     pub(crate) fn speaker(&self) -> Option<&str> {
         self.shown.speaker.as_deref()
     }
+
+    /// The frame's root node, so a test can read whether it is drawn.
+    #[cfg(test)]
+    pub(crate) fn root(&self) -> Option<Entity> {
+        self.bound.as_ref().and_then(|bound| bound.root)
+    }
 }
 
 /// What the frame draws from: the answer, and the numbering its option badges

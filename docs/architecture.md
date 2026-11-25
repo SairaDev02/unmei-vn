@@ -111,7 +111,7 @@ In the Presented in column, each name is a file path in a code span, not a link.
 | [`author-cli.md`](author-cli.md) | `unmei author npc`: command surface, the one write unit, the validation gate, provider configuration, staged validation, authoring-target confinement | `docs/guide/install-the-cli.md`, `docs/guide/author-with-the-cli.md`, `packaging/author-README.md` |
 | [`author-cli-drafting.md`](author-cli-drafting.md) | `unmei author draft`: command surface, generation unit, the two-layer gate, provider output, regeneration policy | `docs/guide/write-your-first-pack.md`, `docs/guide/author-with-the-cli.md`, `packaging/author-README.md` |
 | [`runtime-hardening.md` § Save slots](runtime-hardening.md#save-slots) | the sibling slot files, the version floor, exact-resume load | `docs/guide/play-the-demo.md`, `packaging/player-README.md` |
-| [`runtime-hardening.md` § Menu overlay](runtime-hardening.md#menu-overlay) | the Esc-toggled menu overlay, its card grid and what it offers | `docs/guide/play-the-demo.md`, `packaging/player-README.md` |
+| [`runtime-hardening.md` § Menu overlay](runtime-hardening.md#menu-overlay) | the Esc-toggled menu overlay, its contents page and what it offers | `docs/guide/play-the-demo.md`, `packaging/player-README.md` |
 | [`runtime-hardening.md` § Audio settings](runtime-hardening.md#audio-settings) | volumes, ranges, defaults and where they persist | — |
 | [`runtime-hardening.md` § Player comfort](runtime-hardening.md#player-comfort) | the shipped controls, text speed, auto mode, fullscreen | `README.md`, `packaging/player-README.md` |
 | [`runtime-hardening.md` § Text skip](runtime-hardening.md#text-skip) | seen skip, force skip and what cancels each | `README.md`, `packaging/player-README.md` |

@@ -175,12 +175,6 @@ impl Surface<'_> {
     }
 }
 
-/// Spawn one node and its subtree. A `text` or `glyph` node's `fill` is the tone
-/// its letters draw in, so it becomes a `TextColor` and never a background behind
-/// them (spec §4); a glyph is one piece of art, so its words never wrap — `•••` is
-/// three marks in a row, not three lines (spec §5's eight-character cap). Inside a
-/// list item every node takes the state of the item's own control, including a
-/// node that is not a slot and so has no name to ask with.
 /// What a node inside a list item inherits from the item's control.
 #[derive(Clone, Copy, Debug, Default)]
 struct Scope<'a> {
@@ -188,6 +182,12 @@ struct Scope<'a> {
     focus: Option<MenuAction>,
 }
 
+/// Spawn one node and its subtree. A `text` or `glyph` node's `fill` is the tone
+/// its letters draw in, so it becomes a `TextColor` and never a background behind
+/// them (spec §4); a glyph is one piece of art, so its words never wrap — `•••` is
+/// three marks in a row, not three lines (spec §5's eight-character cap). Inside a
+/// list item every node takes the state of the item's own control, including a
+/// node that is not a slot and so has no name to ask with.
 fn spawn_node(
     surface: &Surface<'_>,
     bind: &dyn Bind,

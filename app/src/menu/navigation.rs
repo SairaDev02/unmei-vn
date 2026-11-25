@@ -36,11 +36,8 @@ pub(super) fn next_top_bar_subview(focus: MenuFocus) -> MenuFocus {
 /// page's foot — Resume, then Exit to title — past the last row. Any other focus
 /// lands on the first row, so `Tab` and the digits are always one press from the
 /// ledger. `←`/`→` never move here (`docs/title-and-menu.md` § Default look §4).
-///
-/// Resume and Exit are the walk's tail because the two controls stand at the
-/// page's foot in every section: `Esc` is Resume's twin, but focus is how the
-/// keyboard (and Keiko) reaches a control, and §4's "every section reaches it"
-/// needs a stop. `app/src/tests/overlay.rs` pins both ends.
+/// The foot's two stops keep the page's own controls keyboard-reachable, as the
+/// 2026-11-18 amendment did for the Settings rail.
 pub(super) fn ledger_target(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
@@ -62,8 +59,8 @@ pub(super) fn ledger_target(
     Some(order[next])
 }
 
-/// The ledger walk's order: the four slots, the legacy row when it is shown,
-/// Resume, and Exit to title when it is shown.
+/// The walk's order past the ledger: the four slots, the legacy row when it is
+/// shown, Resume, and Exit to title when it is shown.
 pub(super) fn ledger_order(legacy_shown: bool, exit_shown: bool) -> Vec<MenuFocus> {
     let mut order = vec![
         MenuFocus::Card(0),

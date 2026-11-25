@@ -124,7 +124,7 @@ impl Item {
         }
     }
 
-    /// A ledger row: the slot's label, the scene or status over the saved-at
+    /// A ledger row: the slot's label and status, the scene over the saved-at
     /// line, and the contextual action, muted when the row cannot be activated
     /// ([`docs/runtime-hardening.md` § Menu overlay §2/§3]).
     ///
@@ -135,6 +135,10 @@ impl Item {
                 (
                     "contents.ledger.label",
                     Words::text(model.label.to_string()),
+                ),
+                (
+                    "contents.ledger.status",
+                    Words::text(model.status.to_string()),
                 ),
                 ("contents.ledger.detail", Words::text(model.detail.clone())),
                 (
@@ -220,6 +224,7 @@ impl Bind for Page<'_> {
     fn shows(&self, name: &str) -> bool {
         match name {
             "overlay.exit-to-title" => menu::exit_to_title_shown(self.menu),
+            "contents.scene" => self.menu.view == MenuView::Slots,
             _ => true,
         }
     }

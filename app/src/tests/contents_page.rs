@@ -190,8 +190,8 @@ fn the_page_draws_the_opaque_frame_the_column_and_the_hairline() {
             .unwrap()
             .0
             .alpha(),
-        0.35,
-        "the hairline draws the faint hairline tone"
+        0.14,
+        "the hairline draws the theme's hairline tone"
     );
 
     assert_eq!(
@@ -419,6 +419,89 @@ fn the_heading_names_the_pack_and_the_scene_in_the_sections_words() {
     );
 }
 
+/// §4's walk moves the FOCUS ring between the rows it draws: the ring is the
+/// drawn row control's border, so a key and the page's paint meet here.
+#[test]
+fn the_walk_lights_the_row_it_draws() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    open_page(&mut app);
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    build_menu_ui(&mut app);
+    app.update();
+
+    let ring = |app: &App, row: usize| {
+        app.world()
+            .get::<BorderColor>(shown_action_entity(app, MenuAction::Card(row)))
+            .map(|border| border.top)
+            .expect("the row's ring")
+    };
+    assert_eq!(
+        ring(&app, 0),
+        Color::srgb(0.902, 0.62, 0.361),
+        "the first row starts lit"
+    );
+    assert_eq!(ring(&app, 1), Color::NONE);
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    app.update();
+    assert_eq!(
+        ring(&app, 1),
+        Color::srgb(0.902, 0.62, 0.361),
+        "↓ lights the second row"
+    );
+    assert_eq!(ring(&app, 0), Color::NONE, "and unlights the first");
+
+    press_and_update(&mut app, KeyCode::Digit3);
+    app.update();
+    assert_eq!(
+        ring(&app, 2),
+        Color::srgb(0.902, 0.62, 0.361),
+        "3 lights the third row"
+    );
+}
+
+/// A readable slot and an unreadable one draw their own status, scene and
+/// reason: §4's row holds the label, the status and the scene id or reason over
+/// the saved-at line (`docs/runtime-hardening.md` § Menu overlay §2).
+#[test]
+fn an_occupied_row_and_an_unreadable_row_draw_their_own_words() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    {
+        let runtime = app.world().resource::<Runtime>();
+        let mut save = SaveFile::capture(&runtime.runner, &runtime.staging);
+        save.saved_at = Some(1_700_000_000);
+        save::write_slot(runtime.runner.pack(), Slot::Manual(1), &save).unwrap();
+    }
+    std::fs::write(slot_path(&app, Slot::Manual(3)), b"not a save at all").unwrap();
+    open_page(&mut app);
+
+    let row =
+        |app: &App, index: usize| parent_of(app, shown_action_entity(app, MenuAction::Card(index)));
+    let occupied = subtree_words(&app, row(&app, 0)).join(" ");
+    assert!(occupied.contains("Slot 1"), "{occupied:?}");
+    assert!(occupied.contains("Ok"), "the row draws its status");
+    assert!(
+        occupied.contains("first_meeting"),
+        "the row draws the scene the save holds: {occupied:?}"
+    );
+    assert!(
+        !occupied.contains("no save yet"),
+        "and the time the save was written, not the empty mark"
+    );
+
+    let unreadable = subtree_words(&app, row(&app, 2)).join(" ");
+    assert!(
+        unreadable.contains("Unreadable"),
+        "the row draws its status: {unreadable:?}"
+    );
+    assert!(
+        unreadable.to_lowercase().contains("invalid"),
+        "and the reason it cannot be read: {unreadable:?}"
+    );
+}
+
 /// §4's ledger: one row per slot in `Slot::ALL` order with the label, the scene
 /// or status over the saved-at line, and the action at the row's right, muted
 /// when it is disabled. The legacy entry is the last row in save mode only.
@@ -556,12 +639,19 @@ fn the_play_frame_is_not_drawn_behind_the_page() {
 
     open_page(&mut app);
     render_dialogue(&mut app);
+    let frame = app
+        .world()
+        .resource::<crate::presentation::play::PlayFrame>();
     assert_eq!(
-        app.world()
-            .resource::<crate::presentation::play::PlayFrame>()
-            .prose(),
+        frame.prose(),
         None,
         "the page replaces the frame instead of dimming it"
+    );
+    let root = frame.root().expect("the frame spawned");
+    assert_eq!(
+        app.world().get::<Node>(root).unwrap().display,
+        Display::None,
+        "the whole frame is hidden, not just its line"
     );
 
     esc(&mut app);
@@ -583,13 +673,13 @@ fn exit_to_title_stands_at_the_foot_of_every_section() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     open_page(&mut app);
-    assert!(has_action(&app, MenuAction::ExitToTitle), "on the ledger");
+    assert!(shows_action(&app, MenuAction::ExitToTitle), "on the ledger");
 
     for (action, _, _) in ENTRIES.into_iter().skip(2) {
         click(&mut app, action);
         build_pause_tree(&mut app);
         assert!(
-            has_action(&app, MenuAction::ExitToTitle),
+            shows_action(&app, MenuAction::ExitToTitle),
             "{action:?}'s section draws Exit to title"
         );
         if action != MenuAction::OpenSettings {
@@ -609,7 +699,7 @@ fn exit_to_title_stands_at_the_foot_of_every_section() {
     press_and_update(&mut title, KeyCode::Enter);
     build_pause_tree(&mut title);
     assert!(
-        !has_action(&title, MenuAction::ExitToTitle),
+        !shows_action(&title, MenuAction::ExitToTitle),
         "the title's Settings door has no live session to leave"
     );
 }
@@ -689,6 +779,22 @@ fn the_page_opens_on_each_section_and_esc_keeps_its_moments() {
         "the second moment backs out of the section"
     );
     assert!(menu(&app).open, "the page stands after a section backs out");
+
+    // The first moment, from the ledger: a confirm takes the Esc, and the page
+    // stays up with focus back on the control that asked.
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    for _ in 0..4 {
+        press_and_update(&mut app, KeyCode::ArrowDown);
+    }
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::Enter);
+    assert_eq!(menu(&app).confirm, Some(ConfirmKind::ExitToTitle));
+    assert_eq!(menu(&app).focus, MenuFocus::ConfirmYes);
     press_and_update(&mut app, KeyCode::Escape);
-    assert!(!menu(&app).open, "and the next closes the page");
+    assert_eq!(menu(&app).confirm, None, "the first moment cancels");
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    assert!(menu(&app).open, "and leaves the page up");
+
+    press_and_update(&mut app, KeyCode::Escape);
+    assert!(!menu(&app).open, "the next closes the page");
 }

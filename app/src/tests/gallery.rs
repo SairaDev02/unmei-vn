@@ -1487,12 +1487,12 @@ fn fit_gallery_still_keeps_the_placeholder_for_the_transparent_fallback() {
     );
 }
 
-/// The still is modal: the overlay's chrome stands but is inert, so a Save/Load
-/// tab or the rail Resume does nothing while the still is up — the mode, the
-/// focus and the shown entry cannot drift apart
+/// The still is modal: the page's controls stand but are inert, so a Save/Load
+/// entry or Resume does nothing while the still is up — the mode, the focus and
+/// the shown entry cannot drift apart
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §4/§5).
 #[test]
-fn the_overlay_chrome_is_inert_while_the_still_is_up() {
+fn the_page_s_controls_are_inert_while_the_still_is_up() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     open_overlay_gallery(&mut app);

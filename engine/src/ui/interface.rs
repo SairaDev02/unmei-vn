@@ -106,7 +106,7 @@ const CONTENTS_LEDGER: ListSpec = ListSpec {
         "contents.ledger.saved-at",
         "contents.ledger.action",
     ],
-    optional_item_slots: &[],
+    optional_item_slots: &["contents.ledger.status"],
     item_controls: &[
         "overlay.slot.1",
         "overlay.slot.2",

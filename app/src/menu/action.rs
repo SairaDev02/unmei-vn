@@ -98,7 +98,7 @@ pub enum MenuAction {
     GalleryStillClose,
     /// The title's `Quit` row.
     Quit,
-    /// The overlay Settings rail's `Exit to title`.
+    /// The page's `Exit to title`, at its column's foot.
     ExitToTitle,
     ConfirmAccept,
     ConfirmCancel,
@@ -186,14 +186,16 @@ pub(super) fn apply(
     match action {
         MenuAction::Resume => close(menu),
         MenuAction::SetMode(mode) => {
-            menu.picker = None;
-            menu.gallery_still = false;
-            menu.view = MenuView::Slots;
-            menu.mode = mode;
-            menu.focus = match mode {
-                MenuMode::Save => MenuFocus::SaveTab,
-                MenuMode::Load => MenuFocus::LoadTab,
-            };
+            if menu.confirm.is_none() {
+                menu.picker = None;
+                menu.gallery_still = false;
+                menu.view = MenuView::Slots;
+                menu.mode = mode;
+                menu.focus = match mode {
+                    MenuMode::Save => MenuFocus::SaveTab,
+                    MenuMode::Load => MenuFocus::LoadTab,
+                };
+            }
         }
         MenuAction::OpenSettings => {
             menu.picker = None;
@@ -324,9 +326,9 @@ pub(super) fn apply(
             }
         }
         MenuAction::ExitToTitle => {
-            // Defence for a direct caller: the rail control is drawn only from
-            // the overlay's door with a live session, so a stale focus (the
-            // session ended under it) asks nothing.
+            // Defence for a direct caller: the control is drawn only on the
+            // overlay's page with a live session, so a stale focus (the session
+            // ended under it) asks nothing.
             if menu.confirm.is_none() && exit_to_title_shown(menu) {
                 menu.confirm = Some(ConfirmKind::ExitToTitle);
                 menu.focus = MenuFocus::ConfirmYes;
