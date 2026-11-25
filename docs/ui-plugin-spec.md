@@ -61,7 +61,7 @@ A plugin is the pack's `ui/` folder:
 | Group | A token holds |
 |---|---|
 | `colors` | An sRGB color with alpha. |
-| `typography` | A face (a shipped family or one of the five embedded faces), a weight, a size in px and a line height. |
+| `typography` | A face (a shipped family or one of the five embedded faces), a weight, a size in px, a line height and an optional tracking: the space in px added after each letter, 0 when absent, and negative to tighten. *(Tracking amended 2026-11-25, after the #115 review.)* |
 | `rounded` | A corner radius in px. |
 | `spacing` | A length in px. |
 | `components` | A named style: a set of node properties (§4), which may itself use tokens. |
@@ -81,7 +81,7 @@ Format version 1 has six node kinds:
 | `Slot` | One named piece of engine content, or one control (§5). A slot that shows text takes a typography token and a text color. *(Amended 2026-11-21, after the slice-1 review.)* |
 | `List` | One engine list (§5), with one item template. |
 
-- **Paint.** `Box`, `Image` and `Glyph` take a fill (a color, or a linear or radial gradient of color stops), a border (width, color and a radius per corner), a list of shadows (offset, blur, spread, color; glow is a shadow with no offset), an opacity and a transform (offset, scale and rotation). Bevy 0.19.1 supplies gradients, box shadows and `UiTransform` rotation.
+- **Paint.** `Box`, `Image` and `Glyph` take a fill (a color, or a linear or radial gradient of color stops; a radial gradient may name its centre as fractions of the node's width and height, the middle when absent, and reaches the node's farthest corner), a border (width, color and a radius per corner), a list of shadows (offset, blur, spread, color; glow is a shadow with no offset), an opacity and a transform (offset, scale and rotation). Bevy 0.19.1 supplies gradients, box shadows and `UiTransform` rotation. *(The radial centre amended 2026-11-25, after the #115 review.)*
 - **Components.** Any node may name a `components` token, and its own properties override the component's.
 - **No literal prose.** Words reach the screen only through copy keys and engine slots. A `Glyph` is the one literal, and its 8-character limit keeps it ornamental (*decided 2026-11-20*). This keeps every visible word in one keyed table, which language packs later translate (plugin family L2).
 - **Lists keep engine order (R5).** The engine supplies a `List`'s items in their specified order. The item template places the item's own slots and controls. A plugin cannot reorder, filter or repeat items.
@@ -206,6 +206,7 @@ The placement rules (`ui.slot.missing`, `ui.slot.duplicate`) are static, so the 
 ## 11. The renderer and the reference plugin (R16–R20, R24, G6)
 
 - **The renderer** turns a surface's resolved tree into Bevy UI nodes, and binds each slot and list to its surface owner's state. Each surface keeps its one owner ([ADR 0013](adr/0013-presentation-surface-partition.md)): the owner asks the renderer for its tree, then fills slots as it fills hand-built nodes today. Focus, walks, actions and confirms stay in the existing menu and input code, keyed by control id, never by node.
+- **The tree owns the look.** The player draws nothing on a plugin surface that the tree does not author: the title's default gradient and its tagline's tracking come from the reference plugin's tree and tokens, so another plugin replaces them. *(Amended 2026-11-25, after the #115 review: slice 2 drew both in the player because the format could not express them, which tracking and the radial centre now do. Both are additive under R26, so the format version stays 1.)*
 - **Fonts and images.** The player reads plugin files as bytes through the engine's confined paths and adds them to Bevy's asset stores directly. The pack's `assets/` root is unchanged.
 - **Images are PNG.** Every image the manifest declares has a `.png` name and PNG bytes, which is the one image format the player decodes and the same format as pack art. Any other name, or a `.png` file whose bytes are not PNG, is `ui.image.format`, and the message names the file. The check and the boot then agree on every image (rule 25). No plugin has shipped yet, so narrowing the accepted images keeps format version 1. *(Amended 2026-11-24, after the #112 review: slice 1 accepted `.jpg`, `.jpeg`, `.webp` and `.bmp` too, which the player silently skipped.)*
 - **Fonts are declared.** Each font the plugin ships names a family, a weight, a license and a license-text file in the manifest. A font file with no declaration, or whose license-text file is missing, is `ui.font.license`. A typography token that names a family neither shipped nor embedded is `ui.font.unknown`. The five embedded faces are usable by name without shipping them (R19, R20).
@@ -307,6 +308,11 @@ An unreachable state stays a `preview.state.unreachable` warning. A pack whose p
 **Quick-row labels, added 2026-11-24** *(with #114)*
 
 40. The five quick-row controls draw `play.quick.save`, `.load`, `.auto`, `.skip` and `.menu`. With an override of `play.quick.auto`, the row shows the override, and `A` still toggles auto. A copy override of `play.help`, `play.cue.auto` or `play.cue.skip` fails with `ui.copy.unknown`.
+
+**Tracking and the radial centre, added 2026-11-25** *(static, and lands with the #115 fix pass)*
+
+41. A typography token with `tracking_px: 4.1` parses, and a text drawn in it is spaced by 4.1 px. A token without it draws as before. A radial fill with `center: (x: 0.5, y: 0.28)` parses and draws its centre at that point of the node; one without it centres in the node. A `center` value outside 0 to 1 fails with `ui.parse`.
+42. The title draws its default gradient and its tagline's tracking from the reference plugin. A plugin whose title tree has no gradient and whose tagline token has no tracking gets neither.
 
 ## 16. Out of scope
 
