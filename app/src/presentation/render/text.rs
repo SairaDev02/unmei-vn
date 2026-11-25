@@ -6,7 +6,7 @@
 //! [`super::look`] turned the plugin's fonts into handles once, at boot.
 
 use bevy::prelude::*;
-use bevy::text::{LineBreak, LineHeight, TextLayout};
+use bevy::text::{LetterSpacing, LineBreak, LineHeight, TextLayout};
 use unmei_engine::ui::{Color, Fill, Style, Typography};
 
 use crate::presentation::style::TextFaces;
@@ -23,6 +23,7 @@ pub(super) fn style(entity: &mut EntityCommands<'_>, surface: &Surface<'_>, styl
     };
     entity.insert(font(surface.look, surface.faces, typography));
     entity.insert(LineHeight::Px(typography.line_height_px));
+    entity.insert(spacing(typography));
     entity.insert(TextLayout {
         linebreak: LineBreak::WordOrCharacter,
         ..default()
@@ -53,8 +54,15 @@ fn tone(style: &Style) -> Option<Color> {
 fn fill_tone(fill: Option<&Fill>) -> Option<Color> {
     match fill? {
         Fill::Color(color) => Some(*color),
-        Fill::Linear { stops, .. } | Fill::Radial { stops } => stops.first().map(|stop| stop.color),
+        Fill::Linear { stops, .. } | Fill::Radial { stops, .. } => {
+            stops.first().map(|stop| stop.color)
+        }
     }
+}
+
+/// The space a typography adds after each letter, negative to tighten (spec §3).
+pub(super) fn spacing(typography: &Typography) -> LetterSpacing {
+    LetterSpacing::Px(typography.tracking_px)
 }
 
 /// The font a typography names, at its size.

@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use bevy::ui::{
     BackgroundGradient, BorderRadius, BoxShadow, ColorStop, Gradient, LinearGradient,
-    RadialGradient, ShadowStyle, UiTransform, Val2,
+    RadialGradient, RadialGradientShape, ShadowStyle, UiPosition, UiTransform, Val2,
 };
 
 use unmei_engine::ui::{Border, Fill, GradientStop, Paint, Radius, Shadow, Transform};
@@ -19,7 +19,9 @@ pub(super) fn color(color: unmei_engine::ui::Color, opacity: f32) -> Color {
 }
 
 /// The background a fill draws: a solid colour, or the gradient that stands in
-/// its place.
+/// its place. A radial names its centre as fractions of the node, which is Bevy's
+/// top-left corner plus the same percentages, and reaches the farthest corner
+/// (spec §4).
 pub(super) fn background(
     fill: &Fill,
     opacity: f32,
@@ -36,9 +38,13 @@ pub(super) fn background(
                 ..default()
             })])),
         ),
-        Fill::Radial { stops } => (
+        Fill::Radial { stops, center } => (
             BackgroundColor(Color::NONE),
             Some(BackgroundGradient(vec![Gradient::Radial(RadialGradient {
+                position: center.map_or(UiPosition::CENTER, |center| {
+                    UiPosition::TOP_LEFT.at_percent(center.x * 100.0, center.y * 100.0)
+                }),
+                shape: RadialGradientShape::FarthestCorner,
                 stops: stops_of(stops, opacity),
                 ..default()
             })])),

@@ -58,7 +58,7 @@ pub use self::node::{
     TextNode, MAX_GLYPH_CHARS,
 };
 pub use self::paint::{
-    Border, Fill, GradientStop, Paint, Radius, Shadow, StateOverrides, Transform,
+    Border, Center, Fill, GradientStop, Paint, Radius, Shadow, StateOverrides, Transform,
 };
 pub use self::source::{DirSource, MemorySource, Source};
 pub use self::style::{

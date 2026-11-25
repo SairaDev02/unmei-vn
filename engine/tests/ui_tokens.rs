@@ -98,6 +98,31 @@ fn close(actual: f32, expected: f32) {
     );
 }
 
+/// Spec rule 41: a typography token with `tracking_px` carries it, and one
+/// without it tracks nothing.
+#[test]
+fn a_typography_token_may_carry_its_tracking() {
+    let tokens = r#"(
+        colors: { "ink": (r: 0.1, g: 0.1, b: 0.1, a: 1.0) },
+        typography: {
+            "tagline": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0,
+                        tracking_px: 4.1),
+            "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        },
+    )"#;
+    let outcome = load(
+        tokens,
+        &[(
+            "play",
+            &format!("(kind: \"box\", children: [{PLAY_INTERFACE}])"),
+        )],
+    );
+    assert_eq!(reported(&outcome), [], "{}", messages(&outcome));
+    let typography = &plugin(&outcome).tokens.typography;
+    close(typography["tagline"].tracking_px, 4.1);
+    close(typography["body"].tracking_px, 0.0);
+}
+
 #[test]
 fn a_token_reference_that_names_no_token_fails() {
     let outcome = load(
