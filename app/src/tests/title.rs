@@ -740,7 +740,9 @@ fn the_focused_row_is_white_with_the_focus_bar() {
 
 /// Default look §3 spaces the five rows evenly: the maintainer's decision leaves
 /// `Quit`'s 14px gap out, because one item template cannot space its fifth item
-/// differently, and the format gains no property for it.
+/// differently, and the format gains no property for it. The gap *inside* a row
+/// is a property the format has, so the bar keeps the row's left edge and the
+/// label sits 26px in, as the prototype does.
 #[test]
 fn the_five_rows_share_one_template_and_one_gap() {
     let mut app = temp_title_app();
@@ -776,6 +778,30 @@ fn the_five_rows_share_one_template_and_one_gap() {
             .row_gap,
         Val::Px(0.0),
         "the rows are evenly spaced, with no per-item offset"
+    );
+
+    let row = app.world().get::<Node>(items[0]).expect("the item's node");
+    assert_eq!(
+        row.column_gap,
+        Val::Px(14.0),
+        "the bar and the label are 14px apart"
+    );
+    assert_eq!(
+        row.padding,
+        UiRect::axes(Val::Px(0.0), Val::Px(10.0)),
+        "a list takes no gap, so the item's padding carries the prototype's pitch"
+    );
+    let bar = focus_bar(&app, items[0]);
+    let bar_node = app.world().get::<Node>(bar).expect("the bar's node");
+    assert_eq!(bar_node.width, Val::Px(12.0));
+    let px = |value: Val| match value {
+        Val::Px(px) => px,
+        other => panic!("expected pixels, got {other:?}"),
+    };
+    assert_eq!(
+        px(row.padding.left) + px(bar_node.width) + px(row.column_gap),
+        26.0,
+        "the label starts 26px in from the row's left edge"
     );
 }
 

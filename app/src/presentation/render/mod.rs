@@ -5,7 +5,10 @@
 //! the owner asks [`tree::Surface`] for the trees it needs, fills the slots that
 //! are its own, and keeps its focus, walks and actions keyed by control id. The
 //! renderer owns only what a tree decides — the layout, the paint, the faces and
-//! the four states — so no surface code reads a node.
+//! the four states — so no surface code reads a node. A control carries the four
+//! states on its own node, and every node inside a list item takes them from the
+//! item's control (spec §4), which is how a row's label turns white with its
+//! control's focus.
 //!
 //! [`look`] resolves what to draw with once per boot: the pack's plugin when it
 //! loaded, the embedded reference plugin otherwise, and the fonts and images

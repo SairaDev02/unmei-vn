@@ -60,8 +60,9 @@
                             item: (kind: "box",
                                 direction: "row",
                                 align_items: "center",
+                                gap: "{spacing.title-bar-gap}",
                                 width: "fill",
-                                padding: (top: "{spacing.row-pad-y}", right: 0.0, bottom: "{spacing.row-pad-y}", left: 0.0),
+                                padding: (top: "{spacing.title-row-pad-y}", right: 0.0, bottom: "{spacing.title-row-pad-y}", left: 0.0),
                                 children: [
                                     // §3's focus marker: 12x2, transparent until
                                     // its row is the focused one.

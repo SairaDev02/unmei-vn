@@ -89,6 +89,11 @@
         "row-pad-x": 12.0,
         "focus-bar-width": 12.0,
         "focus-bar-height": 2.0,
+        // §3's rows: the bar at the row's left edge and the label 26px in. A
+        // list takes no gap, so the item's 8px padding and 2px more top and
+        // bottom carry the prototype's 4px between rows: a 48px pitch.
+        "title-bar-gap": 14.0,
+        "title-row-pad-y": 10.0,
         "row-gap": 12.0,
         "legend-right": 40.0,
         "legend-bottom": 26.0,
