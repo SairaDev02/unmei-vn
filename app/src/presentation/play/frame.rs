@@ -198,7 +198,10 @@ pub(crate) fn spawn_play_frame(
 /// new park first so the prose starts empty. Runs before the writers, so they
 /// all read one answer. The row's lit labels are Default look §1's mode
 /// indicator: `Skip Tab` is lit whenever skip is effective, held `Ctrl`
-/// included, and `Auto A` only while auto runs and skip does not.
+/// included, and `Auto A` only while auto runs and skip does not. Any open menu
+/// surface hides the frame: the title's surfaces because they draw their own
+/// backdrop, and Default look §4's contents page because it is opaque and draws
+/// no play frame behind it.
 pub(crate) fn read_play_frame(
     runtime: Option<Res<Runtime>>,
     menu: Option<Res<MenuState>>,
@@ -222,7 +225,7 @@ pub(crate) fn read_play_frame(
         applied.ready = true;
     }
     let mut shown = PlayShown::default();
-    if menu.as_deref().is_some_and(MenuState::title_surface_up) {
+    if menu.as_deref().is_some_and(|menu| menu.open) {
         shown.hidden = true;
     } else {
         match &wait {

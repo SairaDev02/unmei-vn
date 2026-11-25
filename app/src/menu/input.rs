@@ -18,7 +18,7 @@ use super::action::{action_for_focus, apply, MenuAction};
 use super::key_field::{commit_key, discard_key_field};
 use super::labels::focus_track;
 use super::navigation::{
-    arrow_target, focus_by_digit, gallery_arrow, gallery_browse, next_top_bar,
+    focus_by_digit, gallery_arrow, gallery_browse, ledger_target, next_top_bar,
     next_top_bar_subview, settings_target, timeline_arrow, title_target,
 };
 use super::persistence::flush_settings;
@@ -166,7 +166,12 @@ pub(crate) fn menu_input(
             menu.focus = next_top_bar(menu.focus);
         } else if let Some(focus) = focus_by_digit(&keys) {
             menu.focus = focus;
-        } else if let Some(focus) = arrow_target(menu.focus, &keys, legacy_visible(&menu)) {
+        } else if let Some(focus) = ledger_target(
+            menu.focus,
+            &keys,
+            legacy_visible(&menu),
+            exit_to_title_shown(&menu),
+        ) {
             menu.focus = focus;
         }
     } else if menu.view == MenuView::Gallery {

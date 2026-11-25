@@ -35,7 +35,7 @@ use crate::Runtime;
 
 use assets::AssetWatch;
 use gallery::build_title_gallery;
-use overlay::build_overlay;
+use overlay::build_page;
 use settings_view::build_title_settings;
 use style::{TextFaces, FOCUS};
 use timeline::TimelineBody;
@@ -165,7 +165,7 @@ pub(crate) fn sync_menu_ui(
                         watch,
                     );
                 }
-                _ => build_overlay(
+                _ => build_page(
                     &mut commands,
                     &faces,
                     &menu,

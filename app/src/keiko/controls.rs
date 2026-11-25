@@ -153,6 +153,9 @@ pub fn surface_ids(
             if menu.legacy_importable {
                 ids.push("overlay.legacy".to_string());
             }
+            if crate::menu::exit_to_title_shown(menu) {
+                ids.push("overlay.exit-to-title".to_string());
+            }
             if let Some(picker) = &menu.picker {
                 let _ = picker;
                 ids.extend(

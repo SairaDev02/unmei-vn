@@ -30,51 +30,54 @@ pub(super) fn next_top_bar_subview(focus: MenuFocus) -> MenuFocus {
     }
 }
 
-/// Arrow navigation over the 2×2 grid; any arrow from a non-card control lands
-/// on the first card, and `Left` from the grid's left column reaches the rail's
-/// Resume button (so Resume is keyboard-reachable, not mouse-only). When the
-/// Legacy card is shown, `Down` from the grid's bottom row reaches it, and
-/// `Up` returns.
-pub(super) fn arrow_target(
+/// The ledger walk in Save and Load: `↑`/`↓` step the slots in `Slot::ALL` order
+/// and stop at both ends, with the legacy entry after them in save mode and the
+/// page's foot — Resume, then Exit to title — past the last row. Any other focus
+/// lands on the first row, so `Tab` and the digits are always one press from the
+/// ledger. `←`/`→` never move here (`docs/title-and-menu.md` § Default look §4).
+///
+/// Resume and Exit are the walk's tail because the two controls stand at the
+/// page's foot in every section: `Esc` is Resume's twin, but focus is how the
+/// keyboard (and Keiko) reaches a control, and §4's "every section reaches it"
+/// needs a stop. `app/src/tests/overlay.rs` pins both ends.
+pub(super) fn ledger_target(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
     legacy_shown: bool,
+    exit_shown: bool,
 ) -> Option<MenuFocus> {
-    let MenuFocus::Card(index) = focus else {
-        if focus == MenuFocus::LegacyCard && keys.just_pressed(KeyCode::ArrowUp) {
-            return Some(MenuFocus::Card(2));
-        }
-        let moved = keys.just_pressed(KeyCode::ArrowLeft)
-            || keys.just_pressed(KeyCode::ArrowRight)
-            || keys.just_pressed(KeyCode::ArrowUp)
-            || keys.just_pressed(KeyCode::ArrowDown);
-        return moved.then_some(MenuFocus::Card(0));
-    };
-
-    let right = if index % 2 == 0 { index + 1 } else { index };
-    let left = if index % 2 == 1 { index - 1 } else { index };
-    let down = if index < 2 { index + 2 } else { index };
-    let up = if index >= 2 { index - 2 } else { index };
-
-    if keys.just_pressed(KeyCode::ArrowRight) {
-        Some(MenuFocus::Card(right))
-    } else if keys.just_pressed(KeyCode::ArrowLeft) {
-        if index % 2 == 0 {
-            Some(MenuFocus::Resume)
-        } else {
-            Some(MenuFocus::Card(left))
-        }
-    } else if keys.just_pressed(KeyCode::ArrowDown) {
-        if legacy_shown && index >= 2 {
-            Some(MenuFocus::LegacyCard)
-        } else {
-            Some(MenuFocus::Card(down))
-        }
+    let delta = if keys.just_pressed(KeyCode::ArrowDown) {
+        1
     } else if keys.just_pressed(KeyCode::ArrowUp) {
-        Some(MenuFocus::Card(up))
+        -1
     } else {
-        None
+        return None;
+    };
+    let order = ledger_order(legacy_shown, exit_shown);
+    let Some(index) = order.iter().position(|entry| *entry == focus) else {
+        return Some(order[0]);
+    };
+    let next = (index as i32 + delta).clamp(0, order.len() as i32 - 1) as usize;
+    Some(order[next])
+}
+
+/// The ledger walk's order: the four slots, the legacy row when it is shown,
+/// Resume, and Exit to title when it is shown.
+pub(super) fn ledger_order(legacy_shown: bool, exit_shown: bool) -> Vec<MenuFocus> {
+    let mut order = vec![
+        MenuFocus::Card(0),
+        MenuFocus::Card(1),
+        MenuFocus::Card(2),
+        MenuFocus::Card(3),
+    ];
+    if legacy_shown {
+        order.push(MenuFocus::LegacyCard);
     }
+    order.push(MenuFocus::Resume);
+    if exit_shown {
+        order.push(MenuFocus::ExitToTitle);
+    }
+    order
 }
 
 /// Digits `1`–`3` focus a manual slot; they never activate it.

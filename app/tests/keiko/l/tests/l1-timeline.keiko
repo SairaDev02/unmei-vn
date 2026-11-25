@@ -1,8 +1,8 @@
 keiko 1
 # L1 (Timeline entry list and restart) — declared order only, unvisited ids hidden as
 # "???" and inert, browsing and cancel preserve play, a confirm restarts the visited
-# scene from its first wait. The overlay's Timeline button is Tab-reached (the control
-# walk cannot leave the card grid), so the case presses the player's own keys.
+# scene from its first wait. The overlay's Timeline entry is Tab-reached from the
+# ledger, so the case presses the player's own keys.
 # Excluded: rendered cards, their art, and audio.
 setting play.text_speed 0
 

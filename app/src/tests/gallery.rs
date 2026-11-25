@@ -67,18 +67,6 @@ fn sync_still(app: &mut App) {
         .expect("sync_gallery_still runs");
 }
 
-/// The parent of the built control carrying `action`.
-fn action_parent(app: &App, action: MenuAction) -> Entity {
-    app.world()
-        .iter_entities()
-        .find_map(|entity| {
-            (entity.get::<MenuAction>() == Some(&action))
-                .then(|| entity.get::<ChildOf>().map(ChildOf::parent))
-                .flatten()
-        })
-        .unwrap_or_else(|| panic!("no built control {action:?}"))
-}
-
 /// Open the overlay, then its `Gallery` control: the overlay's door into the
 /// gallery. Assumes the overlay is closed.
 fn open_overlay_gallery(app: &mut App) {
@@ -118,11 +106,12 @@ fn the_title_gallery_row_is_enabled_and_caption_free() {
     );
 }
 
-/// `Tab` cycles Save → Load → Timeline → Gallery → Settings in the slot grid,
-/// and narrows to Save → Load in the gallery, Timeline and Settings views
-/// (`docs/title-and-menu.md` § Gallery `### Behavior` §1, § Timeline §1).
+/// `Tab` cycles Save → Load → Timeline → Gallery → Settings on the ledger, and
+/// narrows to Save → Load in the gallery, Timeline and Settings views, where the
+/// section entries stand but only those two are Tab stops
+/// (`docs/title-and-menu.md` § Default look §4, § Gallery `### Behavior` §1).
 #[test]
-fn tab_cycles_through_gallery_only_while_the_slot_grid_is_up() {
+fn tab_cycles_the_sections_and_narrows_inside_the_sub_views() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
@@ -190,83 +179,89 @@ fn tab_is_inert_on_the_titles_gallery_and_settings() {
     assert_eq!(menu(&settings).mode, MenuMode::Save);
 }
 
-/// The overlay's top bar renders `Gallery` immediately left of `Settings` only
-/// while the slot grid is up (`docs/title-and-menu.md` § Gallery `### Behavior`
-/// §1).
+/// The section column stands in every section, so the Gallery's entry is drawn
+/// on the ledger and inside the gallery itself, and a sub-view's interior carries
+/// no door of its own (`docs/title-and-menu.md` § Default look §4).
 #[test]
-fn the_overlay_top_bar_renders_gallery_left_of_settings_only_in_the_grid() {
+fn the_section_entries_stand_in_every_section() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
     build_pause_tree(&mut app);
+    assert!(has_action(&app, MenuAction::OpenGallery));
+    assert!(has_action(&app, MenuAction::OpenSettings));
 
-    let gallery_parent = action_parent(&app, MenuAction::OpenGallery);
-    let settings_parent = action_parent(&app, MenuAction::OpenSettings);
-    assert_eq!(
-        gallery_parent, settings_parent,
-        "both controls share the top bar"
-    );
-    let children = app
-        .world()
-        .entity(gallery_parent)
-        .get::<Children>()
-        .expect("the top bar has children");
-    let index = |action: MenuAction| {
-        children
-            .iter()
-            .position(|child| app.world().get::<MenuAction>(child) == Some(&action))
-            .unwrap_or_else(|| panic!("no {action:?} in the top bar"))
-    };
-    assert_eq!(
-        index(MenuAction::OpenGallery) + 1,
-        index(MenuAction::OpenSettings),
-        "Gallery sits immediately left of Settings"
-    );
-
-    click(&mut app, MenuAction::OpenSettings);
-    build_pause_tree(&mut app);
-    assert!(!has_action(&app, MenuAction::OpenGallery));
-    assert!(!has_action(&app, MenuAction::OpenSettings));
-
-    click(&mut app, MenuAction::BackToSlots);
     click(&mut app, MenuAction::OpenGallery);
     build_pause_tree(&mut app);
-    assert!(!has_action(&app, MenuAction::OpenGallery));
-    assert!(!has_action(&app, MenuAction::OpenSettings));
+    assert_eq!(menu(&app).view, MenuView::Gallery);
+    assert!(
+        has_action(&app, MenuAction::OpenGallery),
+        "the page's own entry stays drawn inside the gallery"
+    );
+    assert!(has_action(&app, MenuAction::OpenSettings));
+
+    let entries = app
+        .world()
+        .iter_entities()
+        .filter(|entity| {
+            [
+                MenuAction::SetMode(MenuMode::Save),
+                MenuAction::SetMode(MenuMode::Load),
+                MenuAction::OpenTimeline,
+                MenuAction::OpenGallery,
+                MenuAction::OpenSettings,
+            ]
+            .contains(
+                &entity
+                    .get::<MenuAction>()
+                    .copied()
+                    .unwrap_or(MenuAction::Resume),
+            ) && entity.get::<Button>().is_some()
+                && entity
+                    .get::<Node>()
+                    .is_some_and(|node| node.display != Display::None)
+        })
+        .count();
+    assert_eq!(entries, 5, "the page's five section entries and no other");
 }
 
-/// The overlay's top-bar `Gallery` control renders the spec's copy verbatim in
-/// the bar's sans face, like its `Settings` neighbour
-/// (`docs/title-and-menu.md` § Gallery `### Behavior` §7, § Type system §2/§4).
+/// The Gallery entry draws the spec's copy verbatim in the section column's face:
+/// the ledger's entries are 24px SemiBold sans
+/// (`docs/title-and-menu.md` § Default look §4, §6).
 #[test]
-fn the_overlay_gallery_control_renders_the_copy_string() {
+fn the_gallery_section_entry_draws_the_copy_in_the_sections_face() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
     build_pause_tree(&mut app);
 
-    let control = action_entity(&app, MenuAction::OpenGallery);
+    let label = text_entity(&app, "Gallery");
     assert_eq!(
-        app.world()
-            .get::<Text>(control)
-            .expect("the control carries its label")
-            .0,
+        app.world().get::<Text>(label).unwrap().0,
         "Gallery",
-        "the overlay control's copy is exact"
+        "the entry's copy is exact"
     );
-    let settings = action_entity(&app, MenuAction::OpenSettings);
+    let faces = app
+        .world()
+        .resource::<crate::presentation::style::TextFaces>()
+        .clone();
     assert_eq!(
-        face_handle(&app, control),
-        face_handle(&app, settings),
-        "Gallery and Settings share the top bar's sans face"
+        face_handle(&app, label),
+        faces.sans_semibold,
+        "the section entries are SemiBold sans"
     );
     assert_eq!(
-        face_handle(&app, control),
-        app.world()
-            .resource::<crate::presentation::style::TextFaces>()
-            .sans_regular,
-        "the control label is the sans regular face"
+        app.world().get::<TextFont>(label).unwrap().font_size,
+        bevy::text::FontSize::Px(24.0),
+        "§4's large entries are 24px"
     );
+    for word in ["Save", "Load", "Timeline", "Settings"] {
+        assert_eq!(
+            app.world().get::<Text>(text_entity(&app, word)).unwrap().0,
+            word,
+            "every section entry draws its own copy"
+        );
+    }
 }
 
 /// The back control is door-aware, and either door returns to where it came
@@ -335,18 +330,33 @@ fn neither_settings_nor_the_gallery_is_a_door_to_the_other() {
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
 
+    let entries = |app: &App, action: MenuAction| {
+        app.world()
+            .iter_entities()
+            .filter(|entity| {
+                entity.get::<MenuAction>() == Some(&action)
+                    && entity.get::<Button>().is_some()
+                    && entity
+                        .get::<Node>()
+                        .is_some_and(|node| node.display != Display::None)
+            })
+            .count()
+    };
     click(&mut app, MenuAction::OpenSettings);
     build_pause_tree(&mut app);
-    assert!(
-        !has_action(&app, MenuAction::OpenGallery),
-        "Settings carries no gallery control"
+    assert_eq!(
+        entries(&app, MenuAction::OpenGallery),
+        1,
+        "Settings holds only the page's Gallery entry"
     );
+
     click(&mut app, MenuAction::BackToSlots);
     click(&mut app, MenuAction::OpenGallery);
     build_pause_tree(&mut app);
-    assert!(
-        !has_action(&app, MenuAction::OpenSettings),
-        "the gallery carries no Settings control"
+    assert_eq!(
+        entries(&app, MenuAction::OpenSettings),
+        1,
+        "the gallery holds only the page's Settings entry"
     );
 
     let mut title = temp_title_app();
@@ -817,20 +827,10 @@ fn the_title_doors_grid_is_the_same_three_across_layout() {
 /// (`docs/title-and-menu.md` § Gallery `### Layout` §2, § Entries §3,
 /// § Menu overlay §1).
 #[test]
-fn gallery_cards_reuse_the_panel_vocabulary_in_entry_order() {
+fn gallery_cards_draw_the_card_panel_in_entry_order() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-
-    // The slot card's panel treatment, captured before the gallery opens.
-    esc(&mut app);
-    build_pause_tree(&mut app);
-    let slot = action_entity(&app, MenuAction::Card(0));
-    let slot_fill = *app.world().get::<BackgroundColor>(slot).unwrap();
-    let slot_border = app.world().get::<Node>(slot).unwrap().border;
-
-    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryButton;
-    press_and_update(&mut app, KeyCode::Enter);
-    assert_eq!(menu(&app).view, MenuView::Gallery);
+    open_overlay_gallery(&mut app);
     build_pause_tree(&mut app);
 
     let entries = app
@@ -843,13 +843,13 @@ fn gallery_cards_reuse_the_panel_vocabulary_in_entry_order() {
         let card = action_entity(&app, MenuAction::GalleryCard(index));
         assert_eq!(
             *app.world().get::<BackgroundColor>(card).unwrap(),
-            slot_fill,
-            "card {index} uses the overlay's panel fill"
+            BackgroundColor(Color::srgb(0.12, 0.13, 0.17)),
+            "card {index} draws the card fill"
         );
         assert_eq!(
             app.world().get::<Node>(card).unwrap().border,
-            slot_border,
-            "card {index} uses the overlay's hairline border"
+            UiRect::all(Val::Px(2.0)),
+            "card {index} reserves its 2px focus ring"
         );
         let children = app.world().get::<Children>(card).unwrap();
         let art = children
@@ -2022,8 +2022,8 @@ fn tab_leaves_the_gallery_grid_and_arrows_return_to_it() {
     press_and_update(&mut app, KeyCode::Enter);
     assert_eq!(
         menu(&app).view,
-        MenuView::Gallery,
-        "Save stays in the gallery"
+        MenuView::Slots,
+        "Save opens the ledger from the gallery"
     );
     assert_eq!(menu(&app).focus, MenuFocus::SaveTab);
     assert_eq!(menu(&app).mode, MenuMode::Save);
@@ -2649,13 +2649,29 @@ fn the_overlay_gallery_draws_no_scrim() {
         })
         .expect("the overlay root draws");
     assert_eq!(
-        app.world().get::<BackgroundColor>(root).unwrap().0,
-        Color::srgba(0.03, 0.035, 0.05, 0.86),
-        "the overlay keeps its dim over the frozen play frame"
+        app.world().get::<BackgroundColor>(root).unwrap().0.alpha(),
+        0.0,
+        "the page's fill is the tree's, not a dimmer over the play frame"
+    );
+    let page = app
+        .world()
+        .get::<Children>(root)
+        .expect("the page root holds the surface")
+        .iter()
+        .find(|child| {
+            app.world()
+                .get::<BackgroundColor>(*child)
+                .is_some_and(|fill| fill.0.alpha() > 0.0)
+        })
+        .expect("the tree's page node fills the frame");
+    assert_eq!(
+        app.world().get::<BackgroundColor>(page).unwrap().0,
+        Color::srgb(0.051, 0.055, 0.071),
+        "§4's page is the opaque #0d0e12 fill"
     );
     assert!(
-        app.world().get::<BackgroundGradient>(root).is_none(),
-        "the overlay's door draws no gradient"
+        app.world().get::<BackgroundGradient>(page).is_none(),
+        "§4's page draws one flat fill, not a gradient"
     );
 }
 

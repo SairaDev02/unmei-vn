@@ -351,12 +351,12 @@ pub fn live_session(menu: &MenuState) -> bool {
     menu.live_session
 }
 
-/// Whether the Settings view draws the rail's `Exit to title` control: only
-/// from the overlay's door, because the title's door has no live session to
-/// leave (`docs/title-and-menu.md` §4). The rail's draw, the keyboard walk and
-/// the Keiko control table all read this one predicate.
+/// Whether the contents page draws `Exit to title` at its column's foot: in
+/// every section of the overlay's page, because the page replaced the Settings
+/// rail the control used to live in, and never on a surface the title opened —
+/// the title's door has no live session to leave
+/// (`docs/title-and-menu.md` § Default look §4, § Title §4). The page's draw, the
+/// keyboard walks and the Keiko control table all read this one predicate.
 pub fn exit_to_title_shown(menu: &MenuState) -> bool {
-    menu.view == MenuView::Settings
-        && menu.settings_origin == MenuOrigin::Slots
-        && live_session(menu)
+    menu.open && live_session(menu) && !menu.title_surface_up()
 }

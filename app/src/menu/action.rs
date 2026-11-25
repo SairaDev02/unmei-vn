@@ -162,6 +162,10 @@ pub(crate) fn action_for_focus(focus: MenuFocus) -> MenuAction {
     }
 }
 
+/// Apply one action to the pause surface. The page's section entries stand in
+/// every section, so Save, Load, Timeline and the Gallery open their own view
+/// from wherever the page is, and none of them reads a slot or writes anything
+/// (`docs/title-and-menu.md` § Default look §4, § Timeline §1).
 pub(super) fn apply(
     action: MenuAction,
     menu: &mut MenuState,
@@ -183,6 +187,8 @@ pub(super) fn apply(
         MenuAction::Resume => close(menu),
         MenuAction::SetMode(mode) => {
             menu.picker = None;
+            menu.gallery_still = false;
+            menu.view = MenuView::Slots;
             menu.mode = mode;
             menu.focus = match mode {
                 MenuMode::Save => MenuFocus::SaveTab,
@@ -251,15 +257,12 @@ pub(super) fn apply(
             }
         }
         MenuAction::OpenGallery => {
-            if menu.confirm.is_none() && menu.view == MenuView::Slots {
+            if menu.confirm.is_none() && menu.view != MenuView::Title {
                 open_gallery(menu, MenuOrigin::Slots);
             }
         }
-        // The overlay's Timeline control opens it from the slot grid, its only
-        // door; opening reads no slot and writes nothing
-        // (`docs/title-and-menu.md` § Timeline §1).
         MenuAction::OpenTimeline => {
-            if menu.confirm.is_none() && menu.view == MenuView::Slots {
+            if menu.confirm.is_none() && menu.view != MenuView::Title {
                 open_timeline(menu, session);
             }
         }

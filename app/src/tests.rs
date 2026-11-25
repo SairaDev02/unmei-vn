@@ -57,6 +57,7 @@ pub(crate) use support::{
 
 mod asset_root;
 mod comfort;
+mod contents_page;
 mod decisions;
 mod failure_posture;
 mod gallery;

@@ -318,21 +318,46 @@ fn manual_save_succeeds_from_every_parked_state_including_in_flight() {
     assert!(matches!(save.wait, Some(Wait::Decision { .. })));
 }
 
+/// The walk Default look §4 gives the ledger: `↑`/`↓` step the slots and stop at
+/// both ends, the legacy row joins them in save mode, the page's foot follows the
+/// last row, `←`/`→` never move, the digits focus a manual slot, and `Tab` cycles
+/// the five sections.
 #[test]
-fn keyboard_focus_walks_the_grid_and_cycles_the_top_bar() {
+fn the_ledger_walk_steps_the_rows_the_foot_and_the_sections() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     esc(&mut app);
 
     assert_eq!(menu(&app).focus, MenuFocus::Card(0));
-    press_and_update(&mut app, KeyCode::ArrowRight);
+    press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::Card(1));
     press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::Card(2));
+    press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::Card(3));
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::Resume,
+        "the foot follows the last row"
+    );
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the walk stops at the page's foot"
+    );
     press_and_update(&mut app, KeyCode::ArrowUp);
-    assert_eq!(menu(&app).focus, MenuFocus::Card(1));
-    press_and_update(&mut app, KeyCode::ArrowLeft);
-    assert_eq!(menu(&app).focus, MenuFocus::Card(0));
+    assert_eq!(menu(&app).focus, MenuFocus::Resume);
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Card(3));
+
+    for key in [KeyCode::ArrowLeft, KeyCode::ArrowRight] {
+        press_and_update(&mut app, key);
+        assert_eq!(menu(&app).focus, MenuFocus::Card(3), "{key:?} is inert");
+    }
 
     // Digits focus a manual slot (1–3) without activating it.
     press_and_update(&mut app, KeyCode::Digit2);
@@ -351,11 +376,11 @@ fn keyboard_focus_walks_the_grid_and_cycles_the_top_bar() {
     press_and_update(&mut app, KeyCode::Tab);
     assert_eq!(menu(&app).focus, MenuFocus::SaveTab);
 
-    // Left from the grid's left column reaches the rail's Resume, which is
-    // keyboard-activatable like every other control.
-    press_and_update(&mut app, KeyCode::ArrowLeft);
+    press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::Card(0));
-    press_and_update(&mut app, KeyCode::ArrowLeft);
+    for _ in 0..4 {
+        press_and_update(&mut app, KeyCode::ArrowDown);
+    }
     assert_eq!(menu(&app).focus, MenuFocus::Resume);
     press_and_update(&mut app, KeyCode::Enter);
     assert!(!menu(&app).open, "Resume is keyboard-activatable");

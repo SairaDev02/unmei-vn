@@ -290,6 +290,9 @@ pub const SURFACES: &[SurfaceSpec] = &[
         ],
         lists: &[CONTENTS_SECTIONS, CONTENTS_LEDGER],
         copy_keys: &[
+            "contents.label",
+            "contents.heading.save",
+            "contents.heading.load",
             "contents.rail.scene",
             "contents.rail.resume",
             "contents.rail.exit-to-title",

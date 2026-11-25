@@ -1301,8 +1301,10 @@ pub(crate) fn boot_widget_input_app(pack_root: PathBuf) -> (App, Entity) {
         .add_message::<Ime>()
         .add_message::<Pointer<Release>>()
         .insert_resource(RuntimeConfig::new(pack_root, None).with_dev_mode(true))
-        .add_plugins(RuntimeCorePlugin)
-        .add_observer(crate::presentation::settings_view::discard_key_edit_on_outside_press)
+        .add_plugins(RuntimeCorePlugin);
+    attach_text_faces(&mut app);
+    crate::presentation::render::register(&mut app);
+    app.add_observer(crate::presentation::settings_view::discard_key_edit_on_outside_press)
         .add_systems(
             PostUpdate,
             apply_text_edits.in_set(bevy::text::EditableTextSystems),
@@ -1311,7 +1313,6 @@ pub(crate) fn boot_widget_input_app(pack_root: PathBuf) -> (App, Entity) {
     // queued-edit drain), registered by the same function `UnmeiPlugin` uses, so
     // this harness cannot drift from the shipped wiring.
     crate::register_ownership_gated_presentation(&mut app);
-    attach_text_faces(&mut app);
     let window = app
         .world_mut()
         .spawn((Window::default(), PrimaryWindow))
