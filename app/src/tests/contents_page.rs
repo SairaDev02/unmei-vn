@@ -259,7 +259,6 @@ fn the_five_entries_stand_in_order_with_the_current_one_white_and_marked() {
         "§4's order, each entry with its marker"
     );
 
-    // The state repaint follows the rebuild, as it does in the player.
     app.update();
     let label = |word: &str| text_entity(&app, word);
     let tone = |entity: Entity| app.world().get::<TextColor>(entity).unwrap().0;
@@ -299,7 +298,6 @@ fn the_five_entries_stand_in_order_with_the_current_one_white_and_marked() {
         "and only the current section draws its marker"
     );
 
-    // Switching section moves the white tone and the marker.
     app.world_mut().resource_mut::<MenuState>().mode = MenuMode::Load;
     build_pause_tree(&mut app);
     app.update();
@@ -465,7 +463,6 @@ fn the_ledger_shows_every_slot_and_the_legacy_row_in_save_mode_only() {
         faces.mono_medium,
         "the slot label is mono"
     );
-    // The state repaint runs after the tree is built, as it does in the player.
     app.update();
     let muted = app
         .world()
@@ -483,7 +480,6 @@ fn the_ledger_shows_every_slot_and_the_legacy_row_in_save_mode_only() {
         "no legacy file, no legacy row"
     );
 
-    // An importable legacy file adds the final row, in save mode only.
     write_legacy_row(&app);
     {
         let pack = app.world().resource::<Runtime>().runner.pack().clone();
@@ -547,7 +543,6 @@ fn write_legacy_row(app: &App) {
 fn the_play_frame_is_not_drawn_behind_the_page() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    // A press mid-reveal completes the line, so the frame has prose to draw.
     set_text_speed(&mut app, 0.0);
     render_dialogue(&mut app);
     build_pause_tree(&mut app);
@@ -560,8 +555,6 @@ fn the_play_frame_is_not_drawn_behind_the_page() {
     );
 
     open_page(&mut app);
-    // The frame repaints from the menu state, as it does every frame in the
-    // player; this rig drives the frame's systems by hand.
     render_dialogue(&mut app);
     assert_eq!(
         app.world()

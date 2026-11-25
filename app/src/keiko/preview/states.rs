@@ -31,9 +31,9 @@ const NARRATOR: &str = "Narrator";
 const TAB: &str = "Tab";
 const ENTER: &str = "Enter";
 
-/// How many Tab presses from the overlay's grid reach each rail control: the
-/// top bar runs Save, Load, Timeline, Gallery, Settings, and the grid's arrows
-/// never leave the cards.
+/// How many Tab presses from the page's first ledger row reach each section: the
+/// section column reads Save, Load, Timeline, Gallery, Settings
+/// (`docs/title-and-menu.md` § Default look §4).
 const LOAD_TABS: usize = 2;
 const TIMELINE_TABS: usize = 3;
 const GALLERY_TABS: usize = 4;

@@ -1,6 +1,7 @@
 //! Pure navigation over the pause surface's controls: the title and Settings
-//! walks, the slot grid's arrow/digit rule, and the gallery and Timeline card
-//! walks. Every function here is a focus computation with no world access.
+//! walks, the contents page's ledger walk and its Tab cycle, and the gallery and
+//! Timeline card walks. Every function here is a focus computation with no world
+//! access.
 
 use bevy::input::ButtonInput;
 use bevy::prelude::KeyCode;
@@ -8,10 +9,10 @@ use bevy::prelude::KeyCode;
 use super::labels::{SETTINGS_ORDER, TITLE_ORDER};
 use super::state::MenuFocus;
 
-/// Tab cycles the top bar: Save → Load → Timeline → Gallery → Settings → Save.
-/// In the gallery, Timeline and Settings views none of the three sub-view
-/// controls is rendered, so the cycle narrows to Save → Load
-/// (`docs/title-and-menu.md` § Gallery `### Behavior` §1, § Timeline §1).
+/// Tab cycles the page's sections: Save → Load → Timeline → Gallery → Settings
+/// → Save. Inside the gallery, Timeline and Settings the cycle narrows to Save →
+/// Load, which keeps `Tab` off the section the page is already on
+/// (`docs/title-and-menu.md` § Default look §4).
 pub(super) fn next_top_bar(focus: MenuFocus) -> MenuFocus {
     match focus {
         MenuFocus::SaveTab => MenuFocus::LoadTab,
@@ -136,9 +137,9 @@ pub fn gallery_browse(index: usize, count: usize, delta: isize) -> Option<usize>
     Some((index as isize + delta).rem_euclid(count as isize) as usize)
 }
 
-/// Read the gallery's arrow keys into a focus move. Any arrow from a top-bar
-/// control lands on the first card, so the grid is one key away; digits remain
-/// the slot grid's shortcut and do nothing here.
+/// Read the gallery's arrow keys into a focus move. Any arrow from a section
+/// entry lands on the first card, so the grid is one key away; the digits are the
+/// ledger's shortcut and do nothing here.
 pub(super) fn gallery_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
@@ -185,9 +186,9 @@ pub fn timeline_move(index: usize, count: usize, dir: GalleryDir) -> Option<usiz
     (next != index).then_some(next)
 }
 
-/// Read the Timeline's arrow keys into a focus move. Any arrow from a top-bar
-/// control lands on the first card; digits remain the slot grid's shortcut and
-/// do nothing here (`docs/title-and-menu.md` § Timeline §2).
+/// Read the Timeline's arrow keys into a focus move. Any arrow from a section
+/// entry lands on the first card; the digits are the ledger's shortcut and do
+/// nothing here (`docs/title-and-menu.md` § Timeline §2).
 pub(super) fn timeline_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
@@ -216,11 +217,11 @@ pub(super) fn timeline_arrow(
 }
 
 /// The Settings view's vertical navigation: `↑`/`↓` walk
-/// [`SETTINGS_ORDER`] with wrap-around, and any vertical move from the top bar
-/// lands on the first slider (or the walk's last stop going up). The rail's
+/// [`SETTINGS_ORDER`] with wrap-around, and any vertical move from a section
+/// entry lands on the first slider (or the walk's last stop going up). The page's
 /// session-scoped `Exit to title` joins the walk after the Decisions group when
 /// the overlay's door draws it, so the group keeps its settled position and the
-/// rail control is the one stop past it (`docs/title-and-menu.md` §4).
+/// foot control is the one stop past it (`docs/title-and-menu.md` §4).
 pub(super) fn settings_target(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,

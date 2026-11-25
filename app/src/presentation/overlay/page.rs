@@ -180,8 +180,6 @@ impl Bind for Item {
     }
 
     fn shows(&self, name: &str) -> bool {
-        // A ledger row hides the lines it has nothing for; a section entry shows
-        // everything it has.
         self.words(name).is_some() || !name.starts_with("contents.ledger.")
     }
 
@@ -242,6 +240,13 @@ impl Bind for Page<'_> {
 /// section and ledger items, the section's own view and any open confirm or
 /// picker. The root carries [`MenuRoot`], so the coordinator's one rebuild
 /// clears all of it.
+///
+/// The list the tree puts the ledger in is the right column's body and its scroll
+/// host, so the player lets it shrink below its content: flexbox's default
+/// `min-height: auto` would grow the list past the frame instead of scrolling,
+/// and the format has no property for it. Without a look there is no tree and so
+/// no page; the reference plugin is embedded, so that is a no-assets rig's path
+/// only.
 #[allow(clippy::too_many_arguments)]
 pub(in crate::presentation) fn build_page(
     commands: &mut Commands,
@@ -256,8 +261,6 @@ pub(in crate::presentation) fn build_page(
     look: Option<&UiLook>,
     timeline_scroll: Option<Vec2>,
 ) {
-    // Without a look there is no tree to draw, and the page is the tree: the
-    // reference plugin is embedded, so this is the no-assets rigs' path only.
     let Some(look) = look else {
         return;
     };
@@ -330,10 +333,6 @@ pub(in crate::presentation) fn build_page(
         return;
     };
     if let Some(body) = bound.lists.get("contents.ledger").copied() {
-        // The body is the surface's scroll host, so the player lets it shrink
-        // below its content: flexbox's default `min-height: auto` would grow the
-        // list past the frame instead of scrolling, and the format has no
-        // property for it.
         commands
             .entity(body)
             .entry::<Node>()

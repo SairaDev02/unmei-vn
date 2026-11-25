@@ -74,11 +74,11 @@ pub enum MenuAction {
     ClearKey,
     /// The title's `Gallery` row (opens the gallery with the title as origin).
     Gallery,
-    /// The overlay top bar's `Gallery` control (opens the gallery from the
-    /// slot grid, with the grid as origin).
+    /// The page's `Gallery` section entry: opens the gallery from any section,
+    /// with the page as its origin.
     OpenGallery,
-    /// The overlay top bar's `Timeline` control (opens the Timeline from the
-    /// slot grid; its only door).
+    /// The page's `Timeline` section entry: opens the Timeline from any
+    /// section, which is its only door.
     OpenTimeline,
     /// The Timeline's door-aware back control.
     TimelineBack,
