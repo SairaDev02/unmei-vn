@@ -112,6 +112,7 @@ Every finding the loader, the check and the preview produce carries one id from 
 | `ui.motion.forbidden` | error | A loop where [UI plugin spec §6](ui-plugin-spec.md#6-motion-r10) forbids one: on a slot, a control, a list item or a node inside a list's item template, on any node of the eight menu surfaces, on a node inside a slot that holds engine content, on a node kind other than `box`, `image` and `glyph`, or with a period under 400 ms. |
 | `ui.motion.flash` | error | A loop of more than 3 flashes a second, where a flash is two opposing opacity changes of at least 0.2 between consecutive keyframes ([UI plugin spec §6](ui-plugin-spec.md#6-motion-r10)). |
 | `ui.text.unstyled` | error | A text slot, control, `text` node or `glyph` whose `typography` or tone is set neither on itself nor on an enclosing `Box` ([UI plugin spec §4](ui-plugin-spec.md#4-node-kinds-r2-r4)). |
+| `ui.image.format` | error | A declared image without a `.png` name, or a `.png` whose bytes are not PNG ([UI plugin spec §11](ui-plugin-spec.md#11-the-renderer-and-the-reference-plugin-r16r20-r24-g6)). |
 
 The `ui.*` ids are the UI plugin's, and each plugin ticket adds its family's ids here as it builds them ([UI plugin spec §8](ui-plugin-spec.md#8-findings-and-the-plugin-outcome-r14-r15-r21)).
 

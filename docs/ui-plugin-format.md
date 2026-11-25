@@ -191,6 +191,7 @@ Every finding carries one of these ids and the plugin file, plus the RON field p
 | `ui.motion.forbidden` | A loop outside the places it is allowed, or under the 400 ms period floor. |
 | `ui.motion.flash` | More than 3 flashes a second. |
 | `ui.text.unstyled` | A text slot, control, `text` node or `glyph` whose `typography` or tone is set neither on itself nor on an enclosing `box`. |
+| `ui.image.format` | A declared image without a `.png` name, or a `.png` whose bytes are not PNG. |
 
 ## 8. The interface, surface by surface
 
