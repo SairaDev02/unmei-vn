@@ -14,6 +14,10 @@
         "ink-deep": (r: 0.039, g: 0.043, b: 0.063, a: 0.97),
         "hairline": (r: 1.0, g: 1.0, b: 1.0, a: 0.14),
         "focus": (r: 0.902, g: 0.62, b: 0.361, a: 1.0),
+        // § Title layout §2's neutral gradient: #1b2230 at the upper middle to
+        // #0b0d12 at the edges and corners.
+        "backdrop-inner": (r: 0.106, g: 0.133, b: 0.188, a: 1.0),
+        "backdrop-edge": (r: 0.043, g: 0.051, b: 0.071, a: 1.0),
         "text": (r: 0.90, g: 0.90, b: 0.92, a: 1.0),
         "dim": (r: 0.80, g: 0.80, b: 0.85, a: 0.62),
         "faint": (r: 0.80, g: 0.80, b: 0.85, a: 0.35),
@@ -38,7 +42,13 @@
         // IBM Plex Sans carries neither, so a Plex marker would draw as tofu.
         "marker": (face: "Fira Mono", weight: 500, size_px: 18.0, line_height_px: 18.0),
         // §1 and §3: engine text the surfaces place through a slot.
-        "wordmark": (face: "IBM Plex Sans", weight: 700, size_px: 64.0, line_height_px: 72.0),
+        "wordmark": (face: "IBM Plex Sans", weight: 700, size_px: 64.0, line_height_px: 72.0,
+                     tracking_px: -1.28),
+        // §3's tagline: 12px mono upper case with 0.34em tracking. The reason line
+        // and the legend share `legend` and are not tracked, so the tagline has
+        // its own token.
+        "tagline": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0,
+                    tracking_px: 4.1),
         "prose": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
         "row": (face: "IBM Plex Sans", weight: 400, size_px: 22.0, line_height_px: 28.0),
         "speaker": (face: "IBM Plex Sans", weight: 600, size_px: 16.0, line_height_px: 20.0),
@@ -89,6 +99,11 @@
         "row-pad-x": 12.0,
         "focus-bar-width": 12.0,
         "focus-bar-height": 2.0,
+        // §3's rows: the bar at the row's left edge and the label 26px in. A
+        // list takes no gap, so the item's 8px padding and 2px more top and
+        // bottom carry the prototype's 4px between rows: a 48px pitch.
+        "title-bar-gap": 14.0,
+        "title-row-pad-y": 10.0,
         "row-gap": 12.0,
         "legend-right": 40.0,
         "legend-bottom": 26.0,
@@ -114,6 +129,18 @@
         "dimmer": (
             position: "absolute", left: 0.0, top: 0.0, width: "fill", height: "fill",
             align_items: "center", justify_content: "center",
+        ),
+        // § Title layout §2's neutral backdrop, under the art and the veil: one
+        // radial from the upper middle to the farthest corner.
+        "backdrop": (
+            position: "absolute", left: 0.0, top: 0.0, width: "fill", height: "fill",
+            fill: (radial: (
+                center: (x: 0.5, y: 0.28),
+                stops: [
+                    (at: 0.0, color: "{colors.backdrop-inner}"),
+                    (at: 1.0, color: "{colors.backdrop-edge}"),
+                ],
+            )),
         ),
         // §3's veil: dark at the left edge, through 38%, clear by 62%.
         "veil": (

@@ -11,7 +11,7 @@
 //! repaint only copies the components a state selects.
 
 use bevy::prelude::*;
-use bevy::text::LineHeight;
+use bevy::text::{LetterSpacing, LineHeight};
 use bevy::ui::{BackgroundGradient, BoxShadow, UiTransform};
 use unmei_engine::ui::{Color, ControlStates, Paint, StateOverrides, Style};
 
@@ -43,13 +43,15 @@ pub(crate) struct UiStates {
     pub paint: Paint,
     /// The overrides the tree authored, and each one's face and tone resolved.
     pub states: ControlStates,
-    /// The face, line and tone the tree's own style draws, so leaving a state
-    /// restores them instead of keeping the state's paint.
+    /// The face, line, spacing and tone the tree's own style draws, so leaving a
+    /// state restores them instead of keeping the state's paint.
     base_font: Option<TextFont>,
     base_line: Option<LineHeight>,
+    base_spacing: Option<f32>,
     base_color: Option<bevy::prelude::Color>,
     fonts: [Option<TextFont>; STATES],
     lines: [Option<LineHeight>; STATES],
+    spacings: [Option<f32>; STATES],
     colors: [Option<Color>; STATES],
 }
 
@@ -81,9 +83,15 @@ impl UiStates {
                 .typography
                 .as_ref()
                 .map(|typography| LineHeight::Px(typography.line_height_px)),
+            base_spacing: style
+                .text
+                .typography
+                .as_ref()
+                .map(|typography| typography.tracking_px),
             base_color: text::tone_color(style),
             fonts: std::array::from_fn(|_| None),
             lines: std::array::from_fn(|_| None),
+            spacings: std::array::from_fn(|_| None),
             colors: std::array::from_fn(|_| None),
         };
         let authored = [
@@ -97,6 +105,7 @@ impl UiStates {
             {
                 resolved.fonts[index] = Some(text::font(look, faces, typography));
                 resolved.lines[index] = Some(LineHeight::Px(typography.line_height_px));
+                resolved.spacings[index] = Some(typography.tracking_px);
             }
             resolved.colors[index] = overrides.and_then(|overrides| overrides.color);
         }
@@ -165,7 +174,7 @@ pub(crate) fn sync_paint_states(
 /// A value that did not move is left alone.
 #[allow(
     clippy::type_complexity,
-    reason = "a label's face, tone and line height are the three components Bevy carries them in"
+    reason = "a label's face, tone, line height and spacing are the four text components Bevy carries them in"
 )]
 pub(crate) fn sync_text_states(
     menu: Res<MenuState>,
@@ -173,10 +182,11 @@ pub(crate) fn sync_text_states(
         &UiStates,
         Option<&mut TextFont>,
         Option<&mut LineHeight>,
+        Option<&mut LetterSpacing>,
         Option<&mut TextColor>,
     )>,
 ) {
-    for (states, font, line, color) in &mut labels {
+    for (states, font, line, spacing, color) in &mut labels {
         let index = active(&menu, states);
         let wanted_font = index
             .and_then(|index| states.fonts[index].clone())
@@ -184,11 +194,17 @@ pub(crate) fn sync_text_states(
         let wanted_line = index
             .and_then(|index| states.lines[index])
             .or(states.base_line);
+        let wanted_spacing = index
+            .and_then(|index| states.spacings[index])
+            .or(states.base_spacing);
         if let (Some(mut component), Some(value)) = (font, wanted_font) {
             component.set_if_neq(value);
         }
         if let (Some(mut component), Some(value)) = (line, wanted_line) {
             component.set_if_neq(value);
+        }
+        if let (Some(mut component), Some(value)) = (spacing, wanted_spacing) {
+            component.set_if_neq(LetterSpacing::Px(value));
         }
         let wanted_color = index
             .and_then(|index| states.colors[index])

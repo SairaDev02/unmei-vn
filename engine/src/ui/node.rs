@@ -111,8 +111,9 @@ pub struct ListNode {
     pub item: Box<Node>,
 }
 
-/// The paint a control or a list item applies in each state. A state that was
-/// not authored keeps the node's own paint.
+/// The paint a node applies in each state: a control's own, or the one a list
+/// item gives every node inside it. A state that was not authored keeps the
+/// node's own paint.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ControlStates {
     pub focused: Option<StateOverrides>,

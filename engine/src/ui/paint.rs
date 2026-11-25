@@ -23,7 +23,17 @@ pub enum Fill {
     },
     Radial {
         stops: Vec<GradientStop>,
+        /// The centre as fractions of the node, or the middle when absent.
+        center: Option<Center>,
     },
+}
+
+/// A radial gradient's centre, as fractions of the node's width and height
+/// (spec §4).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Center {
+    pub x: f32,
+    pub y: f32,
 }
 
 /// One colour stop of a gradient, at a position from 0 to 1.
@@ -204,7 +214,8 @@ pub(super) fn fill(
                     .map(|(angle_deg, stops)| Fill::Linear { angle_deg, stops })
             } else if let Some(value) = fields.take("radial") {
                 let property = fields.path("radial");
-                radial(value, &property, tokens, report).map(|stops| Fill::Radial { stops })
+                radial(value, &property, tokens, report)
+                    .map(|(stops, center)| Fill::Radial { stops, center })
             } else if fields.has("r") {
                 tokens::color_fields(&mut fields, report).map(Fill::Color)
             } else {
@@ -260,14 +271,47 @@ fn radial(
     path: &str,
     tokens: &Tokens,
     report: &mut Report,
-) -> Option<Vec<GradientStop>> {
+) -> Option<(Vec<GradientStop>, Option<Center>)> {
     let mut fields = Fields::new(value, path, report)?;
     let items = value::require(fields.take("stops"), fields.path("stops"), "stops", report)?;
     let stops = stops(items, &fields.path("stops"), tokens, report)?;
+    let center = match fields.take("center") {
+        Some(value) => {
+            let property = fields.path("center");
+            Some(center(value, &property, report)?)
+        }
+        None => None,
+    };
     if !fields.finish(report, " in a radial gradient") {
         return None;
     }
-    Some(stops)
+    Some((stops, center))
+}
+
+/// A radial gradient's centre: `x` and `y` are fractions of the node's width and
+/// height, so 0 is its left or top edge and 1 its right or bottom edge.
+fn center(value: ron::Value, path: &str, report: &mut Report) -> Option<Center> {
+    let mut fields = Fields::new(value, path, report)?;
+    let x = fraction(&mut fields, "x", report)?;
+    let y = fraction(&mut fields, "y", report)?;
+    if !fields.finish(report, " in a radial centre") {
+        return None;
+    }
+    Some(Center { x, y })
+}
+
+fn fraction(fields: &mut Fields, name: &str, report: &mut Report) -> Option<f32> {
+    let value = value::require(fields.take(name), fields.path(name), name, report)?;
+    let property = fields.path(name);
+    let number = value::number(value, &property, report)?;
+    if !(0.0..=1.0).contains(&number) {
+        report.claim(
+            &property,
+            format!("expected a fraction from 0 to 1, found {number}"),
+        );
+        return None;
+    }
+    Some(number as f32)
 }
 
 fn stops(

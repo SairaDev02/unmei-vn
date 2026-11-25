@@ -29,13 +29,17 @@ pub struct Color {
     pub a: f32,
 }
 
-/// A resolved typography token: a face, a weight, a size and a line height.
+/// A resolved typography token: a face, a weight, a size, a line height and the
+/// tracking each letter takes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Typography {
     pub face: String,
     pub weight: u16,
     pub size_px: f32,
     pub line_height_px: f32,
+    /// The space in px added after each letter: 0 when the token sets none, and
+    /// negative to tighten (spec §3).
+    pub tracking_px: f32,
 }
 
 /// The plugin's tokens, every reference resolved. The renderer and the later
@@ -256,6 +260,13 @@ fn typography_token(value: ron::Value, path: &str, report: &mut Report) -> Optio
         report,
     )?;
     let line = value::number(line, &fields.path("line_height_px"), report)? as f32;
+    let tracking = match fields.take("tracking_px") {
+        Some(value) => {
+            let property = fields.path("tracking_px");
+            value::number(value, &property, report)? as f32
+        }
+        None => 0.0,
+    };
     if !fields.finish(report, " in a typography token") {
         return None;
     }
@@ -264,6 +275,7 @@ fn typography_token(value: ron::Value, path: &str, report: &mut Report) -> Optio
         weight,
         size_px: size,
         line_height_px: line,
+        tracking_px: tracking,
     })
 }
 

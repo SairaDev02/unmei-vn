@@ -4,12 +4,12 @@
 //!
 //! The tree decides the look; this module decides what it says and what the
 //! format cannot. The app supplies the pack's name, tagline and reason line, the
-//! rows as five items of the one template in `Title` §2's order, the pack's art
-//! in the `title.backdrop` slot — loaded through the shared watch, so a missing
-//! or undecodable file is row 25's silent degradation — the tagline's tracking,
-//! which the format has no property for, and the neutral radial underlay both
-//! the art and the veil then cover: §2's upper-middle radial, which the format's
-//! `radial` fill can only centre. Behaviour — the walk, the confirms, Continue's
+//! rows as five items of the one template in `Title` §2's order and the pack's
+//! art in the `title.backdrop` slot, loaded through the shared watch, so a
+//! missing or undecodable file is row 25's silent degradation. The look is the
+//! tree's alone: the neutral gradient under the art, the veil and the tagline's
+//! tracking are the reference plugin's, so another plugin replaces them (spec
+//! §11, rules 41 and 42). Behaviour — the walk, the confirms, Continue's
 //! precedence — stays the menu's.
 //!
 //! A door that still builds its own root borrows [`spawn_title_backdrop`],
@@ -27,7 +27,6 @@ use crate::menu::{MenuAction, MenuState};
 use crate::PresentationSet;
 use crate::Runtime;
 use bevy::prelude::*;
-use bevy::text::LetterSpacing;
 use bevy::ui::{
     BackgroundGradient, ColorStop, Gradient, LinearGradient, RadialGradient, RadialGradientShape,
     UiPosition,
@@ -68,10 +67,6 @@ const VEIL_STOPS: [(f32, [f32; 4]); 3] = [
     (0.62, [8.0 / 255.0, 9.0 / 255.0, 13.0 / 255.0, 0.0]),
 ];
 
-/// The tagline's 0.34em tracking at §3's 12px size. The format has no
-/// letter-spacing property, so the engine applies it to the one drawn line.
-pub(crate) const TAGLINE_TRACKING_PX: f32 = 4.1;
-
 /// The title door's Settings panel width, until #117 draws that door's page.
 pub(super) const TITLE_SETTINGS_WIDTH: f32 = 720.0;
 
@@ -103,7 +98,6 @@ pub(super) fn build_title(
         faces,
         bind: &bind,
     };
-    let mut spawned = None;
     commands
         .spawn((
             MenuRoot,
@@ -138,13 +132,6 @@ pub(super) fn build_title(
                     surface.spawn_item(&item, rows, &bind, Some(control));
                 }
             });
-            if bind.tagline.is_some() {
-                if let Some(tagline) = bound.slots.get("title.tagline").copied() {
-                    root.commands()
-                        .entity(tagline)
-                        .insert(LetterSpacing::Px(TAGLINE_TRACKING_PX));
-                }
-            }
             if let (Some(slot), Some(asset_server)) =
                 (bound.art.get("title.backdrop").copied(), asset_server)
             {
@@ -155,11 +142,7 @@ pub(super) fn build_title(
             if let Some(confirm) = menu.confirm {
                 confirm_dialog(root, Some(look), faces, confirm, None, runtime);
             }
-            spawned = bound.root;
         });
-    if let Some(root) = spawned {
-        commands.entity(root).insert(title_gradient());
-    }
 }
 
 /// The action one row's control carries.

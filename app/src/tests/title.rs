@@ -633,13 +633,17 @@ fn the_title_draws_the_left_column_and_the_veil() {
     let veil = veil_node(&app);
     let root = parent_of(&app, veil);
     let order = children_of(&app, root);
-    assert_eq!(
-        order.get(1),
-        Some(&veil),
-        "the veil follows the backdrop slot"
+    assert!(
+        app.world().get::<BackgroundGradient>(order[0]).is_some(),
+        "the tree draws the neutral gradient first (spec rule 42)"
     );
     assert_eq!(
         order.get(2),
+        Some(&veil),
+        "the veil follows the gradient and the backdrop slot"
+    );
+    assert_eq!(
+        order.get(3),
         Some(&column),
         "the wordmark and rows draw over the veil"
     );
@@ -740,7 +744,9 @@ fn the_focused_row_is_white_with_the_focus_bar() {
 
 /// Default look §3 spaces the five rows evenly: the maintainer's decision leaves
 /// `Quit`'s 14px gap out, because one item template cannot space its fifth item
-/// differently, and the format gains no property for it.
+/// differently, and the format gains no property for it. The gap *inside* a row
+/// is a property the format has, so the bar keeps the row's left edge and the
+/// label sits 26px in, as the prototype does.
 #[test]
 fn the_five_rows_share_one_template_and_one_gap() {
     let mut app = temp_title_app();
@@ -777,13 +783,39 @@ fn the_five_rows_share_one_template_and_one_gap() {
         Val::Px(0.0),
         "the rows are evenly spaced, with no per-item offset"
     );
+
+    let row = app.world().get::<Node>(items[0]).expect("the item's node");
+    assert_eq!(
+        row.column_gap,
+        Val::Px(14.0),
+        "the bar and the label are 14px apart"
+    );
+    assert_eq!(
+        row.padding,
+        UiRect::axes(Val::Px(0.0), Val::Px(10.0)),
+        "a list takes no gap, so the item's padding carries the prototype's pitch"
+    );
+    let bar = focus_bar(&app, items[0]);
+    let bar_node = app.world().get::<Node>(bar).expect("the bar's node");
+    assert_eq!(bar_node.width, Val::Px(12.0));
+    let px = |value: Val| match value {
+        Val::Px(px) => px,
+        other => panic!("expected pixels, got {other:?}"),
+    };
+    assert_eq!(
+        px(row.padding.left) + px(bar_node.width) + px(row.column_gap),
+        26.0,
+        "the label starts 26px in from the row's left edge"
+    );
 }
 
 /// The neutral title gradient's bright tone sits at the upper middle — the
 /// node's horizontal centre, ~28% down — not on the right edge, where
 /// `CENTER.at_percent(50, 28)` lands: a `UiPosition`'s `x`/`y` are offsets from
 /// the anchor, and `resolve` yields node-centre-relative coordinates
-/// (`docs/title-and-menu.md` § Title layout §2).
+/// (`docs/title-and-menu.md` § Title layout §2). The gradient is the reference
+/// plugin's `backdrop` component, so spec rule 42's positive half rides on this
+/// test together with the tree-order assertion above.
 #[test]
 fn the_title_gradient_centres_on_the_upper_middle() {
     let mut app = temp_title_app();
@@ -863,7 +895,7 @@ fn the_title_renders_the_tagline_uppercased_under_the_wordmark() {
         .collect();
     assert_eq!(
         drawn,
-        vec![name, "A DEMO PACK".to_string()],
+        vec![name.clone(), "A DEMO PACK".to_string()],
         "the tagline is uppercased and sits directly under the wordmark"
     );
     let tracking = app.world().iter_entities().find_map(|entity| {
@@ -874,10 +906,78 @@ fn the_title_renders_the_tagline_uppercased_under_the_wordmark() {
     });
     assert_eq!(
         tracking,
-        Some(bevy::text::LetterSpacing::Px(
-            crate::presentation::title::TAGLINE_TRACKING_PX
-        )),
-        "the tagline carries the spec's tracking"
+        Some(bevy::text::LetterSpacing::Px(4.1)),
+        "the tagline carries the reference plugin's tracking token (spec rule 41)"
+    );
+    let wordmark = text_entity(&app, &name);
+    assert_eq!(
+        app.world()
+            .get::<bevy::text::LetterSpacing>(wordmark)
+            .copied(),
+        Some(bevy::text::LetterSpacing::Px(-1.28)),
+        "the wordmark is tightened by its own token"
+    );
+    for untracked in [
+        menu(&app).continue_line.clone(),
+        menu::TITLE_LEGEND.to_string(),
+    ] {
+        assert_eq!(
+            app.world()
+                .get::<bevy::text::LetterSpacing>(text_entity(&app, &untracked))
+                .copied(),
+            Some(bevy::text::LetterSpacing::Px(0.0)),
+            "{untracked:?} shares an untracked token"
+        );
+    }
+}
+
+/// Spec rule 42: the title's default gradient and its tagline's tracking come
+/// from the plugin's tree and tokens. A plugin whose title tree draws no
+/// gradient and whose tagline token states no tracking gets neither.
+#[test]
+fn a_plugin_without_the_gradient_or_the_tracking_gets_neither() {
+    let dir = temp_pack();
+    let pack_root = dir.path().join("pack");
+    let ui = pack_root.join("ui");
+    copy_dir(
+        &Path::new(env!("CARGO_MANIFEST_DIR")).join("reference-plugin"),
+        &ui,
+    );
+    let tree = ui.join("surfaces").join("title.ron");
+    let body = std::fs::read_to_string(&tree).expect("the reference title tree");
+    let stripped: Vec<&str> = body
+        .lines()
+        .filter(|line| !line.contains("component: \"backdrop\""))
+        .collect();
+    std::fs::write(&tree, stripped.join("\n")).expect("the stripped tree");
+    let tokens = ui.join("tokens.ron");
+    let body = std::fs::read_to_string(&tokens).expect("the reference tokens");
+    std::fs::write(&tokens, body.replace("tracking_px: 4.1", "")).expect("the stripped tokens");
+
+    let mut app = boot_app(pack_root, None);
+    app.insert_resource(TempPack(dir));
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    build_menu_ui(&mut app);
+
+    assert!(
+        !app.world()
+            .iter_entities()
+            .any(
+                |entity| entity.get::<BackgroundGradient>().is_some_and(|gradient| {
+                    gradient
+                        .0
+                        .iter()
+                        .any(|gradient| matches!(gradient, bevy::ui::Gradient::Radial(_)))
+                })
+            ),
+        "a title tree with no gradient draws none"
+    );
+    assert_eq!(
+        app.world()
+            .get::<bevy::text::LetterSpacing>(text_entity(&app, "A DEMO PACK"))
+            .copied(),
+        Some(bevy::text::LetterSpacing::Px(0.0)),
+        "a tagline token with no tracking tracks nothing"
     );
 }
 
@@ -1057,9 +1157,13 @@ fn the_title_draws_the_declared_backdrop_covering_the_window() {
         .expect("the art's node");
     let slot = parent_of(&app, art);
     let order = children_of(&app, parent_of(&app, slot));
-    assert_eq!(order.first(), Some(&slot), "the art draws first");
     assert_eq!(
         order.get(1),
+        Some(&slot),
+        "the art draws over the tree's gradient"
+    );
+    assert_eq!(
+        order.get(2),
         Some(&veil_node(&app)),
         "§3's veil draws over the art"
     );

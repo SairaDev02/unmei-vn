@@ -169,7 +169,8 @@ const ALL_KINDS: &str = r#"(
            keyframes: [ (opacity: 1.0), (opacity: 0.55) ]),
     children: [
         (kind: "image", file: "ornament/pin.png", fit: "cover",
-         fill: (radial: (stops: [ (at: 0.0, color: "{colors.ink}") ]))),
+         fill: (radial: (center: (x: 0.5, y: 0.28),
+                        stops: [ (at: 0.0, color: "{colors.ink}") ]))),
         (kind: "glyph", glyph: "❧", typography: "{typography.flourish}",
          fill: "{colors.ink}"),
         (kind: "text", text: "play.deciding", typography: "{typography.body}",
@@ -251,9 +252,10 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
     assert_eq!(image.file, "ornament/pin.png");
     assert_eq!(image.fit, Fit::Cover);
     match root_box.children[0].style.paint.fill.as_ref() {
-        Some(Fill::Radial { stops }) => {
+        Some(Fill::Radial { stops, center }) => {
             assert_eq!(stops.len(), 1);
             assert_eq!(stops[0].color, ink());
+            assert_eq!(*center, Some(ui::Center { x: 0.5, y: 0.28 }));
         }
         other => panic!("a radial gradient: {other:?}"),
     }
@@ -326,6 +328,53 @@ fn the_six_node_kinds_round_trip_through_the_tree() {
         panic!("the item's slot: {:?}", item.children[0].kind);
     };
     assert_eq!(label.slot, "choice.number");
+}
+
+/// Spec rule 41: a radial fill draws from the centre it names, as fractions of
+/// the node, and from the middle when it names none.
+#[test]
+fn a_radial_gradient_draws_from_its_named_centre() {
+    let named = format!(
+        "(kind: \"box\", fill: (radial: (center: (x: 0.5, y: 0.28),          stops: [ (at: 0.0, color: \"{{colors.ink}}\") ])), children: [{PLAY_INTERFACE}])"
+    );
+    let outcome = load(TOKENS, &[("play", &named)]);
+    assert_eq!(reported(&outcome), [], "{}", messages(&outcome));
+    let root = &plugin(&outcome).surfaces["play"];
+    match root.style.paint.fill.as_ref() {
+        Some(Fill::Radial { center, .. }) => {
+            assert_eq!(*center, Some(ui::Center { x: 0.5, y: 0.28 }));
+        }
+        other => panic!("a radial gradient: {other:?}"),
+    }
+
+    let unnamed = format!(
+        "(kind: \"box\", fill: (radial: (stops: [ (at: 0.0, color: \"{{colors.ink}}\") ])),          children: [{PLAY_INTERFACE}])"
+    );
+    let outcome = load(TOKENS, &[("play", &unnamed)]);
+    assert_eq!(reported(&outcome), [], "{}", messages(&outcome));
+    let root = &plugin(&outcome).surfaces["play"];
+    match root.style.paint.fill.as_ref() {
+        Some(Fill::Radial { center, .. }) => assert_eq!(*center, None),
+        other => panic!("a radial gradient: {other:?}"),
+    }
+}
+
+/// Spec rule 41: a centre outside the node fails with `ui.parse` at the value.
+#[test]
+fn a_centre_outside_the_node_fails() {
+    let tree = r#"(kind: "box",
+        fill: (radial: (center: (x: 1.5, y: 0.5), stops: [ (at: 0.0, color: "{colors.ink}") ])))"#;
+    let outcome = load(TOKENS, &[("play", tree)]);
+    assert_eq!(
+        reported(&outcome),
+        [(
+            "ui/surfaces/play.ron".to_string(),
+            "root.fill.radial.center.x".to_string(),
+            "ui.parse".to_string(),
+        )],
+        "{}",
+        messages(&outcome)
+    );
 }
 
 #[test]

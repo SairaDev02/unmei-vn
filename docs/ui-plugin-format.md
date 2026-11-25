@@ -93,6 +93,8 @@ The field is optional and defaults to `"arabic"`. Any other value, and a value t
     colors: { "ink": (r: 0.06, g: 0.06, b: 0.08, a: 1.0) },
     typography: {
         "body": (face: "IBM Plex Sans", weight: 400, size_px: 25.0, line_height_px: 38.0),
+        "tagline": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0,
+                    tracking_px: 4.1),
     },
     rounded: { "box": 14.0 },
     spacing: { "gutter": 72.0 },
@@ -108,7 +110,7 @@ The field is optional and defaults to `"arabic"`. Any other value, and a value t
 
 A `{group.name}` reference resolves inside `colors`, `typography`, `rounded` and `spacing`. A reference that names no token is `ui.token.unknown`, and one that closes a chain back onto itself is `ui.token.cycle`.
 
-A `colors` or `typography` token is a literal. A `rounded` or `spacing` value may name another token in its own group. A component is a set of node properties; `component: "panel"` applies it, the node's own properties override it, and a component may name another component. A `{components.x}` value reference is `ui.token.unknown`, because a component is named by the `component` property.
+A `colors` or `typography` token is a literal. A `typography` token is a `face`, a `weight`, a `size_px` and a `line_height_px`, and may add `tracking_px`: the space in pixels added after each letter, 0 when absent and negative to tighten. A `rounded` or `spacing` value may name another token in its own group. A component is a set of node properties; `component: "panel"` applies it, the node's own properties override it, and a component may name another component. A `{components.x}` value reference is `ui.token.unknown`, because a component is named by the `component` property.
 
 ## 5. Node trees
 
@@ -143,7 +145,7 @@ A `box` lays its children out: `direction` (`row` or `column`), `gap`, `padding`
 
 Any node takes `width`, `height` (a length, `auto` or `fill`), `position` (`relative` or `absolute`), `left`, `top`, `right` and `bottom` for an absolute node, `z_index`, `opacity`, `transform` (`x`, `y`, `scale`, `rotation_deg`) and `loop`.
 
-A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width` and `color`), `radius` (a number of pixels, a `{rounded.key}` or `{spacing.key}` token, or one per corner) and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `linear` gradient is `(angle_deg: 0.0, stops: [...])`, where 0 runs left to right and 90 top to bottom, and a stop is `(at: 0.0, color: ...)` with `at` from 0 to 1. A `radius` rounds the node, so a filled box that draws no border rounds the same way. A `text` or `glyph` takes `typography` and `fill`.
+A `box`, `image` or `glyph` also takes paint: `fill` (a colour, a `{colors.key}` token, or a `linear` or `radial` gradient), `border` (`width` and `color`), `radius` (a number of pixels, a `{rounded.key}` or `{spacing.key}` token, or one per corner) and `shadow` (a list of `x`, `y`, `blur`, `spread` and `color`). A `linear` gradient is `(angle_deg: 0.0, stops: [...])`, where 0 runs left to right and 90 top to bottom, and a stop is `(at: 0.0, color: ...)` with `at` from 0 to 1. A `radial` gradient is `(center: (x: 0.5, y: 0.28), stops: [...])`, where the centre is a fraction of the node's width and height — 0 its left or top edge, 1 its right or bottom edge, and the middle when `center` is absent — and the gradient reaches the node's farthest corner. A `radius` rounds the node, so a filled box that draws no border rounds the same way. A `text` or `glyph` takes `typography` and `fill`.
 
 A length is a number of pixels or a `{spacing.key}` token. A colour is `(r: 0.0, g: 0.0, b: 0.0, a: 1.0)` with channels from 0 to 1, or a `{colors.key}` token. A number may be written as an integer or a float. A name the format knows is a lowercase kebab-case string, for example `"ease-in-out"`; never a RON identifier.
 

@@ -1,4 +1,5 @@
-// Default look §3: the title's left column, the rows and the veil.
+// Default look §3: the title's left column, the rows and the veil, over § Title
+// layout §2's neutral gradient and the pack's own art.
 //
 // The rows are text-only, so a row is its FOCUS bar, its label, and the row's
 // own control laid over them: the engine shows the row's own control and hides
@@ -15,6 +16,9 @@
     kind: "box",
     component: "page",
     children: [
+        // § Title layout §2's neutral gradient, the default when the pack
+        // declares no art.
+        (kind: "box", component: "backdrop"),
         // The pack's backdrop, under the veil.
         (kind: "slot",
             slot: "title.backdrop",
@@ -44,7 +48,7 @@
                             typography: "{typography.wordmark}",
                             color: "{colors.text}"),
                         (kind: "slot", slot: "title.tagline",
-                            typography: "{typography.legend}",
+                            typography: "{typography.tagline}",
                             color: "{colors.focus}"),
                     ],
                 ),
@@ -60,8 +64,9 @@
                             item: (kind: "box",
                                 direction: "row",
                                 align_items: "center",
+                                gap: "{spacing.title-bar-gap}",
                                 width: "fill",
-                                padding: (top: "{spacing.row-pad-y}", right: 0.0, bottom: "{spacing.row-pad-y}", left: 0.0),
+                                padding: (top: "{spacing.title-row-pad-y}", right: 0.0, bottom: "{spacing.title-row-pad-y}", left: 0.0),
                                 children: [
                                     // §3's focus marker: 12x2, transparent until
                                     // its row is the focused one.
