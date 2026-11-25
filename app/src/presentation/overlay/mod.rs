@@ -1,14 +1,14 @@
-//! The Esc overlay: rail, top bar, slot cards, the confirm surface and the
-//! Legacy picker.
+//! The contents page: the plugin-drawn page, the confirm surface and the Legacy
+//! picker.
 //!
-//! This root composes the overlay's chrome — the rail, the top bar and the
-//! sub-view dispatch — with its confirm binding and its one remaining dialog,
-//! and re-exports them, so every `overlay::<Item>` path callers already use
-//! stays the same.
+//! This root composes the page drawn from the `contents` surface with the
+//! confirm binding and the one remaining dialog — the legacy picker, which no
+//! surface owns yet — and re-exports them, so every `overlay::<Item>` path
+//! callers already use stays the same.
 
-mod chrome;
 mod confirm;
 mod dialogs;
+mod page;
 
-pub(super) use chrome::build_overlay;
 pub(super) use confirm::confirm_dialog;
+pub(super) use page::build_page;

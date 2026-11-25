@@ -8,12 +8,13 @@ use unmei_engine::Pack;
 
 use super::cards::{format_saved_at, slot_index};
 
-/// Which surface the pause layer shows: the boot title, the slot grid, the
-/// Settings view, the gallery or the Timeline. The title is a fifth view on the
-/// same state, not a Bevy `States` migration (`docs/title-and-menu.md` § Title
-/// §1); `menu_closed` freezes the play path for it exactly as it does for the
-/// overlay. Timeline is overlay-only: its one door is the slot grid's top bar
-/// and it has no title entry (`docs/title-and-menu.md` § Timeline §1).
+/// Which surface the pause layer shows: the boot title, the contents page's
+/// Save or Load ledger, the Settings view, the gallery or the Timeline. The title
+/// is a fifth view on the same state, not a Bevy `States` migration
+/// (`docs/title-and-menu.md` § Title §1); `menu_closed` freezes the play path for
+/// it exactly as it does for the overlay. Timeline is overlay-only: the page's
+/// own entry is its one door and it has no title entry
+/// (`docs/title-and-menu.md` § Timeline §1).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuView {
     Title,
@@ -113,17 +114,15 @@ pub enum MenuFocus {
     QuickAuto,
     QuickSkip,
     QuickMenu,
-    /// The overlay top bar's `Timeline` control, immediately left of `Gallery`
-    /// and rendered only while the slot grid is up
-    /// (`docs/title-and-menu.md` § Timeline §1).
+    /// The page's `Timeline` section entry (`docs/title-and-menu.md`
+    /// § Timeline §1).
     TimelineButton,
-    /// The overlay top bar's `Gallery` control, immediately left of Settings
-    /// and rendered only while the slot grid is up.
+    /// The page's `Gallery` section entry.
     GalleryButton,
-    /// The overlay Settings rail's `Exit to title` control, drawn only from the
-    /// overlay's door and only while a live session exists
-    /// (`docs/title-and-menu.md` §4, §5). It is the Settings walk's last stop
-    /// when it is shown.
+    /// The page's `Exit to title` control at the column's foot: drawn in every
+    /// section of the overlay's page and never on a surface the title opened,
+    /// which has no live session to leave (`docs/title-and-menu.md` §4, §5). It
+    /// is the ledger walk's and the Settings walk's last stop when it is shown.
     ExitToTitle,
 }
 
@@ -141,7 +140,7 @@ pub enum ConfirmKind {
     NewGame,
     /// The title's `Quit` with a live session to lose.
     Quit,
-    /// The overlay Settings rail's `Exit to title`.
+    /// The page's `Exit to title`.
     ExitToTitle,
     /// The Decisions group's `Clear key` confirmation.
     ClearKey,
@@ -351,12 +350,12 @@ pub fn live_session(menu: &MenuState) -> bool {
     menu.live_session
 }
 
-/// Whether the Settings view draws the rail's `Exit to title` control: only
-/// from the overlay's door, because the title's door has no live session to
-/// leave (`docs/title-and-menu.md` §4). The rail's draw, the keyboard walk and
-/// the Keiko control table all read this one predicate.
+/// Whether the contents page draws `Exit to title` at its column's foot: in
+/// every section of the overlay's page, because the page replaced the Settings
+/// rail the control used to live in, and never on a surface the title opened —
+/// the title's door has no live session to leave
+/// (`docs/title-and-menu.md` § Default look §4, § Title §4). The page's draw, the
+/// keyboard walks and the Keiko control table all read this one predicate.
 pub fn exit_to_title_shown(menu: &MenuState) -> bool {
-    menu.view == MenuView::Settings
-        && menu.settings_origin == MenuOrigin::Slots
-        && live_session(menu)
+    menu.open && live_session(menu) && !menu.title_surface_up()
 }

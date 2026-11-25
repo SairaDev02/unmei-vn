@@ -1537,7 +1537,7 @@ Settled 2026-10-13: four interview rounds (Q1–Q9) and the complete-design conf
 | `presentation.rs` — the assembly coordinator | `MenuBuilt` and `MenuRoot`; the one rebuild signature and the root despawn/rebuild transaction; the title/overlay door dispatch (`sync_menu_ui`); the single focus repaint (`sync_menu_focus`, `focus_border`) | the surface builders, invoked in the existing dispatch |
 | `presentation/play.rs` | `AppliedAudio`, `AppliedVolume`, `AppliedVisuals`, `AppliedUi`, `TextReveal`, the `Bgm`/`Sfx` channels; the dialogue band and choice buttons, staging draws, audio application, the `AUTO`/`SKIP` cues, the Notice text node, the startup error screen | `request_replay` (a concrete operation hiding the applied caches), the reveal operations, `setup_ui` |
 | `presentation/title.rs` | the wordmark, the five rows, the tagline, the neutral gradient, the `title_backdrop` spawn and fit | builder |
-| `presentation/overlay.rs` | the rail, the top bar, the slot cards, the confirm-dialog visuals and the Legacy picker | builder |
+| `presentation/overlay/` | the contents page drawn from the plugin's `contents` surface, the confirm-dialog visuals and the Legacy picker | builder |
 | `presentation/settings_view.rs` | the Settings, Play and Decisions groups, their labels and tracks, the window mode, the key row/field and the drag | builder + the drag-cancel operation |
 | `presentation/gallery.rs` | the grid, the card, the still, the title-door scrim and the art/column/fit/scroll syncs | builder + pure derivations |
 | `presentation/timeline.rs` | the surface, its cards and the scroll sync | builder + sync |

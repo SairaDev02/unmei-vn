@@ -147,7 +147,9 @@ fn every_confirm_kind_is_drawn_from_the_reference_plugin() {
     }
 }
 
-/// The dialog's geometry and faces, read from the nodes the tree drew.
+/// The dialog's geometry and faces, read from the nodes the tree drew. The panel
+/// is the one the confirm's dimmer centres, not the contents page's 420px
+/// section column.
 #[test]
 fn the_confirm_panel_keeps_the_overlay_dialog_geometry_and_faces() {
     let dir = temp_pack();
@@ -162,7 +164,8 @@ fn the_confirm_panel_keeps_the_overlay_dialog_geometry_and_faces() {
         .iter_entities()
         .find_map(|entity| {
             let node = entity.get::<bevy::ui::Node>()?;
-            (node.width == Val::Px(420.0)).then_some((entity, node.clone()))
+            (node.width == Val::Px(420.0) && node.padding == UiRect::all(Val::Px(20.0)))
+                .then_some((entity, node.clone()))
         })
         .map(|(_, node)| node)
         .expect("the dialog's 420px panel");

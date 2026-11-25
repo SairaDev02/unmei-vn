@@ -53,8 +53,8 @@ pub fn gallery_back_label(origin: MenuOrigin) -> &'static str {
 
 /// The Timeline's heading (`docs/title-and-menu.md` § Timeline §3).
 pub const TIMELINE_HEADING: &str = copy::text("timeline.heading");
-/// The Timeline's door-aware back label. Timeline's only door is the overlay's
-/// slot grid, so the label is fixed (`docs/title-and-menu.md` § Timeline §1).
+/// The Timeline's back label. Timeline's only door is the contents page, so the
+/// label is fixed (`docs/title-and-menu.md` § Timeline §1).
 pub const TIMELINE_BACK: &str = copy::text("timeline.back");
 /// The Timeline's explanatory line, under the heading in every non-card state.
 pub const TIMELINE_EXPLANATION: &str = copy::text("timeline.explanation");

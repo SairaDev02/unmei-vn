@@ -228,7 +228,11 @@ fn the_overlay_freezes_the_reveal_and_resumes_where_it_stopped() {
         shown_before,
         "the reveal clock is frozen while the overlay is open"
     );
-    assert_eq!(drawn_prose(&app), frozen_text);
+    assert_eq!(
+        drawn_prose(&app),
+        "",
+        "§4's page is opaque and draws no play frame behind it"
+    );
 
     esc(&mut app);
     assert!(!menu(&app).open);
@@ -237,6 +241,10 @@ fn the_overlay_freezes_the_reveal_and_resumes_where_it_stopped() {
     assert!(
         app.world().resource::<TextReveal>().chars_shown(0.02) > shown_before,
         "closing resumes from where it stopped"
+    );
+    assert!(
+        drawn_prose(&app).starts_with(&frozen_text),
+        "the same line comes back, from where it stopped"
     );
 }
 

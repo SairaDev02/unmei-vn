@@ -90,7 +90,21 @@ pub const KEYS: &[CopyKey] = &[
         placeholders: &[],
         text: "— end of scene —",
     },
-    // The contents surface: the Esc overlay's rail, tabs and slot cards.
+    CopyKey {
+        id: "contents.label",
+        placeholders: &[],
+        text: "CONTENTS",
+    },
+    CopyKey {
+        id: "contents.heading.save",
+        placeholders: &["scene"],
+        text: "Save your place — you are in {scene}",
+    },
+    CopyKey {
+        id: "contents.heading.load",
+        placeholders: &["scene"],
+        text: "Return to a page — you are in {scene}",
+    },
     CopyKey {
         id: "contents.rail.scene",
         placeholders: &["scene"],
@@ -99,7 +113,7 @@ pub const KEYS: &[CopyKey] = &[
     CopyKey {
         id: "contents.rail.resume",
         placeholders: &[],
-        text: "\u{25b6} Resume  (Esc)",
+        text: "Resume reading",
     },
     CopyKey {
         id: "contents.rail.exit-to-title",
@@ -129,7 +143,7 @@ pub const KEYS: &[CopyKey] = &[
     CopyKey {
         id: "contents.tab.settings",
         placeholders: &[],
-        text: "\u{2699} Settings",
+        text: "Settings",
     },
     CopyKey {
         id: "contents.card.legacy-import",

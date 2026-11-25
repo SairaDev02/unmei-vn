@@ -1046,8 +1046,12 @@ fn timeline_cards_use_the_approved_geometry_and_identical_focus_ring() {
     );
 }
 
+/// The section column stands in every section, so the Timeline's entry is drawn
+/// on the ledger, inside Settings and inside the gallery, and activating it from
+/// another section opens the Timeline (`docs/title-and-menu.md` § Default look
+/// §4, § Timeline §1).
 #[test]
-fn timeline_and_gallery_doors_render_only_in_the_slot_grid() {
+fn the_timeline_entry_stands_in_every_section_and_still_opens_it() {
     let (mut app, _pack) = timeline_app(&["first_meeting", "reunion"]);
     esc(&mut app);
     build_pause_tree(&mut app);
@@ -1057,14 +1061,13 @@ fn timeline_and_gallery_doors_render_only_in_the_slot_grid() {
     click(&mut app, MenuAction::OpenSettings);
     assert_eq!(menu(&app).view, MenuView::Settings);
     build_pause_tree(&mut app);
-    assert!(!has_action(&app, MenuAction::OpenTimeline));
-    assert!(!has_action(&app, MenuAction::OpenGallery));
+    assert!(has_action(&app, MenuAction::OpenTimeline));
+    assert!(has_action(&app, MenuAction::OpenGallery));
 
-    click(&mut app, MenuAction::BackToSlots);
-    click(&mut app, MenuAction::OpenGallery);
-    assert_eq!(menu(&app).view, MenuView::Gallery);
+    click(&mut app, MenuAction::OpenTimeline);
+    assert_eq!(menu(&app).view, MenuView::Timeline);
     build_pause_tree(&mut app);
-    assert!(!has_action(&app, MenuAction::OpenTimeline));
+    assert!(has_action(&app, MenuAction::OpenGallery));
 }
 
 #[test]

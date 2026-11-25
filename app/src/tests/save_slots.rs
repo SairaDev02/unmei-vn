@@ -563,11 +563,15 @@ fn the_legacy_card_is_shown_only_in_save_mode_while_importable() {
         "back in save mode it returns"
     );
 
-    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::Card(2);
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::Card(3);
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::LegacyCard);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume);
     press_and_update(&mut app, KeyCode::ArrowUp);
-    assert_eq!(menu(&app).focus, MenuFocus::Card(2));
+    assert_eq!(menu(&app).focus, MenuFocus::LegacyCard);
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Card(3));
 
     let (app, _pack) = app_with_legacy();
     let mut app = app;

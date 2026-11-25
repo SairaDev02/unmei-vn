@@ -1,6 +1,7 @@
 //! Pure navigation over the pause surface's controls: the title and Settings
-//! walks, the slot grid's arrow/digit rule, and the gallery and Timeline card
-//! walks. Every function here is a focus computation with no world access.
+//! walks, the contents page's ledger walk and its Tab cycle, and the gallery and
+//! Timeline card walks. Every function here is a focus computation with no world
+//! access.
 
 use bevy::input::ButtonInput;
 use bevy::prelude::KeyCode;
@@ -8,10 +9,10 @@ use bevy::prelude::KeyCode;
 use super::labels::{SETTINGS_ORDER, TITLE_ORDER};
 use super::state::MenuFocus;
 
-/// Tab cycles the top bar: Save → Load → Timeline → Gallery → Settings → Save.
-/// In the gallery, Timeline and Settings views none of the three sub-view
-/// controls is rendered, so the cycle narrows to Save → Load
-/// (`docs/title-and-menu.md` § Gallery `### Behavior` §1, § Timeline §1).
+/// Tab cycles the page's sections: Save → Load → Timeline → Gallery → Settings
+/// → Save. Inside the gallery, Timeline and Settings the cycle narrows to Save →
+/// Load, which keeps `Tab` off the section the page is already on
+/// (`docs/title-and-menu.md` § Default look §4).
 pub(super) fn next_top_bar(focus: MenuFocus) -> MenuFocus {
     match focus {
         MenuFocus::SaveTab => MenuFocus::LoadTab,
@@ -30,51 +31,51 @@ pub(super) fn next_top_bar_subview(focus: MenuFocus) -> MenuFocus {
     }
 }
 
-/// Arrow navigation over the 2×2 grid; any arrow from a non-card control lands
-/// on the first card, and `Left` from the grid's left column reaches the rail's
-/// Resume button (so Resume is keyboard-reachable, not mouse-only). When the
-/// Legacy card is shown, `Down` from the grid's bottom row reaches it, and
-/// `Up` returns.
-pub(super) fn arrow_target(
+/// The ledger walk in Save and Load: `↑`/`↓` step the slots in `Slot::ALL` order
+/// and stop at both ends, with the legacy entry after them in save mode and the
+/// page's foot — Resume, then Exit to title — past the last row. Any other focus
+/// lands on the first row, so `Tab` and the digits are always one press from the
+/// ledger. `←`/`→` never move here (`docs/title-and-menu.md` § Default look §4).
+/// The foot's two stops keep the page's own controls keyboard-reachable, as the
+/// 2026-11-18 amendment did for the Settings rail.
+pub(super) fn ledger_target(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
     legacy_shown: bool,
+    exit_shown: bool,
 ) -> Option<MenuFocus> {
-    let MenuFocus::Card(index) = focus else {
-        if focus == MenuFocus::LegacyCard && keys.just_pressed(KeyCode::ArrowUp) {
-            return Some(MenuFocus::Card(2));
-        }
-        let moved = keys.just_pressed(KeyCode::ArrowLeft)
-            || keys.just_pressed(KeyCode::ArrowRight)
-            || keys.just_pressed(KeyCode::ArrowUp)
-            || keys.just_pressed(KeyCode::ArrowDown);
-        return moved.then_some(MenuFocus::Card(0));
-    };
-
-    let right = if index % 2 == 0 { index + 1 } else { index };
-    let left = if index % 2 == 1 { index - 1 } else { index };
-    let down = if index < 2 { index + 2 } else { index };
-    let up = if index >= 2 { index - 2 } else { index };
-
-    if keys.just_pressed(KeyCode::ArrowRight) {
-        Some(MenuFocus::Card(right))
-    } else if keys.just_pressed(KeyCode::ArrowLeft) {
-        if index % 2 == 0 {
-            Some(MenuFocus::Resume)
-        } else {
-            Some(MenuFocus::Card(left))
-        }
-    } else if keys.just_pressed(KeyCode::ArrowDown) {
-        if legacy_shown && index >= 2 {
-            Some(MenuFocus::LegacyCard)
-        } else {
-            Some(MenuFocus::Card(down))
-        }
+    let delta = if keys.just_pressed(KeyCode::ArrowDown) {
+        1
     } else if keys.just_pressed(KeyCode::ArrowUp) {
-        Some(MenuFocus::Card(up))
+        -1
     } else {
-        None
+        return None;
+    };
+    let order = ledger_order(legacy_shown, exit_shown);
+    let Some(index) = order.iter().position(|entry| *entry == focus) else {
+        return Some(order[0]);
+    };
+    let next = (index as i32 + delta).clamp(0, order.len() as i32 - 1) as usize;
+    Some(order[next])
+}
+
+/// The walk's order past the ledger: the four slots, the legacy row when it is
+/// shown, Resume, and Exit to title when it is shown.
+pub(super) fn ledger_order(legacy_shown: bool, exit_shown: bool) -> Vec<MenuFocus> {
+    let mut order = vec![
+        MenuFocus::Card(0),
+        MenuFocus::Card(1),
+        MenuFocus::Card(2),
+        MenuFocus::Card(3),
+    ];
+    if legacy_shown {
+        order.push(MenuFocus::LegacyCard);
     }
+    order.push(MenuFocus::Resume);
+    if exit_shown {
+        order.push(MenuFocus::ExitToTitle);
+    }
+    order
 }
 
 /// Digits `1`–`3` focus a manual slot; they never activate it.
@@ -133,9 +134,9 @@ pub fn gallery_browse(index: usize, count: usize, delta: isize) -> Option<usize>
     Some((index as isize + delta).rem_euclid(count as isize) as usize)
 }
 
-/// Read the gallery's arrow keys into a focus move. Any arrow from a top-bar
-/// control lands on the first card, so the grid is one key away; digits remain
-/// the slot grid's shortcut and do nothing here.
+/// Read the gallery's arrow keys into a focus move. Any arrow from a section
+/// entry lands on the first card, so the grid is one key away; the digits are the
+/// ledger's shortcut and do nothing here.
 pub(super) fn gallery_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
@@ -182,9 +183,9 @@ pub fn timeline_move(index: usize, count: usize, dir: GalleryDir) -> Option<usiz
     (next != index).then_some(next)
 }
 
-/// Read the Timeline's arrow keys into a focus move. Any arrow from a top-bar
-/// control lands on the first card; digits remain the slot grid's shortcut and
-/// do nothing here (`docs/title-and-menu.md` § Timeline §2).
+/// Read the Timeline's arrow keys into a focus move. Any arrow from a section
+/// entry lands on the first card; the digits are the ledger's shortcut and do
+/// nothing here (`docs/title-and-menu.md` § Timeline §2).
 pub(super) fn timeline_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
@@ -213,11 +214,11 @@ pub(super) fn timeline_arrow(
 }
 
 /// The Settings view's vertical navigation: `↑`/`↓` walk
-/// [`SETTINGS_ORDER`] with wrap-around, and any vertical move from the top bar
-/// lands on the first slider (or the walk's last stop going up). The rail's
+/// [`SETTINGS_ORDER`] with wrap-around, and any vertical move from a section
+/// entry lands on the first slider (or the walk's last stop going up). The page's
 /// session-scoped `Exit to title` joins the walk after the Decisions group when
 /// the overlay's door draws it, so the group keeps its settled position and the
-/// rail control is the one stop past it (`docs/title-and-menu.md` §4).
+/// foot control is the one stop past it (`docs/title-and-menu.md` §4).
 pub(super) fn settings_target(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,

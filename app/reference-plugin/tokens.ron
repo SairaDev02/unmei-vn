@@ -38,8 +38,9 @@
         "group": (face: "Fira Mono", weight: 500, size_px: 18.0, line_height_px: 24.0),
         "legend": (face: "Fira Mono", weight: 500, size_px: 12.0, line_height_px: 16.0),
         "detail": (face: "IBM Plex Sans", weight: 400, size_px: 15.0, line_height_px: 20.0),
-        // The two markers' face. Fira Mono carries the `▼` and `•` glyphs and
-        // IBM Plex Sans carries neither, so a Plex marker would draw as tofu.
+        // The two markers' face. Fira Mono carries the `▼` and `•` glyphs and IBM
+        // Plex Sans carries neither, so a Plex marker would draw as tofu. The
+        // contents page's `►` needs the same face for the same reason.
         "marker": (face: "Fira Mono", weight: 500, size_px: 18.0, line_height_px: 18.0),
         // §1 and §3: engine text the surfaces place through a slot.
         "wordmark": (face: "IBM Plex Sans", weight: 700, size_px: 64.0, line_height_px: 72.0,
@@ -109,9 +110,17 @@
         "legend-bottom": 26.0,
         // The contents page and the sub-views' interiors (§4).
         "rail-width": 420.0,
+        // §4's right column: the frame less the 420px rail and its 1px hairline.
+        // The page lays out at the 1280x720 reference, and a row in this format
+        // shrinks a `fill` child, so the column states its width rather than
+        // claiming 100% beside the rail.
+        "column-width": 859.0,
         "page-padding": 32.0,
         "section-gap": 16.0,
         "entry-gap": 4.0,
+        "ledger-label": 96.0,
+        "ledger-status": 92.0,
+        "ledger-action": 110.0,
         "button-pad-x": 14.0,
         "button-pad-y": 6.0,
         "settings-width": 440.0,
@@ -241,7 +250,7 @@
             padding: "{spacing.page-padding}",
             gap: "{spacing.section-gap}",
         ),
-        "divider": (width: 1.0, height: "fill", fill: "{colors.faint}"),
+        "divider": (width: 1.0, height: "fill", fill: "{colors.hairline}"),
         "spacer": (width: "fill", height: "fill"),
         "heading-row": (
             direction: "row",

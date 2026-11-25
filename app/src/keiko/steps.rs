@@ -404,9 +404,9 @@ fn save_or_load(
     } else {
         "overlay.load-tab"
     };
-    // The top bar is outside the card grid's arrow walk: Tab is the only way
-    // from the slots to the tabs, so the step presses it until the tab is in
-    // reach. No step writes menu state (spec §3, K9).
+    // Tab is the sections' key and the arrows walk the ledger's rows, so the
+    // step presses Tab until the section is in reach. No step writes menu state
+    // (spec §3, K9).
     for _ in 0..4 {
         if app.world().resource::<MenuState>().focus
             == focus_for_id(tab).unwrap_or(MenuFocus::SaveTab)

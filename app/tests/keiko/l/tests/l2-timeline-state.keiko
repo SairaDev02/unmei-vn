@@ -26,7 +26,7 @@ press Tab
 press Tab
 expect control overlay.load-tab focused
 press Enter
-press ArrowLeft
+press ArrowDown
 expect control overlay.slot.1 focused
 press Enter
 expect surface confirm

@@ -74,11 +74,11 @@ pub enum MenuAction {
     ClearKey,
     /// The title's `Gallery` row (opens the gallery with the title as origin).
     Gallery,
-    /// The overlay top bar's `Gallery` control (opens the gallery from the
-    /// slot grid, with the grid as origin).
+    /// The page's `Gallery` section entry: opens the gallery from any section,
+    /// with the page as its origin.
     OpenGallery,
-    /// The overlay top bar's `Timeline` control (opens the Timeline from the
-    /// slot grid; its only door).
+    /// The page's `Timeline` section entry: opens the Timeline from any
+    /// section, which is its only door.
     OpenTimeline,
     /// The Timeline's door-aware back control.
     TimelineBack,
@@ -98,7 +98,7 @@ pub enum MenuAction {
     GalleryStillClose,
     /// The title's `Quit` row.
     Quit,
-    /// The overlay Settings rail's `Exit to title`.
+    /// The page's `Exit to title`, at its column's foot.
     ExitToTitle,
     ConfirmAccept,
     ConfirmCancel,
@@ -162,6 +162,10 @@ pub(crate) fn action_for_focus(focus: MenuFocus) -> MenuAction {
     }
 }
 
+/// Apply one action to the pause surface. The page's section entries stand in
+/// every section, so Save, Load, Timeline and the Gallery open their own view
+/// from wherever the page is, and none of them reads a slot or writes anything
+/// (`docs/title-and-menu.md` § Default look §4, § Timeline §1).
 pub(super) fn apply(
     action: MenuAction,
     menu: &mut MenuState,
@@ -182,12 +186,16 @@ pub(super) fn apply(
     match action {
         MenuAction::Resume => close(menu),
         MenuAction::SetMode(mode) => {
-            menu.picker = None;
-            menu.mode = mode;
-            menu.focus = match mode {
-                MenuMode::Save => MenuFocus::SaveTab,
-                MenuMode::Load => MenuFocus::LoadTab,
-            };
+            if menu.confirm.is_none() {
+                menu.picker = None;
+                menu.gallery_still = false;
+                menu.view = MenuView::Slots;
+                menu.mode = mode;
+                menu.focus = match mode {
+                    MenuMode::Save => MenuFocus::SaveTab,
+                    MenuMode::Load => MenuFocus::LoadTab,
+                };
+            }
         }
         MenuAction::OpenSettings => {
             menu.picker = None;
@@ -251,15 +259,12 @@ pub(super) fn apply(
             }
         }
         MenuAction::OpenGallery => {
-            if menu.confirm.is_none() && menu.view == MenuView::Slots {
+            if menu.confirm.is_none() && menu.view != MenuView::Title {
                 open_gallery(menu, MenuOrigin::Slots);
             }
         }
-        // The overlay's Timeline control opens it from the slot grid, its only
-        // door; opening reads no slot and writes nothing
-        // (`docs/title-and-menu.md` § Timeline §1).
         MenuAction::OpenTimeline => {
-            if menu.confirm.is_none() && menu.view == MenuView::Slots {
+            if menu.confirm.is_none() && menu.view != MenuView::Title {
                 open_timeline(menu, session);
             }
         }
@@ -321,9 +326,9 @@ pub(super) fn apply(
             }
         }
         MenuAction::ExitToTitle => {
-            // Defence for a direct caller: the rail control is drawn only from
-            // the overlay's door with a live session, so a stale focus (the
-            // session ended under it) asks nothing.
+            // Defence for a direct caller: the control is drawn only on the
+            // overlay's page with a live session, so a stale focus (the session
+            // ended under it) asks nothing.
             if menu.confirm.is_none() && exit_to_title_shown(menu) {
                 menu.confirm = Some(ConfirmKind::ExitToTitle);
                 menu.focus = MenuFocus::ConfirmYes;

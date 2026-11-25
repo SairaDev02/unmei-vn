@@ -106,7 +106,7 @@ const CONTENTS_LEDGER: ListSpec = ListSpec {
         "contents.ledger.saved-at",
         "contents.ledger.action",
     ],
-    optional_item_slots: &[],
+    optional_item_slots: &["contents.ledger.status"],
     item_controls: &[
         "overlay.slot.1",
         "overlay.slot.2",
@@ -290,6 +290,9 @@ pub const SURFACES: &[SurfaceSpec] = &[
         ],
         lists: &[CONTENTS_SECTIONS, CONTENTS_LEDGER],
         copy_keys: &[
+            "contents.label",
+            "contents.heading.save",
+            "contents.heading.load",
             "contents.rail.scene",
             "contents.rail.resume",
             "contents.rail.exit-to-title",

@@ -149,8 +149,13 @@ pub(crate) fn sync_paint_states(
         if let Some(mut component) = gradient {
             component.set_if_neq(fill_gradient.unwrap_or(BackgroundGradient(Vec::new())));
         }
-        if let (Some(mut component), Some(value)) = (border, drawn.border) {
-            let (value, _) = paint::border(value, drawn.opacity);
+        if let Some(mut component) = border {
+            // A border a state authored and the tree did not is cleared when the
+            // state leaves, so a ring goes with the focus (spec §4).
+            let value = match drawn.border {
+                Some(value) => paint::border(value, drawn.opacity).0,
+                None => BorderColor::all(bevy::prelude::Color::NONE),
+            };
             component.set_if_neq(value);
         }
         let mut next = node.clone();

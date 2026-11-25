@@ -350,7 +350,7 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | Kind | Name | In list | Placeholders | Shows |
 | --- | --- | --- | --- | --- |
 | optional slot | `pack.name` | — | — | The pack's name. |
-| optional slot | `contents.scene` | — | — | The current scene's id. |
+| optional slot | `contents.scene` | — | — | The heading line: `Save your place — you are in <scene>`, or `Return to a page — you are in <scene>` in the Load section. |
 | required control | `overlay.resume` | — | — | Closes the page and resumes reading. |
 | required control | `overlay.exit-to-title` | — | — | Returns to the title, after a confirm. |
 | required control | `overlay.save-tab` | — | — | Shows the Save section. |
@@ -367,6 +367,7 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | item control | `overlay.settings` | `contents.sections` | — | The row's control; the engine shows the row's own. |
 | list | `contents.ledger` | — | — | One row per save slot in slot order, with the legacy entry last in save mode. |
 | item slot | `contents.ledger.label` | `contents.ledger` | — | The slot's label. |
+| optional item slot | `contents.ledger.status` | `contents.ledger` | — | The slot's status: ok, empty or unreadable. |
 | item slot | `contents.ledger.detail` | `contents.ledger` | — | The scene the save holds, the reason it cannot be read, or the empty mark. |
 | item slot | `contents.ledger.saved-at` | `contents.ledger` | — | When the save was written. |
 | item slot | `contents.ledger.action` | `contents.ledger` | — | What activating the row does: save here, overwrite, load, or load only. |
@@ -375,14 +376,17 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | item control | `overlay.slot.3` | `contents.ledger` | — | The row's control; the engine shows the row's own. |
 | item control | `overlay.slot.autosave` | `contents.ledger` | — | The row's control; the engine shows the row's own. |
 | item control | `overlay.legacy` | `contents.ledger` | — | The row's control; the engine shows the row's own. |
+| copy key | `contents.label` | — | — | `CONTENTS` |
+| copy key | `contents.heading.save` | — | `scene` | `Save your place — you are in {scene}` |
+| copy key | `contents.heading.load` | — | `scene` | `Return to a page — you are in {scene}` |
 | copy key | `contents.rail.scene` | — | `scene` | `scene: {scene}` |
-| copy key | `contents.rail.resume` | — | — | `▶ Resume  (Esc)` |
+| copy key | `contents.rail.resume` | — | — | `Resume reading` |
 | copy key | `contents.rail.exit-to-title` | — | — | `Exit to title` |
 | copy key | `contents.tab.save` | — | — | `Save` |
 | copy key | `contents.tab.load` | — | — | `Load` |
 | copy key | `contents.tab.timeline` | — | — | `Timeline` |
 | copy key | `contents.tab.gallery` | — | — | `Gallery` |
-| copy key | `contents.tab.settings` | — | — | `⚙ Settings` |
+| copy key | `contents.tab.settings` | — | — | `Settings` |
 | copy key | `contents.card.legacy-import` | — | — | `Legacy save — Import…` |
 | copy key | `contents.slot.1` | — | — | `Slot 1` |
 | copy key | `contents.slot.2` | — | — | `Slot 2` |
@@ -400,6 +404,8 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | copy key | `contents.action.overwrite` | — | — | `Overwrite` |
 | copy key | `contents.action.load` | — | — | `Load` |
 | copy key | `contents.action.load-only` | — | — | `Load-only` |
+
+Two of the copy keys keep the names of the pieces §4 replaced: `contents.rail.scene` (the deleted rail's scene line) and `contents.card.legacy-import` (the deleted card grid's entry, which the ledger's legacy row draws). Both stay at format version 1; nothing draws the first.
 
 ### `settings`
 

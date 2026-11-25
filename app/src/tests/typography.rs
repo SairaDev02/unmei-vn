@@ -159,14 +159,14 @@ fn the_titles_faces_follow_the_type_system() {
     assert_every_text_names_a_bundled_face(&app);
 }
 
-/// The slot card splits into a sans label root, mono machine spans and a sans
-/// action-label span, each with its own colour
-/// (`docs/title-and-menu.md` § Type system §4/§5).
+/// The ledger row splits per Default look §6: the slot label and the saved-at
+/// line are mono, and the scene or status and the action are sans, each with the
+/// tone its state gives it.
 #[test]
-fn the_slot_cards_split_their_faces_per_the_type_system() {
+fn the_ledger_rows_split_their_faces_per_the_type_system() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
-    esc(&mut app); // the overlay's slots grid
+    esc(&mut app);
     app.init_resource::<crate::presentation::MenuBuilt>();
     build_menu_ui(&mut app);
     let faces = app
@@ -174,55 +174,30 @@ fn the_slot_cards_split_their_faces_per_the_type_system() {
         .resource::<crate::presentation::style::TextFaces>()
         .clone();
 
-    let card = app
-        .world()
-        .iter_entities()
-        .find_map(|entity| {
-            (entity.get::<MenuAction>() == Some(&MenuAction::Card(0))).then_some(entity.id())
-        })
-        .expect("card 0 is built");
-    assert_eq!(
-        face_handle(&app, card),
-        faces.sans_regular,
-        "the card label is sans"
-    );
-    assert!(
-        app.world().get::<TextColor>(card).is_some(),
-        "the label sets its own colour"
-    );
-
-    let children: Vec<Entity> = app
-        .world()
-        .get::<Children>(card)
-        .expect("the card has spans")
-        .iter()
-        .collect();
-    assert_eq!(
-        children.len(),
-        5,
-        "four machine lines then the action label"
-    );
-    for machine in &children[..4] {
+    for mono in ["Slot 1", "Autosave", "no save yet"] {
+        let entity = text_entity(&app, mono);
         assert_eq!(
-            face_handle(&app, *machine),
+            face_handle(&app, entity),
             faces.mono_medium,
-            "kind/status/detail/saved-at are mono"
+            "{mono:?} is mono"
         );
         assert!(
-            app.world().get::<TextColor>(*machine).is_some(),
-            "every machine span sets its own colour"
+            app.world().get::<TextColor>(entity).is_some(),
+            "every machine line sets its own tone"
         );
     }
-    let action = children[4];
-    assert_eq!(
-        face_handle(&app, action),
-        faces.sans_regular,
-        "the action label is sans"
-    );
-    assert!(
-        app.world().get::<TextColor>(action).is_some(),
-        "the action span sets its own colour"
-    );
+    for sans in ["—", "Save here"] {
+        let entity = text_entity(&app, sans);
+        assert_eq!(
+            face_handle(&app, entity),
+            faces.sans_regular,
+            "{sans:?} is sans"
+        );
+        assert!(
+            app.world().get::<TextColor>(entity).is_some(),
+            "the scene line and the action set their own tone"
+        );
+    }
 }
 
 /// The Settings panel title is SemiBold, group headers and control values mono,

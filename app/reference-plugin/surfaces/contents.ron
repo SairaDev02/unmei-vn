@@ -1,14 +1,20 @@
 // Default look §4: the contents page. One opaque full-frame page, a 420px left
-// column of section entries with Resume and Exit to title at its foot, a
-// hairline, and the Save/Load ledger in the right column.
+// column holding the CONTENTS label, the five section entries and the foot's
+// Resume and Exit to title, a hairline, and the right column's heading over the
+// Save and Load ledger.
 //
-// Two pieces of the section's text have no copy key, so this tree leaves them
-// out rather than restating a string the copy table does not own: the mono
-// `CONTENTS` label at the column's head, and the ledger's heading line. Both are
-// additive copy keys for a later change (R26).
+// The section entries and the ledger rows are list items: the engine shows the
+// row's own control and every node inside the item follows it, so an entry's
+// label turns white and its `·` appears when its section is the open one, and a
+// ledger row's five controls are one absolute ring over the whole row.
 //
-// The five section controls and the five ledger controls are placed in their
-// lists' item templates, where the engine shows the row's own.
+// The ledger list is the right column's body, so it fills the height the heading
+// leaves: in Save and Load it holds the rows, and in the other three sections it
+// holds that section's own view, which is why the player draws the view there.
+//
+// Fira Mono carries `►` and `·` and IBM Plex Sans carries `·` but not `►`, so
+// §4's Resume mark is drawn in the glyphs' face. The section of a plugin's own
+// nodes is not opened here: the engine's text is the slots'.
 (
     kind: "box",
     component: "page",
@@ -18,35 +24,62 @@
         (kind: "box",
             component: "rail",
             children: [
+                (kind: "text", text: "contents.label",
+                    typography: "{typography.legend}",
+                    fill: "{colors.faint}"),
                 (kind: "list",
                     list: "contents.sections",
                     width: "fill",
                     item: (kind: "box",
-                        direction: "column",
+                        direction: "row",
+                        align_items: "center",
                         width: "fill",
-                        gap: "{spacing.entry-gap}",
-                        padding: (top: 4.0, right: 0.0, bottom: 4.0, left: 0.0),
+                        gap: 8.0,
+                        padding: (top: 6.0, right: 0.0, bottom: 6.0, left: 0.0),
+                        color: "{colors.clear}",
                         children: [
                             (kind: "slot", slot: "contents.section.label",
+                                typography: "{typography.subheading}",
+                                color: "{colors.faint}",
                                 current: (color: "{colors.text}")),
+                            (kind: "glyph", glyph: "\u{00b7}",
+                                typography: "{typography.subheading}",
+                                fill: "{colors.clear}",
+                                current: (color: "{colors.focus}")),
                             (kind: "slot", slot: "overlay.save-tab",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.load-tab",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.timeline",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.gallery",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.settings",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                         ],
                     ),
                 ),
                 (kind: "box", component: "spacer"),
-                (kind: "slot", slot: "overlay.resume",
-                    typography: "{typography.label}",
+                (kind: "box",
+                    direction: "row",
+                    align_items: "center",
+                    gap: 8.0,
                     color: "{colors.focus}",
-                    focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                    children: [
+                        (kind: "glyph", glyph: "\u{25ba}",
+                            typography: "{typography.marker}",
+                            fill: "{colors.focus}"),
+                        (kind: "slot", slot: "overlay.resume",
+                            typography: "{typography.label}",
+                            color: "{colors.focus}",
+                            focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                    ],
+                ),
                 (kind: "slot", slot: "overlay.exit-to-title",
                     typography: "{typography.label}",
                     color: "{colors.dim}",
@@ -56,33 +89,42 @@
         (kind: "box", component: "divider"),
         (kind: "box",
             component: "column",
+            width: "{spacing.column-width}",
             children: [
-                // "The pack name and the current scene move into the right
-                // column's heading" (§4).
+                // §4: the pack name and the current scene move into the right
+                // column's heading, the scene inside Save's or Load's line.
                 (kind: "box",
-                    component: "heading-row",
+                    direction: "column",
+                    gap: 6.0,
+                    width: "fill",
                     children: [
                         (kind: "slot", slot: "pack.name",
                             typography: "{typography.heading}",
                             color: "{colors.text}"),
                         (kind: "slot", slot: "contents.scene",
-                            typography: "{typography.legend}",
+                            typography: "{typography.detail}",
                             color: "{colors.dim}"),
                     ],
                 ),
-                // One ledger row: the slot label, the scene over its saved-at
-                // line, and the action at the row's right.
+                // One ledger row: the slot's label, the scene or status over
+                // the saved-at line, and the action at the row's right.
                 (kind: "list",
                     list: "contents.ledger",
                     width: "fill",
+                    height: "fill",
                     item: (kind: "box",
                         direction: "row",
                         align_items: "center",
                         width: "fill",
                         gap: 12.0,
-                        padding: (top: "{spacing.button-pad-y}", right: 0.0, bottom: "{spacing.button-pad-y}", left: 0.0),
+                        padding: (top: "{spacing.button-pad-y}", right: 8.0, bottom: "{spacing.button-pad-y}", left: 8.0),
                         children: [
                             (kind: "slot", slot: "contents.ledger.label",
+                                width: "{spacing.ledger-label}",
+                                typography: "{typography.legend}",
+                                color: "{colors.dim}"),
+                            (kind: "slot", slot: "contents.ledger.status",
+                                width: "{spacing.ledger-status}",
                                 typography: "{typography.legend}",
                                 color: "{colors.dim}"),
                             (kind: "box",
@@ -91,7 +133,7 @@
                                 gap: 2.0,
                                 children: [
                                     (kind: "slot", slot: "contents.ledger.detail",
-                                        typography: "{typography.legend}",
+                                        typography: "{typography.detail}",
                                         color: "{colors.text}"),
                                     (kind: "slot", slot: "contents.ledger.saved-at",
                                         typography: "{typography.legend}",
@@ -99,17 +141,24 @@
                                 ],
                             ),
                             (kind: "slot", slot: "contents.ledger.action",
-                                typography: "{typography.legend}",
-                                color: "{colors.focus}"),
+                                width: "{spacing.ledger-action}",
+                                typography: "{typography.label}",
+                                color: "{colors.focus}",
+                                disabled: (color: "{colors.faint}")),
                             (kind: "slot", slot: "overlay.slot.1",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.slot.2",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.slot.3",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.slot.autosave",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                             (kind: "slot", slot: "overlay.legacy",
+                                position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
                         ],
                     ),

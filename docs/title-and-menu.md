@@ -21,7 +21,7 @@ Sections so far:
 - **Type system** — settled 2026-10-04.
 - **Timeline** — settled 2026-10-08 (behaviour), prototype-validated: roomier layout A.
 - **Gallery** — settled 2026-10-05, prototype-validated; layout B, the framed-card grid.
-- **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. **Partly built** (§1, §2 and §5 through the plugin renderer; §3 and §4 are not).
+- **Default look** — settled 2026-11-14, prototype-validated: variant E, the play frame, title and Esc menu for the default install. **Partly built** (§1, §2, §4 and §5 through the plugin renderer; §3 is built for the title and not yet for its Settings door).
 - **Backlog** — settled 2026-11-14: the session scrollback the quick row's `Log` opens. Not built.
 
 The Settings view these sections extend — its shape, its pause doctrine and its focus conventions — is [Menu overlay](runtime-hardening.md#menu-overlay)'s and is inherited, not re-decided here.
@@ -415,7 +415,7 @@ This section covers the faces every surface renders with and the split between t
 - **IBM Plex Sans** is the app's prose and control face, in three weights: **Regular**, **SemiBold** and **Bold**. Source: [IBM/plex](https://github.com/IBM/plex), `packages/plex-sans/fonts/complete/ttf/`, pinned at commit `763c36e`; SIL OFL 1.1, and the license text ships with the faces.
 - **Fira Mono** is the annotation and machine-value face: **Medium** for every string the split sends to mono — today's embedded face is Fira Mono Medium, so the weight is unchanged — with **Regular** shipped as the available lighter face. Source: [Google Fonts `ofl/firamono`](https://github.com/google/fonts/tree/main/ofl/firamono); SIL OFL 1.1, and the license text ships with the faces.
 - **Both families are embedded in the binary**, not loaded as loose files: the asset root is the pack's `assets/` directory (set in `app/src/main.rs`), so the app's own faces cannot live in that source. `app/assets/fonts/` holds the five TTFs, both license files and a provenance note (family, source, pinned revision).
-- **Bevy's `system_font_discovery` feature is enabled** as the fallback: a codepoint the bundled faces lack resolves to an OS font. This is best-effort and platform-dependent — the demo's copy is fully covered by the bundle, while non-Latin scripts and the overlay's `▶` (U+25B6, the Resume row) depend on the machine's fonts. No test asserts a fallback glyph.
+- **Bevy's `system_font_discovery` feature is enabled** as the fallback: a codepoint the bundled faces lack resolves to an OS font. This is best-effort and platform-dependent — the demo's copy is fully covered by the bundle, while non-Latin scripts depend on the machine's fonts. No test asserts a fallback glyph. *(Amended 2026-11-25: the contents page's Resume mark is the `►` (U+25BA) glyph node in Fira Mono, which the bundle carries, so no interface string depends on a fallback any more; [Default look](#default-look) §4's `▶` is drawn as `►` for that reason.)*
 - **Bevy's embedded default font is not the app's look.** Every app string names a bundled face; the `default_font` feature stays on only as Bevy's own safety net.
 
 ### 2. The split
@@ -816,7 +816,7 @@ Locked focus deliberately communicates **progression and relative position**, ne
 
 ## Default look
 
-Settled 2026-11-14. **Partly built** — §1, §2, §3's title and §5 are drawn through the plugin renderer (issues #113 and #115); §4's page and §3's Settings door are not. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
+Settled 2026-11-14. **Partly built** — §1, §2, §3's title, §4's page and §5 are drawn through the plugin renderer (issues #113, #115 and #116); §3's Settings door keeps its hand-built panel and binds `title-settings.ron` in #117, and §4's three sub-view interiors are still their own views until that ticket draws them from trees. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
 
 This section is the one owner of the default look of the play frame, the title and the Esc menu, for the improved demo pack and every default install. Where an earlier layout rule disagrees, this section wins, and that rule carries a dated pointer here. Behaviour — the title's states and confirms, the pause doctrine, the skip and auto rules, the slot actions, the Timeline and Gallery contracts — is unchanged unless a numbered point below says otherwise. Faces follow [Type system](#type-system) as amended by §6.
 

@@ -28,9 +28,9 @@ keywords:
 |---|---|---|
 | Layout as data | **New** | Every surface builds its Bevy tree in Rust. `app/src/presentation/` and `app/src/menu/` are about 6,900 non-test lines, with sizes, colours and text set inline. |
 | Tokens | **Refactor** | `app/src/presentation/style.rs` holds 7 colour constants, but 35 more `Color::srgb` calls sit in other app files. |
-| Variant E, the reference plugin | **New** | [Default look](title-and-menu.md#default-look) and the [Backlog](title-and-menu.md#backlog) are marked "Not built". The shipped Esc menu is still the card grid (`app/src/menu/cards.rs`). By R17, building the UI plugin also means building variant E. |
+| Variant E, the reference plugin | **New** | [Default look](title-and-menu.md#default-look) is **partly built**: the play frame, the title and the Esc menu's contents page are drawn from the reference plugin, while the three sub-view interiors still build their own trees. The [Backlog](title-and-menu.md#backlog) is not built. By R17, building the UI plugin also means building variant E. |
 | One owner per surface | **Seam** | [ADR 0013](adr/0013-presentation-surface-partition.md) gives each surface one owner, so each can move to the plugin renderer separately. The plugin still has to cover every surface before release, because R14 forbids a partial mix. |
-| Copy keys (R9) | **Refactor** | Interface text is written as literals in at least 7 files, for example `"Exit to title"` in `overlay/chrome.rs` and the Load confirm in `overlay/dialogs.rs`. No string table exists. |
+| Copy keys (R9) | **Refactor** | The engine's copy table owns every interface string the drawn surfaces show; the hand-built interiors still write theirs as literals, for example the Load confirm in `overlay/dialogs.rs`. |
 | Plugin fonts and images | **Refactor** | The Bevy asset root is the pack's `assets/` folder (`style.rs`, `main.rs`), and the five faces are loaded with `include_bytes!`. `ui/` sits outside that root, so it needs a second asset source or direct byte loading. |
 | Excluded surfaces (R7) | **Seam** | The error screen, the Notice and the Monitor already live in `app/src/failure/` and `app/src/monitor/`, apart from the surfaces a plugin restyles. |
 

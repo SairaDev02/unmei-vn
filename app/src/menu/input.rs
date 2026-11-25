@@ -18,7 +18,7 @@ use super::action::{action_for_focus, apply, MenuAction};
 use super::key_field::{commit_key, discard_key_field};
 use super::labels::focus_track;
 use super::navigation::{
-    arrow_target, focus_by_digit, gallery_arrow, gallery_browse, next_top_bar,
+    focus_by_digit, gallery_arrow, gallery_browse, ledger_target, next_top_bar,
     next_top_bar_subview, settings_target, timeline_arrow, title_target,
 };
 use super::persistence::flush_settings;
@@ -85,7 +85,7 @@ pub(crate) fn menu_input(
         }
     }
 
-    // The still is modal: the overlay's chrome stands but is inert while it is
+    // The still is modal: the page's controls stand but are inert while it is
     // up, so a click anywhere on the still closes it and a click on any other
     // control does nothing (`docs/title-and-menu.md` § Gallery `### Behavior`
     // §5).
@@ -143,10 +143,10 @@ pub(crate) fn menu_input(
         return;
     }
 
-    // Keyboard navigation: Tab cycles the top bar; arrows walk the grid; digits
-    // focus a manual slot; a confirmation swaps Yes/No with Left/Right; the
-    // legacy picker walks its three targets. The Settings view deviates: arrows
-    // move between controls and adjust the focused slider.
+    // Keyboard navigation: Tab cycles the sections; arrows walk the ledger's rows,
+    // the legacy row and the page's foot; digits focus a manual slot; a confirm
+    // swaps Yes/No; the legacy picker walks its targets. Settings deviates: its
+    // arrows move between controls and step the focused slider.
     if menu.confirm.is_some() {
         if keys.just_pressed(KeyCode::ArrowLeft) {
             menu.focus = MenuFocus::ConfirmYes;
@@ -166,7 +166,12 @@ pub(crate) fn menu_input(
             menu.focus = next_top_bar(menu.focus);
         } else if let Some(focus) = focus_by_digit(&keys) {
             menu.focus = focus;
-        } else if let Some(focus) = arrow_target(menu.focus, &keys, legacy_visible(&menu)) {
+        } else if let Some(focus) = ledger_target(
+            menu.focus,
+            &keys,
+            legacy_visible(&menu),
+            exit_to_title_shown(&menu),
+        ) {
             menu.focus = focus;
         }
     } else if menu.view == MenuView::Gallery {
@@ -191,9 +196,9 @@ pub(crate) fn menu_input(
                 }
             }
         } else if keys.just_pressed(KeyCode::Tab) && !menu.title_surface_up() {
-            // The overlay's top bar narrows to Save → Load; the header's back
-            // control is a click/`Esc` affordance, not an arrow stop. From the
-            // title's door no top bar is drawn, so `Tab` is inert there too
+            // The page's Tab cycle narrows to Save → Load inside the gallery;
+            // its back control is a click/`Esc` affordance, not an arrow stop.
+            // The title's door draws no section column, so `Tab` is inert there
             // (`docs/title-and-menu.md` § Gallery `### Layout` §5).
             menu.focus = next_top_bar_subview(menu.focus);
         } else if let Some(focus) = gallery_arrow(
@@ -205,8 +210,8 @@ pub(crate) fn menu_input(
             menu.focus = focus;
         }
     } else if menu.view == MenuView::Timeline {
-        // The Timeline's top bar narrows to Save → Load; the back control is a
-        // click/`Esc` affordance, not an arrow stop
+        // The page's Tab cycle narrows to Save → Load in the Timeline; its back
+        // control is a click/`Esc` affordance, not an arrow stop
         // (`docs/title-and-menu.md` § Timeline §1/§2).
         if keys.just_pressed(KeyCode::Tab) {
             menu.focus = next_top_bar_subview(menu.focus);
@@ -219,9 +224,9 @@ pub(crate) fn menu_input(
         // The field is being edited: the built-in widget owns typing and the
         // cursor arrows, so `↑`/`↓` must not walk. Only `Enter` is read below.
     } else if keys.just_pressed(KeyCode::Tab) && !menu.title_surface_up() {
-        // From the title's door no top bar is drawn, so `Tab` has nothing to
-        // cycle there; the overlay's Settings and gallery narrow to Save →
-        // Load.
+        // From the title's door no section column is drawn, so `Tab` has
+        // nothing to cycle there; the overlay's Settings and gallery narrow to
+        // Save → Load.
         menu.focus = next_top_bar_subview(menu.focus);
     } else if let Some(track) = focus_track(menu.focus) {
         if keys.just_pressed(KeyCode::ArrowLeft) {

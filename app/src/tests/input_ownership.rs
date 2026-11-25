@@ -44,7 +44,7 @@ fn a_claimed_frame_freezes_menu_navigation() {
     app.world_mut()
         .resource_mut::<InputOwnership>()
         .claim(InputClaim("seam-test"));
-    tap_key(&mut app, KeyCode::ArrowRight);
+    tap_key(&mut app, KeyCode::ArrowDown);
     assert_eq!(
         menu(&app).focus,
         focused,
@@ -52,7 +52,7 @@ fn a_claimed_frame_freezes_menu_navigation() {
     );
 
     app.world_mut().resource_mut::<InputOwnership>().release();
-    tap_key(&mut app, KeyCode::ArrowRight);
+    tap_key(&mut app, KeyCode::ArrowDown);
     assert_ne!(
         menu(&app).focus,
         focused,
