@@ -10,8 +10,9 @@
 //! plays (R14).
 //!
 //! The passes run in one order — the paths a source lists, the folder's caps,
-//! the manifest and its copy overrides, the tokens, the fonts, then each surface
-//! tree and its interface, then the face and tone its text shows — and each
+//! the manifest and its copy overrides, the tokens, the fonts and the images,
+//! then each surface tree and its interface, then the face and tone its text
+//! shows — and each
 //! pass ends the plugin when it found an error, so a folder that breaks a cap is
 //! never read on, a token table that failed is never resolved in a tree and a
 //! font that no file carries never reaches the renderer. A tree's loops are
@@ -22,6 +23,7 @@
 mod caps;
 mod file;
 mod fonts;
+mod images;
 mod interface;
 mod manifest;
 mod motion;
@@ -183,6 +185,7 @@ pub fn load_from(source: &dyn Source) -> PluginOutcome {
     }
 
     fonts::check(source, &manifest, &tokens, &mut findings);
+    images::check(source, &manifest, &mut findings);
     if !findings.is_empty() {
         return PluginOutcome::failed(findings);
     }
