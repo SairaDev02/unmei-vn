@@ -299,6 +299,7 @@ pub(crate) fn sync_play_options(
                     number: numbering.label(index + 1),
                     text,
                 },
+                None,
             );
             if let Some(root) = rendered.root {
                 parent

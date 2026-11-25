@@ -1,20 +1,126 @@
 use super::*;
 
-/// The title root's one radial gradient, so its resolved centre can be pinned
-/// without re-reading the whole entity tree.
+/// The built title's one radial gradient — the neutral underlay §2 draws under
+/// the backdrop art and the veil — so its resolved centre can be pinned without
+/// re-reading the whole entity tree.
 fn title_gradient_radial(app: &App) -> RadialGradient {
     let root = app
         .world()
         .iter_entities()
         .find_map(|entity| {
-            entity
-                .get::<crate::presentation::MenuRoot>()
-                .filter(|_| entity.get::<BackgroundGradient>().is_some())
-                .map(|_| entity.id())
+            let gradient = entity.get::<BackgroundGradient>()?;
+            gradient
+                .0
+                .iter()
+                .any(|gradient| matches!(gradient, bevy::ui::Gradient::Radial(_)))
+                .then_some(entity.id())
         })
-        .expect("the title root draws the neutral gradient");
+        .expect("the title draws the neutral radial gradient");
     single_radial(app, root)
 }
+
+/// The built title's left column: Default look §3 places it 104px in, 150px
+/// down and 420px wide.
+fn title_column(app: &App) -> Entity {
+    app.world()
+        .iter_entities()
+        .find_map(|entity| {
+            let node = entity.get::<Node>()?;
+            (node.left == Val::Px(104.0)
+                && node.top == Val::Px(150.0)
+                && node.width == Val::Px(420.0))
+            .then_some(entity.id())
+        })
+        .expect("the title's left column")
+}
+
+/// The node that draws §3's veil: the one linear gradient whose stops are the
+/// veil's three.
+fn veil_node(app: &App) -> Entity {
+    app.world()
+        .iter_entities()
+        .find_map(|entity| {
+            let gradient = entity.get::<BackgroundGradient>()?;
+            gradient
+                .0
+                .iter()
+                .any(|gradient| match gradient {
+                    bevy::ui::Gradient::Linear(linear) => {
+                        linear.stops.len() == 3 && linear.stops[2].color.to_srgba().alpha == 0.0
+                    }
+                    _ => false,
+                })
+                .then_some(entity.id())
+        })
+        .expect("the title draws the veil")
+}
+
+/// The item of the list that holds the control `action` carries.
+fn row_item(app: &App, action: MenuAction) -> Entity {
+    let control = app
+        .world()
+        .iter_entities()
+        .find_map(|entity| (entity.get::<MenuAction>() == Some(&action)).then_some(entity.id()))
+        .expect("the row's control");
+    parent_of(app, control)
+}
+
+/// The item's focus bar: the 12x2 box beside its label.
+fn focus_bar(app: &App, item: Entity) -> Entity {
+    children_of(app, item)
+        .into_iter()
+        .find(|child| {
+            app.world()
+                .get::<Node>(*child)
+                .is_some_and(|node| node.width == Val::Px(12.0) && node.height == Val::Px(2.0))
+        })
+        .expect("the row's focus bar")
+}
+
+/// The item's label text: the one child without a control whose box holds a
+/// text node.
+fn row_label(app: &App, item: Entity) -> Entity {
+    children_of(app, item)
+        .into_iter()
+        .filter(|child| app.world().entity(*child).get::<MenuAction>().is_none())
+        .find_map(|child| children_of(app, child).into_iter().next())
+        .expect("the row's label")
+}
+
+fn children_of(app: &App, entity: Entity) -> Vec<Entity> {
+    app.world()
+        .entity(entity)
+        .get::<Children>()
+        .map(|children| children.iter().collect())
+        .unwrap_or_default()
+}
+
+fn parent_of(app: &App, entity: Entity) -> Entity {
+    app.world()
+        .entity(entity)
+        .get::<ChildOf>()
+        .map(ChildOf::parent)
+        .expect("the entity has a parent")
+}
+
+fn alpha_of(app: &App, entity: Entity) -> f32 {
+    app.world()
+        .get::<BackgroundColor>(entity)
+        .map(|fill| fill.0.to_srgba().alpha)
+        .unwrap_or(0.0)
+}
+
+fn tone_of(app: &App, entity: Entity) -> Color {
+    app.world()
+        .get::<TextColor>(entity)
+        .map(|tone| tone.0)
+        .expect("the text draws a tone")
+}
+
+/// The reference look's tones, as the tokens declare them.
+const TEXT: Color = Color::srgba(0.90, 0.90, 0.92, 1.0);
+const DIM: Color = Color::srgba(0.80, 0.80, 0.85, 0.62);
+const FAINT: Color = Color::srgba(0.80, 0.80, 0.85, 0.35);
 
 /// The tone of Continue's reason line in the built title.
 fn title_reason_color(app: &App) -> Color {
@@ -31,8 +137,8 @@ fn title_reason_color(app: &App) -> Color {
         .expect("the reason line renders")
 }
 
-/// Assert the built title tree opens no scroll container and caps its column at
-/// the spec's width (`docs/title-and-menu.md` § Title layout §1).
+/// Assert the built title lays out in Default look §3's left column and opens
+/// no scroll container anywhere it draws.
 fn assert_title_never_scrolls(app: &mut App) {
     app.init_resource::<crate::presentation::MenuBuilt>();
     build_menu_ui(app);
@@ -45,24 +151,7 @@ fn assert_title_never_scrolls(app: &mut App) {
             );
         }
     }
-    let column = app
-        .world()
-        .iter_entities()
-        .find_map(|entity| {
-            let node = entity.get::<Node>()?;
-            (node.width == Val::Px(520.0)).then_some(node.clone())
-        })
-        .expect("the title column is the spec's 520px");
-    assert_eq!(column.max_width, Val::Percent(92.0));
-    assert!(
-        app.world().iter_entities().any(|entity| {
-            entity
-                .get::<Node>()
-                .map(|node| node.justify_content == JustifyContent::SpaceBetween)
-                .unwrap_or(false)
-        }),
-        "the foot row spans the column to split reason line and legend"
-    );
+    title_column(app);
 }
 
 #[test]
@@ -518,6 +607,178 @@ fn the_title_renders_the_wordmark_rows_caption_and_legend() {
     );
 }
 
+/// Default look §3: the title's left column sits 104px in and 150px down, 420px
+/// wide, with the veil over the backdrop, the reason line 26px under the rows
+/// and the legend at the frame's bottom right.
+#[test]
+fn the_title_draws_the_left_column_and_the_veil() {
+    let mut app = temp_title_app();
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    build_menu_ui(&mut app);
+
+    let column = title_column(&app);
+    let node = app
+        .world()
+        .get::<Node>(column)
+        .expect("the column's node")
+        .clone();
+    assert_eq!(node.position_type, PositionType::Absolute);
+    assert_eq!(node.flex_direction, FlexDirection::Column);
+    assert_eq!(
+        node.row_gap,
+        Val::Px(46.0),
+        "the rows start 46px under the tagline"
+    );
+
+    let veil = veil_node(&app);
+    let root = parent_of(&app, veil);
+    let order = children_of(&app, root);
+    assert_eq!(
+        order.get(1),
+        Some(&veil),
+        "the veil follows the backdrop slot"
+    );
+    assert_eq!(
+        order.get(2),
+        Some(&column),
+        "the wordmark and rows draw over the veil"
+    );
+    let BackgroundGradient(gradients) = app
+        .world()
+        .get::<BackgroundGradient>(veil)
+        .expect("the veil draws a gradient");
+    let [bevy::ui::Gradient::Linear(linear)] = gradients.as_slice() else {
+        panic!("the veil is one linear gradient: {gradients:?}");
+    };
+    let stops: Vec<(Val, f32)> = linear
+        .stops
+        .iter()
+        .map(|stop| (stop.point, stop.color.to_srgba().alpha))
+        .collect();
+    assert_eq!(
+        stops,
+        vec![
+            (Val::Percent(0.0), 0.86),
+            (Val::Percent(38.0), 0.55),
+            (Val::Percent(62.0), 0.0)
+        ],
+        "§3's veil is dark at the left edge, through 38%, clear by 62%"
+    );
+
+    let reason = text_parent(&app, &menu(&app).continue_line);
+    let rows_box = parent_of(&app, reason);
+    assert_eq!(
+        app.world()
+            .get::<Node>(rows_box)
+            .expect("the rows box")
+            .row_gap,
+        Val::Px(26.0)
+    );
+
+    let legend = text_entity(&app, menu::TITLE_LEGEND);
+    let node = app.world().get::<Node>(legend).expect("the legend's node");
+    assert_eq!(node.position_type, PositionType::Absolute);
+    assert_eq!((node.right, node.bottom), (Val::Px(40.0), Val::Px(26.0)));
+}
+
+/// Default look §3's focused row: white, with the 12x2 FOCUS bar lit beside it
+/// and no ring on the control, and a disabled row dimmed but still in the walk.
+#[test]
+fn the_focused_row_is_white_with_the_focus_bar() {
+    let mut app = temp_title_app();
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    build_menu_ui(&mut app);
+    app.update();
+
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::TitleNewGame,
+        "the temp pack has no autosave, so focus starts on New Game"
+    );
+    let focused = row_item(&app, MenuAction::NewGame);
+    assert_eq!(alpha_of(&app, focus_bar(&app, focused)), 1.0);
+    assert_eq!(tone_of(&app, row_label(&app, focused)), TEXT);
+
+    let unfocused = row_item(&app, MenuAction::Quit);
+    assert_eq!(alpha_of(&app, focus_bar(&app, unfocused)), 0.0);
+    assert_eq!(tone_of(&app, row_label(&app, unfocused)), DIM);
+
+    let disabled = row_item(&app, MenuAction::Continue);
+    assert_eq!(
+        tone_of(&app, row_label(&app, disabled)),
+        FAINT,
+        "a disabled row is dimmed and stays in the walk"
+    );
+
+    let control = children_of(&app, focused)
+        .into_iter()
+        .find(|child| app.world().get::<MenuAction>(*child) == Some(&MenuAction::NewGame))
+        .expect("the row's control");
+    assert_eq!(
+        app.world()
+            .get::<Node>(control)
+            .expect("the control's node")
+            .border,
+        UiRect::ZERO,
+        "a focused row is the bar and the white label, not the overlay's ring"
+    );
+
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleGallery;
+    app.update();
+    assert_eq!(
+        alpha_of(&app, focus_bar(&app, row_item(&app, MenuAction::Gallery))),
+        1.0,
+        "moving the focus lights the bar on the same frame"
+    );
+    assert_eq!(
+        alpha_of(&app, focus_bar(&app, focused)),
+        0.0,
+        "the row the focus left goes dark"
+    );
+    assert_eq!(tone_of(&app, row_label(&app, focused)), DIM);
+}
+
+/// Default look §3 spaces the five rows evenly: the maintainer's decision leaves
+/// `Quit`'s 14px gap out, because one item template cannot space its fifth item
+/// differently, and the format gains no property for it.
+#[test]
+fn the_five_rows_share_one_template_and_one_gap() {
+    let mut app = temp_title_app();
+    app.init_resource::<crate::presentation::MenuBuilt>();
+    build_menu_ui(&mut app);
+
+    let items = [
+        MenuAction::Continue,
+        MenuAction::NewGame,
+        MenuAction::OpenSettings,
+        MenuAction::Gallery,
+        MenuAction::Quit,
+    ]
+    .map(|action| row_item(&app, action));
+    let list = parent_of(&app, items[0]);
+    assert_eq!(
+        children_of(&app, list),
+        items.to_vec(),
+        "one list holds the five rows in Title §2's order, with no separator"
+    );
+    let first = app.world().get::<Node>(items[0]).expect("the item's node");
+    for item in &items[1..] {
+        assert_eq!(
+            app.world().get::<Node>(*item),
+            Some(first),
+            "every row is the one item template"
+        );
+    }
+    assert_eq!(
+        app.world()
+            .get::<Node>(list)
+            .expect("the list's node")
+            .row_gap,
+        Val::Px(0.0),
+        "the rows are evenly spaced, with no per-item offset"
+    );
+}
+
 /// The neutral title gradient's bright tone sits at the upper middle — the
 /// node's horizontal centre, ~28% down — not on the right edge, where
 /// `CENTER.at_percent(50, 28)` lands: a `UiPosition`'s `x`/`y` are offsets from
@@ -595,9 +856,13 @@ fn the_title_renders_the_tagline_uppercased_under_the_wordmark() {
         .manifest
         .name
         .clone();
-    let wordmark_block = text_parent(&app, &name);
+    let wordmark_block = parent_of(&app, text_parent(&app, &name));
+    let drawn: Vec<String> = children_of(&app, wordmark_block)
+        .into_iter()
+        .filter_map(|slot| child_texts(&app, slot).into_iter().next())
+        .collect();
     assert_eq!(
-        child_texts(&app, wordmark_block),
+        drawn,
         vec![name, "A DEMO PACK".to_string()],
         "the tagline is uppercased and sits directly under the wordmark"
     );
@@ -659,11 +924,17 @@ fn a_pack_without_a_tagline_renders_no_tagline_line() {
         .manifest
         .name
         .clone();
-    assert_eq!(
-        child_texts(&app, text_parent(&app, &name)),
-        vec![name],
-        "the wordmark sits alone"
-    );
+    let wordmark_block = parent_of(&app, text_parent(&app, &name));
+    let visible: Vec<String> = children_of(&app, wordmark_block)
+        .into_iter()
+        .filter(|slot| {
+            app.world()
+                .get::<Node>(*slot)
+                .is_some_and(|node| node.display != Display::None)
+        })
+        .flat_map(|slot| child_texts(&app, slot))
+        .collect();
+    assert_eq!(visible, vec![name], "the wordmark sits alone");
 }
 
 /// `{var}` interpolation is deliberately not performed on the tagline: the copy
@@ -747,8 +1018,8 @@ fn contain_size_fits_both_axes_and_preserves_aspect() {
 }
 
 /// `title_backdrop: "<id>"` draws `assets/backgrounds/<id>.png` full-window,
-/// unmodified — no veil, tint or overlay — over the gradient underlay
-/// (`docs/title-and-menu.md` § Title layout §2/§8).
+/// unmodified over the gradient underlay, with Default look §3's veil as a
+/// sibling over it (`docs/title-and-menu.md` § Title layout §2, Default look §3).
 #[test]
 fn the_title_draws_the_declared_backdrop_covering_the_window() {
     // The demo pack declares `title_backdrop: "school_gate"`.
@@ -774,6 +1045,23 @@ fn the_title_draws_the_declared_backdrop_covering_the_window() {
             .iter_entities()
             .any(|entity| entity.get::<BackgroundGradient>().is_some()),
         "the neutral gradient underlay stays beneath the art"
+    );
+    let art = app
+        .world()
+        .iter_entities()
+        .find_map(|entity| {
+            entity
+                .get::<crate::presentation::title::TitleBackdropImage>()
+                .map(|_| entity.id())
+        })
+        .expect("the art's node");
+    let slot = parent_of(&app, art);
+    let order = children_of(&app, parent_of(&app, slot));
+    assert_eq!(order.first(), Some(&slot), "the art draws first");
+    assert_eq!(
+        order.get(1),
+        Some(&veil_node(&app)),
+        "§3's veil draws over the art"
     );
     assert!(
         !app.world().resource::<Notice>().is_showing(),
@@ -953,19 +1241,21 @@ fn a_declared_but_missing_backdrop_warns_once_and_draws_the_gradient() {
     );
 }
 
-/// Continue's reason line is muted while Continue is enabled and warm-warn
-/// while it explains a disabled Continue (`docs/title-and-menu.md` § Title
-/// layout §4, §8).
+/// Continue's reason line draws the tree's own tone in both states: Default look
+/// §3 places the line 26px under the rows and states no tone for it, so the
+/// reference plugin's `faint` stands, and a disabled Continue reads from its
+/// dimmed row instead. § Title layout §4's warm-warn line is one of the rules
+/// §3 supersedes.
 #[test]
-fn the_reason_line_tone_follows_continue_enabled() {
+fn the_reason_line_draws_the_trees_tone_in_both_states() {
     let mut disabled = temp_title_app();
     disabled.init_resource::<crate::presentation::MenuBuilt>();
     build_menu_ui(&mut disabled);
     assert!(!menu(&disabled).continue_enabled);
     assert_eq!(
         title_reason_color(&disabled),
-        Color::srgb(0.86, 0.63, 0.40),
-        "a disabled Continue's reason line is warm"
+        FAINT,
+        "a disabled Continue's reason line keeps the tree's tone"
     );
 
     let pack = pack_with_a_stamped_autosave();
@@ -975,8 +1265,8 @@ fn the_reason_line_tone_follows_continue_enabled() {
     build_menu_ui(&mut enabled);
     assert_eq!(
         title_reason_color(&enabled),
-        Color::srgba(0.80, 0.80, 0.85, 0.62),
-        "an enabled Continue's reason line is muted"
+        FAINT,
+        "an enabled Continue's reason line is the same tone"
     );
 }
 

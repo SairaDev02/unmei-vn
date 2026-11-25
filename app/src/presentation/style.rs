@@ -61,11 +61,6 @@ impl TextFaces {
         self.font(self.sans_semibold.clone(), size)
     }
 
-    /// Plex Sans Bold — the wordmark's weight.
-    pub(crate) fn sans_bold(&self, size: f32) -> TextFont {
-        self.font(self.sans_bold.clone(), size)
-    }
-
     /// Fira Mono Medium — the annotation and machine-value face. Fira Mono
     /// Regular ships available but is deliberately unused.
     pub(crate) fn mono(&self, size: f32) -> TextFont {

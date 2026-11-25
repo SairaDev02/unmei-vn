@@ -115,7 +115,7 @@
   "app/src/presentation/settings_view/title_door.rs": "2cacee60 3ea96a4a 4b9b6906 58d06c09 7b830613 7f198222 89d19f31 9523186e c403c7f2",
   "app/src/presentation/style.rs": "21302871 2dc627ab",
   "app/src/presentation/timeline.rs": "0be99ff5 1e370a2a 234d3c35 30750f4f 3bf24879 3bf3c944 3d74748a 41b32e07 53bc6989 5a27f309 5dc81519 663d8fe3 6b1a9728 7ac47ad5 7ac47ad5 861a867a 9d7f788a ad3d4191 b6a9f658 b6b12fd0 beef0c82 f4d4b396 fe65fb56",
-  "app/src/presentation/title.rs": "09815ef0 15c6c6a6 19d9db36 5ad9cb59 5d93bc6d 5f8cf91a 764c8924 8fcf7877 a37f6d3c b9417a1b b953b960 bf877943 db25c683 e1c1801f ed235cfe",
+  "app/src/presentation/title.rs": "b9417a1b b953b960 bf877943 e1c1801f",
   "app/src/read_log.rs": "0c07ff54 174179f2 18f7f27b 4166b6fa 45e694f7 538a304d 5e1c3200 64909892 7cd64288 8435b78b 95f5ae4a 966212f3 9bcc866f b074824e b8d77f70 d88c012d e6baa1e1 fb23d5d1",
   "app/src/session.rs": "0b9917f2 11c5f312 19d03a33 1f1c2faa 3fc76e14 51409d2b 52b2f9ad 5591391c 65072e10 69eebaf6 74156639 89cb22ee 9000c99c 9336282d 967ecf64 a73a0dc3 abcbb571 bbd13326 bea817ce d17750b7 d1ca2fd0 d45dccb2 d4dc534a e995fbfa eb859a47 ec944f81 fc4bd989",
   "app/src/settings/tests.rs": "ce747b03",

@@ -34,6 +34,7 @@ const LIT: usize = 2;
 /// component instead of the whole surface.
 #[derive(Component, Clone, Debug)]
 pub(crate) struct UiStates {
+    /// The control whose focus this node follows: its own, or the list item's.
     pub action: Option<MenuAction>,
     pub disabled: bool,
     pub lit: bool,

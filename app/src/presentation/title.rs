@@ -1,18 +1,51 @@
-//! The title surface: wordmark, rows, tagline, gradient and backdrop.
+//! The title surface drawn from the plugin's `title` tree: the wordmark, the
+//! tagline, the five rows, Continue's reason line, the legend and the veil
+//! (Default look §3, spec §11).
+//!
+//! The tree decides the look; this module decides what it says and what the
+//! format cannot. The app supplies the pack's name, tagline and reason line, the
+//! rows as five items of the one template in `Title` §2's order, the pack's art
+//! in the `title.backdrop` slot — loaded through the shared watch, so a missing
+//! or undecodable file is row 25's silent degradation — the tagline's tracking,
+//! which the format has no property for, and the neutral radial underlay both
+//! the art and the veil then cover: §2's upper-middle radial, which the format's
+//! `radial` fill can only centre. Behaviour — the walk, the confirms, Continue's
+//! precedence — stays the menu's.
+//!
+//! A door that still builds its own root borrows [`spawn_title_backdrop`],
+//! [`title_gradient`] and [`veil_gradient`], so Settings from the title opens
+//! over the same backdrop and veil.
 
 use super::assets::{background_asset_path, AssetWatch};
 use super::overlay::confirm_dialog;
-use super::style::{cover_size, TextFaces, BUTTON_BG, DIM, FAINT, FOCUS, PANEL_BG, TEXT};
-use super::{focus_border, MenuRoot};
+use super::render::tree::{Bind, ControlState, Surface, Words};
+use super::render::UiLook;
+use super::style::{cover_size, TextFaces};
+use super::MenuRoot;
 use crate::failure::FailureRow;
-use crate::menu::{self, MenuAction, MenuState};
+use crate::menu::{MenuAction, MenuState};
 use crate::PresentationSet;
 use crate::Runtime;
 use bevy::prelude::*;
 use bevy::text::LetterSpacing;
-use bevy::ui::{BackgroundGradient, ColorStop, RadialGradient, RadialGradientShape, UiPosition};
+use bevy::ui::{
+    BackgroundGradient, ColorStop, Gradient, LinearGradient, RadialGradient, RadialGradientShape,
+    UiPosition,
+};
 use bevy::window::{PrimaryWindow, Window};
-use unmei_engine::copy;
+
+/// The surface's id, as the plugin folder names it.
+const SURFACE: &str = "title";
+
+/// The five rows in `Title` §2's order: the copy key its label draws and the
+/// control id the row is.
+const ROWS: [(&str, &str); 5] = [
+    ("title.row.continue", "title.continue"),
+    ("title.row.new-game", "title.new-game"),
+    ("title.row.settings", "title.settings"),
+    ("title.row.gallery", "title.gallery"),
+    ("title.row.quit", "title.quit"),
+];
 
 /// The title's pack-backdrop image node, sized to cover the window once its
 /// texture is loaded (`docs/title-and-menu.md` § Title layout §2). Distinct from
@@ -27,19 +60,25 @@ pub(crate) struct TitleBackdropImage;
 const TITLE_GRADIENT_INNER: Color = Color::srgb(0.106, 0.133, 0.188);
 const TITLE_GRADIENT_OUTER: Color = Color::srgb(0.043, 0.051, 0.071);
 
-/// The warm tone Continue's reason line takes while it explains a disabled
-/// Continue.
-const TITLE_WARN: Color = Color::srgb(0.86, 0.63, 0.40);
-/// The title panel's fixed width and its Settings panel's width.
-const TITLE_PANEL_WIDTH: f32 = 520.0;
-pub(super) const TITLE_SETTINGS_WIDTH: f32 = 720.0;
-/// The tagline's ~0.34em tracking at its 11px size (`docs/title-and-menu.md`
-/// § Title layout §7).
-pub(crate) const TAGLINE_TRACKING_PX: f32 = 3.7;
+/// The veil's three stops, from Default look §3: dark at the left edge, through
+/// 38%, clear by 62%.
+const VEIL_STOPS: [(f32, [f32; 4]); 3] = [
+    (0.0, [8.0 / 255.0, 9.0 / 255.0, 13.0 / 255.0, 0.86]),
+    (0.38, [8.0 / 255.0, 9.0 / 255.0, 13.0 / 255.0, 0.55]),
+    (0.62, [8.0 / 255.0, 9.0 / 255.0, 13.0 / 255.0, 0.0]),
+];
 
-/// Build the title: the neutral gradient, the optional pack backdrop, the
-/// pack's wordmark, the five-row panel, and the foot row. Nothing of the play
-/// path is drawn behind it.
+/// The tagline's 0.34em tracking at §3's 12px size. The format has no
+/// letter-spacing property, so the engine applies it to the one drawn line.
+pub(crate) const TAGLINE_TRACKING_PX: f32 = 4.1;
+
+/// The title door's Settings panel width, until #117 draws that door's page.
+pub(super) const TITLE_SETTINGS_WIDTH: f32 = 720.0;
+
+/// Build the title from the plugin's tree: the pack's backdrop under the veil,
+/// the wordmark, the tagline, the five rows and the reason line in the left
+/// column, and the legend at the frame's foot. Nothing of the play path is drawn
+/// behind it.
 pub(super) fn build_title(
     commands: &mut Commands,
     faces: &TextFaces,
@@ -47,12 +86,24 @@ pub(super) fn build_title(
     runtime: &Runtime,
     asset_server: Option<&AssetServer>,
     watch: Option<&mut AssetWatch>,
-    look: Option<&super::render::UiLook>,
+    look: Option<&UiLook>,
 ) {
+    let Some(look) = look else {
+        return;
+    };
     let manifest = &runtime.runner.pack().manifest;
-    let pack_name = manifest.name.clone();
-    let tagline = manifest.tagline.clone();
-
+    let bind = Title {
+        name: manifest.name.clone(),
+        tagline: manifest.tagline.clone(),
+        reason: menu.continue_line.clone(),
+    };
+    let bedrock = manifest.title_backdrop.clone();
+    let surface = Surface {
+        look,
+        faces,
+        bind: &bind,
+    };
+    let mut spawned = None;
     commands
         .spawn((
             MenuRoot,
@@ -62,153 +113,116 @@ pub(super) fn build_title(
                 top: Val::Px(0.0),
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                row_gap: Val::Px(28.0),
                 ..default()
             },
-            title_gradient(),
         ))
         .with_children(|root| {
-            // The pack backdrop draws first, under everything else; the radial
-            // gradient on the root stays visible beneath it.
-            spawn_title_backdrop(
-                root,
-                manifest.title_backdrop.as_deref(),
-                asset_server,
-                watch,
-            );
-
-            // The wordmark block: the name, with the tagline directly under it
-            // when the pack declares one. Wrapping both keeps the column's gap
-            // above the panel identical whether or not a tagline is present
-            // (`docs/title-and-menu.md` § Title layout §3/§8).
-            root.spawn(Node {
-                flex_direction: FlexDirection::Column,
-                align_items: AlignItems::Center,
-                row_gap: Val::Px(2.0),
-                ..default()
-            })
-            .with_children(|wordmark| {
-                wordmark.spawn((
-                    Text::new(pack_name),
-                    faces.sans_bold(46.0),
-                    TextColor::from(TEXT),
-                ));
-                if let Some(tagline) = &tagline {
-                    wordmark.spawn((
-                        Text::new(tagline.to_uppercase()),
-                        faces.mono(11.0),
-                        LetterSpacing::Px(TAGLINE_TRACKING_PX),
-                        TextColor::from(FOCUS),
-                    ));
+            let Some(bound) = surface.spawn(SURFACE, root) else {
+                return;
+            };
+            let (Some(list), Some(item)) = (
+                bound.lists.get("title.rows").copied(),
+                bound.items.get("title.rows").cloned(),
+            ) else {
+                return;
+            };
+            root.commands().entity(list).with_children(|rows| {
+                for (label, control) in ROWS {
+                    let enabled = control != "title.continue" || menu.continue_enabled;
+                    let bind = Row {
+                        label,
+                        control,
+                        action: row_action(control),
+                        enabled,
+                    };
+                    surface.spawn_item(&item, rows, &bind, Some(control));
                 }
             });
-
-            // The five-row panel, reusing the overlay's fill, hairline border
-            // and corner vocabulary.
-            root.spawn((
-                Node {
-                    width: Val::Px(TITLE_PANEL_WIDTH),
-                    max_width: Val::Percent(92.0),
-                    flex_direction: FlexDirection::Column,
-                    padding: UiRect::all(Val::Px(10.0)),
-                    row_gap: Val::Px(2.0),
-                    border: UiRect::all(Val::Px(2.0)),
-                    ..default()
-                },
-                BackgroundColor(PANEL_BG),
-                BorderColor::all(FAINT),
-            ))
-            .with_children(|panel| {
-                title_row(
-                    panel,
-                    faces,
-                    menu,
-                    MenuAction::Continue,
-                    copy::text("title.row.continue"),
-                    menu.continue_enabled,
-                    None,
-                );
-                title_row(
-                    panel,
-                    faces,
-                    menu,
-                    MenuAction::NewGame,
-                    copy::text("title.row.new-game"),
-                    true,
-                    None,
-                );
-                title_row(
-                    panel,
-                    faces,
-                    menu,
-                    MenuAction::OpenSettings,
-                    copy::text("title.row.settings"),
-                    true,
-                    None,
-                );
-                // Gallery is an ordinary enabled, caption-free row
-                // (`docs/title-and-menu.md` § Gallery `### Behavior` §1).
-                title_row(
-                    panel,
-                    faces,
-                    menu,
-                    MenuAction::Gallery,
-                    copy::text("title.row.gallery"),
-                    true,
-                    None,
-                );
-                // A hairline rule separates Quit from the other four.
-                panel.spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        height: Val::Px(1.0),
-                        margin: UiRect::axes(Val::Px(0.0), Val::Px(6.0)),
-                        ..default()
-                    },
-                    BackgroundColor(FAINT),
-                ));
-                title_row(
-                    panel,
-                    faces,
-                    menu,
-                    MenuAction::Quit,
-                    copy::text("title.row.quit"),
-                    true,
-                    None,
-                );
-            });
-
-            root.spawn(Node {
-                width: Val::Px(TITLE_PANEL_WIDTH),
-                max_width: Val::Percent(92.0),
-                flex_direction: FlexDirection::Row,
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            })
-            .with_children(|foot| {
-                foot.spawn((
-                    Text::new(menu.continue_line.clone()),
-                    faces.mono(12.0),
-                    TextColor::from(if menu.continue_enabled {
-                        DIM
-                    } else {
-                        TITLE_WARN
-                    }),
-                ));
-                foot.spawn((
-                    Text::new(menu::TITLE_LEGEND),
-                    faces.mono(12.0),
-                    TextColor::from(FAINT),
-                ));
-            });
-
-            if let Some(confirm) = menu.confirm {
-                confirm_dialog(root, look, faces, confirm, None, runtime);
+            if bind.tagline.is_some() {
+                if let Some(tagline) = bound.slots.get("title.tagline").copied() {
+                    root.commands()
+                        .entity(tagline)
+                        .insert(LetterSpacing::Px(TAGLINE_TRACKING_PX));
+                }
             }
+            if let (Some(slot), Some(asset_server)) =
+                (bound.art.get("title.backdrop").copied(), asset_server)
+            {
+                root.commands().entity(slot).with_children(|parent| {
+                    spawn_title_backdrop(parent, bedrock.as_deref(), Some(asset_server), watch);
+                });
+            }
+            if let Some(confirm) = menu.confirm {
+                confirm_dialog(root, Some(look), faces, confirm, None, runtime);
+            }
+            spawned = bound.root;
         });
+    if let Some(root) = spawned {
+        commands.entity(root).insert(title_gradient());
+    }
+}
+
+/// The action one row's control carries.
+fn row_action(control: &str) -> MenuAction {
+    match control {
+        "title.continue" => MenuAction::Continue,
+        "title.new-game" => MenuAction::NewGame,
+        "title.settings" => MenuAction::OpenSettings,
+        "title.gallery" => MenuAction::Gallery,
+        _ => MenuAction::Quit,
+    }
+}
+
+/// The title's own answer: the pack's name, tagline and Continue's reason line.
+struct Title {
+    name: String,
+    tagline: Option<String>,
+    reason: String,
+}
+
+impl Bind for Title {
+    fn words(&self, name: &str) -> Option<Words> {
+        match name {
+            "pack.name" => Some(Words::text(self.name.clone())),
+            "title.tagline" => self
+                .tagline
+                .as_ref()
+                .map(|tagline| Words::text(tagline.to_uppercase())),
+            "title.continue-reason" => Some(Words::text(self.reason.clone())),
+            _ => None,
+        }
+    }
+
+    fn shows(&self, name: &str) -> bool {
+        name != "title.tagline" || self.tagline.is_some()
+    }
+}
+
+/// One row of the list: its label, the control it is, and whether it is enabled.
+/// The label sits beside the control, so the row's own state answers for the
+/// label's tone too — every node in the item follows the item's control.
+struct Row {
+    label: &'static str,
+    control: &'static str,
+    action: MenuAction,
+    enabled: bool,
+}
+
+impl Bind for Row {
+    fn words(&self, name: &str) -> Option<Words> {
+        (name == "title.row.label" || name == self.control).then(|| Words::new(self.label))
+    }
+
+    fn action(&self, name: &str) -> Option<MenuAction> {
+        (name == self.control).then_some(self.action)
+    }
+
+    fn state(&self, _name: &str) -> ControlState {
+        ControlState {
+            disabled: !self.enabled,
+            ..default()
+        }
+    }
 }
 
 /// The title's neutral radial gradient — the default backdrop drawn when a pack
@@ -229,12 +243,29 @@ pub(super) fn title_gradient() -> BackgroundGradient {
     ))
 }
 
+/// Default look §3's veil, left to right at 0°: the same stops the reference
+/// plugin's `veil` component authors, for a door whose root is still built by
+/// hand. The format's 0° runs left to right and Bevy's runs bottom to top,
+/// clockwise, so 0° is a quarter turn.
+pub(super) fn veil_gradient() -> BackgroundGradient {
+    BackgroundGradient(vec![Gradient::Linear(LinearGradient {
+        angle: std::f32::consts::FRAC_PI_2,
+        stops: VEIL_STOPS
+            .iter()
+            .map(|(at, [r, g, b, a])| {
+                ColorStop::new(Color::srgba(*r, *g, *b, *a), Val::Percent(at * 100.0))
+            })
+            .collect(),
+        ..default()
+    })])
+}
+
 /// Spawn the pack's title backdrop, resolved exactly like `bg`
 /// (`assets/backgrounds/<id>.png`), as an absolutely positioned image node.
-/// It is the root's first child, so it paints over the gradient underlay and
-/// under the wordmark and panel; [`fit_title_backdrop`] sizes it to cover once
-/// the texture has loaded. No asset server (a headless test world) or no
-/// declared backdrop draws nothing and leaves the gradient standing.
+/// It paints over the gradient underlay and under the veil;
+/// [`fit_title_backdrop`] sizes it to cover once the texture has loaded. No
+/// asset server (a headless test world) or no declared backdrop draws nothing
+/// and leaves the gradient standing.
 pub(super) fn spawn_title_backdrop(
     root: &mut ChildSpawnerCommands,
     backdrop: Option<&str>,
@@ -292,45 +323,6 @@ pub(crate) fn fit_title_backdrop(
         node.height = Val::Px(cover.y);
         node.left = Val::Px((target.x - cover.x) / 2.0);
         node.top = Val::Px((target.y - cover.y) / 2.0);
-    }
-}
-
-/// One title row. Disabled rows stay walkable and focusable; their label and
-/// optional second-line caption render in the faint tone. The label is the sans
-/// root text and a present caption is a mono span on the same node
-/// (`docs/title-and-menu.md` § Type system §4).
-fn title_row(
-    parent: &mut ChildSpawnerCommands,
-    faces: &TextFaces,
-    menu: &MenuState,
-    action: MenuAction,
-    label: &str,
-    enabled: bool,
-    caption: Option<&str>,
-) {
-    let mut row = parent.spawn((
-        action,
-        Button,
-        Node {
-            width: Val::Percent(100.0),
-            padding: UiRect::axes(Val::Px(14.0), Val::Px(12.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(if enabled { BUTTON_BG } else { PANEL_BG }),
-        BorderColor::all(focus_border(menu, action)),
-        Text::new(label.to_string()),
-        faces.sans(16.0),
-        TextColor::from(if enabled { TEXT } else { FAINT }),
-    ));
-    if let Some(caption) = caption {
-        row.with_children(|row| {
-            row.spawn((
-                TextSpan::new(format!("\n{caption}")),
-                faces.mono(16.0),
-                TextColor::from(FAINT),
-            ));
-        });
     }
 }
 

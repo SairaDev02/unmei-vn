@@ -102,14 +102,16 @@ pub(crate) trait Bind {
     }
 }
 
-/// The entities one spawned surface holds: its root, each text slot's words by
-/// name, its controls, each list's own node and item template for the owner's
-/// binding, and the tree with its nodes in spawn order so the owner can decide
-/// again what shows.
+/// The entities one spawned surface holds: its root, each text slot's drawn
+/// words by name, each slot that draws no words — the engine's own art or
+/// content goes there — its controls, each list's own node and item template for
+/// the owner's binding, and the tree with its nodes in spawn order so the owner
+/// can decide again what shows.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Rendered {
     pub root: Option<Entity>,
     pub slots: BTreeMap<String, Entity>,
+    pub art: BTreeMap<String, Entity>,
     pub controls: BTreeMap<String, Entity>,
     pub lists: BTreeMap<String, Entity>,
     pub items: BTreeMap<String, PluginNode>,
@@ -143,21 +145,31 @@ impl Surface<'_> {
     pub(crate) fn spawn(&self, id: &str, parent: &mut ChildSpawnerCommands) -> Option<Rendered> {
         let tree = self.look.surface(id)?.clone();
         let mut out = Rendered::default();
-        spawn_node(self, self.bind, &tree, parent, &mut out);
+        spawn_node(self, self.bind, &tree, parent, &mut out, Scope::default());
         out.tree = Some(tree);
         Some(out)
     }
 
     /// Spawn one copy of a list's item template under `parent`, filled by that
     /// item's own binding: the owner binds the engine's items, one call each.
+    /// `own` is the control the item is: the template places every control the
+    /// list declares, the engine shows only that one — at spawn, which
+    /// [`sync_visibility`] keeps right from then on — and every node inside the
+    /// item follows its focus (spec §4: a row's label turns white when its
+    /// control is focused).
     pub(crate) fn spawn_item(
         &self,
         item: &PluginNode,
         parent: &mut ChildSpawnerCommands,
         bind: &dyn Bind,
+        own: Option<&str>,
     ) -> Rendered {
         let mut out = Rendered::default();
-        spawn_node(self, bind, item, parent, &mut out);
+        let scope = Scope {
+            own,
+            focus: own.and_then(|name| bind.action(name)),
+        };
+        spawn_node(self, bind, item, parent, &mut out, scope);
         out.tree = Some(item.clone());
         out
     }
@@ -167,12 +179,20 @@ impl Surface<'_> {
 /// its letters draw in, so it becomes a `TextColor` and never a background behind
 /// them (spec §4); a glyph is one piece of art, so its words never wrap — `•••` is
 /// three marks in a row, not three lines (spec §5's eight-character cap).
+/// What a node inside a list item inherits from the item's control.
+#[derive(Clone, Copy, Debug, Default)]
+struct Scope<'a> {
+    own: Option<&'a str>,
+    focus: Option<MenuAction>,
+}
+
 fn spawn_node(
     surface: &Surface<'_>,
     bind: &dyn Bind,
     node: &PluginNode,
     parent: &mut ChildSpawnerCommands,
     out: &mut Rendered,
+    scope: Scope<'_>,
 ) {
     let paint = paint::paint(&node.style.paint);
     let mut container = layout(node);
@@ -181,6 +201,21 @@ fn spawn_node(
     }
     if let Some(radius) = paint.radius {
         container.border_radius = radius;
+    }
+    let name = match &node.kind {
+        NodeKind::Slot(slot) => Some(slot.slot.as_str()),
+        _ => None,
+    };
+    let action = name.and_then(|name| bind.action(name));
+    let hidden = match &node.kind {
+        NodeKind::Slot(slot) => {
+            !bind.shows(&slot.slot)
+                || (action.is_some() && scope.own.is_some_and(|own| Some(own) != name))
+        }
+        _ => false,
+    };
+    if hidden {
+        container.display = Display::None;
     }
     let mut entity = parent.spawn(container);
     if node.style.z_index != 0 {
@@ -207,11 +242,6 @@ fn spawn_node(
     }
 
     out.nodes.push(entity.id());
-    let name = match &node.kind {
-        NodeKind::Slot(slot) => Some(slot.slot.as_str()),
-        _ => None,
-    };
-    let action = name.and_then(|name| bind.action(name));
     let state = name.map(|name| bind.state(name)).unwrap_or_default();
     if let Some(action) = action {
         entity.insert(action);
@@ -219,7 +249,7 @@ fn spawn_node(
     }
     let states = (action.is_some() || carries_state(&node.states)).then(|| {
         UiStates::new(
-            action,
+            action.or(scope.focus),
             state,
             &node.states,
             &node.style,
@@ -248,7 +278,7 @@ fn spawn_node(
         NodeKind::Box(kind) => {
             entity.with_children(|children| {
                 for child in &kind.children {
-                    spawn_node(surface, bind, child, children, out);
+                    spawn_node(surface, bind, child, children, out, scope);
                 }
             });
         }
@@ -311,11 +341,13 @@ fn spawn_node(
                     drawn = Some(child.id());
                 }
                 for authored in &kind.children {
-                    spawn_node(surface, bind, authored, children, out);
+                    spawn_node(surface, bind, authored, children, out, scope);
                 }
             });
             if let Some(drawn) = drawn {
                 out.slots.insert(kind.slot.clone(), drawn);
+            } else if action.is_none() {
+                out.art.insert(kind.slot.clone(), entity.id());
             }
         }
         NodeKind::List(kind) => {

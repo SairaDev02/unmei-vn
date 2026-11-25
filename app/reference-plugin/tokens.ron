@@ -87,6 +87,8 @@
         "reason-gap": 26.0,
         "row-pad-y": 6.0,
         "row-pad-x": 12.0,
+        "focus-bar-width": 12.0,
+        "focus-bar-height": 2.0,
         "row-gap": 12.0,
         "legend-right": 40.0,
         "legend-bottom": 26.0,
