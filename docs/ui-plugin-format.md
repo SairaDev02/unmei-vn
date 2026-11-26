@@ -367,6 +367,7 @@ The contents page: the section column, the ledger, Resume and Exit to title.
 | item control | `overlay.settings` | `contents.sections` | — | The row's control; the engine shows the row's own. |
 | list | `contents.ledger` | — | — | One row per save slot in slot order, with the legacy entry last in save mode. |
 | item slot | `contents.ledger.label` | `contents.ledger` | — | The slot's label. |
+| optional item slot | `contents.ledger.kind` | `contents.ledger` | — | Whether the engine or the game writes the slot: manual or game-written. |
 | optional item slot | `contents.ledger.status` | `contents.ledger` | — | The slot's status: ok, empty or unreadable. |
 | item slot | `contents.ledger.detail` | `contents.ledger` | — | The scene the save holds, the reason it cannot be read, or the empty mark. |
 | item slot | `contents.ledger.saved-at` | `contents.ledger` | — | When the save was written. |

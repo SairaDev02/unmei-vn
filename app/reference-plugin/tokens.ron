@@ -110,17 +110,13 @@
         "legend-bottom": 26.0,
         // The contents page and the sub-views' interiors (§4).
         "rail-width": 420.0,
-        // §4's right column: the frame less the 420px rail and its 1px hairline.
-        // The page lays out at the 1280x720 reference, and a row in this format
-        // shrinks a `fill` child, so the column states its width rather than
-        // claiming 100% beside the rail.
-        "column-width": 859.0,
         "page-padding": 32.0,
         "section-gap": 16.0,
         "entry-gap": 4.0,
         "ledger-label": 96.0,
-        "ledger-status": 92.0,
-        "ledger-action": 110.0,
+        "ledger-kind": 92.0,
+        "ledger-status": 88.0,
+        "ledger-detail": 380.0,
         "button-pad-x": 14.0,
         "button-pad-y": 6.0,
         "settings-width": 440.0,
@@ -241,11 +237,18 @@
             padding: "{spacing.page-padding}",
             gap: "{spacing.section-gap}",
         ),
+        // §4's right column: it begins at the rail's 420px plus the hairline's
+        // 1px and takes the rest of the frame, so a window wider than the
+        // 1280x720 reference widens the ledger instead of leaving page fill
+        // beside it.
         "column": (
             typography: "{typography.label}",
             color: "{colors.dim}",
-            width: "fill",
-            height: "fill",
+            position: "absolute",
+            left: 421.0,
+            top: 0.0,
+            right: 0.0,
+            bottom: 0.0,
             direction: "column",
             padding: "{spacing.page-padding}",
             gap: "{spacing.section-gap}",
