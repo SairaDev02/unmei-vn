@@ -605,6 +605,22 @@ fn legacy_picker_labels_occupied_targets_as_overwrite() {
         "slot 3 is unreadable, still overwritable"
     );
 
+    build_pause_tree(&mut app);
+    let drawn = all_texts(&app);
+    for target in &targets {
+        assert!(
+            drawn.contains(&target.display()),
+            "{:?} draws its label: {drawn:?}",
+            target.slot
+        );
+        let detail = format!("{} - {}", target.status, target.detail);
+        assert!(
+            drawn.contains(&detail),
+            "{:?} draws its status line: {drawn:?}",
+            target.slot
+        );
+    }
+
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(menu(&app).focus, MenuFocus::LegacyTarget(1));
     esc(&mut app);

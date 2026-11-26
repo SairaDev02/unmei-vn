@@ -115,7 +115,7 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Play | `play.save`, `play.load`, `play.auto`, `play.skip`, `play.menu` |
 | Overlay | `overlay.save-tab`, `overlay.load-tab`, `overlay.slot.1`, `overlay.slot.2`, `overlay.slot.3`, `overlay.slot.autosave`, `overlay.resume`, `overlay.exit-to-title`, `overlay.settings`, `overlay.gallery`, `overlay.timeline`, `overlay.legacy` |
 | Legacy picker | `legacy.target.1`, `legacy.target.2`, `legacy.target.3`, `legacy.cancel` |
-| Settings | `settings.back`, `settings.master`, `settings.music`, `settings.sfx`, `settings.mute`, `settings.reset-audio`, `settings.text-speed`, `settings.auto`, `settings.fullscreen`, `settings.reset-play`, `settings.key`, `settings.copy-path`, `settings.clear-key` |
+| Settings | `settings.master`, `settings.music`, `settings.sfx`, `settings.mute`, `settings.reset-audio`, `settings.text-speed`, `settings.auto`, `settings.fullscreen`, `settings.reset-play`, `settings.key`, `settings.copy-path`, `settings.clear-key`; `settings.back` only from the title's door |
 | Gallery | `gallery.card.<n>` (1-based, in entry order) |
 | Timeline | `timeline.card.<n>` (1-based, in declared order) |
 | Confirm | `confirm.yes`, `confirm.no` |
@@ -453,6 +453,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
 - **2026-11-19:** §4.1's take session log holds the version header only, because a take installs no global log subscriber. §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
 - **2026-11-24:** §3.2 gains the play frame's five quick-row ids, which the row's controls are reached by while play is up. The grammar and the case version are unchanged.
+- **2026-11-26:** §3.2's Settings row scopes `settings.back` to the title's door: Default look §4 moved the contents page's way out to its left column, so the Settings section the page draws has no back control and a case asserting one there reads it absent. The grammar and the case version are unchanged.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

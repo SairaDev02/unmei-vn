@@ -38,7 +38,8 @@ pub(crate) use decisions::{CopyPathLabelText, KeyPlaceholder, KeyRowText};
 pub(crate) use drag::{settings_drag, SettingsDrag};
 pub(super) use groups::settings_body;
 pub(crate) use sync::{
-    scroll_settings_focus, scroll_settings_wheel, sync_settings_labels, sync_window_mode,
+    scroll_settings_focus, scroll_settings_wheel, sync_settings_labels, sync_settings_visibility,
+    sync_window_mode,
 };
 pub(super) use title_door::build_title_settings;
 
@@ -57,10 +58,11 @@ pub(crate) fn init(app: &mut App) {
 }
 
 /// Register the Settings view's own systems: the in-place label/row/window
-/// syncs in `Update`, the wheel/focus scrolls in the `PostUpdate` geometry group
-/// (after layout, so the revealed rects are this frame's), and the outside-press
-/// discard observer. The pointer drag and the queued-edit drain are the
-/// ownership-gated group `lib.rs` composes.
+/// syncs in `Update`, the tree's one visibility pass on the frame it is built,
+/// the wheel/focus scrolls in the `PostUpdate` geometry group (after layout, so
+/// the revealed rects are this frame's), and the outside-press discard observer.
+/// The pointer drag and the queued-edit drain are the ownership-gated group
+/// `lib.rs` composes.
 pub(super) fn register(app: &mut App) {
     app.add_systems(
         Update,
@@ -70,6 +72,12 @@ pub(super) fn register(app: &mut App) {
             sync_key_row,
             sync_copy_path_label,
         )
+            .in_set(PresentationSet),
+    )
+    .add_systems(
+        Update,
+        sync_settings_visibility
+            .after(crate::presentation::sync_menu_ui)
             .in_set(PresentationSet),
     )
     .add_systems(

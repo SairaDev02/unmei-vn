@@ -500,7 +500,7 @@ This subsection covers the gallery as a surface: how it is opened and left, what
 
 #### 3. Back to origin
 
-- The door is recorded when the gallery opens (`origin: Slots | Title`, the value [Title](#title) §4 already uses for Settings) and every way out returns to it: the back control is door-aware — `← Back to slots` from the overlay's door, `← Back to title` from the title's door — and it is a click/`Esc` affordance, not an arrow stop, exactly as Settings' is.
+- The door is recorded when the gallery opens (`origin: Slots | Title`, the value [Title](#title) §4 already uses for Settings) and every way out returns to it. *(Amended 2026-11-26: the overlay's door draws no back control, because [Default look](#default-look) §4 moved the way out to the contents page's left column; `Esc` is the way back and the title's door keeps its own `← Back to title`. The back control is a click/`Esc` affordance, never an arrow stop, exactly as Settings' is.)*
 - `Esc` backs out one level per press: a still closes to the grid; the grid closes to the origin; from the overlay's grid the next press closes the overlay (Resume), and with the title as origin the chain ends there ([Title](#title) §1).
 
 #### 4. The grid and its walk
@@ -531,7 +531,7 @@ The strings this subsection fixes. Placement, sizes and the card art are `### La
 | Title row | `Gallery` — no caption |
 | Overlay control | `Gallery` |
 | Heading | `Gallery` |
-| Back control | `← Back to slots` (overlay door) · `← Back to title` (title door) |
+| Back control | the title's door only: `← Back to title` (the overlay's way out is the contents page's column) |
 | Grid legend | `↑/↓/←/→ move · Enter view · click to open` |
 | Still caption | the entry's label, verbatim |
 | Still legend | `←/→ browse · ↑/↓ or Esc or click to close` |
@@ -635,14 +635,14 @@ This subsection fixes the gallery's **look** only: its shape, the card and its a
 
 #### 4. Grid geometry at 1280×720
 
-- **Auto-fill, three across on both doors.** The grid is `repeat(auto-fill, minmax(300px, 1fr))` with 20px row and column gaps. At 1280×720 that is three cards across whether the surface is the full window or the overlay's main column, so the line-up does not change with the door; the last row is left-aligned and may be short.
+- **Auto-fill, three across on both doors.** The grid is `repeat(auto-fill, minmax(240px, 1fr))` with 20px row and column gaps. At 1280×720 the overlay's right column is 795px wide and three 240px cards plus their gaps fill it, so the overlay's door is three across; the title's door sits in a 1216px seat and fits four. The last row is left-aligned and may be short. *(Amended 2026-11-26, with #117: the minimum drops from 300px because Default look §4's right column is 795px and three 300px cards no longer fit.)*
 - **It scrolls rather than shrinks.** A pack with more cards than fit scrolls the body vertically; the focused card is scrolled into view and the header never moves.
 
 | Part | Size / treatment |
 | --- | --- |
-| Grid | `minmax(300px, 1fr)` auto-fill · 20px gap · 3 across at 1280×720 |
+| Grid | `minmax(240px, 1fr)` auto-fill · 20px gap · 3 across in 795px, 4 in the title's seat |
 | Card | the overlay's framed panel, ~10px padding, 2px border |
-| Art box | 4:3 · ~360×270 from the title's door · ~291×218 from the overlay's |
+| Art box | 4:3 · ~291×218 from the overlay's door · smaller cards on the title's denser seat |
 | Label | mono, under the art, left-aligned in the footer |
 | Focus | 2px `FOCUS` border, no other change |
 | Scrim | radial `rgba(5, 7, 10, 0.34)` → `rgba(5, 7, 10, 0.74)`, title door only |
@@ -816,7 +816,7 @@ Locked focus deliberately communicates **progression and relative position**, ne
 
 ## Default look
 
-Settled 2026-11-14. **Partly built** — §1, §2, §3's title, §4's page and §5 are drawn through the plugin renderer (issues #113, #115 and #116); §3's Settings door keeps its hand-built panel and binds `title-settings.ron` in #117, and §4's three sub-view interiors are still their own views until that ticket draws them from trees. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
+Settled 2026-11-14. **Partly built** — §1, §2, §3's title, §4's page, §4's Settings, Gallery, still and Timeline interiors and §5 are drawn through the plugin renderer (issues #113, #115, #116 and #117); the Legacy picker draws its own surface's tree too, and §3's Settings door still keeps its hand-built panel around the shared body. What the format has no property for — the measured grids, the scroll viewports, the slider fills, the live values, the key field and the card art — is mounted by the player into the tree's own nodes. Prototype-validated: the clickable stub lives on the throwaway branch `prototype/8-vn-ui-redesign` at `app/prototype/vn-ui.html` (out of `main`), with four layouts and one mix over one VN model. The **mix, variant E**, won: variant A's play frame, choices and title with variant B's contents page as the Esc menu. A–D remain on that branch as the comparison record.
 
 This section is the one owner of the default look of the play frame, the title and the Esc menu, for the improved demo pack and every default install. Where an earlier layout rule disagrees, this section wins, and that rule carries a dated pointer here. Behaviour — the title's states and confirms, the pause doctrine, the skip and auto rules, the slot actions, the Timeline and Gallery contracts — is unchanged unless a numbered point below says otherwise. Faces follow [Type system](#type-system) as amended by §6.
 

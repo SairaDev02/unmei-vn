@@ -1,11 +1,23 @@
-// The Timeline interior the current view draws: the heading and walk legend over
-// the explanation, then one card per declared scene, with the empty line for a
-// pack that declares none.
+// The Timeline interior: the heading and walk legend over the explanatory line,
+// the empty line for a pack that declares no scenes, and one card per declared
+// scene (Default look §4, spec §11).
 //
-// Two things the format does not carry: the current view lays its cards in two
-// columns, and it marks a locked card's label `???` — the label is an item slot,
-// so the engine decides both its text and its tone, and the list stacks the
-// cards in one column here.
+// The way out is the contents page's left column, so this surface authors no
+// back control and no rail: `MenuAction::TimelineBack` stays the menu's click
+// twin of `Esc`, keyed by control id and not by a node here.
+//
+// A card's control is the indexed family `timeline.card.<n>`: the template
+// places one member and the engine numbers it per item. A visited card shows its
+// raw scene id in the text tone and selects; a locked card's control is
+// `disabled`, which draws its `timeline.locked` label in the faint tone — the
+// approved geometry's two label tones, from this tree's own tokens.
+//
+// Three things the format has no property for, so the player mounts them into
+// these nodes: the card list is laid out as the measured two-column grid inside
+// the scrolling body, a card keeps its 136px height from the `timeline-card`
+// component while the grid supplies its width, and a card's label wraps inside a
+// long scene id rather than truncating (`docs/title-and-menu.md` § Timeline
+// `### Layout`).
 (
     kind: "box",
     direction: "column",
@@ -16,13 +28,13 @@
     children: [
         (kind: "box",
             component: "heading-row",
+            justify_content: "space-between",
             children: [
                 (kind: "text",
                     text: "timeline.heading",
                     typography: "{typography.subheading}",
                     fill: "{colors.text}",
                 ),
-                (kind: "box", width: "fill"),
                 (kind: "text",
                     text: "timeline.legend",
                     typography: "{typography.legend}",
@@ -44,8 +56,9 @@
                 width: "fill",
                 children: [
                     (kind: "slot", slot: "timeline.card.label",
-                        typography: "{typography.legend}",
-                        color: "{colors.dim}"),
+                        typography: "{typography.group}",
+                        color: "{colors.text}",
+                        disabled: (color: "{colors.faint}")),
                     (kind: "slot", slot: "timeline.card.1",
                         position: "absolute",
                         left: 0.0,

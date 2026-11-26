@@ -264,8 +264,10 @@ fn the_gallery_section_entry_draws_the_copy_in_the_sections_face() {
     }
 }
 
-/// The back control is door-aware, and either door returns to where it came
-/// from (`docs/title-and-menu.md` § Gallery `### Behavior` §3/§7).
+/// The contents page's seat gives the gallery its way back, so the surface draws
+/// no back control; the title's door draws its own, and either door returns to
+/// where it came from (`docs/title-and-menu.md` § Default look §4, § Gallery
+/// `### Behavior` §3/§7).
 #[test]
 fn the_gallery_back_control_is_door_aware() {
     let pack = temp_pack();
@@ -273,9 +275,16 @@ fn the_gallery_back_control_is_door_aware() {
     open_overlay_gallery(&mut app);
     assert_eq!(menu(&app).gallery_origin, menu::MenuOrigin::Slots);
     build_pause_tree(&mut app);
-    assert!(all_texts(&app)
-        .iter()
-        .any(|text| text == "\u{2190} Back to slots"));
+    assert!(
+        !has_action(&app, MenuAction::GalleryBack),
+        "§4's left column is the grid's way back"
+    );
+    assert!(
+        !all_texts(&app)
+            .iter()
+            .any(|text| text == menu::gallery_back_label(menu::MenuOrigin::Slots)),
+        "the surface draws no back label"
+    );
     click(&mut app, MenuAction::GalleryBack);
     assert_eq!(menu(&app).view, MenuView::Slots);
     assert!(menu(&app).open, "the overlay is still up");
@@ -285,6 +294,10 @@ fn the_gallery_back_control_is_door_aware() {
     press_and_update(&mut title, KeyCode::Enter);
     assert_eq!(menu(&title).gallery_origin, menu::MenuOrigin::Title);
     build_pause_tree(&mut title);
+    assert!(
+        has_action(&title, MenuAction::GalleryBack),
+        "the title's door draws its own way back"
+    );
     assert!(all_texts(&title)
         .iter()
         .any(|text| text == "\u{2190} Back to title"));
@@ -472,9 +485,10 @@ fn opening_walking_and_closing_the_gallery_writes_nothing_and_reads_no_slot() {
     );
 }
 
-/// A pack that declares no entries shows the header and the single
-/// `No images in this pack` line, with no grid, error or Notice, from either
-/// door (`docs/title-and-menu.md` § Gallery `### Behavior` §6/§7).
+/// A pack that declares no entries draws the tree's heading and its single
+/// `No images in this pack` line, with no grid, no legend, no error or Notice,
+/// from either door (`docs/title-and-menu.md` § Gallery `### Behavior` §6/§7,
+/// `### Layout` §1).
 #[test]
 fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
     let dir = temp_pack_without_gallery_entries();
@@ -491,7 +505,18 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         "the empty line renders: {texts:?}"
     );
     assert!(texts.iter().any(|text| text == menu::GALLERY_HEADING));
-    assert!(!has_action(&app, MenuAction::Card(0)), "no grid draws");
+    assert!(
+        !has_action(&app, MenuAction::GalleryCard(0)),
+        "no grid draws"
+    );
+    assert_eq!(
+        app.world()
+            .get::<Node>(gallery_text(&app, menu::GALLERY_GRID_LEGEND))
+            .unwrap()
+            .display,
+        Display::None,
+        "the legend is drawn only when the pack has art"
+    );
     assert!(
         !app.world().resource::<Notice>().is_showing(),
         "the empty state raises no Notice"
@@ -502,12 +527,12 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         .resource::<crate::presentation::style::TextFaces>()
         .clone();
     assert_eq!(
-        face_handle(&app, text_entity(&app, menu::GALLERY_HEADING)),
+        face_handle(&app, gallery_text(&app, menu::GALLERY_HEADING)),
         faces.sans_semibold,
         "the heading is sans SemiBold"
     );
     assert_eq!(
-        face_handle(&app, text_entity(&app, menu::GALLERY_EMPTY)),
+        face_handle(&app, gallery_text(&app, menu::GALLERY_EMPTY)),
         faces.sans_regular,
         "the empty-state line is sans prose"
     );
@@ -523,7 +548,10 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         texts.iter().any(|text| text == menu::GALLERY_EMPTY),
         "the empty line renders from the title's door: {texts:?}"
     );
-    assert!(!has_action(&title, MenuAction::Card(0)), "no grid draws");
+    assert!(
+        !has_action(&title, MenuAction::GalleryCard(0)),
+        "no grid draws"
+    );
 }
 
 /// The card a gallery arrow move lands on for each direction and boundary. The
@@ -582,25 +610,28 @@ fn gallery_move_steps_one_card_or_row_and_clamps_without_wrapping() {
     );
 }
 
-/// The grid packs `minmax(300px, 1fr)` tracks with 20px gutters: three across
-/// at 1280×720 from both doors (`docs/title-and-menu.md` § Gallery `### Layout`
-/// §4).
+/// The grid packs `minmax(240px, 1fr)` tracks with 20px gutters: three across the
+/// contents page's 795px right column at 1280×720, and four across the wider
+/// title door (`docs/title-and-menu.md` § Default look §4, § Gallery
+/// `### Layout` §4).
 #[test]
 fn gallery_column_count_is_three_across_at_the_reference_window() {
+    let page_seat = 1280.0 - 421.0 - 2.0 * 32.0;
+    assert_eq!(
+        crate::presentation::gallery::gallery_column_count(page_seat),
+        3,
+        "795px fits three 240px tracks and their two gutters"
+    );
     // The title door's surface is the window less its 32px padding.
     assert_eq!(
         crate::presentation::gallery::gallery_column_count(1280.0 - 64.0),
-        3
-    );
-    // The overlay door's surface is the window less the 240px rail and 24px padding.
-    assert_eq!(
-        crate::presentation::gallery::gallery_column_count(1280.0 - 240.0 - 48.0),
-        3
+        4,
+        "the wider seat packs a fourth track"
     );
     // A fullscreen-width surface packs more columns.
     assert_eq!(
         crate::presentation::gallery::gallery_column_count(1856.0),
-        5
+        7
     );
     assert_eq!(crate::presentation::gallery::gallery_column_count(0.0), 1);
 }
@@ -623,18 +654,61 @@ fn sync_gallery_columns_reads_the_grids_logical_width() {
     app.update();
     assert_eq!(
         menu(&app).gallery_columns,
-        3,
-        "2432 physical at 2x is 1216 logical: three tracks"
+        4,
+        "2432 physical at 2x is 1216 logical: four 240px tracks"
     );
+}
+
+/// The entity `entity` hangs under.
+fn parent_of(app: &App, entity: Entity) -> Entity {
+    app.world()
+        .get::<ChildOf>(entity)
+        .map(ChildOf::parent)
+        .expect("the entity has a parent")
+}
+
+/// An entity's children, in paint order.
+fn children_of(app: &App, entity: Entity) -> Vec<Entity> {
+    app.world()
+        .get::<Children>(entity)
+        .map(|children| children.iter().collect())
+        .unwrap_or_default()
+}
+
+/// The gallery surface's root: the plugin tree's root, which the seat mounts.
+fn gallery_root(app: &App) -> Entity {
+    parent_of(app, gallery_body(app))
+}
+
+/// The text node `words` inside the gallery surface's subtree, so a word the page
+/// also draws — `Gallery` is its section entry too — is told apart from the
+/// surface's own.
+fn gallery_text(app: &App, words: &str) -> Entity {
+    let mut stack = vec![gallery_root(app)];
+    while let Some(entity) = stack.pop() {
+        if app
+            .world()
+            .get::<Text>(entity)
+            .is_some_and(|text| text.0 == words)
+        {
+            return entity;
+        }
+        stack.extend(children_of(app, entity));
+    }
+    panic!("no text {words:?} inside the gallery surface");
+}
+
+/// The card panel one card draws: the tree's item box, which holds the art box,
+/// the label's slot and the control that covers them
+/// (`docs/title-and-menu.md` § Gallery `### Layout` §2).
+fn card_panel(app: &App, index: usize) -> Entity {
+    parent_of(app, action_entity(app, MenuAction::GalleryCard(index)))
 }
 
 /// A gallery card's 4:3 art box.
 fn gallery_art_box(app: &App, index: usize) -> Entity {
-    let card = action_entity(app, MenuAction::GalleryCard(index));
-    app.world()
-        .get::<Children>(card)
-        .expect("the card has children")
-        .iter()
+    children_of(app, card_panel(app, index))
+        .into_iter()
         .find(|child| {
             app.world()
                 .get::<crate::presentation::gallery::GalleryArtBox>(*child)
@@ -690,9 +764,10 @@ fn temp_pack_with_backgrounds(names: &[&str]) -> tempfile::TempDir {
     dir
 }
 
-/// The gallery body is a scroll container over a `minmax(300px, 1fr)` grid with
+/// The gallery body is a scroll container over a `minmax(240px, 1fr)` grid with
 /// a 20px gap and one framed card per entry, each with a 4:3 art box
-/// (`docs/title-and-menu.md` § Gallery `### Layout` §1/§2/§4).
+/// (`docs/title-and-menu.md` § Default look §4, § Gallery `### Layout`
+/// §1/§2/§4).
 #[test]
 fn the_gallery_grid_is_three_across_with_a_twenty_pixel_gap() {
     let pack = temp_pack();
@@ -729,13 +804,18 @@ fn the_gallery_grid_is_three_across_with_a_twenty_pixel_gap() {
     assert_eq!(node.row_gap, Val::Px(20.0));
     let expected: Vec<RepeatedGridTrack> = RepeatedGridTrack::minmax(
         GridTrackRepetition::AutoFill,
-        MinTrackSizingFunction::Px(300.0),
+        MinTrackSizingFunction::Px(240.0),
         MaxTrackSizingFunction::Fraction(1.0),
     );
     assert_eq!(node.grid_template_columns, expected);
     assert_eq!(
         node.flex_shrink, 0.0,
         "the grid keeps its natural height inside the scrolling body"
+    );
+    assert_eq!(
+        crate::presentation::gallery::gallery_column_count(1280.0 - 421.0 - 2.0 * 32.0),
+        3,
+        "§4's 795px right column fits three tracks"
     );
 
     let faces = app
@@ -764,11 +844,12 @@ fn the_gallery_grid_is_three_across_with_a_twenty_pixel_gap() {
     }
 }
 
-/// The title's door draws the same three-across `minmax(300px, 1fr)` grid with
-/// a 20px gap as the overlay's: the door changes the backdrop and the way back,
-/// never the grid (`docs/title-and-menu.md` § Gallery `### Layout` §1/§4).
+/// The title's door draws the same `minmax(240px, 1fr)` auto-fill grid with a
+/// 20px gap as the contents page's, on the wider seat its own root leaves: the
+/// door changes the backdrop, the seat and the way back, never the grid
+/// (`docs/title-and-menu.md` § Default look §4, § Gallery `### Layout` §1/§4).
 #[test]
-fn the_title_doors_grid_is_the_same_three_across_layout() {
+fn the_title_doors_grid_is_the_same_auto_fill_layout() {
     let pack = temp_pack();
     let mut title = boot_app(pack.path().join("pack"), None);
     title.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TitleGallery;
@@ -791,7 +872,7 @@ fn the_title_doors_grid_is_the_same_three_across_layout() {
     assert_eq!(node.row_gap, Val::Px(20.0));
     let expected: Vec<RepeatedGridTrack> = RepeatedGridTrack::minmax(
         GridTrackRepetition::AutoFill,
-        MinTrackSizingFunction::Px(300.0),
+        MinTrackSizingFunction::Px(240.0),
         MaxTrackSizingFunction::Fraction(1.0),
     );
     assert_eq!(node.grid_template_columns, expected);
@@ -808,15 +889,12 @@ fn the_title_doors_grid_is_the_same_three_across_layout() {
     assert_eq!(title_body.flex_direction, FlexDirection::Column);
     assert_eq!(title_body.align_items, AlignItems::Start);
 
-    // At 1280×720 both doors' surfaces pack exactly three tracks with a 20px
-    // gutter: the window less its padding, and the overlay's column less the
-    // rail and padding.
     assert_eq!(
         crate::presentation::gallery::gallery_column_count(1280.0 - 64.0),
-        3
+        4
     );
     assert_eq!(
-        crate::presentation::gallery::gallery_column_count(1280.0 - 240.0 - 48.0),
+        crate::presentation::gallery::gallery_column_count(1280.0 - 421.0 - 2.0 * 32.0),
         3
     );
 }
@@ -840,7 +918,7 @@ fn gallery_cards_draw_the_card_panel_in_entry_order() {
         .pack()
         .gallery_entries();
     for (index, entry) in entries.iter().enumerate() {
-        let card = action_entity(&app, MenuAction::GalleryCard(index));
+        let card = card_panel(&app, index);
         assert_eq!(
             *app.world().get::<BackgroundColor>(card).unwrap(),
             BackgroundColor(Color::srgb(0.12, 0.13, 0.17)),
@@ -851,24 +929,28 @@ fn gallery_cards_draw_the_card_panel_in_entry_order() {
             UiRect::all(Val::Px(2.0)),
             "card {index} reserves its 2px focus ring"
         );
-        let children = app.world().get::<Children>(card).unwrap();
+        let children = children_of(&app, card);
         let art = children
             .iter()
             .position(|child| {
                 app.world()
-                    .get::<crate::presentation::gallery::GalleryArtBox>(child)
+                    .get::<crate::presentation::gallery::GalleryArtBox>(*child)
                     .is_some()
             })
             .expect("the card carries its 4:3 art box");
         let footer = children
             .iter()
-            .position(|child| app.world().get::<Text>(child).is_some())
+            .position(|child| {
+                children_of(&app, *child)
+                    .iter()
+                    .any(|line| app.world().get::<Text>(*line).is_some())
+            })
             .expect("the card carries its footer label");
         assert!(
             art < footer,
             "card {index}'s label is a footer line under the art"
         );
-        let label = app.world().get::<Text>(children[footer]).unwrap().0.clone();
+        let label = flattened_text(&app, children[footer]);
         assert_eq!(
             label,
             entry.label(),
@@ -952,14 +1034,15 @@ fn add_test_image(app: &mut App, width: u32, height: u32) -> Handle<Image> {
 }
 
 /// Focus is the overlay's 2px `FOCUS` border and nothing else: the focused
-/// card and an unfocused one share every other property, and focus starts on
-/// the first card (`docs/title-and-menu.md` § Gallery `### Layout` §5).
+/// card's ring and an unfocused one share every other property, and focus starts
+/// on the first card (`docs/title-and-menu.md` § Gallery `### Layout` §5).
 #[test]
 fn the_focused_gallery_card_differs_only_by_its_focus_border() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));
     open_overlay_gallery(&mut app);
     build_pause_tree(&mut app);
+    app.update();
 
     let focused = action_entity(&app, MenuAction::GalleryCard(0));
     let plain = action_entity(&app, MenuAction::GalleryCard(1));
@@ -969,21 +1052,21 @@ fn the_focused_gallery_card_differs_only_by_its_focus_border() {
         app.world().get::<BorderColor>(plain).unwrap().top,
         Color::NONE
     );
+    let first = card_panel(&app, 0);
+    let second = card_panel(&app, 1);
     assert_eq!(
-        app.world().get::<Node>(focused).unwrap(),
-        app.world().get::<Node>(plain).unwrap(),
+        app.world().get::<Node>(first).unwrap(),
+        app.world().get::<Node>(second).unwrap(),
         "focus changes no size or spacing"
     );
     assert_eq!(
-        app.world().get::<BackgroundColor>(focused).unwrap(),
-        app.world().get::<BackgroundColor>(plain).unwrap(),
+        app.world().get::<BackgroundColor>(first).unwrap(),
+        app.world().get::<BackgroundColor>(second).unwrap(),
         "focus changes no fill or brightness"
     );
 
     press_and_update(&mut app, KeyCode::ArrowRight);
-    app.world_mut()
-        .run_system_once(crate::presentation::sync_menu_focus)
-        .expect("the focus system runs");
+    app.update();
     assert_eq!(
         app.world().get::<BorderColor>(plain).unwrap().top,
         focus_color,
@@ -995,15 +1078,15 @@ fn the_focused_gallery_card_differs_only_by_its_focus_border() {
         "the left card drops the ring"
     );
     assert_eq!(
-        app.world().get::<Node>(focused).unwrap(),
-        app.world().get::<Node>(plain).unwrap(),
+        app.world().get::<Node>(first).unwrap(),
+        app.world().get::<Node>(second).unwrap(),
         "the move still changes nothing but the border colour"
     );
 }
 
-/// The grid legend renders exactly the spec's string, right-aligned and mono,
-/// and only when entries exist (`docs/title-and-menu.md` § Gallery
-/// `### Behavior` §7, `### Layout` §1).
+/// The grid legend renders exactly the spec's string, right-aligned by the tree's
+/// heading row and mono, and only when entries exist
+/// (`docs/title-and-menu.md` § Gallery `### Behavior` §7, `### Layout` §1).
 #[test]
 fn the_gallery_grid_legend_renders_right_aligned_and_mono() {
     let pack = temp_pack();
@@ -1011,51 +1094,37 @@ fn the_gallery_grid_legend_renders_right_aligned_and_mono() {
     open_overlay_gallery(&mut app);
     build_pause_tree(&mut app);
 
-    let legend = text_entity(&app, menu::GALLERY_GRID_LEGEND);
+    let legend = gallery_text(&app, menu::GALLERY_GRID_LEGEND);
     let faces = app
         .world()
         .resource::<crate::presentation::style::TextFaces>()
         .clone();
     assert_eq!(face_handle(&app, legend), faces.mono_medium);
     assert_eq!(
-        face_handle(&app, text_entity(&app, menu::GALLERY_HEADING)),
+        face_handle(&app, gallery_text(&app, menu::GALLERY_HEADING)),
         faces.sans_semibold,
         "the heading keeps the Settings panel title's face"
     );
 
-    // A spacer before the legend pushes it to the header's right edge.
-    let header = app.world().get::<ChildOf>(legend).unwrap().parent();
-    let children = app.world().get::<Children>(header).unwrap();
-    let position = children
-        .iter()
-        .position(|child| child == legend)
-        .expect("the legend is in the header");
+    let header = parent_of(&app, legend);
+    let children = children_of(&app, header);
     assert_eq!(
-        position,
-        children.len() - 1,
-        "the legend is last in the row"
+        children.last().copied(),
+        Some(legend),
+        "the legend is the row's last node"
     );
     assert_eq!(
-        app.world()
-            .get::<Node>(children[position - 1])
-            .unwrap()
-            .flex_grow,
-        1.0,
-        "a spacer right-aligns the legend"
+        app.world().get::<Node>(header).unwrap().justify_content,
+        JustifyContent::SpaceBetween,
+        "the row right-aligns the legend"
     );
 
     // The header never scrolls: it is not inside the body.
     let body = gallery_body(&app);
-    let mut ancestor = app
-        .world()
-        .get::<ChildOf>(legend)
-        .map(|child| child.parent());
+    let mut ancestor = app.world().get::<ChildOf>(legend).map(ChildOf::parent);
     while let Some(entity) = ancestor {
         assert_ne!(entity, body, "the header sits outside the scroll body");
-        ancestor = app
-            .world()
-            .get::<ChildOf>(entity)
-            .map(|child| child.parent());
+        ancestor = app.world().get::<ChildOf>(entity).map(ChildOf::parent);
     }
 
     let dir = temp_pack_without_gallery_entries();
@@ -1064,10 +1133,13 @@ fn the_gallery_grid_legend_renders_right_aligned_and_mono() {
     empty.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryButton;
     press_and_update(&mut empty, KeyCode::Enter);
     build_pause_tree(&mut empty);
-    assert!(
-        !all_texts(&empty)
-            .iter()
-            .any(|text| text == menu::GALLERY_GRID_LEGEND),
+    assert_eq!(
+        empty
+            .world()
+            .get::<Node>(gallery_text(&empty, menu::GALLERY_GRID_LEGEND))
+            .unwrap()
+            .display,
+        Display::None,
         "the empty state shows no grid legend"
     );
 }
@@ -1243,7 +1315,7 @@ fn the_still_caption_is_the_label_verbatim_mono_with_the_legend_under_it() {
     // Capture the grid's own label for the entry the still will show, before
     // the still replaces the grid.
     build_pause_tree(&mut app);
-    let card_label = flattened_text(&app, action_entity(&app, MenuAction::GalleryCard(1)));
+    let card_label = flattened_text(&app, card_panel(&app, 1));
     open_still(&mut app, 1);
     build_pause_tree(&mut app);
 
@@ -1271,8 +1343,8 @@ fn the_still_caption_is_the_label_verbatim_mono_with_the_legend_under_it() {
 
     // The foot strip holding the caption is a sibling after the art box in the
     // still column, so the caption is never drawn over the art.
-    let foot = app.world().get::<ChildOf>(caption).unwrap().parent();
-    let still = app.world().get::<ChildOf>(foot).unwrap().parent();
+    let foot = parent_of(&app, parent_of(&app, caption));
+    let still = parent_of(&app, foot);
     let children = app.world().get::<Children>(still).unwrap();
     let art_index = children
         .iter()
@@ -1817,13 +1889,15 @@ fn every_arrow_move_in_a_scrolling_grid_reveals_the_focused_card() {
     }
 }
 
-/// The overlay door's grid frame at the reference window, measured from the
+/// The contents page's grid frame at the reference window, measured from the
 /// rendered acceptance screenshots and the documented grid
-/// (`docs/title-and-menu.md` § Gallery `### Layout` §4): a 992x568 body over a
-/// three-across grid of 317x260 cards with 20px gaps.
-const RIG_VIEWPORT: Vec2 = Vec2::new(992.0, 568.0);
+/// (`docs/title-and-menu.md` § Default look §4, § Gallery `### Layout` §4): a
+/// 795x540 body — §4's right column less its padding, the page's heading and the
+/// gallery's own heading row — over a three-across grid of 251x220 cards with
+/// 20px gaps.
+const RIG_VIEWPORT: Vec2 = Vec2::new(795.0, 540.0);
 
-const RIG_CARD: Vec2 = Vec2::new(317.0, 260.0);
+const RIG_CARD: Vec2 = Vec2::new(251.0, 220.0);
 
 const RIG_GAP: f32 = 20.0;
 
@@ -2147,10 +2221,7 @@ fn a_missing_art_card_draws_the_placeholder_frame_with_its_label() {
         Color::WHITE,
         "the art is drawn verbatim"
     );
-    let card = action_entity(
-        &app,
-        MenuAction::GalleryCard(entry_index(&app, "school_gate")),
-    );
+    let card = card_panel(&app, entry_index(&app, "school_gate"));
     assert_eq!(
         app.world().get::<BackgroundColor>(gate).unwrap().0,
         app.world().get::<BackgroundColor>(card).unwrap().0,

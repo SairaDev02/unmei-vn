@@ -7,9 +7,10 @@ use bevy::ui_widgets::ScrollIntoView;
 use bevy::window::PrimaryWindow;
 
 use super::controls::{settings_label_text, SettingsBar, SettingsLabel};
+use super::groups::SettingsTree;
 use super::SettingsBody;
 use crate::input::InputOwnership;
-use crate::menu::{action_for_focus, MenuAction, MenuState, MenuView};
+use crate::menu::{action_for_focus, MenuAction, MenuOrigin, MenuState, MenuView};
 use crate::settings::{self, SettingsState};
 
 /// Repaint every live Settings label and slider fill from the stored values.
@@ -33,6 +34,36 @@ pub(crate) fn sync_settings_labels(
         if node.width != want {
             node.width = want;
         }
+    }
+}
+
+/// What the tree's visibility reads once the body is spawned: whether the door
+/// that opened Settings draws the tree's own back control. The contents page
+/// moves its way out to the page's left column, so the row around the back
+/// control collapses with it (Default look §4); the title's door keeps it.
+/// Nothing else in the tree ever hides, and the door cannot change without a
+/// rebuild, so this runs on the build and not on every frame.
+pub(crate) fn sync_settings_visibility(
+    mut nodes: Query<&mut Node>,
+    trees: Query<&SettingsTree, Added<SettingsTree>>,
+    menu: Res<MenuState>,
+) {
+    let door = Door {
+        origin: menu.settings_origin,
+    };
+    for tree in &trees {
+        crate::presentation::render::tree::sync_visibility(&mut nodes, &tree.bound, &door);
+    }
+}
+
+/// The one answer the spawned tree asks of the door.
+struct Door {
+    origin: MenuOrigin,
+}
+
+impl crate::presentation::render::Bind for Door {
+    fn shows(&self, name: &str) -> bool {
+        name != "settings.back" || self.origin == MenuOrigin::Title
     }
 }
 

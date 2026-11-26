@@ -34,7 +34,7 @@
                         children: [
                             (kind: "slot", slot: "still.label",
                                 typography: "{typography.value}",
-                                color: "{colors.text}"),
+                                color: "{colors.dim}"),
                         ],
                     ),
                 ],

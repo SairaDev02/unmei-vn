@@ -88,12 +88,12 @@ pub(crate) fn door_steps() -> Vec<Step> {
                 check_panel(world, harness, "timeline");
                 check_underlying_unchanged(world, harness);
             }),
-        // The overlay door's Settings body is a bounded viewport, so its lower
-        // controls and `← Back to slots` are reachable at 1280×720
-        // (`docs/title-and-menu.md` § Title layout §5). These run after the
-        // reader's anchor checks: opening Settings emits the ambient
-        // credential-directory failure row, which is not part of that small
-        // history and must not shift its anchor expectations.
+        // The overlay door's body is bounded, so its lower controls are reachable
+        // at 1280×720 (`docs/title-and-menu.md` § Title layout §5); its way out is
+        // the contents page's column, so `Clear key` is its last control (Default
+        // look §4). These follow the reader's anchor checks, because opening
+        // Settings emits a credential-directory failure row that must not shift
+        // them.
         Step::new("settings(overlay door): leave Timeline and open Settings")
             .at(0, close_drawer)
             .at(6, |world, harness| tap_key(world, harness, KeyCode::Escape))
@@ -104,7 +104,7 @@ pub(crate) fn door_steps() -> Vec<Step> {
             .at(26, park_cursor_over_settings)
             .at(30, wheel_settings_to_bottom)
             .settle(38)
-            .check(check_settings_wheel_reaches_back),
+            .check(check_settings_wheel_reaches_last_control),
         Step::new("settings(overlay door): focusing Clear key reveals it")
             .at(0, wheel_settings_to_top)
             .at(6, focus_clear_key)

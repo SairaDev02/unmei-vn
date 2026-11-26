@@ -583,5 +583,5 @@ One tree for every confirm kind. The kind's prompt, detail and accept label are 
 ## 9. Names the format reserves
 
 - `play.log` is reserved for the Backlog's control, which is not built. It is not a control id, so a tree that places it is `ui.slot.unknown`.
-- Three clickable controls in the player have no Keiko id: the Gallery's back control, the Timeline's back control, and the view that closes the still. A plugin cannot place a control it cannot name, so the tables above leave them out and those three clicks stay the player's own.
+- Three clicks are the player's own and no plugin places them: the Gallery's and the Timeline's back controls, which only the title's door still draws (the overlay's door leaves through the contents page's column, [Default look](title-and-menu.md#default-look) §4), and the view that closes the still. They have no Keiko id, so the tables above leave them out and those three clicks stay the player's.
 - The error screen, the Notice and the developer Monitor are not surfaces. A plugin does not restyle them.

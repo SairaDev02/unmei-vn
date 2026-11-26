@@ -163,6 +163,7 @@ pub(crate) fn sync_menu_ui(
                         &runtime,
                         asset_server.as_deref(),
                         watch,
+                        look.as_deref(),
                     );
                 }
                 _ => build_page(

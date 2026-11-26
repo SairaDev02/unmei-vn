@@ -8,11 +8,15 @@
 // tone each label and value draws with, so the controls inside them name neither.
 // The audio list is the exception it is in the format: its label and value are
 // per-item slots, so a row places them.
+//
+// The body takes the width its host gives it and keeps its own natural height:
+// the engine mounts it inside the Settings viewport, which scrolls whatever runs
+// past it, so a `height: "fill"` here would cut the content to the viewport and
+// leave nothing to scroll.
 (
     kind: "box",
     direction: "column",
     width: "fill",
-    height: "fill",
     padding: "{spacing.page-padding}",
     gap: "{spacing.section-gap}",
     children: [

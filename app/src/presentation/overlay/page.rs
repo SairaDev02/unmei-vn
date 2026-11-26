@@ -357,6 +357,7 @@ pub(in crate::presentation) fn build_page(
                 watch,
                 read_log,
                 timeline_scroll,
+                Some(look),
             );
         });
     }
@@ -367,7 +368,7 @@ pub(in crate::presentation) fn build_page(
                     confirm_dialog(parent, Some(look), faces, confirm, credentials, runtime);
                 }
                 if menu.picker.is_some() {
-                    legacy_picker(parent, faces, menu);
+                    legacy_picker(parent, Some(look), faces, menu);
                 }
             });
         }
@@ -412,13 +413,22 @@ fn section_body(
     watch: Option<&mut AssetWatch>,
     read_log: Option<&crate::read_log::ReadLogState>,
     timeline_scroll: Option<Vec2>,
+    look: Option<&UiLook>,
 ) {
     match menu.view {
         MenuView::Gallery => {
-            gallery_surface(parent, faces, menu, runtime, asset_server, watch);
+            gallery_surface(parent, faces, menu, runtime, asset_server, watch, look);
         }
         MenuView::Timeline => {
-            timeline_surface(parent, faces, menu, runtime, read_log, timeline_scroll);
+            timeline_surface(
+                parent,
+                faces,
+                menu,
+                runtime,
+                read_log,
+                timeline_scroll,
+                look,
+            );
         }
         MenuView::Settings => {
             parent
@@ -439,6 +449,7 @@ fn section_body(
                 .with_children(|body| {
                     settings_body(
                         body,
+                        look,
                         faces,
                         menu,
                         settings,

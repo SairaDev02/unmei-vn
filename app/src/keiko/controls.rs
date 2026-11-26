@@ -173,7 +173,6 @@ pub fn surface_ids(
         }
         MenuView::Settings => {
             let mut ids: Vec<String> = [
-                "settings.back",
                 "settings.master",
                 "settings.music",
                 "settings.sfx",
@@ -190,8 +189,9 @@ pub fn surface_ids(
             .into_iter()
             .map(str::to_string)
             .collect();
-            // The page's session-scoped stop, past the Decisions group
-            // (`docs/title-and-menu.md` §4).
+            if menu.title_surface_up() {
+                ids.push("settings.back".to_string());
+            }
             if crate::menu::exit_to_title_shown(menu) {
                 ids.push("overlay.exit-to-title".to_string());
             }
