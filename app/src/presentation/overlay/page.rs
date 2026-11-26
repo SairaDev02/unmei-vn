@@ -124,9 +124,9 @@ impl Item {
         }
     }
 
-    /// A ledger row: the slot's label and status, the scene over the saved-at
-    /// line, and the contextual action, muted when the row cannot be activated
-    /// ([`docs/runtime-hardening.md` § Menu overlay §2/§3]).
+    /// A ledger row: the slot's label and kind, its status, the scene over the
+    /// saved-at line, and the contextual action, muted when the row cannot be
+    /// activated ([`docs/runtime-hardening.md` § Menu overlay §2/§3]).
     ///
     /// [`docs/runtime-hardening.md` § Menu overlay §2/§3]: ../../../docs/runtime-hardening.md
     fn row(model: &menu::CardModel, control: &'static str) -> Self {
@@ -136,6 +136,7 @@ impl Item {
                     "contents.ledger.label",
                     Words::text(model.label.to_string()),
                 ),
+                ("contents.ledger.kind", Words::new(kind_key(model.slot))),
                 (
                     "contents.ledger.status",
                     Words::text(model.status.to_string()),
@@ -370,6 +371,15 @@ pub(in crate::presentation) fn build_page(
                 }
             });
         }
+    }
+}
+
+/// Which copy key names a slot's kind, §2's first field beside the label: the
+/// autosave is the one slot the game writes.
+fn kind_key(slot: unmei_engine::save::Slot) -> &'static str {
+    match slot {
+        unmei_engine::save::Slot::Autosave => "contents.slot.kind.autosave",
+        unmei_engine::save::Slot::Manual(_) => "contents.slot.kind.manual",
     }
 }
 

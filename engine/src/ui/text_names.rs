@@ -47,6 +47,7 @@ const TEXT: &[&str] = &[
     "contents.scene",
     "contents.section.label",
     "contents.ledger.label",
+    "contents.ledger.kind",
     "contents.ledger.status",
     "contents.ledger.detail",
     "contents.ledger.saved-at",

@@ -481,6 +481,10 @@ fn an_occupied_row_and_an_unreadable_row_draw_their_own_words() {
         |app: &App, index: usize| parent_of(app, shown_action_entity(app, MenuAction::Card(index)));
     let occupied = subtree_words(&app, row(&app, 0)).join(" ");
     assert!(occupied.contains("Slot 1"), "{occupied:?}");
+    assert!(
+        occupied.contains("manual"),
+        "the row draws the slot's kind (§2's first field): {occupied:?}"
+    );
     assert!(occupied.contains("Ok"), "the row draws its status");
     assert!(
         occupied.contains("first_meeting"),
@@ -491,10 +495,20 @@ fn an_occupied_row_and_an_unreadable_row_draw_their_own_words() {
         "and the time the save was written, not the empty mark"
     );
 
+    let autosave = subtree_words(&app, row(&app, 3)).join(" ");
+    assert!(
+        autosave.contains("game-written"),
+        "the autosave is marked game-written (§2): {autosave:?}"
+    );
+
     let unreadable = subtree_words(&app, row(&app, 2)).join(" ");
     assert!(
         unreadable.contains("Unreadable"),
         "the row draws its status: {unreadable:?}"
+    );
+    assert!(
+        unreadable.contains("manual"),
+        "and the slot's kind: {unreadable:?}"
     );
     assert!(
         unreadable.to_lowercase().contains("invalid"),

@@ -89,7 +89,6 @@
         (kind: "box", component: "divider"),
         (kind: "box",
             component: "column",
-            width: "{spacing.column-width}",
             children: [
                 // §4: the pack name and the current scene move into the right
                 // column's heading, the scene inside Save's or Load's line.
@@ -106,8 +105,12 @@
                             color: "{colors.dim}"),
                     ],
                 ),
-                // One ledger row: the slot's label, the scene or status over
-                // the saved-at line, and the action at the row's right.
+                // One ledger row: the slot's label and kind, its status, the
+                // scene or the reason over the saved-at line, and the action at
+                // the row's right (§2's fields). Every column states its width
+                // and the action is pinned to the row's right edge, because a
+                // `fill` sibling claims the row's whole width and would squeeze
+                // these columns until their words wrapped.
                 (kind: "list",
                     list: "contents.ledger",
                     width: "fill",
@@ -123,13 +126,17 @@
                                 width: "{spacing.ledger-label}",
                                 typography: "{typography.legend}",
                                 color: "{colors.dim}"),
+                            (kind: "slot", slot: "contents.ledger.kind",
+                                width: "{spacing.ledger-kind}",
+                                typography: "{typography.legend}",
+                                color: "{colors.faint}"),
                             (kind: "slot", slot: "contents.ledger.status",
                                 width: "{spacing.ledger-status}",
                                 typography: "{typography.legend}",
                                 color: "{colors.dim}"),
                             (kind: "box",
                                 direction: "column",
-                                width: "fill",
+                                width: "{spacing.ledger-detail}",
                                 gap: 2.0,
                                 children: [
                                     (kind: "slot", slot: "contents.ledger.detail",
@@ -140,11 +147,17 @@
                                         color: "{colors.faint}"),
                                 ],
                             ),
-                            (kind: "slot", slot: "contents.ledger.action",
-                                width: "{spacing.ledger-action}",
-                                typography: "{typography.label}",
-                                color: "{colors.focus}",
-                                disabled: (color: "{colors.faint}")),
+                            (kind: "box",
+                                position: "absolute", right: 8.0, top: 0.0, bottom: 0.0,
+                                direction: "row",
+                                align_items: "center",
+                                children: [
+                                    (kind: "slot", slot: "contents.ledger.action",
+                                        typography: "{typography.label}",
+                                        color: "{colors.focus}",
+                                        disabled: (color: "{colors.faint}")),
+                                ],
+                            ),
                             (kind: "slot", slot: "overlay.slot.1",
                                 position: "absolute", left: 0.0, top: 0.0, right: 0.0, bottom: 0.0,
                                 focused: (border: (width: 2.0, color: "{colors.focus}"))),
