@@ -156,8 +156,6 @@ fn the_gallery_draws_the_plugins_tree() {
         "the surface draws no back label of its own"
     );
 
-    // The cards themselves are still one numbered item per entry, each with the
-    // art box, the label and the control the format numbers for it.
     for (index, entry) in app
         .world()
         .resource::<Runtime>()

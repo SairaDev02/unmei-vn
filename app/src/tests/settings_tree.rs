@@ -128,8 +128,6 @@ fn settings_section() -> (App, tempfile::TempDir) {
     let mut app = app_for_pack(pack.path().join("pack"));
     open_settings(&mut app);
     build_pause_tree(&mut app);
-    // A headless rig registers the surface systems it exercises; the shipping
-    // plugin registers this one on every frame after the build.
     app.add_systems(
         Update,
         crate::presentation::settings_view::sync_settings_visibility,
