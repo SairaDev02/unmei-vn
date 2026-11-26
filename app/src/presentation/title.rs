@@ -67,7 +67,8 @@ const VEIL_STOPS: [(f32, [f32; 4]); 3] = [
     (0.62, [8.0 / 255.0, 9.0 / 255.0, 13.0 / 255.0, 0.0]),
 ];
 
-/// The title door's Settings panel width, until #117 draws that door's page.
+/// The title door's Settings panel width: the panel stays hand-built and the body
+/// inside it draws the plugin's Settings tree (#117).
 pub(super) const TITLE_SETTINGS_WIDTH: f32 = 720.0;
 
 /// Build the title from the plugin's tree: the pack's backdrop under the veil,

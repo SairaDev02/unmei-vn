@@ -20,11 +20,11 @@ use crate::settings::SettingsState;
 use crate::Runtime;
 use unmei_engine::copy;
 
-/// The title door's Settings view: the same groups as the overlay's, in a
-/// top-anchored panel, with `← Back to title` and no rail, Resume or
+/// The title door's Settings view: the body the plugin's `settings` tree draws,
+/// inside a top-anchored panel, with `← Back to title` and no rail, Resume or
 /// `Exit to title`. It keeps the title's backdrop, and Default look §3's veil
-/// stands over it — the same stops the `title` tree authors — until #117 draws
-/// this door's own page.
+/// stands over it — the same stops the `title` tree authors. The panel and the
+/// body's scroll host stay the player's: the format has no panel and no scroll.
 #[allow(clippy::too_many_arguments)]
 pub(in crate::presentation) fn build_title_settings(
     commands: &mut Commands,
