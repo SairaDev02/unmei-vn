@@ -3,7 +3,13 @@
 use crate::prelude::*;
 
 pub(crate) fn settings_scroll_body(world: &mut World) -> Option<Entity> {
-    let mut cursor = control_entity(world, MenuAction::BackToSlots)?;
+    settings_scroll_body_of(world, MenuAction::BackToSlots)
+}
+
+/// The scroll body around the control that opens `action`: the nearest ancestor
+/// whose node scrolls.
+pub(crate) fn settings_scroll_body_of(world: &mut World, action: MenuAction) -> Option<Entity> {
+    let mut cursor = control_entity(world, action)?;
     loop {
         let parent = world.get::<ChildOf>(cursor)?.parent();
         if world
@@ -107,6 +113,62 @@ pub(crate) fn check_settings_wheel_reaches_back(world: &mut World, harness: &mut
     harness.report.check(
         format!(
             "the back control is inside the viewport after wheeling ({top}..{bottom} in {scroll}..{})",
+            scroll + size.y
+        ),
+        top >= scroll - 1.0 && bottom <= scroll + size.y + 1.0,
+    );
+}
+
+/// The overlay door's viewport reaches its last control: Default look §4 moved
+/// the way out to the contents page's left column, so the body ends at `Clear
+/// key` and the wheel must bring it fully into view.
+pub(crate) fn check_settings_wheel_reaches_last_control(world: &mut World, harness: &mut Harness) {
+    let Some(body) = settings_scroll_body_of(world, MenuAction::ClearKey) else {
+        harness
+            .report
+            .fail("the contents page's Settings body is a scroll body");
+        return;
+    };
+    let computed = *world
+        .get::<ComputedNode>(body)
+        .expect("the body is laid out");
+    let size = computed.size();
+    let content = computed.content_size();
+    harness.report.check(
+        format!(
+            "the Settings viewport is bounded with content that overflows ({size:?} / {content:?})"
+        ),
+        content.y > size.y,
+    );
+    let scroll = world
+        .get::<bevy::ui::ScrollPosition>(body)
+        .map_or(0.0, |position| position.0.y);
+    harness.report.check(
+        format!("the wheel scrolled the panel ({scroll})"),
+        scroll > 0.0,
+    );
+    let back_drawn = control_entity(world, MenuAction::BackToSlots)
+        .and_then(|entity| world.get::<Node>(entity))
+        .is_some_and(|node| node.display != Display::None);
+    harness.report.check(
+        "the contents page's Settings body draws no back control",
+        !back_drawn,
+    );
+    let body_top = world
+        .get::<UiGlobalTransform>(body)
+        .expect("the body is laid out")
+        .translation
+        .y
+        - size.y / 2.0;
+    let Some((position, control)) = control_rect(world, MenuAction::ClearKey) else {
+        harness.report.fail("Clear key is rendered");
+        return;
+    };
+    let top = position.y - body_top + scroll;
+    let bottom = top + control.y;
+    harness.report.check(
+        format!(
+            "Clear key is inside the viewport after wheeling ({top}..{bottom} in {scroll}..{})",
             scroll + size.y
         ),
         top >= scroll - 1.0 && bottom <= scroll + size.y + 1.0,

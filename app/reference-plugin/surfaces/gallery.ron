@@ -16,13 +16,13 @@
     children: [
         (kind: "box",
             component: "heading-row",
+            justify_content: "space-between",
             children: [
                 (kind: "text",
                     text: "gallery.heading",
                     typography: "{typography.heading}",
                     fill: "{colors.text}",
                 ),
-                (kind: "box", width: "fill"),
                 (kind: "text",
                     text: "gallery.legend",
                     typography: "{typography.legend}",

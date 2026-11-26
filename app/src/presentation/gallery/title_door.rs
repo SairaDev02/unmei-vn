@@ -1,16 +1,18 @@
 //! The title door's gallery: the pack backdrop, the gallery-local scrim that
-//! darkens it, and the shared surface over them.
+//! darkens it, the door's own way back, and the shared surface under them.
 
 use bevy::prelude::*;
 use bevy::ui::{BackgroundGradient, ColorStop, RadialGradient, RadialGradientShape, UiPosition};
 
 use super::super::assets::AssetWatch;
-use super::super::style::TextFaces;
+use super::super::focus_border;
+use super::super::render::UiLook;
+use super::super::style::{TextFaces, BUTTON_BG, TEXT};
 use super::super::title::{spawn_title_backdrop, title_gradient};
 use super::super::MenuRoot;
 use super::grid::gallery_surface;
 use super::markers::GalleryScrim;
-use crate::menu::MenuState;
+use crate::menu::{self, MenuAction, MenuState};
 use crate::Runtime;
 
 /// The gallery's title-door scrim, as the prototype stub pinned it
@@ -25,6 +27,11 @@ const GALLERY_SCRIM_OUTER: Color = Color::srgba(5.0 / 255.0, 7.0 / 255.0, 10.0 /
 /// and the surface sits the gallery-local radial scrim, which darkens the
 /// backdrop only and never the card art
 /// (`docs/title-and-menu.md` § Gallery `### Behavior` §6, `### Layout` §7).
+///
+/// The surface has no back control — §4 gives the way back to the seat that
+/// holds it — so this door draws `← Back to title` itself, above the surface
+/// and outside its tree (`docs/title-and-menu.md` § Default look §4,
+/// § Gallery `### Behavior` §3).
 pub(in crate::presentation) fn build_title_gallery(
     commands: &mut Commands,
     faces: &TextFaces,
@@ -32,6 +39,7 @@ pub(in crate::presentation) fn build_title_gallery(
     runtime: &Runtime,
     asset_server: Option<&AssetServer>,
     mut watch: Option<&mut AssetWatch>,
+    look: Option<&UiLook>,
 ) {
     let backdrop = runtime.runner.pack().manifest.title_backdrop.clone();
     commands
@@ -60,7 +68,36 @@ pub(in crate::presentation) fn build_title_gallery(
                 watch.as_deref_mut(),
             );
             spawn_title_gallery_scrim(root);
-            gallery_surface(root, faces, menu, runtime, asset_server, watch);
+            spawn_door_back(root, faces, menu);
+            gallery_surface(root, faces, menu, runtime, asset_server, watch, look);
+        });
+}
+
+/// The title door's own way back, above the surface: `← Back to title`, the
+/// door-aware label the gallery's one copy key names
+/// (`docs/title-and-menu.md` § Gallery `### Behavior` §3/§7).
+fn spawn_door_back(parent: &mut ChildSpawnerCommands, faces: &TextFaces, menu: &MenuState) {
+    parent
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            margin: UiRect::bottom(Val::Px(16.0)),
+            ..default()
+        })
+        .with_children(|row| {
+            row.spawn((
+                MenuAction::GalleryBack,
+                Button,
+                Node {
+                    padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
+                    border: UiRect::all(Val::Px(2.0)),
+                    ..default()
+                },
+                BackgroundColor(BUTTON_BG),
+                BorderColor::all(focus_border(menu, MenuAction::GalleryBack)),
+                Text::new(menu::gallery_back_label(menu.gallery_origin)),
+                faces.sans(16.0),
+                TextColor::from(TEXT),
+            ));
         });
 }
 
@@ -69,7 +106,7 @@ pub(in crate::presentation) fn build_title_gallery(
 /// edges (`docs/title-and-menu.md` § Gallery `### Layout` §4/§7).
 ///
 /// `UiPosition::CENTER` is the node's middle: a `UiPosition`'s `x`/`y` are
-/// offsets from its anchor, so `CENTER.at_percent(50, 50)` would sit on the
+/// offsets from the anchor, so `CENTER.at_percent(50, 50)` would sit on the
 /// bottom-right corner.
 fn gallery_scrim_gradient() -> BackgroundGradient {
     BackgroundGradient::from(RadialGradient::new(

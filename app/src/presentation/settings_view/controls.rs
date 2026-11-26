@@ -1,17 +1,21 @@
 //! The Settings view's controls: the live labels and bars its syncs repaint, and
-//! the row builders both doors share.
+//! what the app mounts into the plugin's tree because the format cannot carry it.
+//!
+//! A tree names no node but a slot, a control and a list, so the pieces a row
+//! holds without a name — the track a slider is dragged against, the fill that
+//! shows its value, and the words that change while the view stays open — are
+//! spawned here into the nodes the renderer reports. A slot draws one string,
+//! resolved once at spawn, so a value that moves is a node of the app's, marked
+//! and repainted in place by [`sync_settings_labels`](super::sync_settings_labels)
+//! rather than rebuilt (`docs/title-and-menu.md` § Type system §2/§4).
 
 use bevy::prelude::*;
-
-use super::super::focus_border;
-use super::super::style::{TextFaces, BUTTON_BG, FOCUS, PANEL_BG, TEXT};
-use crate::menu::{MenuAction, MenuState};
-use crate::settings::{AudioControl, SettingsState, TrackControl};
 use unmei_engine::copy;
+use unmei_engine::ui::{Node as PluginNode, NodeKind};
 
-/// The fixed width of a Settings row's label column, so every track in the view
-/// starts at the same x.
-pub(super) const SETTINGS_LABEL_WIDTH: f32 = 96.0;
+use super::super::render::tree::Rendered;
+use super::super::style::{TextFaces, FOCUS, PANEL_BG, TEXT};
+use crate::settings::{AudioControl, SettingsState, TrackControl};
 
 /// One of the Settings view's live text labels: a slider's percentage, or the
 /// mute row's state. Updated in place so the overlay tree is never rebuilt for a
@@ -30,20 +34,6 @@ pub(crate) enum SettingsLabelKind {
     Fullscreen,
 }
 
-impl SettingsLabelKind {
-    /// The switch row's static label; `None` for a slider or the stepped
-    /// text-speed value, whose label is drawn beside its track rather than from
-    /// this kind.
-    fn switch_label(self) -> Option<&'static str> {
-        match self {
-            SettingsLabelKind::Percent(_) | SettingsLabelKind::TextSpeed => None,
-            SettingsLabelKind::Mute => Some(copy::text("settings.control.mute")),
-            SettingsLabelKind::Auto => Some(copy::text("settings.control.auto")),
-            SettingsLabelKind::Fullscreen => Some(copy::text("settings.control.fullscreen")),
-        }
-    }
-}
-
 /// The filled portion of one control's track; its width is the control's
 /// position on its own scale (percent, or ladder step).
 #[derive(Component)]
@@ -58,16 +48,32 @@ pub(crate) struct SettingsTrack {
     pub(crate) control: TrackControl,
 }
 
-pub(super) fn audio_control_label(control: AudioControl) -> &'static str {
+/// The face every value the app draws itself uses: the format's `typography.value`
+/// role at its own size, because a tree cannot show a string that changes while
+/// the view is open.
+const SETTINGS_VALUE_SIZE: f32 = 16.0;
+
+/// The gap between a switch row's label and its value, as the hand-built row
+/// spaced them before the tree drew the row.
+const SETTINGS_SWITCH_GAP: f32 = 8.0;
+
+/// The stepped text-speed control's track. The audio rows' tracks are the tree's
+/// empty row boxes; the stepped row has no box of its own in the format, so the
+/// engine draws the same 220×10 the plugin's `track` component gives a slider.
+const SETTINGS_TRACK_WIDTH: f32 = 220.0;
+const SETTINGS_TRACK_HEIGHT: f32 = 10.0;
+
+/// The copy key a slider row's label draws.
+pub(super) fn audio_control_key(control: AudioControl) -> &'static str {
     match control {
-        AudioControl::Master => copy::text("settings.control.master"),
-        AudioControl::Music => copy::text("settings.control.music"),
-        AudioControl::Sfx => copy::text("settings.control.sfx"),
+        AudioControl::Master => "settings.control.master",
+        AudioControl::Music => "settings.control.music",
+        AudioControl::Sfx => "settings.control.sfx",
     }
 }
 
 /// `On` / `Off`, the shared rendering of every boolean Settings switch.
-fn on_off(value: bool) -> &'static str {
+pub(super) fn on_off(value: bool) -> &'static str {
     if value {
         copy::text("settings.value.on")
     } else {
@@ -76,9 +82,9 @@ fn on_off(value: bool) -> &'static str {
 }
 
 /// The rendered value of one live Settings label, repainted in place by
-/// [`sync_settings_labels`]. The row builders derive the same value when the
-/// view opens; the switch states are the machine value alone, since the row's
-/// sans label is a separate node (`docs/title-and-menu.md`
+/// [`sync_settings_labels`](super::sync_settings_labels). The spawned words
+/// derive the same value; the switch states are the machine value alone, since
+/// the row's sans label is a separate node (`docs/title-and-menu.md`
 /// § Type system §2/§4).
 pub(super) fn settings_label_text(kind: SettingsLabelKind, settings: &SettingsState) -> String {
     match kind {
@@ -90,130 +96,26 @@ pub(super) fn settings_label_text(kind: SettingsLabelKind, settings: &SettingsSt
     }
 }
 
-/// A full-width Settings row: a sans label node and an `On`/`Off` mono value
-/// node. The value is a [`SettingsLabel`] repainted in place, so a toggle never
-/// rebuilds the tree.
-pub(super) fn switch_row(
+/// Mount one audio row inside the tree's item: the track the pointer drags
+/// against, its filled portion and the live percentage label. The row's own
+/// slot, label, value and control are the tree's; only what a slot cannot carry
+/// is the app's.
+pub(super) fn mount_audio_row(
     parent: &mut ChildSpawnerCommands,
-    faces: &TextFaces,
-    menu: &MenuState,
-    action: MenuAction,
-    kind: SettingsLabelKind,
-    on: bool,
+    spawned: &Rendered,
+    item: &PluginNode,
+    control: AudioControl,
+    percent: u32,
 ) {
-    parent
-        .spawn((
-            action,
-            Button,
-            Node {
-                width: Val::Px(440.0),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(8.0),
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                ..default()
-            },
-            BackgroundColor(BUTTON_BG),
-            BorderColor::all(focus_border(menu, action)),
-        ))
-        .with_children(|row| {
-            row.spawn((
-                Text::new(kind.switch_label().unwrap_or("")),
-                faces.sans(16.0),
-                TextColor::from(TEXT),
-            ));
-            row.spawn((
-                SettingsLabel { kind },
-                Text::new(on_off(on)),
-                faces.mono(16.0),
-                TextColor::from(TEXT),
-            ));
-        });
-}
-
-/// A left-aligned Settings Reset button.
-pub(super) fn reset_button(
-    parent: &mut ChildSpawnerCommands,
-    faces: &TextFaces,
-    menu: &MenuState,
-    action: MenuAction,
-    label: &str,
-) {
-    parent.spawn((
-        action,
-        Button,
-        Node {
-            align_self: AlignSelf::Start,
-            padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(BUTTON_BG),
-        BorderColor::all(focus_border(menu, action)),
-        Text::new(label),
-        faces.sans(16.0),
-        TextColor::from(TEXT),
-    ));
-}
-
-/// A full-width Settings row for the stepped Text-speed control: the label, a
-/// track whose fill is the ladder position, and the current step's name. The row
-/// is focusable, `←`/`→` walk the ladder, and a click on the track snaps to the
-/// nearest step through the shared drag path.
-pub(super) fn text_speed_row(
-    parent: &mut ChildSpawnerCommands,
-    faces: &TextFaces,
-    menu: &MenuState,
-    settings: Option<&SettingsState>,
-) {
-    let action = MenuAction::TextSpeed;
-    let name = settings
-        .map(|s| s.text_speed_name())
-        .unwrap_or_else(|| copy::text("settings.text-speed.instant"));
-    let percent = settings.map(|s| s.text_speed_percent()).unwrap_or(0);
-    parent
-        .spawn((
-            action,
-            Button,
-            Node {
-                width: Val::Px(440.0),
-                flex_direction: FlexDirection::Row,
-                align_items: AlignItems::Center,
-                column_gap: Val::Px(12.0),
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                border: UiRect::all(Val::Px(2.0)),
-                ..default()
-            },
-            BackgroundColor(BUTTON_BG),
-            BorderColor::all(focus_border(menu, action)),
-        ))
-        .with_children(|row| {
-            row.spawn((
-                Node {
-                    width: Val::Px(SETTINGS_LABEL_WIDTH),
-                    ..default()
-                },
-                Text::new(copy::text("settings.control.text-speed")),
-                faces.sans(16.0),
-                TextColor::from(TEXT),
-            ));
-            row.spawn((
-                SettingsTrack {
-                    control: TrackControl::TextSpeed,
-                },
-                Node {
-                    width: Val::Px(220.0),
-                    height: Val::Px(10.0),
-                    ..default()
-                },
-                BackgroundColor(PANEL_BG),
-            ))
-            .with_children(|track| {
-                track.spawn((
-                    SettingsBar {
-                        control: TrackControl::TextSpeed,
-                    },
+    let tracked = TrackControl::Audio(control);
+    if let Some(track) = track_entity(spawned, item) {
+        parent
+            .commands()
+            .entity(track)
+            .insert(SettingsTrack { control: tracked })
+            .with_children(|node| {
+                node.spawn((
+                    SettingsBar { control: tracked },
                     Node {
                         width: Val::Percent(percent as f32),
                         height: Val::Percent(100.0),
@@ -222,13 +124,124 @@ pub(super) fn text_speed_row(
                     BackgroundColor(FOCUS),
                 ));
             });
-            row.spawn((
-                SettingsLabel {
-                    kind: SettingsLabelKind::TextSpeed,
+    }
+    if let Some(value) = spawned.slots.get("settings.audio.value").copied() {
+        parent.commands().entity(value).insert(SettingsLabel {
+            kind: SettingsLabelKind::Percent(control),
+        });
+    }
+}
+
+/// Mount a switch row's live value beside the tree's own label: a slot draws one
+/// string, so the value the toggle turns is the app's node.
+pub(super) fn mount_switch(
+    parent: &mut ChildSpawnerCommands,
+    spawned: &Rendered,
+    slot: &str,
+    kind: SettingsLabelKind,
+    value: bool,
+    faces: &TextFaces,
+) {
+    let Some(control) = spawned.controls.get(slot).copied() else {
+        return;
+    };
+    let words = on_off(value).to_string();
+    parent.commands().entity(control).with_children(|node| {
+        node.spawn((
+            SettingsLabel { kind },
+            Text::new(words),
+            faces.mono(SETTINGS_VALUE_SIZE),
+            TextColor::from(TEXT),
+            Node {
+                margin: UiRect::left(Val::Px(SETTINGS_SWITCH_GAP)),
+                ..default()
+            },
+        ));
+    });
+}
+
+/// Mount the stepped text-speed row's track, fill and current step beside the
+/// tree's own label. The format has no property for either, so both are the
+/// app's, sized as the plugin's own `track` component sizes a slider.
+pub(super) fn mount_text_speed(
+    parent: &mut ChildSpawnerCommands,
+    spawned: &Rendered,
+    settings: Option<&SettingsState>,
+    faces: &TextFaces,
+) {
+    let Some(control) = spawned.controls.get("settings.text-speed").copied() else {
+        return;
+    };
+    let percent = settings
+        .map(|state| state.text_speed_percent())
+        .unwrap_or(0);
+    let name = settings
+        .map(|state| state.text_speed_name().to_string())
+        .unwrap_or_else(|| copy::text("settings.text-speed.instant").to_string());
+    parent.commands().entity(control).with_children(|node| {
+        node.spawn((
+            SettingsTrack {
+                control: TrackControl::TextSpeed,
+            },
+            Node {
+                width: Val::Px(SETTINGS_TRACK_WIDTH),
+                height: Val::Px(SETTINGS_TRACK_HEIGHT),
+                ..default()
+            },
+            BackgroundColor(PANEL_BG),
+        ))
+        .with_children(|track| {
+            track.spawn((
+                SettingsBar {
+                    control: TrackControl::TextSpeed,
                 },
-                Text::new(name.to_string()),
-                faces.mono(16.0),
-                TextColor::from(TEXT),
+                Node {
+                    width: Val::Percent(percent as f32),
+                    height: Val::Percent(100.0),
+                    ..default()
+                },
+                BackgroundColor(FOCUS),
             ));
         });
+        node.spawn((
+            SettingsLabel {
+                kind: SettingsLabelKind::TextSpeed,
+            },
+            Text::new(name),
+            faces.mono(SETTINGS_VALUE_SIZE),
+            TextColor::from(TEXT),
+        ));
+    });
+}
+
+/// The track the engine fills inside one audio row: the item's one box with no
+/// children. The format gives no node a name, so the row's empty box is the
+/// place the plugin leaves for the control's value, and the renderer's spawn
+/// order — a node, then its children — is how its entity is read back.
+fn track_entity(spawned: &Rendered, item: &PluginNode) -> Option<Entity> {
+    let mut seen = 0;
+    let index = empty_box(item, &mut seen)?;
+    spawned.nodes.get(index).copied()
+}
+
+fn empty_box(node: &PluginNode, seen: &mut usize) -> Option<usize> {
+    let here = *seen;
+    *seen += 1;
+    match &node.kind {
+        NodeKind::Box(container) => {
+            if container.children.is_empty() {
+                return Some(here);
+            }
+            container
+                .children
+                .iter()
+                .find_map(|child| empty_box(child, seen))
+        }
+        NodeKind::Slot(slot) => slot
+            .children
+            .iter()
+            .find_map(|child| empty_box(child, seen)),
+        NodeKind::List(list) => empty_box(&list.item, seen),
+        _ => None,
+    }
 }

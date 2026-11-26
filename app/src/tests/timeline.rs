@@ -1,9 +1,10 @@
 use super::*;
+use unmei_engine::ui::NodeKind;
 
 /// A copied demo pack whose manifest declares the given scene order. `None`
 /// omits the field (no declared order); `Some(&[])` writes an explicit empty
 /// list. The demo scenes stay as authored.
-fn temp_pack_with_order(order: Option<&[&str]>) -> tempfile::TempDir {
+pub(super) fn temp_pack_with_order(order: Option<&[&str]>) -> tempfile::TempDir {
     let dir = temp_pack();
     let root = dir.path().join("pack");
     let scenes = match order {
@@ -25,7 +26,7 @@ fn temp_pack_with_order(order: Option<&[&str]>) -> tempfile::TempDir {
 }
 
 /// Open the overlay (a live session must be entered) and its Timeline door.
-fn open_timeline(app: &mut App) {
+pub(super) fn open_timeline(app: &mut App) {
     esc(app);
     assert!(menu(app).open, "the overlay opened");
     assert_eq!(menu(app).view, MenuView::Slots);
@@ -35,7 +36,8 @@ fn open_timeline(app: &mut App) {
 }
 
 /// The built Timeline cards' labels in declared order. Builds the pause tree
-/// first.
+/// first. The tree draws a card's words in its label slot, so the label the
+/// card's own control publishes is what reads back.
 fn timeline_labels(app: &mut App) -> Vec<String> {
     build_pause_tree(app);
     let mut cards: Vec<(usize, String)> = app
@@ -45,12 +47,66 @@ fn timeline_labels(app: &mut App) -> Vec<String> {
             let MenuAction::TimelineCard(index) = entity.get::<MenuAction>()? else {
                 return None;
             };
-            let text = entity.get::<Text>()?;
-            Some((*index, text.0.clone()))
+            let label = entity.get::<crate::presentation::render::ControlLabel>()?;
+            Some((*index, label.0.clone()))
         })
         .collect();
     cards.sort_by_key(|(index, _)| *index);
     cards.into_iter().map(|(_, label)| label).collect()
+}
+
+/// One card's control entity, by its declared index.
+pub(super) fn card_control(app: &App, index: usize) -> Entity {
+    app.world()
+        .iter_entities()
+        .find_map(|entity| {
+            (entity.get::<MenuAction>() == Some(&MenuAction::TimelineCard(index)))
+                .then_some(entity.id())
+        })
+        .unwrap_or_else(|| panic!("no card control {index}"))
+}
+
+/// The tree's card box: the item template that holds one card's control and
+/// label.
+pub(super) fn card_box(app: &App, index: usize) -> Entity {
+    parent_of(app, card_control(app, index))
+}
+
+/// The parent of `entity`.
+fn parent_of(app: &App, entity: Entity) -> Entity {
+    app.world()
+        .get::<ChildOf>(entity)
+        .map(ChildOf::parent)
+        .expect("the node has a parent")
+}
+
+/// One card's drawn label words: the renderer draws the label slot's text as its
+/// child, beside the card's absolute control.
+pub(super) fn card_label(app: &App, index: usize) -> Entity {
+    let slot = child_entities(app, card_box(app, index))
+        .into_iter()
+        .next()
+        .expect("the card's label slot");
+    child_entities(app, slot)
+        .into_iter()
+        .next()
+        .expect("the card draws its label")
+}
+
+/// The children of `entity`, in spawn order.
+pub(super) fn child_entities(app: &App, entity: Entity) -> Vec<Entity> {
+    app.world()
+        .get::<Children>(entity)
+        .map(|children| children.iter().collect())
+        .unwrap_or_default()
+}
+
+/// One card box's fill.
+pub(super) fn card_fill(app: &App, index: usize) -> Color {
+    app.world()
+        .get::<BackgroundColor>(card_box(app, index))
+        .map(|fill| fill.0)
+        .unwrap_or(Color::NONE)
 }
 
 /// An app already in play over a demo pack declaring `order`.
@@ -410,6 +466,31 @@ fn esc_winds_the_timeline_back_to_slots_then_resumes() {
     assert!(menu(&app).open);
     esc(&mut app);
     assert!(!menu(&app).open);
+}
+
+/// The contents page's left column is the Timeline's way out, so the surface
+/// draws no back control (Default look §4). `MenuAction::TimelineBack` stays the
+/// click twin of `Esc` and unwinds to the ledger with the same focus.
+#[test]
+fn the_timeline_back_action_still_unwinds_to_the_ledger_without_a_back_control() {
+    let (mut app, _pack) = timeline_app(&["first_meeting", "reunion"]);
+    open_timeline(&mut app);
+    build_pause_tree(&mut app);
+    assert!(
+        !has_action(&app, MenuAction::TimelineBack),
+        "the surface draws no back control"
+    );
+    assert!(
+        !all_texts(&app)
+            .iter()
+            .any(|text| text == menu::TIMELINE_BACK),
+        "the removed back label is not drawn"
+    );
+
+    click(&mut app, MenuAction::TimelineBack);
+    assert_eq!(menu(&app).view, MenuView::Slots);
+    assert_eq!(menu(&app).focus, MenuFocus::Card(0));
+    assert!(menu(&app).open, "the overlay stays up on the ledger");
 }
 
 #[test]
@@ -926,6 +1007,13 @@ fn the_timeline_opens_at_a_choice_wait_and_freezes_the_request() {
     assert_eq!(menu(&app).focus, focus_before);
 }
 
+/// The approved geometry survives the move into the plugin's tree: the card box
+/// is the tree's 136px card with 18px padding and its reserved 2px ring, the
+/// focused card's control wears the ring, locked and visited share one fill, the
+/// engine's two-column grid sits in the tree's card list, and the label wraps on
+/// characters inside a long scene id. Heading, explanation and legend keep the
+/// type roles their tree nodes name (`docs/title-and-menu.md` § Timeline
+/// `### Layout`).
 #[test]
 fn timeline_cards_use_the_approved_geometry_and_identical_focus_ring() {
     let (mut app, _pack) = timeline_app(&["first_meeting", "reunion", "epilogue"]);
@@ -943,52 +1031,85 @@ fn timeline_cards_use_the_approved_geometry_and_identical_focus_ring() {
             .then_some(entity.id())
         })
         .collect();
-    assert_eq!(cards.len(), 3);
-    for card in &cards {
-        let node = app.world().get::<Node>(*card).expect("card node");
+    assert_eq!(cards.len(), 3, "one control per declared scene");
+    for index in 0..cards.len() {
+        let node = app
+            .world()
+            .get::<Node>(card_box(&app, index))
+            .expect("card node");
         assert_eq!(node.height, Val::Px(136.0));
         assert_eq!(node.padding, UiRect::all(Val::Px(18.0)));
         assert_eq!(node.border, UiRect::all(Val::Px(2.0)));
-        // A raw scene id is one unbroken token: every label opts into the
-        // character fallback so a long id wraps rather than truncating
-        // (`docs/title-and-menu.md` § Timeline `### Layout`).
+    }
+    for (index, drawn) in ["first_meeting", "???", "???"].into_iter().enumerate() {
+        let label = card_label(&app, index);
+        assert_eq!(app.world().get::<Text>(label).unwrap().0, drawn);
         assert_eq!(
-            app.world().get::<TextLayout>(*card).map(|l| l.linebreak),
-            Some(LineBreak::WordOrCharacter)
+            app.world().get::<TextLayout>(label).map(|l| l.linebreak),
+            Some(LineBreak::WordOrCharacter),
+            "a card's label wraps rather than truncating"
         );
     }
 
-    // The focused card carries the reserved orange ring; an unfocused card has
-    // none, and locked and visited share one fill.
-    let focused_border = app
+    app.world_mut()
+        .run_system_once(crate::presentation::render::sync_paint_states)
+        .expect("the state repaint runs");
+    let tree = app
         .world()
-        .get::<BorderColor>(cards[0])
-        .expect("card border")
-        .top;
-    assert_eq!(focused_border, crate::presentation::style::FOCUS);
-    let locked_border = app
-        .world()
-        .get::<BorderColor>(cards[1])
-        .expect("card border")
-        .top;
-    assert_eq!(locked_border, Color::NONE, "an unfocused card has no ring");
+        .resource::<crate::presentation::render::UiLook>()
+        .surface("timeline")
+        .cloned()
+        .expect("the reference plugin authors the timeline surface");
+    let NodeKind::Box(root) = &tree.kind else {
+        panic!("the timeline tree's root is a box");
+    };
+    let card = root
+        .children
+        .iter()
+        .find_map(|child| match &child.kind {
+            NodeKind::List(list) => match &list.item.kind {
+                NodeKind::Box(item) => Some(item),
+                _ => None,
+            },
+            _ => None,
+        })
+        .expect("the tree draws the card list");
+    let ring = card
+        .children
+        .iter()
+        .find_map(|child| match &child.kind {
+            NodeKind::Slot(slot) if slot.slot == "timeline.card.1" => {
+                child.states.focused.as_ref()?.border
+            }
+            _ => None,
+        })
+        .expect("the card's control authors its focus ring");
+    assert_eq!(ring.width, 2.0, "the ring is the reserved 2px");
     assert_eq!(
-        app.world().get::<BackgroundColor>(cards[0]).unwrap().0,
-        app.world().get::<BackgroundColor>(cards[1]).unwrap().0,
+        app.world()
+            .get::<BorderColor>(cards[0])
+            .expect("card border")
+            .top,
+        Color::srgba(ring.color.r, ring.color.g, ring.color.b, ring.color.a),
+        "the focused card wears the tree's focus tone"
+    );
+    assert_eq!(
+        app.world()
+            .get::<BorderColor>(cards[1])
+            .expect("card border")
+            .top,
+        Color::NONE,
+        "an unfocused card has no ring"
+    );
+    assert_eq!(
+        card_fill(&app, 0),
+        card_fill(&app, 1),
         "locked and visited share one fill"
     );
 
-    // The grid is two equal columns with 16px gaps; the body scrolls.
-    let grid = app
-        .world()
-        .iter_entities()
-        .find_map(|entity| {
-            entity
-                .get::<crate::presentation::timeline::TimelineGrid>()
-                .map(|_| entity.id())
-        })
-        .expect("the Timeline grid");
+    let grid = entity_with::<crate::presentation::timeline::TimelineGrid>(&app);
     let grid_node = app.world().get::<Node>(grid).unwrap();
+    assert_eq!(grid_node.display, Display::Grid);
     assert_eq!(grid_node.column_gap, Val::Px(16.0));
     assert_eq!(grid_node.row_gap, Val::Px(16.0));
     assert_eq!(
@@ -996,26 +1117,19 @@ fn timeline_cards_use_the_approved_geometry_and_identical_focus_ring() {
         vec![RepeatedGridTrack::flex(2, 1.0)]
     );
 
-    // The body lets the grid keep its natural height: a stretched or shrunk
-    // grid hides its overflow, so the focused-card scroll can never move
-    // (`docs/title-and-menu.md` § Timeline `### Layout`).
     let body = entity_with::<crate::presentation::timeline::TimelineBody>(&app);
     let body_node = app.world().get::<Node>(body).unwrap();
     assert_eq!(body_node.flex_direction, FlexDirection::Column);
     assert_eq!(body_node.align_items, AlignItems::Start);
-    assert_eq!(body_node.overflow.y, bevy::ui::OverflowAxis::Scroll);
-    assert_eq!(grid_node.flex_shrink, 0.0);
-    let body = app
-        .world()
-        .iter_entities()
-        .find_map(|entity| {
-            entity
-                .get::<crate::presentation::timeline::TimelineBody>()
-                .map(|_| entity.id())
-        })
-        .expect("the Timeline body");
-    let body_node = app.world().get::<Node>(body).unwrap();
     assert_eq!(body_node.overflow, Overflow::scroll_y());
+    assert_eq!(body_node.min_height, Val::Px(0.0));
+    assert_eq!(body_node.flex_grow, 1.0);
+    assert_eq!(
+        parent_of(&app, grid),
+        body,
+        "the grid is mounted in the tree's card list"
+    );
+    assert_eq!(grid_node.flex_shrink, 0.0);
 
     // Heading / explanation / legend hold the contract's type roles and sizes.
     let faces = app

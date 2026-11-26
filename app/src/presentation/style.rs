@@ -108,7 +108,6 @@ pub(super) const BUTTON_BG: Color = Color::srgb(0.16, 0.17, 0.22);
 
 pub(crate) const FOCUS: Color = Color::srgb(0.90, 0.62, 0.36);
 pub(super) const TEXT: Color = Color::srgb(0.90, 0.90, 0.92);
-pub(super) const DIM: Color = Color::srgba(0.80, 0.80, 0.85, 0.62);
 pub(super) const FAINT: Color = Color::srgba(0.80, 0.80, 0.85, 0.35);
 
 /// The size that scales `image` to cover `window`: both axes filled, aspect

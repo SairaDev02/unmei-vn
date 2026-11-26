@@ -109,6 +109,7 @@ pub(in crate::presentation) fn build_title_settings(
                     .with_children(|body| {
                         settings_body(
                             body,
+                            look,
                             faces,
                             menu,
                             settings,

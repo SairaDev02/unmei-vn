@@ -243,23 +243,19 @@ impl SettingsDoor {
 }
 
 /// A synthetic Settings frame for the headless scroll tests: a bounded viewport
-/// with the twelve walk stops and the door-aware back control laid out one row
-/// at a time, standing in for the layout pass a core app does not run. The
-/// content keeps its natural height (13 rows), so the body has a real scroll
-/// range.
+/// with the twelve walk stops — and the door-aware back control, when the door
+/// draws one — laid out a row at a time, standing in for the layout pass a core
+/// app does not run. The content keeps its natural height, a row step per row
+/// drawn, so the body has a real scroll range.
 const SETTINGS_VIEWPORT: Vec2 = Vec2::new(680.0, 300.0);
 
 const SETTINGS_ROW: Vec2 = Vec2::new(440.0, 40.0);
 
 const SETTINGS_ROW_STEP: f32 = 60.0;
 
-const SETTINGS_ROWS: usize = 13;
-
-const SETTINGS_CONTENT_HEIGHT: f32 = SETTINGS_ROWS as f32 * SETTINGS_ROW_STEP;
-
-const SETTINGS_MAX_SCROLL: f32 = SETTINGS_CONTENT_HEIGHT - SETTINGS_VIEWPORT.y;
-
 /// Lay the built Settings body and its controls out with the synthetic frame.
+/// The contents page hides the tree's way out and collapses its row, so the
+/// overlay's frame has one row fewer than the title's.
 fn rig_settings_frame(
     mut commands: Commands,
     mut bodies: Query<
@@ -267,23 +263,21 @@ fn rig_settings_frame(
         With<crate::presentation::settings_view::SettingsBody>,
     >,
     mut controls: Query<
-        (Entity, &MenuAction, &mut ComputedNode),
+        (Entity, &MenuAction, &Node, &mut ComputedNode),
         Without<crate::presentation::settings_view::SettingsBody>,
     >,
 ) {
-    for (entity, mut node) in &mut bodies {
-        node.size = SETTINGS_VIEWPORT;
-        node.content_size = Vec2::new(SETTINGS_VIEWPORT.x, SETTINGS_CONTENT_HEIGHT);
-        commands
-            .entity(entity)
-            .insert(UiGlobalTransform::from_translation(SETTINGS_VIEWPORT / 2.0));
-    }
     let order: Vec<MenuAction> = crate::menu::SETTINGS_ORDER
         .iter()
         .map(|focus| crate::menu::action_for_focus(*focus))
         .collect();
-    for (entity, action, mut node) in &mut controls {
+    let mut rows = order.len();
+    for (entity, action, node, mut computed) in &mut controls {
         let index = if *action == MenuAction::BackToSlots {
+            if node.display == Display::None {
+                continue;
+            }
+            rows += 1;
             order.len()
         } else {
             match order.iter().position(|candidate| *candidate == *action) {
@@ -291,7 +285,7 @@ fn rig_settings_frame(
                 None => continue,
             }
         };
-        node.size = SETTINGS_ROW;
+        computed.size = SETTINGS_ROW;
         let y = index as f32 * SETTINGS_ROW_STEP;
         commands
             .entity(entity)
@@ -299,6 +293,13 @@ fn rig_settings_frame(
                 SETTINGS_ROW.x / 2.0,
                 y + SETTINGS_ROW.y / 2.0,
             )));
+    }
+    for (entity, mut node) in &mut bodies {
+        node.size = SETTINGS_VIEWPORT;
+        node.content_size = Vec2::new(SETTINGS_VIEWPORT.x, rows as f32 * SETTINGS_ROW_STEP);
+        commands
+            .entity(entity)
+            .insert(UiGlobalTransform::from_translation(SETTINGS_VIEWPORT / 2.0));
     }
 }
 
@@ -321,6 +322,25 @@ fn attach_settings_scroll_rig(app: &mut App) {
 
 fn settings_body(app: &App) -> Entity {
     entity_with::<crate::presentation::settings_view::SettingsBody>(app)
+}
+
+fn children_of(app: &App, entity: Entity) -> Vec<Entity> {
+    app.world()
+        .entity(entity)
+        .get::<Children>()
+        .map(|children| children.iter().collect())
+        .unwrap_or_default()
+}
+
+/// The synthetic frame's scroll range: the rows the door draws past the
+/// viewport.
+fn settings_max_scroll(app: &App) -> f32 {
+    let content = app
+        .world()
+        .get::<ComputedNode>(settings_body(app))
+        .expect("the rig sized the body")
+        .content_size;
+    (content.y - SETTINGS_VIEWPORT.y).max(0.0)
 }
 
 fn settings_scroll(app: &App) -> f32 {
@@ -362,7 +382,9 @@ fn send_settings_wheel(app: &mut App, y: f32) {
 
 /// Both Settings doors mount a bounded, scrollable viewport with the groups at
 /// their natural height, so the lower controls the 1280×720 clipping hid keep
-/// their reach (`docs/title-and-menu.md` § Title layout §5).
+/// their reach (`docs/title-and-menu.md` § Title layout §5). The viewport's one
+/// child is the plugin's tree root, at the height its own content needs: a root
+/// that filled the viewport would leave the body nothing to scroll.
 #[test]
 fn both_settings_doors_have_a_bounded_scroll_body() {
     for door in [SettingsDoor::Title, SettingsDoor::Overlay] {
@@ -394,12 +416,26 @@ fn both_settings_doors_have_a_bounded_scroll_body() {
             node.max_height != bevy::ui::Val::Auto || node.flex_grow >= 1.0,
             "{door:?}: the viewport is bounded"
         );
+        let held = children_of(&app, body);
+        assert_eq!(
+            held.len(),
+            1,
+            "{door:?}: the body holds the surface's tree root"
+        );
+        assert_eq!(
+            app.world().get::<Node>(held[0]).unwrap().height,
+            bevy::ui::Val::Auto,
+            "{door:?}: the tree keeps its natural height"
+        );
     }
 }
 
 /// A wheel over either Settings body changes what is visible, and reaching the
-/// bottom brings the door-aware back control into the viewport; a wheel off the
-/// body is ignored (`docs/title-and-menu.md` § Title layout §5/§7).
+/// bottom brings the last walk stop into the viewport; the title's door reveals
+/// its own back control there too, while the contents page's body has none — its
+/// way out is the page's left column, so the row around the tree's back control
+/// collapses. A wheel off the body is ignored (`docs/title-and-menu.md` § Title
+/// layout §5/§7).
 #[test]
 fn the_settings_wheel_scrolls_the_lower_controls_and_back_control_into_view() {
     for door in [SettingsDoor::Title, SettingsDoor::Overlay] {
@@ -427,22 +463,31 @@ fn the_settings_wheel_scrolls_the_lower_controls_and_back_control_into_view() {
             "{door:?}: the wheel moved the panel one line"
         );
 
-        // Wheeling to the bottom clamps and reveals the back control, which the
-        // 1280×720 clipping had left past the window edge.
-        for _ in 0..SETTINGS_ROWS {
+        for _ in 0..=crate::menu::SETTINGS_ORDER.len() {
             send_settings_wheel(&mut app, -1.0);
             app.update();
         }
+        let scroll = settings_scroll(&app);
         assert_eq!(
-            settings_scroll(&app),
-            SETTINGS_MAX_SCROLL,
+            scroll,
+            settings_max_scroll(&app),
             "{door:?}: the wheel clamps at the last group"
         );
-        let (back_top, back_bottom) = settings_control_extent(&app, MenuAction::BackToSlots);
-        let view_bottom = settings_scroll(&app) + SETTINGS_VIEWPORT.y;
+        let (clear_top, clear_bottom) = settings_control_extent(&app, MenuAction::ClearKey);
         assert!(
-            back_top >= settings_scroll(&app) && back_bottom <= view_bottom,
-            "{door:?}: the back control is fully inside the viewport"
+            clear_top >= scroll && clear_bottom <= scroll + SETTINGS_VIEWPORT.y,
+            "{door:?}: the last walk stop is fully inside the viewport"
+        );
+
+        let back = action_entity(&app, MenuAction::BackToSlots);
+        let drawn = app
+            .world()
+            .get::<Node>(back)
+            .is_some_and(|node| node.display != Display::None);
+        assert_eq!(
+            drawn,
+            matches!(door, SettingsDoor::Title),
+            "{door:?}: only the title's door draws the back control"
         );
     }
 }

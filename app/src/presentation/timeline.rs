@@ -1,8 +1,26 @@
-//! The Timeline: the surface, its cards and the focus scroll.
+//! The Timeline drawn from the plugin's `timeline` surface: the heading and the
+//! walk legend over the explanatory line, one card per declared scene in the
+//! measured two-column grid, and the empty line for a pack that declares none
+//! (Default look §4, spec §11).
+//!
+//! The tree decides the look; this module decides what it says and what the
+//! format cannot. It binds the explanation, the empty line and each card — the
+//! raw scene id on a card the read log has visited, `timeline.locked` on one it
+//! has not, whose control is disabled so the label draws faint — and spawns one
+//! copy of the tree's card template per declared scene, in order.
+//!
+//! The tree authors the frame and no way out: the contents page's left column
+//! owns that, and `MenuAction::TimelineBack` stays the menu's click twin of `Esc`,
+//! keyed by control id rather than by a node. Three things the format has no
+//! property for are mounted into the tree's own nodes instead: the card list is
+//! the scrolling body, the two-column grid is the node its cards are laid in, and
+//! a card's label wraps inside a long scene id
+//! (`docs/title-and-menu.md` § Timeline `### Layout`).
 
-use super::focus_border;
-use super::style::{TextFaces, BUTTON_BG, CARD_BG, DIM, FAINT, TEXT};
-use crate::menu::{self, MenuAction, MenuFocus, MenuState, MenuView};
+use super::render::tree::{Bind, ControlState, Surface, Words};
+use super::render::UiLook;
+use super::style::TextFaces;
+use crate::menu::{MenuAction, MenuFocus, MenuState, MenuView};
 use crate::Runtime;
 use bevy::prelude::*;
 use bevy::text::{LineBreak, TextLayout};
@@ -10,218 +28,201 @@ use bevy::ui::ScrollPosition;
 use bevy::ui::UiSystems;
 use bevy::ui_widgets::{ScrollArea, ScrollIntoView};
 
-/// The Timeline's scroll container: only this body scrolls, and the focused card
-/// is scrolled fully into view (`docs/title-and-menu.md` § Timeline `### Layout`
-/// `#### Walk and scrolling`).
+/// The surface's id, as the plugin folder names it.
+const SURFACE: &str = "timeline";
+
+/// The cards' list: the tree's node the engine mounts the scroll body and the
+/// grid in.
+const CARDS: &str = "timeline.cards";
+
+/// One card's label, the slot its words draw in.
+const CARD_LABEL: &str = "timeline.card.label";
+
+/// The control one card is. The template places one member of the indexed family
+/// `timeline.card.<n>` and the engine numbers it per item, 1-based, so every item
+/// is spawned from that one member and carries its own
+/// [`MenuAction::TimelineCard`].
+const CARD_CONTROL: &str = "timeline.card.1";
+
+/// The measured card grid's gutter (`docs/title-and-menu.md` § Timeline
+/// `### Layout`).
+const TIMELINE_GAP: f32 = 16.0;
+
+/// The Timeline's scroll container: only the card body scrolls, and the focused
+/// card is scrolled fully into view (`docs/title-and-menu.md` § Timeline `### Layout`
+/// `#### Walk and scrolling`). It is the tree's card list, because the format has
+/// no scroll property.
 #[derive(Component)]
 pub(crate) struct TimelineBody;
-/// The Timeline's fixed two-column card grid.
+
+/// The Timeline's fixed two-column card grid, mounted inside [`TimelineBody`]
+/// because the format has no grid and its list stacks items in one column.
 #[derive(Component)]
 pub(crate) struct TimelineGrid;
 
-/// The Timeline surface: the header (the back control, the `Timeline` heading
-/// and the right-aligned walk legend) over the explanatory line and either the
-/// two-column internally scrolling card body or the single empty-state line.
-/// Every declared scene renders once in order; a visited card shows its raw id
-/// and selects, an unvisited card shows only `???` and is inert. Header,
-/// explanation and legend stay outside the scroll body
-/// (`docs/title-and-menu.md` § Timeline §2/§3, `### Layout`).
+/// Build the Timeline from the plugin's tree: the heading row with its walk
+/// legend, the explanatory line, the empty line when the pack declares no
+/// scenes, and the cards in the grid the engine mounts into the tree's list.
+///
+/// The three mounts carry what the format has no property for, each keeping the
+/// geometry the approved layout measured. The tree's card list is the scroll
+/// body, so a confirm open or cancel restores the offset it captured while every
+/// other rebuild starts at the top. The grid keeps its natural height, because a
+/// stretched or shrunk grid hides its overflow and the focused-card scroll could
+/// never move. Each label falls back to character breaks, because a scene id is
+/// one unbroken token the default word boundary has no point to break at
+/// (`docs/title-and-menu.md` § Timeline `### Layout`).
 pub(super) fn timeline_surface(
     parent: &mut ChildSpawnerCommands,
     faces: &TextFaces,
-    menu: &MenuState,
+    _menu: &MenuState,
     runtime: &Runtime,
     read_log: Option<&crate::read_log::ReadLogState>,
     scroll: Option<Vec2>,
+    look: Option<&UiLook>,
 ) {
+    let Some(look) = look else {
+        return;
+    };
     let entries = runtime.runner.pack().timeline_entries();
-    let empty = entries.is_empty();
-    parent
-        .spawn(Node {
-            width: Val::Percent(100.0),
-            flex_grow: 1.0,
-            min_height: Val::Px(0.0),
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(16.0),
-            ..default()
-        })
-        .with_children(|surface| {
-            surface
-                .spawn(Node {
-                    width: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Row,
-                    align_items: AlignItems::Center,
-                    column_gap: Val::Px(14.0),
-                    ..default()
-                })
-                .with_children(|header| {
-                    header.spawn((
-                        MenuAction::TimelineBack,
-                        Button,
-                        Node {
-                            padding: UiRect::axes(Val::Px(14.0), Val::Px(6.0)),
-                            border: UiRect::all(Val::Px(2.0)),
-                            ..default()
-                        },
-                        BackgroundColor(BUTTON_BG),
-                        BorderColor::all(focus_border(menu, MenuAction::TimelineBack)),
-                        Text::new(menu::TIMELINE_BACK),
-                        faces.sans(16.0),
-                        TextColor::from(TEXT),
-                    ));
-                    header.spawn((
-                        Text::new(menu::TIMELINE_HEADING),
-                        faces.sans_semibold(24.0),
-                        TextColor::from(TEXT),
-                    ));
-                    header.spawn(Node {
-                        flex_grow: 1.0,
-                        ..default()
-                    });
-                    if !empty {
-                        header.spawn((
-                            Text::new(menu::TIMELINE_LEGEND),
-                            faces.mono(12.0),
-                            TextColor::from(FAINT),
-                        ));
-                    }
-                });
-            surface.spawn((
-                Text::new(menu::TIMELINE_EXPLANATION),
-                faces.sans(16.0),
-                TextColor::from(DIM),
-            ));
+    let bind = Timeline {
+        empty: entries.is_empty(),
+    };
+    let surface = Surface {
+        look,
+        faces,
+        bind: &bind,
+    };
+    let Some(bound) = surface.spawn(SURFACE, parent) else {
+        return;
+    };
+    if let Some(root) = bound.root {
+        parent
+            .commands()
+            .entity(root)
+            .entry::<Node>()
+            .and_modify(|mut node| {
+                node.padding = UiRect::ZERO;
+            });
+    }
+    if entries.is_empty() {
+        return;
+    }
+    let (Some(body), Some(item)) = (
+        bound.lists.get(CARDS).copied(),
+        bound.items.get(CARDS).cloned(),
+    ) else {
+        return;
+    };
 
-            if empty {
-                // No order means no cards and no card focus; the exact empty
-                // copy stands where the body would be
-                // (`docs/title-and-menu.md` § Timeline §1/§3).
-                surface
-                    .spawn(Node {
-                        width: Val::Percent(100.0),
-                        flex_grow: 1.0,
-                        align_items: AlignItems::Center,
-                        justify_content: JustifyContent::Center,
-                        ..default()
-                    })
-                    .with_children(|body| {
-                        body.spawn((
-                            Text::new(menu::TIMELINE_EMPTY),
-                            faces.sans(18.0),
-                            TextColor::from(DIM),
-                        ));
-                    });
-            } else {
-                // Only the body scrolls; the header, explanation and legend stay
-                // put (`docs/title-and-menu.md` § Timeline `### Layout`).
-                surface
-                    .spawn((
-                        TimelineBody,
-                        ScrollArea,
-                        Node {
-                            width: Val::Percent(100.0),
-                            flex_grow: 1.0,
-                            min_height: Val::Px(0.0),
-                            flex_direction: FlexDirection::Column,
-                            // The grid must size to its content rather than be
-                            // stretched to the body's height, or the body sees
-                            // no overflow and the focused-card scroll can never
-                            // move (`docs/title-and-menu.md` § Timeline
-                            // `### Layout`).
-                            align_items: AlignItems::Start,
-                            overflow: Overflow::scroll_y(),
-                            ..default()
-                        },
-                        // A confirm open/cancel rebuild restores the captured
-                        // offset; every other rebuild starts at the top
-                        // (`docs/title-and-menu.md` § Timeline §3/`### Layout`).
-                        ScrollPosition(scroll.unwrap_or_default()),
-                    ))
-                    .with_children(|body| {
-                        body.spawn((
-                            TimelineGrid,
-                            Node {
-                                display: Display::Grid,
-                                width: Val::Percent(100.0),
-                                // The grid must keep its natural height inside
-                                // the scrolling body; without this the flex
-                                // column compresses it to the viewport, the
-                                // body reports no overflow and the focused-card
-                                // scroll never moves
-                                // (`docs/title-and-menu.md` § Timeline `### Layout`).
-                                flex_shrink: 0.0,
-                                grid_template_columns: RepeatedGridTrack::flex(2, 1.0),
-                                grid_auto_flow: GridAutoFlow::Row,
-                                column_gap: Val::Px(TIMELINE_GAP),
-                                row_gap: Val::Px(TIMELINE_GAP),
-                                align_items: AlignItems::Start,
-                                ..default()
-                            },
-                        ))
-                        .with_children(|grid| {
-                            for (index, id) in entries.iter().enumerate() {
-                                let visited = read_log.is_some_and(|log| log.is_visited(id));
-                                timeline_card(grid, faces, menu, index, id, visited);
-                            }
-                        });
-                    });
+    let mut commands = parent.commands();
+    commands
+        .entity(body)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.flex_grow = 1.0;
+            node.min_height = Val::Px(0.0);
+            node.align_items = AlignItems::Start;
+            node.overflow = Overflow::scroll_y();
+        });
+    commands.entity(body).insert((
+        TimelineBody,
+        ScrollArea,
+        ScrollPosition(scroll.unwrap_or_default()),
+    ));
+
+    let mut labels = Vec::new();
+    commands.entity(body).with_children(|list| {
+        list.spawn((
+            TimelineGrid,
+            Node {
+                display: Display::Grid,
+                width: Val::Percent(100.0),
+                flex_shrink: 0.0,
+                grid_template_columns: RepeatedGridTrack::flex(2, 1.0),
+                grid_auto_flow: GridAutoFlow::Row,
+                column_gap: Val::Px(TIMELINE_GAP),
+                row_gap: Val::Px(TIMELINE_GAP),
+                align_items: AlignItems::Start,
+                ..default()
+            },
+        ))
+        .with_children(|grid| {
+            for (index, scene_id) in entries.iter().enumerate() {
+                let card = Card {
+                    index,
+                    scene_id,
+                    visited: read_log.is_some_and(|log| log.is_visited(scene_id)),
+                };
+                let rendered = surface.spawn_item(&item, grid, &card, Some(CARD_CONTROL));
+                if let Some(label) = rendered.slots.get(CARD_LABEL) {
+                    labels.push(*label);
+                }
             }
         });
-}
+    });
 
-/// The Timeline's card height, gutter and padding, at the approved roomier A
-/// geometry (`docs/title-and-menu.md` § Timeline `### Layout`).
-const TIMELINE_CARD_HEIGHT: f32 = 136.0;
-const TIMELINE_GAP: f32 = 16.0;
-const TIMELINE_CARD_PADDING: f32 = 18.0;
-/// The locked label's faint tone (`rgba(204,204,217,.35)`).
-pub(crate) const TIMELINE_LOCKED_TONE: Color =
-    Color::srgba(204.0 / 255.0, 204.0 / 255.0, 217.0 / 255.0, 0.35);
-
-/// One Timeline card: a fixed-height text card showing the raw visited id or
-/// `???`. The visited and locked cards share one fill and the same reserved 2px
-/// focus ring, with no size or fill change and no motion
-/// (`docs/title-and-menu.md` § Timeline `### Layout`).
-fn timeline_card(
-    parent: &mut ChildSpawnerCommands,
-    faces: &TextFaces,
-    menu: &MenuState,
-    index: usize,
-    scene_id: &str,
-    visited: bool,
-) {
-    let action = MenuAction::TimelineCard(index);
-    let label = if visited {
-        scene_id.to_string()
-    } else {
-        menu::TIMELINE_LOCKED.to_string()
-    };
-    parent.spawn((
-        action,
-        Button,
-        Node {
-            display: Display::Flex,
-            flex_direction: FlexDirection::Column,
-            width: Val::Percent(100.0),
-            height: Val::Px(TIMELINE_CARD_HEIGHT),
-            padding: UiRect::all(Val::Px(TIMELINE_CARD_PADDING)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(CARD_BG),
-        BorderColor::all(focus_border(menu, action)),
-        Text::new(label),
-        faces.mono(18.0),
-        TextColor::from(if visited { TEXT } else { TIMELINE_LOCKED_TONE }),
-        // A scene id is one unbroken token, so the default word-boundary
-        // break has no point to wrap at and the id would truncate; fall back
-        // to character breaks inside a token so long ids wrap across lines
-        // (`docs/title-and-menu.md` § Timeline `### Layout`).
-        TextLayout {
+    for label in labels {
+        commands.entity(label).insert(TextLayout {
             linebreak: LineBreak::WordOrCharacter,
             ..default()
-        },
-    ));
+        });
+    }
+}
+
+/// What the surface itself says outside its cards: the explanatory line in every
+/// state, and the empty line only when the pack declares no scenes
+/// (`docs/title-and-menu.md` § Timeline §1/§3).
+struct Timeline {
+    empty: bool,
+}
+
+impl Bind for Timeline {
+    fn words(&self, name: &str) -> Option<Words> {
+        match name {
+            "timeline.explanation" => Some(Words::new("timeline.explanation")),
+            "timeline.empty" => Some(Words::new("timeline.empty")),
+            _ => None,
+        }
+    }
+
+    fn shows(&self, name: &str) -> bool {
+        name != "timeline.empty" || self.empty
+    }
+}
+
+/// One card of the list: its slot's words, its own control and the state that
+/// control is in. A visited card shows its raw scene id and selects; a locked
+/// card shows `???` and is disabled, which draws its label faint and leaves
+/// activation inert (`docs/title-and-menu.md` § Timeline §2/§3).
+struct Card<'a> {
+    index: usize,
+    scene_id: &'a str,
+    visited: bool,
+}
+
+impl Bind for Card<'_> {
+    fn words(&self, name: &str) -> Option<Words> {
+        if name != CARD_LABEL && name != CARD_CONTROL {
+            return None;
+        }
+        Some(if self.visited {
+            Words::text(self.scene_id.to_string())
+        } else {
+            Words::new("timeline.locked")
+        })
+    }
+
+    fn action(&self, name: &str) -> Option<MenuAction> {
+        (name == CARD_CONTROL).then_some(MenuAction::TimelineCard(self.index))
+    }
+
+    fn state(&self, _name: &str) -> ControlState {
+        ControlState {
+            disabled: !self.visited,
+            ..default()
+        }
+    }
 }
 
 /// Scroll the focused Timeline card fully into view when the walk moves. The

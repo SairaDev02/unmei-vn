@@ -1,118 +1,160 @@
-//! The still view: one entry contain-fit above a foot caption strip, and the
+//! The still view drawn from the plugin's `still` tree: one entry contain-fit in
+//! the seat, with its label under the art and the still legend beneath, and the
 //! two syncs that load and fit it.
+//!
+//! The tree decides the look; this module decides what the format cannot. The
+//! format has no per-item image binding and no live text, so the player mounts
+//! the `still.art` slot's image and keeps `still.label`'s words in step with the
+//! browsed entry, and the click that closes the still stays its own: the surface
+//! has no Keiko control id, so the tree places no control and the player makes
+//! the surface root the one click target (`docs/ui-plugin-format.md` § `still`,
+//! § Players §3).
 
 use bevy::image::TRANSPARENT_IMAGE_HANDLE;
 use bevy::prelude::*;
-use bevy::ui::FocusPolicy;
 
 use super::super::assets::{gallery_entry_asset, AssetWatch};
-use super::super::style::{contain_size, TextFaces, DIM, FAINT};
+use super::super::render::tree::Rendered;
+use super::super::render::{Bind, Surface, UiLook, Words};
+use super::super::style::{contain_size, TextFaces, FAINT};
 use super::markers::{GalleryStillArt, GalleryStillArtBox, GalleryStillCaption};
-use crate::menu::{self, MenuAction, MenuFocus, MenuState, MenuView};
+use crate::menu::{MenuAction, MenuFocus, MenuState, MenuView};
 use crate::Runtime;
+use unmei_engine::GalleryEntry;
 
-/// The still view: one entry alone over the door's backdrop and scrim, contain-
-/// fit in the window above a foot caption strip, with the still legend under the
-/// caption in the faint tone. The surface is one full-window button, so a click
-/// anywhere closes back to the grid; its children carry [`FocusPolicy::Pass`] so
-/// the art and text never swallow that click. The art node is spawned empty and
-/// [`sync_gallery_still`] loads the focused entry into it, so stepping changes
-/// only the image and the caption and never rebuilds the backdrop
-/// (`docs/title-and-menu.md` § Gallery `### Behavior` §5, `### Layout` §6/§7).
+/// The surface's id, as the plugin folder names it.
+const SURFACE: &str = "still";
+
+/// The still view: the plugin's tree, its one entry's art contain-fit in the
+/// `still.art` slot and the entry's label in `still.label`, over the door's
+/// backdrop and scrim. The surface carries no fill, so a transparent sprite's
+/// unmarked pixels stay transparent, and its root is the one button, so a click
+/// anywhere closes back to the grid (`docs/title-and-menu.md` § Gallery
+/// `### Behavior` §5, `### Layout` §3/§6/§7).
 pub(super) fn gallery_still_view(
     parent: &mut ChildSpawnerCommands,
     faces: &TextFaces,
-    label: &str,
+    menu: &MenuState,
+    entries: &[GalleryEntry],
+    look: &UiLook,
 ) {
+    let label = match menu.focus {
+        MenuFocus::GalleryCard(index) => entries.get(index).map(GalleryEntry::label),
+        _ => None,
+    }
+    .unwrap_or_default();
+    let bind = Entry { label: &label };
+    let surface = Surface {
+        look,
+        faces,
+        bind: &bind,
+    };
+    let Some(bound) = surface.spawn(SURFACE, parent) else {
+        return;
+    };
+    let Some(root) = bound.root else {
+        return;
+    };
+    let mut commands = parent.commands();
+    super::grid::seat(&mut commands, root);
+    commands.entity(root).insert((
+        MenuAction::GalleryStillClose,
+        Button,
+        BackgroundColor(Color::NONE),
+        BorderColor::all(Color::NONE),
+    ));
+
+    let (Some(list), Some(item)) = (
+        bound.lists.get("still.entry").copied(),
+        bound.items.get("still.entry").cloned(),
+    ) else {
+        return;
+    };
+    commands
+        .entity(list)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.height = Val::Auto;
+            node.flex_grow = 1.0;
+            node.min_height = Val::Px(0.0);
+        });
+    commands.entity(list).with_children(|list| {
+        let drawn = surface.spawn_item(&item, list, &bind, None);
+        grow(list, drawn.root);
+        if let Some(caption) = drawn.slots.get("still.label").copied() {
+            list.commands().entity(caption).insert(GalleryStillCaption);
+        }
+        mount_still_art(list, &drawn);
+    });
+}
+
+/// Let a node take the height its seat leaves: the format has no grow, so the
+/// still's column grows into what the legend leaves instead of claiming all of
+/// it and pushing the legend off the surface.
+fn grow(parent: &mut ChildSpawnerCommands, node: Option<Entity>) {
+    let Some(node) = node else {
+        return;
+    };
     parent
-        .spawn((
-            MenuAction::GalleryStillClose,
-            Button,
+        .commands()
+        .entity(node)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.height = Val::Auto;
+            node.flex_grow = 1.0;
+            node.min_height = Val::Px(0.0);
+        });
+}
+
+/// The still's one image: the tree's `still.art` slot becomes the fitted art box
+/// with its placeholder frame, transparent so the letterbox shows the backdrop
+/// and no checkerboard is drawn, and the image stays the player's because the
+/// format binds no art to a slot (`docs/title-and-menu.md` § Gallery
+/// `### Layout` §3/§6).
+fn mount_still_art(parent: &mut ChildSpawnerCommands, drawn: &Rendered) {
+    let Some(art_box) = drawn.art.get("still.art").copied() else {
+        return;
+    };
+    parent.commands().entity(art_box).insert((
+        GalleryStillArtBox,
+        BackgroundColor(Color::NONE),
+        Outline::new(Val::Px(1.0), Val::Px(0.0), FAINT),
+    ));
+    parent
+        .commands()
+        .entity(art_box)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.width = Val::Percent(100.0);
+            node.height = Val::Auto;
+            node.flex_grow = 1.0;
+            node.min_height = Val::Px(0.0);
+            node.justify_content = JustifyContent::Center;
+            node.align_items = AlignItems::Center;
+            node.overflow = Overflow::clip();
+        });
+    parent.commands().entity(art_box).with_children(|art| {
+        art.spawn((
+            GalleryStillArt { shown: None },
+            ImageNode::default().with_mode(NodeImageMode::Stretch),
             Node {
-                width: Val::Percent(100.0),
-                flex_grow: 1.0,
-                min_height: Val::Px(0.0),
-                flex_direction: FlexDirection::Column,
+                width: Val::Px(0.0),
+                height: Val::Px(0.0),
                 ..default()
             },
-            // The door's backdrop and scrim show through the still, never a
-            // fill (`docs/title-and-menu.md` § Gallery `### Layout` §3/§7).
-            BackgroundColor(Color::NONE),
-            BorderColor::all(Color::NONE),
-        ))
-        .with_children(|still| {
-            still
-                .spawn((
-                    GalleryStillArtBox,
-                    Node {
-                        width: Val::Percent(100.0),
-                        flex_grow: 1.0,
-                        min_height: Val::Px(0.0),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        overflow: Overflow::clip(),
-                        ..default()
-                    },
-                    // Transparent, so a sprite's unmarked pixels show the
-                    // backdrop rather than a fill, and no checkerboard is drawn
-                    // (`docs/title-and-menu.md` § Gallery `### Layout` §3).
-                    BackgroundColor(Color::NONE),
-                    // The placeholder frame. Bevy UI has no dashed border, so it
-                    // is a faint 1px outline; an outline stays out of layout, so
-                    // the contain-fit size resolves against the art box exactly.
-                    // It shows while the file loads and forever after a failed
-                    // load (`docs/title-and-menu.md` § Gallery `### Layout` §2,
-                    // `### Behavior` §6).
-                    Outline::new(Val::Px(1.0), Val::Px(0.0), FAINT),
-                    FocusPolicy::Pass,
-                ))
-                .with_children(|art| {
-                    art.spawn((
-                        GalleryStillArt { shown: None },
-                        // The image fills the node the fit system sizes; the
-                        // texture is drawn verbatim, so a sprite's unmarked
-                        // pixels stay transparent
-                        // (`docs/title-and-menu.md` § Gallery `### Layout` §3).
-                        ImageNode::default().with_mode(NodeImageMode::Stretch),
-                        Node {
-                            width: Val::Px(0.0),
-                            height: Val::Px(0.0),
-                            ..default()
-                        },
-                        FocusPolicy::Pass,
-                    ));
-                });
-            // The foot strip: the caption, then the still legend, both centred
-            // under the art on the backdrop
-            // (`docs/title-and-menu.md` § Gallery `### Layout` §6).
-            still
-                .spawn((
-                    Node {
-                        width: Val::Percent(100.0),
-                        padding: UiRect::top(Val::Px(16.0)),
-                        flex_direction: FlexDirection::Column,
-                        align_items: AlignItems::Center,
-                        row_gap: Val::Px(6.0),
-                        ..default()
-                    },
-                    FocusPolicy::Pass,
-                ))
-                .with_children(|foot| {
-                    foot.spawn((
-                        GalleryStillCaption,
-                        Text::new(label.to_string()),
-                        faces.mono(16.0),
-                        TextColor::from(DIM),
-                        FocusPolicy::Pass,
-                    ));
-                    foot.spawn((
-                        Text::new(menu::GALLERY_STILL_LEGEND),
-                        faces.mono(12.0),
-                        TextColor::from(FAINT),
-                        FocusPolicy::Pass,
-                    ));
-                });
-        });
+        ));
+    });
+}
+
+/// The entry the still is showing: its label, verbatim.
+struct Entry<'a> {
+    label: &'a str,
+}
+
+impl Bind for Entry<'_> {
+    fn words(&self, name: &str) -> Option<Words> {
+        (name == "still.label").then(|| Words::text(self.label.to_string()))
+    }
 }
 
 /// Load the focused entry's art into the still and repaint its caption when the

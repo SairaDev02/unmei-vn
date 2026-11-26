@@ -1,6 +1,11 @@
 //! The Decisions group: the interactive key row and its read-only siblings, the
 //! paste and ownership filtering of the built-in field, the outside-press
 //! discard and the pair of in-place row repaints.
+//!
+//! The group's frame, its state line, its `Stored in <path>` line and its three
+//! controls are the plugin's tree; this module mounts the editable field the
+//! format has no slot for, the placeholder's visibility and the id of the
+//! `Copy path` label the countdown repaints.
 
 use bevy::input_focus::InputFocus;
 use bevy::picking::events::{Pointer, Press};
@@ -9,8 +14,8 @@ use bevy::prelude::*;
 use bevy::text::{EditableText, EditableTextFilter, TextEdit};
 use bevy::ui_widgets::SelectAllOnFocus;
 
-use super::super::focus_border;
-use super::super::style::{TextFaces, BUTTON_BG, DIM, FAINT, TEXT};
+use super::super::render::tree::{ControlLabel, Rendered};
+use super::super::style::{TextFaces, FAINT, TEXT};
 use crate::credentials::{
     self, ClipboardPort, CopyPathLabel, CredentialsState, KeyField, KeyRow, KEY_PLACEHOLDER,
 };
@@ -31,141 +36,68 @@ pub(crate) struct KeyPlaceholder;
 #[derive(Component)]
 pub(crate) struct CopyPathLabelText;
 
-/// Render the Decisions group — the last group, after Audio and Play, in both
-/// Settings surfaces: the interactive key row (its state line, the built-in
-/// `EditableText` field and its placeholder), `Copy path`, `Clear key` and the
-/// `Stored in <path>` line. A `From environment` row is read-only, so its field
-/// is a plain line and `Clear key` is disabled.
+/// Mount the Decisions group's engine-owned pieces into the tree's row: the
+/// state line's id, the placeholder's visibility, the `Copy path` label's id and
+/// the built-in `EditableText` field. A `From environment` row is read-only, so
+/// it gets no field, and `Clear key` is disabled by the surface's own binding.
 ///
 /// The row is a walk stop; the field enters edit mode through `Enter` or a
 /// click, at which point `↑`/`↓` stop walking
 /// (`docs/title-and-menu.md` § Decisions settings §4.1/§4.2).
-pub(super) fn decisions_group(
+pub(super) fn mount_decisions(
     parent: &mut ChildSpawnerCommands,
+    rendered: &Rendered,
     faces: &TextFaces,
-    menu: &MenuState,
     credentials: Option<&CredentialsState>,
 ) {
-    parent.spawn((
-        Text::new(copy::text("settings.group.decisions")),
-        faces.mono(18.0),
-        TextColor::from(DIM),
-    ));
-
     let row = credentials
         .map(|state| state.row.clone())
         .unwrap_or_default();
-    let from_environment = row.is_from_environment();
-
-    parent
-        .spawn((
-            MenuAction::KeyRow,
-            Button,
+    if let Some(state_line) = rendered.slots.get("settings.key-state").copied() {
+        parent.commands().entity(state_line).insert(KeyRowText);
+    }
+    if let Some(key) = rendered.controls.get("settings.key").copied() {
+        let label = key_label(&row, row == KeyRow::NotSet);
+        parent.commands().entity(key).insert(ControlLabel(label));
+    }
+    if let Some(label) = rendered.slots.get("settings.copy-path-label").copied() {
+        parent.commands().entity(label).insert(CopyPathLabelText);
+    }
+    if let Some(placeholder) = rendered.slots.get("settings.key-placeholder").copied() {
+        parent.commands().entity(placeholder).insert((
+            KeyPlaceholder,
+            if row == KeyRow::NotSet {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            },
+        ));
+    }
+    if row.is_from_environment() {
+        return;
+    }
+    let Some(field) = rendered.controls.get("settings.key").copied() else {
+        return;
+    };
+    parent.commands().entity(field).with_children(|node| {
+        node.spawn((
+            KeyField,
+            EditableText::new(""),
+            faces.mono(15.0),
+            TextColor::from(TEXT),
+            // Newlines are rejected outright. A paste is trimmed of
+            // its surrounding whitespace before it reaches this
+            // filter, so `key\n` is not dropped whole
+            // (`docs/title-and-menu.md` § Decisions settings §4.2).
+            EditableTextFilter::new(|character| character != '\n' && character != '\r'),
+            SelectAllOnFocus,
             Node {
-                width: Val::Px(440.0),
-                flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(6.0),
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                border: UiRect::all(Val::Px(2.0)),
+                width: Val::Percent(100.0),
+                min_height: Val::Px(22.0),
                 ..default()
             },
-            BackgroundColor(BUTTON_BG),
-            BorderColor::all(focus_border(menu, MenuAction::KeyRow)),
-        ))
-        .with_children(|row_node| {
-            row_node.spawn((
-                KeyRowText,
-                Text::new(row.row_text()),
-                faces.mono(14.0),
-                TextColor::from(TEXT),
-            ));
-            if from_environment {
-                // The env note already carries the fingerprint; the field is
-                // not editable, so it is a plain (empty) line.
-                row_node.spawn((Text::new(""), faces.mono(15.0), TextColor::from(FAINT)));
-                return;
-            }
-            row_node
-                .spawn(Node {
-                    width: Val::Percent(100.0),
-                    min_height: Val::Px(22.0),
-                    position_type: PositionType::Relative,
-                    ..default()
-                })
-                .with_children(|field| {
-                    field.spawn((
-                        KeyPlaceholder,
-                        Text::new(KEY_PLACEHOLDER),
-                        faces.mono(15.0),
-                        TextColor::from(FAINT),
-                        Node {
-                            position_type: PositionType::Absolute,
-                            left: Val::Px(0.0),
-                            top: Val::Px(2.0),
-                            ..default()
-                        },
-                    ));
-                    field.spawn((
-                        KeyField,
-                        EditableText::new(""),
-                        faces.mono(15.0),
-                        TextColor::from(TEXT),
-                        // Newlines are rejected outright. A paste is trimmed of
-                        // its surrounding whitespace before it reaches this
-                        // filter, so `key\n` is not dropped whole
-                        // (`docs/title-and-menu.md` § Decisions settings §4.2).
-                        EditableTextFilter::new(|character| character != '\n' && character != '\r'),
-                        SelectAllOnFocus,
-                        Node {
-                            width: Val::Percent(100.0),
-                            min_height: Val::Px(22.0),
-                            ..default()
-                        },
-                    ));
-                });
-        });
-
-    // The `Stored in <path>` line follows the row and is itself followed by the
-    // `Copy path` control (`docs/title-and-menu.md` § Decisions settings §4.1).
-    let path_line = credentials::path_line(credentials.and_then(|state| state.path.as_deref()));
-    parent.spawn((
-        Text::new(path_line),
-        faces.mono(13.0),
-        TextColor::from(FAINT),
-    ));
-
-    parent.spawn((
-        MenuAction::CopyKeyPath,
-        Button,
-        Node {
-            width: Val::Px(440.0),
-            padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(BUTTON_BG),
-        BorderColor::all(focus_border(menu, MenuAction::CopyKeyPath)),
-        CopyPathLabelText,
-        Text::new(copy::text("settings.control.copy-path")),
-        faces.sans(16.0),
-        TextColor::from(TEXT),
-    ));
-
-    parent.spawn((
-        MenuAction::ClearKey,
-        Button,
-        Node {
-            width: Val::Px(440.0),
-            padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-            border: UiRect::all(Val::Px(2.0)),
-            ..default()
-        },
-        BackgroundColor(BUTTON_BG),
-        BorderColor::all(focus_border(menu, MenuAction::ClearKey)),
-        Text::new(copy::text("settings.control.clear-key")),
-        faces.sans(16.0),
-        TextColor::from(if from_environment { FAINT } else { TEXT }),
-    ));
+        ));
+    });
 }
 
 /// Resolve queued pastes before the widget's own `apply_text_edits`, so the OS
@@ -276,12 +208,16 @@ pub(crate) fn discard_key_edit_on_outside_press(
 /// (a commit, a Clear, a read-on-open) never rebuilds the tree and drops the
 /// field's typed text. The placeholder shows only while the field is empty and
 /// the row is Not set (`docs/title-and-menu.md` § Decisions settings §4.1).
+///
+/// The control's own label follows the two: the row draws its state line in a
+/// sibling slot, so the words a reader asks the control for are kept here.
 pub(crate) fn sync_key_row(
     credentials: Option<Res<CredentialsState>>,
     mut texts: Query<&mut Text, With<KeyRowText>>,
     fields: Query<&EditableText, With<KeyField>>,
     mut field_colors: Query<&mut TextColor, With<KeyField>>,
     mut placeholders: Query<&mut Visibility, With<KeyPlaceholder>>,
+    mut labels: Query<(&MenuAction, &mut ControlLabel)>,
 ) {
     let row = credentials
         .map(|state| state.row.clone())
@@ -315,6 +251,27 @@ pub(crate) fn sync_key_row(
             Visibility::Hidden
         };
     }
+    let label = key_label(&row, show);
+    for (action, mut drawn) in &mut labels {
+        if *action == MenuAction::KeyRow && drawn.0 != label {
+            drawn.0 = label.clone();
+        }
+    }
+}
+
+/// The label the key row's control stands for: its state line, and the
+/// placeholder while the empty field shows one. The rendered row draws the two as
+/// separate nodes, so this is the one place a reader asking the control what it
+/// says finds both, as the hand-built row's children read before it. The row's
+/// own line breaks (the environment note's) collapse to single spaces, the way a
+/// reader of a control's words has always received them.
+fn key_label(row: &KeyRow, placeholder: bool) -> String {
+    let mut line = row.row_text();
+    if placeholder {
+        line.push(' ');
+        line.push_str(KEY_PLACEHOLDER);
+    }
+    line.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 /// Tick the `Copy path` label's countdown and repaint it, so the control reads
@@ -324,6 +281,7 @@ pub(crate) fn sync_copy_path_label(
     time: Res<Time>,
     mut label: ResMut<CopyPathLabel>,
     mut texts: Query<&mut Text, With<CopyPathLabelText>>,
+    mut labels: Query<(&MenuAction, &mut ControlLabel)>,
 ) {
     if label.remaining > 0.0 {
         label.remaining = (label.remaining - time.delta_secs()).max(0.0);
@@ -336,6 +294,11 @@ pub(crate) fn sync_copy_path_label(
     for mut text in &mut texts {
         if text.as_str() != want {
             **text = want.to_string();
+        }
+    }
+    for (action, mut drawn) in &mut labels {
+        if *action == MenuAction::CopyKeyPath && drawn.0 != want {
+            drawn.0 = want.to_string();
         }
     }
 }
