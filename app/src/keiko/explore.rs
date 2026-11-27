@@ -9,6 +9,8 @@ use serde_json::{json, Value};
 mod coverage;
 pub mod menus;
 mod save;
+#[cfg(test)]
+mod tests;
 use coverage::Coverage;
 use save::{save_finding, Collected};
 use unmei_engine::keiko::{Header, HeaderLine, Pick, Step, StepLine, CASE_VERSION};
@@ -329,7 +331,10 @@ fn moves_for(pack: &Pack, branch: &Branch, observation: &Observation) -> Vec<Bra
 fn branch_findings(result: &TakeResult) -> Vec<Finding> {
     let mut findings = Vec::new();
     if let Err(finding) = &result.outcome {
-        if matches!(finding.rule.as_str(), rules::PANIC | rules::UNSETTLED) {
+        if matches!(
+            finding.rule.as_str(),
+            rules::PANIC | rules::UNSETTLED | rules::FOCUS_HIDDEN
+        ) {
             findings.push(finding.clone());
         }
     }
