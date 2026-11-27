@@ -117,6 +117,19 @@ fn a_duration_takes_seconds_or_milliseconds_and_rounds_later() {
 }
 
 #[test]
+fn a_duration_past_the_range_of_duration_is_a_syntax_finding_and_does_not_panic() {
+    for text in [
+        "keiko 1\nwait 1e20s\n",
+        "keiko 1\nwait 1e30ms\n",
+        "keiko 1\nfault decision-slow ace.greet 1e20s\n",
+    ] {
+        let finding = parse(text).expect_err("must fail");
+        assert_eq!(finding.rule, rules::CASE_SYNTAX, "{text:?}");
+        assert_eq!(finding.path, Location::Line(2), "{text:?}");
+    }
+}
+
+#[test]
 fn every_header_parses_before_the_first_step() {
     let case = parse_ok(
         "keiko 1\n\

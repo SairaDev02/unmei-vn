@@ -317,7 +317,7 @@ pub fn parse_duration(text: &str, file: &str, line: usize) -> Result<Duration, F
     if !value.is_finite() || value < 0.0 {
         return Err(invalid());
     }
-    Ok(Duration::from_secs_f64(value * unit))
+    Duration::try_from_secs_f64(value * unit).map_err(|_| invalid())
 }
 
 pub(super) fn manual_slot(text: &str, file: &str, line: usize) -> Result<u8, Finding> {
