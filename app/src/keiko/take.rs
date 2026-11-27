@@ -211,9 +211,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             app.add_plugins(plugin);
         }
         #[cfg(test)]
-        if let Some(hook) = TEST_HOOK.get() {
-            hook(&mut app);
-        }
+        support::apply_test_hook(&mut app);
         if rendered {
             // A rendered app's plugins are finished before its first frame, as
             // `App::run` does: the renderer's resources are unpacked there.
@@ -525,21 +523,6 @@ pub fn expects(case: &Case) -> Vec<&Expect> {
         .collect()
 }
 
-#[cfg(test)]
-thread_local! {
-    static TEST_HOOK: std::cell::Cell<Option<fn(&mut App)>> = const { std::cell::Cell::new(None) };
-}
-
-/// Run `body` with `hook` applied to every take app this thread builds, so a
-/// test reaches the takes an exploration runs (spec §15 rules 45 and 46).
-#[cfg(test)]
-pub(crate) fn with_test_hook<R>(hook: fn(&mut App), body: impl FnOnce() -> R) -> R {
-    TEST_HOOK.set(Some(hook));
-    let result = body();
-    TEST_HOOK.set(None);
-    result
-}
-
 /// The plugin `run`'s shipping call site stands in with: none. A test passes
 /// its own to `run_with` instead.
 #[cfg(test)]
@@ -549,6 +532,9 @@ struct NoExtraPlugin;
 impl Plugin for NoExtraPlugin {
     fn build(&self, _app: &mut App) {}
 }
+
+#[cfg(test)]
+pub(crate) use support::with_test_hook;
 
 #[cfg(test)]
 mod tests;

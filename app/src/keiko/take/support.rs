@@ -332,3 +332,26 @@ mod tests {
         assert_eq!(frames_for(Duration::from_nanos(1)), 1);
     }
 }
+
+#[cfg(test)]
+thread_local! {
+    static TEST_HOOK: std::cell::Cell<Option<fn(&mut App)>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `body` with `hook` applied to every take app this thread builds, so a
+/// test reaches the takes an exploration runs (spec §15 rules 45 and 46).
+#[cfg(test)]
+pub(crate) fn with_test_hook<R>(hook: fn(&mut App), body: impl FnOnce() -> R) -> R {
+    TEST_HOOK.set(Some(hook));
+    let result = body();
+    TEST_HOOK.set(None);
+    result
+}
+
+/// Apply the thread's test hook, if one is set, to a take app.
+#[cfg(test)]
+pub(super) fn apply_test_hook(app: &mut App) {
+    if let Some(hook) = TEST_HOOK.get() {
+        hook(app);
+    }
+}
