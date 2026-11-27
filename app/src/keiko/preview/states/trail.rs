@@ -144,40 +144,14 @@ pub(super) fn trail(pack: &Pack, request: &PreviewRequest) -> Trail {
             moves: mem::take(&mut moves),
             park,
         });
-        let moved = match wait {
-            Wait::Say { .. } => {
-                moves.push(Move::Advance);
-                runner.advance_say().map(|_| ())
+        match crate::keiko::preview::move_past(&mut runner, pack, &wait, &mut picks) {
+            Ok(Some(index)) => moves.push(Move::Pick(index)),
+            Ok(None) if matches!(wait, Wait::Say { .. }) => moves.push(Move::Advance),
+            Ok(None) => {}
+            Err(stopped) => {
+                trail.stopped = Some(stopped);
+                return trail;
             }
-            Wait::Choice { options } => {
-                let index = picks.next().unwrap_or(1).clamp(1, options.len().max(1)) as u32;
-                moves.push(Move::Pick(index));
-                runner.choose(index as usize - 1).map(|_| ())
-            }
-            Wait::Decision {
-                npc_id, question, ..
-            } => {
-                // The app answers a decision point with the author's fallback
-                // when the take names no landing, so the walk lands there too.
-                let landing = pack
-                    .npcs
-                    .get(&npc_id)
-                    .and_then(|npc| npc.decisions.get(&question))
-                    .map(|config| config.fallback.landing_key());
-                match landing {
-                    Some(landing) => runner.resolve_decision(&landing).map(|_| ()),
-                    None => {
-                        trail.stopped = Some(format!(
-                            "decision `{npc_id}.{question}` has no fallback to land"
-                        ));
-                        return trail;
-                    }
-                }
-            }
-        };
-        if let Err(error) = moved {
-            trail.stopped = Some(format!("the script stops: {error}"));
-            return trail;
         }
     }
     trail.tail = moves;
