@@ -16,6 +16,7 @@
 
 pub(crate) mod look;
 mod motion;
+mod nodes;
 mod paint;
 mod states;
 mod text;
