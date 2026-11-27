@@ -5,12 +5,12 @@ name: deny
 # Rust build, a finding here is a dependency fact rather than a broken change,
 # and the candidate coordinator calls it at a frozen SHA.
 #
-# The advisory database is fetched online on every run and nothing caches it, so
-# a stale copy can never stand in for the live database. `deny.toml`'s
-# `db-path` is fixed only so the step below can report which commit was
-# checked: cargo-deny prints neither the database revision nor its time.
+# The advisory database is fetched online on every run and never cached.
+# `deny.toml`'s `db-path` is fixed only so a step can report the checked commit.
 
 on:
+  # A branch with an open PR against `main` skips `deny` here: the
+  # `pull_request` run covers it.
   push:
   pull_request:
     branches:
@@ -53,13 +53,76 @@ env:
   CARGO_DENY_BIN: cargo-deny-0.20.2-x86_64-unknown-linux-musl/cargo-deny
 
 jobs:
+  # As in `check.yml`, but scheduled and dispatched runs never skip: an advisory
+  # can land against an unchanged lockfile.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      deny: ${{ steps.decide.outputs.deny }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+
+      - name: Decide whether deny runs
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA_INPUT: ${{ inputs.sha }}
+          BRANCH: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          decide() {
+            echo "deny=$1" >> "$GITHUB_OUTPUT"
+            echo "changes: deny=$1 ($2)"
+            exit 0
+          }
+
+          if [ -n "${SHA_INPUT}" ] || { [ "${EVENT}" != "push" ] && [ "${EVENT}" != "pull_request" ]; }; then
+            decide true "not a push or pull_request run"
+          fi
+
+          if [ "${EVENT}" = "push" ]; then
+            if [ "${REF_TYPE}" = "branch" ]; then
+              open_prs="$(gh pr list --head "${BRANCH}" --base main --state open --json number --jq 'length')"
+              if [ "${open_prs}" != "0" ]; then
+                decide false "an open PR against main covers this push"
+              fi
+            fi
+          fi
+
+          if [ -z "${BASE}" ] || \
+             [ "${BASE}" = "0000000000000000000000000000000000000000" ] || \
+             ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            decide true "no reachable base to diff against"
+          fi
+
+          deny_inputs='^((.*/)?Cargo\.toml|Cargo\.lock|deny\.toml|\.github/workflows/deny\.yml)$'
+          changed="$(git diff --name-only "${BASE}" HEAD)"
+          if grep -Eq "${deny_inputs}" <<< "${changed}"; then
+            decide true "a dependency input changed"
+          fi
+          decide false "no dependency input changed"
+
   # In `record_only` mode no step may fail the job: the coordinator reads the
-  # verdict from the slot, and a failed download, install or upload is that
-  # slot's `inconclusive`, not a red run. Every step therefore tolerates its own
-  # failure in that mode; the last step is the one that can redden a normal run.
+  # slot, so each step tolerates its own failure and only the last can redden a run.
   deny:
     name: advisories, licenses, sources
+    needs: changes
+    if: needs.changes.outputs.deny == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         continue-on-error: ${{ inputs.record_only == true }}

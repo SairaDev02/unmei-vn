@@ -87,6 +87,9 @@ jobs:
     name: gate
     needs: eligibility
     uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+      pull-requests: read
     with:
       sha: ${{ inputs.sha }}
 
@@ -110,10 +113,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
-      # The packager refuses any other version and prints this exact command.
       - name: Install the pinned cargo-about
         shell: bash
-        run: cargo install --locked cargo-about@0.9.3 --features cli
+        run: python3 scripts/install-cargo-about.py
 
       - name: Build both archives and both crates
         shell: bash
@@ -171,7 +173,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Install the pinned cargo-about
-        run: cargo install --locked cargo-about@0.9.3 --features cli
+        run: python3 scripts/install-cargo-about.py
 
       - name: Build both archives and both crates
         run: |
@@ -247,6 +249,9 @@ jobs:
     name: deny
     needs: eligibility
     uses: ./.github/workflows/deny.yml
+    permissions:
+      contents: read
+      pull-requests: read
     with:
       sha: ${{ inputs.sha }}
       record_only: true

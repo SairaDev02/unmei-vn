@@ -58,6 +58,7 @@ jobs:
   boot:
     name: boot the shipping binary
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     steps:
       # An explicit `ref` is the input SHA, empty for a manual dispatch. A
       # dispatch resolves to `github.sha`, the commit the default checkout
