@@ -34,7 +34,9 @@ pub(super) fn save_slot(menu: &mut MenuState, session: &mut SessionInput, slot: 
 /// own surface. Only a successful restoration closes the overlay.
 pub(super) fn load_slot(menu: &mut MenuState, session: &mut SessionInput, slot: Slot) {
     let read = session.transitions().read(slot, LoadOrigin::Menu);
-    complete_load(menu, session, read, LoadSurface::Overlay);
+    if complete_load(menu, session, read, LoadSurface::Overlay) != LoadOutcome::Loaded {
+        menu.focus = confirm_focus(ConfirmKind::Load(slot));
+    }
 }
 
 /// Which menu surface a load completion belongs to. The overlay closes on

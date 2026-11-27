@@ -13,7 +13,7 @@ use crate::RuntimeConfig;
 use super::cards::{card_action, SlotAction};
 use super::persistence::{load_slot, save_slot};
 use super::state::{ConfirmKind, MenuFocus, MenuState};
-use super::transition::{close, enter_play};
+use super::transition::{close, confirm_focus, enter_play};
 
 #[allow(clippy::too_many_arguments)]
 pub(super) fn accept_confirm(
@@ -78,6 +78,7 @@ pub(super) fn accept_confirm(
             // order; the session recipe neither looks up a label nor derives
             // scene order. A defensive miss is the existing no-op, and only a
             // `Restarted` outcome closes the Timeline.
+            menu.focus = confirm_focus(ConfirmKind::TimelineJump(index));
             let Some(scene_id) = session.pack().timeline_entries().get(index).cloned() else {
                 return;
             };

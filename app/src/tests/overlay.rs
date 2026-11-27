@@ -270,6 +270,11 @@ fn a_load_refused_under_the_overlay_notices_row_17() {
         records[0].2
     );
     assert!(menu(&app).open, "a refused load leaves the overlay open");
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::Card(0),
+        "a refused load returns focus to the card that was loaded"
+    );
     assert!(app.world().resource::<Notice>().is_showing());
 }
 
