@@ -2,18 +2,19 @@ name: check
 
 # The minimal gate every change runs through: fmt, clippy and the workspace
 # tests under a pinned toolchain, plus the PR trigger and the superseded-run
-# concurrency below, the fast `actionlint` job, and the repository-invariant
-# steps that fail before the fmt gate. The `--locked` flag sits on every Cargo
-# invocation that resolves dependencies, so the gate verifies the committed
-# `Cargo.lock` instead of silently repairing it. The `workflow_call` trigger
-# lets the candidate coordinator rerun the gate at a candidate SHA. This file is
-# the gate only: the heavier real-binary boot check lives in `boot.yml` (on
-# demand via `workflow_dispatch`, not per push), and the candidate, coverage,
-# dependency-policy and publication stages each own their own workflow.
+# concurrency below, the fast `actionlint` job (it also runs the checks that
+# need no Rust build) and `changes`, which can skip the Rust job. The `--locked`
+# flag sits on every Cargo invocation that resolves dependencies, so the gate
+# verifies the committed `Cargo.lock` instead of silently repairing it. The
+# `workflow_call` trigger lets the candidate coordinator rerun the gate at a
+# candidate SHA. This file is the gate only: the heavier real-binary boot check
+# lives in `boot.yml` (on demand via `workflow_dispatch`, not per push), and the
+# candidate, coverage, dependency-policy and publication stages each own their
+# own workflow.
 
 on:
-  # Every pushed branch keeps its per-push gate, PR or not: feature and
-  # prototype branches must stay able to run CI on their own.
+  # A branch with an open PR against `main` skips the Rust job here, because
+  # the `pull_request` run covers it; a branch with no PR keeps its own gate.
   push:
   # PRs targeting `main` add the merge-context gate. The default activity
   # types (`opened`, `synchronize`, `reopened`) are what we want, so no
@@ -57,9 +58,73 @@ env:
   CARGO_PROFILE_TEST_DEBUG: 0
 
 jobs:
+  # Job-level skip: a `paths:` filter would leave the required check pending,
+  # but a job skipped by `if:` counts as passing. Candidate calls, dispatches
+  # and an undiffable base never skip.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      rust: ${{ steps.decide.outputs.rust }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
+
+      - name: Decide whether the Rust job runs
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          SHA_INPUT: ${{ inputs.sha }}
+          BRANCH: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+
+          decide() {
+            echo "rust=$1" >> "$GITHUB_OUTPUT"
+            echo "changes: rust=$1 ($2)"
+            exit 0
+          }
+
+          if [ -n "${SHA_INPUT}" ] || { [ "${EVENT}" != "push" ] && [ "${EVENT}" != "pull_request" ]; }; then
+            decide true "not a push or pull_request run"
+          fi
+
+          if [ "${EVENT}" = "push" ]; then
+            if [ "${REF_TYPE}" = "branch" ]; then
+              open_prs="$(gh pr list --head "${BRANCH}" --base main --state open --json number --jq 'length')"
+              if [ "${open_prs}" != "0" ]; then
+                decide false "an open PR against main covers this push"
+              fi
+            fi
+          fi
+
+          if [ -z "${BASE}" ] || \
+             [ "${BASE}" = "0000000000000000000000000000000000000000" ] || \
+             ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            decide true "no reachable base to diff against"
+          fi
+
+          rust_inputs='^(.*\.rs|(.*/)?Cargo\.toml|Cargo\.lock|rust-toolchain\.toml|\.cargo/.*|(app|engine|cli)/.*|\.github/workflows/check\.yml)$'
+          changed="$(git diff --name-only "${BASE}" HEAD)"
+          if grep -Eq "${rust_inputs}" <<< "${changed}"; then
+            decide true "a Rust input changed"
+          fi
+          decide false "no Rust input changed"
+
   # Fast gate that compiles nothing: lint the workflow files in parallel with
   # the Rust job, so a YAML or expression mistake fails in seconds instead of
-  # after the Linux dependencies and the workspace build.
+  # after the Linux dependencies and the workspace build. The checks that need
+  # no Rust build live here too, so they run when the Rust job is skipped.
   actionlint:
     name: actionlint
     runs-on: ubuntu-latest
@@ -77,6 +142,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.sha || github.sha }}
+          fetch-depth: 0
 
       # All three linters are pinned by version and by SHA-256, so the job runs
       # the reviewed builds rather than whatever `latest` resolves to.
@@ -133,9 +199,7 @@ jobs:
       # script is linted without a change to this step.
       # ShellCheck runs the hook as POSIX `sh`, the shell its shebang declares.
       #
-      # Measured on a Windows host against `scripts/`: Ruff 28 ms and ShellCheck
-      # 71 ms warm, so the pair stays far inside the roughly 60-second budget for
-      # this job. Treat the budget as review-triggering, not as an assertion.
+      # Measured on a Windows host: Ruff 28 ms and ShellCheck 71 ms warm.
       - name: Lint the scripts and the commit hook
         run: |
           "$RUNNER_TEMP/ruff-x86_64-unknown-linux-gnu/ruff" check \
@@ -147,15 +211,6 @@ jobs:
           "$RUNNER_TEMP/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
             -s sh \
             .githooks/pre-commit
-
-  check:
-    name: fmt, clippy, test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.sha || github.sha }}
-          fetch-depth: 0
 
       - name: Source-size check on the changed files
         env:
@@ -273,27 +328,6 @@ jobs:
           python3 scripts/docs.py report --summary-file "$GITHUB_STEP_SUMMARY" || true
           exit "$suite"
 
-      # Bevy links ALSA (audio) and udev (gamepads) on Linux; its default
-      # feature set also builds the Wayland backend through pkg-config.
-      # `system_font_discovery` (`app/Cargo.toml`) pulls parley's fontconfig
-      # backend on Linux, so the fontconfig headers are needed too.
-      # Keiko's `frame` step renders on the software rasterizer (spec §13):
-      # Mesa's Vulkan driver, lavapipe, is the fallback adapter wgpu finds on a
-      # runner with no GPU.
-      - name: Install Linux dependencies
-        run: >
-          sudo apt-get update && sudo apt-get install -y
-          libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
-          libfontconfig1-dev mesa-vulkan-drivers
-
-      # With no argument, rustup installs the active toolchain: the pinned one
-      # from rust-toolchain.toml, with its rustfmt and clippy components.
-      # (`rustup show` no longer auto-installs as of rustup 1.30.)
-      - name: Install pinned toolchain
-        run: rustup toolchain install --no-self-update
-
-      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-
       # The invariant checks cost seconds and compile nothing, so they run
       # before fmt, clippy and the workspace build. `--self-test` first proves
       # each rule still rejects a controlled invalid case, so a rule that has
@@ -314,16 +348,45 @@ jobs:
       - name: No new comments
         run: python3 scripts/no-new-comments.py
 
-      # The path rules read `git ls-files`, so an ignored local scratch
-      # directory cannot fail them, and they describe what lands on `main`. A
-      # `prototype/<issue>-<name>` branch carries tracked `app/prototype/`
-      # content by design, because a prototype is evidence kept off `main`;
-      # gating them on every push would fail those branches' whole job — fmt,
-      # clippy and the tests included. They guard the merge instead: a push to
-      # `main`, or a PR into it, checked at the merge commit.
+      # The path rules read `git ls-files` and describe what lands on `main`. A
+      # `prototype/<issue>-<name>` branch carries tracked `app/prototype/` content
+      # by design, so gating every push would fail those branches' whole job.
+      # They guard the merge instead: a push to `main`, or a PR into it.
       - name: Repository invariants (tracked prototype and scratch paths)
         if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
         run: python3 scripts/check-invariants.py --rules paths
+
+  check:
+    name: fmt, clippy, test
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.sha || github.sha }}
+
+      # Bevy links ALSA (audio) and udev (gamepads) on Linux; its default
+      # feature set also builds the Wayland backend through pkg-config.
+      # `system_font_discovery` (`app/Cargo.toml`) pulls parley's fontconfig
+      # backend on Linux, so the fontconfig headers are needed too.
+      # Keiko's `frame` step renders on the software rasterizer (spec §13):
+      # Mesa's Vulkan driver, lavapipe, is the fallback adapter wgpu finds on a
+      # runner with no GPU.
+      - name: Install Linux dependencies
+        run: >
+          sudo apt-get update && sudo apt-get install -y
+          libasound2-dev libudev-dev libwayland-dev libxkbcommon-dev
+          libfontconfig1-dev mesa-vulkan-drivers
+
+      # With no argument, rustup installs the active toolchain: the pinned one
+      # from rust-toolchain.toml, with its rustfmt and clippy components.
+      # (`rustup show` no longer auto-installs as of rustup 1.30.)
+      - name: Install pinned toolchain
+        run: rustup toolchain install --no-self-update
+
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: cargo fmt --check
         run: cargo fmt --check
