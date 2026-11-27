@@ -136,39 +136,66 @@ pub fn gallery_browse(index: usize, count: usize, delta: isize) -> Option<usize>
 
 /// Read the gallery's arrow keys into a focus move. Any arrow from a section
 /// entry lands on the first card, so the grid is one key away; the digits are the
-/// ledger's shortcut and do nothing here.
+/// ledger's shortcut and do nothing here. The page's foot trails the grid: `↓`
+/// from the last card reaches Resume reading and then Exit to title, `↑` walks
+/// back to that card, and `←`/`→` stay inside the grid, which is the tail the
+/// ledger and Settings already have (`docs/title-and-menu.md` § Default look §4).
 pub(super) fn gallery_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
     columns: usize,
     count: usize,
+    exit_shown: bool,
 ) -> Option<MenuFocus> {
-    if count == 0 {
-        return None;
-    }
-    let dir = if keys.just_pressed(KeyCode::ArrowLeft) {
-        GalleryDir::Left
-    } else if keys.just_pressed(KeyCode::ArrowRight) {
-        GalleryDir::Right
-    } else if keys.just_pressed(KeyCode::ArrowUp) {
-        GalleryDir::Up
-    } else if keys.just_pressed(KeyCode::ArrowDown) {
-        GalleryDir::Down
-    } else {
-        return None;
-    };
+    let dir = arrow_dir(keys)?;
     match focus {
-        MenuFocus::GalleryCard(index) => {
-            gallery_move(index, count, columns, dir).map(MenuFocus::GalleryCard)
+        MenuFocus::Resume => match dir {
+            GalleryDir::Up => Some(MenuFocus::GalleryCard(count.checked_sub(1)?)),
+            GalleryDir::Down if exit_shown => Some(MenuFocus::ExitToTitle),
+            _ => None,
+        },
+        MenuFocus::ExitToTitle => match dir {
+            GalleryDir::Up => Some(MenuFocus::Resume),
+            _ => None,
+        },
+        _ => {
+            if count == 0 {
+                return None;
+            }
+            let MenuFocus::GalleryCard(index) = focus else {
+                return Some(MenuFocus::GalleryCard(0));
+            };
+            match gallery_move(index, count, columns, dir) {
+                Some(next) => Some(MenuFocus::GalleryCard(next)),
+                None if dir == GalleryDir::Down => Some(MenuFocus::Resume),
+                None => None,
+            }
         }
-        _ => Some(MenuFocus::GalleryCard(0)),
+    }
+}
+
+/// The arrow key pressed this frame, if any: the four moves every card walk
+/// shares.
+fn arrow_dir(keys: &ButtonInput<KeyCode>) -> Option<GalleryDir> {
+    if keys.just_pressed(KeyCode::ArrowLeft) {
+        Some(GalleryDir::Left)
+    } else if keys.just_pressed(KeyCode::ArrowRight) {
+        Some(GalleryDir::Right)
+    } else if keys.just_pressed(KeyCode::ArrowUp) {
+        Some(GalleryDir::Up)
+    } else if keys.just_pressed(KeyCode::ArrowDown) {
+        Some(GalleryDir::Down)
+    } else {
+        None
     }
 }
 
 /// One Timeline arrow move: horizontal `±1`, vertical `±2`, clamped to
-/// `[0, last]` and never wrapping. The clamp may move diagonally at the ends,
-/// which is deliberate (`docs/title-and-menu.md` § Timeline `### Layout`
-/// `#### Walk and scrolling`). Locked cards stay in the walk.
+/// `[0, last]` inside the grid and never wrapping. The clamp may move diagonally
+/// at the ends, which is deliberate (`docs/title-and-menu.md` § Timeline
+/// `### Layout` `#### Walk and scrolling`). Locked cards stay in the walk, and a
+/// move past the last card leaves the grid for the page's foot, which
+/// [`timeline_arrow`] owns.
 pub fn timeline_move(index: usize, count: usize, dir: GalleryDir) -> Option<usize> {
     if count == 0 || index >= count {
         return None;
@@ -185,31 +212,40 @@ pub fn timeline_move(index: usize, count: usize, dir: GalleryDir) -> Option<usiz
 
 /// Read the Timeline's arrow keys into a focus move. Any arrow from a section
 /// entry lands on the first card; the digits are the ledger's shortcut and do
-/// nothing here (`docs/title-and-menu.md` § Timeline §2).
+/// nothing here (`docs/title-and-menu.md` § Timeline §2). The page's foot trails
+/// the cards: `↓` from the last card reaches Resume reading and then Exit to
+/// title, and `↑` walks back to that card, the tail the ledger and Settings
+/// already have (§ Default look §4).
 pub(super) fn timeline_arrow(
     focus: MenuFocus,
     keys: &ButtonInput<KeyCode>,
     count: usize,
+    exit_shown: bool,
 ) -> Option<MenuFocus> {
-    if count == 0 {
-        return None;
-    }
-    let dir = if keys.just_pressed(KeyCode::ArrowLeft) {
-        GalleryDir::Left
-    } else if keys.just_pressed(KeyCode::ArrowRight) {
-        GalleryDir::Right
-    } else if keys.just_pressed(KeyCode::ArrowUp) {
-        GalleryDir::Up
-    } else if keys.just_pressed(KeyCode::ArrowDown) {
-        GalleryDir::Down
-    } else {
-        return None;
-    };
+    let dir = arrow_dir(keys)?;
     match focus {
-        MenuFocus::TimelineCard(index) => {
-            timeline_move(index, count, dir).map(MenuFocus::TimelineCard)
+        MenuFocus::Resume => match dir {
+            GalleryDir::Up => Some(MenuFocus::TimelineCard(count.checked_sub(1)?)),
+            GalleryDir::Down if exit_shown => Some(MenuFocus::ExitToTitle),
+            _ => None,
+        },
+        MenuFocus::ExitToTitle => match dir {
+            GalleryDir::Up => Some(MenuFocus::Resume),
+            _ => None,
+        },
+        _ => {
+            if count == 0 {
+                return None;
+            }
+            let MenuFocus::TimelineCard(index) = focus else {
+                return Some(MenuFocus::TimelineCard(0));
+            };
+            match timeline_move(index, count, dir) {
+                Some(next) => Some(MenuFocus::TimelineCard(next)),
+                None if dir == GalleryDir::Down => Some(MenuFocus::Resume),
+                None => None,
+            }
         }
-        _ => Some(MenuFocus::TimelineCard(0)),
     }
 }
 

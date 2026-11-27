@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use unmei_engine::copy;
 use unmei_engine::ui::{Node as PluginNode, NodeKind};
 
-use super::super::render::tree::Rendered;
+use super::super::render::tree::{slot_holder, Rendered, SlotHolder};
 use super::super::style::{TextFaces, FOCUS, PANEL_BG, TEXT};
 use crate::settings::{AudioControl, SettingsState, TrackControl};
 
@@ -169,7 +169,10 @@ pub(super) fn mount_text_speed(
     settings: Option<&SettingsState>,
     faces: &TextFaces,
 ) {
-    let Some(control) = spawned.controls.get("settings.text-speed").copied() else {
+    let Some(SlotHolder { boxes, .. }) = slot_holder(spawned, "settings.text-speed") else {
+        return;
+    };
+    let [track, value] = boxes[..] else {
         return;
     };
     let percent = settings
@@ -178,20 +181,20 @@ pub(super) fn mount_text_speed(
     let name = settings
         .map(|state| state.text_speed_name().to_string())
         .unwrap_or_else(|| copy::text("settings.text-speed.instant").to_string());
-    parent.commands().entity(control).with_children(|node| {
-        node.spawn((
-            SettingsTrack {
-                control: TrackControl::TextSpeed,
-            },
-            Node {
-                width: Val::Px(SETTINGS_TRACK_WIDTH),
-                height: Val::Px(SETTINGS_TRACK_HEIGHT),
-                ..default()
-            },
-            BackgroundColor(PANEL_BG),
-        ))
-        .with_children(|track| {
-            track.spawn((
+    parent
+        .commands()
+        .entity(track)
+        .insert(SettingsTrack {
+            control: TrackControl::TextSpeed,
+        })
+        .insert(Node {
+            width: Val::Px(SETTINGS_TRACK_WIDTH),
+            height: Val::Px(SETTINGS_TRACK_HEIGHT),
+            ..default()
+        })
+        .insert(BackgroundColor(PANEL_BG))
+        .with_children(|node| {
+            node.spawn((
                 SettingsBar {
                     control: TrackControl::TextSpeed,
                 },
@@ -203,6 +206,7 @@ pub(super) fn mount_text_speed(
                 BackgroundColor(FOCUS),
             ));
         });
+    parent.commands().entity(value).with_children(|node| {
         node.spawn((
             SettingsLabel {
                 kind: SettingsLabelKind::TextSpeed,

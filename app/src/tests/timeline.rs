@@ -144,6 +144,23 @@ fn timeline_replaces_absent_scenes_with_the_exact_empty_copy_and_keeps_the_door(
             texts.iter().any(|t| t == menu::TIMELINE_EXPLANATION),
             "the explanation renders"
         );
+        assert_eq!(
+            app.world()
+                .get::<Node>(text_entity(&app, menu::TIMELINE_LEGEND))
+                .unwrap()
+                .display,
+            Display::None,
+            "no walk legend draws when there is nothing to walk"
+        );
+        let empty = text_entity(&app, menu::TIMELINE_EMPTY);
+        let holder = parent_of(&app, parent_of(&app, empty));
+        let node = app.world().get::<Node>(holder).unwrap();
+        assert_eq!(
+            (node.justify_content, node.align_items),
+            (JustifyContent::Center, AlignItems::Center),
+            "the empty line is centred where the cards would be"
+        );
+        assert_eq!(node.flex_grow, 1.0, "the box fills the body's height");
 
         click(&mut app, MenuAction::TimelineBack);
         assert_eq!(menu(&app).view, MenuView::Slots);
@@ -219,6 +236,79 @@ fn timeline_move_steps_plus_minus_one_and_two_and_clamps_without_wrapping() {
     // Diagonal end clamping is intentional: index 1 up lands on 0.
     assert_eq!(menu::timeline_move(1, 5, menu::GalleryDir::Up), Some(0));
     assert_eq!(menu::timeline_move(0, 0, menu::GalleryDir::Left), None);
+}
+
+/// The page's foot trails the cards: `↓` from the last card steps to Resume
+/// reading and then Exit to title, `↑` walks back to that card, both ends clamp,
+/// `←`/`→` stay inside the grid, and the foot's two stops do what they do
+/// everywhere (`docs/title-and-menu.md` § Default look §4).
+#[test]
+fn the_walk_past_the_last_card_reaches_the_page_s_foot() {
+    let (mut app, _pack) = timeline_app(&["first_meeting", "reunion", "epilogue"]);
+    open_timeline(&mut app);
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TimelineCard(2);
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::Resume,
+        "the foot comes after the last card"
+    );
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the foot's end clamps"
+    );
+    press_and_update(&mut app, KeyCode::ArrowLeft);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "← stays out of the grid"
+    );
+
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume);
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::TimelineCard(2),
+        "↑ returns to the last card"
+    );
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    press_and_update(&mut app, KeyCode::Enter);
+    assert_eq!(
+        menu(&app).confirm,
+        Some(ConfirmKind::ExitToTitle),
+        "the foot's second stop asks before leaving"
+    );
+    press_and_update(&mut app, KeyCode::Escape);
+    assert_eq!(menu(&app).confirm, None);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "cancelling returns focus to the foot"
+    );
+    assert_eq!(menu(&app).view, MenuView::Timeline, "the Timeline stays up");
+
+    let ids = crate::keiko::controls::surface_ids(menu(&app), 0, 1);
+    assert_eq!(
+        ids,
+        vec![
+            "timeline.card.1".to_string(),
+            "overlay.resume".to_string(),
+            "overlay.exit-to-title".to_string(),
+        ],
+        "Keiko reads the foot as the cards' own controls"
+    );
+
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    press_and_update(&mut app, KeyCode::Enter);
+    assert!(!menu(&app).open, "Resume reading closes the page");
 }
 
 #[test]
@@ -1321,12 +1411,15 @@ fn a_thirty_entry_timeline_renders_every_card_with_long_ids_verbatim() {
         "no card past the declared list"
     );
 
-    // The walk clamps on the last card rather than wrapping.
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TimelineCard(29);
-    press_and_update(&mut app, KeyCode::ArrowDown);
-    assert_eq!(menu(&app).focus, MenuFocus::TimelineCard(29));
     press_and_update(&mut app, KeyCode::ArrowRight);
     assert_eq!(menu(&app).focus, MenuFocus::TimelineCard(29));
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::Resume,
+        "past the last card the page's foot follows"
+    );
 }
 
 #[test]

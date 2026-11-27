@@ -293,6 +293,12 @@ impl ActivationError {
 /// Walk focus to a control with the arrow keys, then press Enter, exactly as a
 /// player would. Fails with the rule id that names why the control is out of
 /// reach.
+///
+/// The arrows are tried in [`walk_keys`]' order, and `Tab` stands in when none of
+/// them moves focus: the page's foot is an arrow dead end — from `Exit to title`
+/// every arrow is inert — and so is a one-card grid, while the page's section
+/// cycle always leaves for a stop the arrows do move from
+/// (`docs/title-and-menu.md` § Default look §4).
 pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), ActivationError> {
     let Some(target) = focus_for_id(id) else {
         return Err(ActivationError::no_target(format!(
@@ -317,21 +323,19 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
         let before = app.world().resource::<MenuState>().focus;
         // The menus walk the arrow keys; a view that only walks one axis ignores
         // the other key, so trying both is how one case drives every surface.
-        for key in [
-            KeyCode::ArrowDown,
-            KeyCode::ArrowRight,
-            KeyCode::ArrowUp,
-            KeyCode::ArrowLeft,
-        ] {
+        for key in walk_keys(app.world().resource::<MenuState>().focus, target) {
             tap(app, run, key);
             if app.world().resource::<MenuState>().focus != before {
                 break;
             }
         }
         if app.world().resource::<MenuState>().focus == before {
-            return Err(ActivationError::no_target(format!(
-                "focus cannot reach `{id}` from the current control"
-            )));
+            tap(app, run, KeyCode::Tab);
+            if app.world().resource::<MenuState>().focus == before {
+                return Err(ActivationError::no_target(format!(
+                    "focus cannot reach `{id}` from the current control"
+                )));
+            }
         }
     }
     if app.world().resource::<MenuState>().focus != target {
@@ -341,6 +345,44 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
     }
     tap(app, run, KeyCode::Enter);
     Ok(())
+}
+
+/// The arrows an activation walks with, and the order it tries them in: vertical
+/// first, so a slot ledger, a Settings group and a column of sections all step.
+const WALK_KEYS: [KeyCode; 4] = [
+    KeyCode::ArrowDown,
+    KeyCode::ArrowRight,
+    KeyCode::ArrowUp,
+    KeyCode::ArrowLeft,
+];
+
+/// The arrows to try from `focus` towards `target`. Two card focuses of one family
+/// compare by index, so a target before the focused card is walked leftwards and
+/// one after it rightwards — [`WALK_KEYS`] alone would step down to the page's foot
+/// and back, never reaching the card in between; anything else keeps
+/// [`WALK_KEYS`].
+fn walk_keys(focus: MenuFocus, target: MenuFocus) -> [KeyCode; 4] {
+    let pair = match (focus, target) {
+        (MenuFocus::GalleryCard(here), MenuFocus::GalleryCard(want)) => Some((here, want)),
+        (MenuFocus::TimelineCard(here), MenuFocus::TimelineCard(want)) => Some((here, want)),
+        (MenuFocus::Card(here), MenuFocus::Card(want)) => Some((here, want)),
+        _ => None,
+    };
+    match pair {
+        Some((here, want)) if here > want => [
+            KeyCode::ArrowLeft,
+            KeyCode::ArrowUp,
+            KeyCode::ArrowDown,
+            KeyCode::ArrowRight,
+        ],
+        Some((here, want)) if here < want => [
+            KeyCode::ArrowRight,
+            KeyCode::ArrowDown,
+            KeyCode::ArrowUp,
+            KeyCode::ArrowLeft,
+        ],
+        _ => WALK_KEYS,
+    }
 }
 
 /// The finding a `frame` or `click` step files when the take has no rendered

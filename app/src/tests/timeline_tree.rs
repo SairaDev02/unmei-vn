@@ -132,11 +132,17 @@ fn the_timeline_draws_the_plugins_tree() {
     );
     let empty = words_within(&app, drawn, menu::TIMELINE_EMPTY);
     let empty_slot = parent_of(&app, empty);
-    assert_eq!(parent_of(&app, empty_slot), drawn);
+    let empty_box = parent_of(&app, empty_slot);
+    assert_eq!(parent_of(&app, empty_box), drawn);
     assert_eq!(
         app.world().get::<Node>(empty_slot).unwrap().display,
         Display::None,
         "the empty line hides while the pack declares scenes"
+    );
+    assert_eq!(
+        app.world().get::<Node>(empty_box).unwrap().display,
+        Display::None,
+        "the box around it collapses with it"
     );
 
     let cards = *children_of(&app, drawn).last().expect("the card list");

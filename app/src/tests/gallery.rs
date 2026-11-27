@@ -521,6 +521,20 @@ fn an_empty_pack_draws_the_header_and_the_single_empty_line() {
         !app.world().resource::<Notice>().is_showing(),
         "the empty state raises no Notice"
     );
+    let empty = gallery_text(&app, menu::GALLERY_EMPTY);
+    let holder = app
+        .world()
+        .get::<ChildOf>(empty)
+        .and_then(|slot| app.world().get::<ChildOf>(slot.parent()))
+        .map(|parent| parent.parent())
+        .expect("the empty line sits in the tree's own box");
+    let node = app.world().get::<Node>(holder).unwrap();
+    assert_eq!(
+        (node.justify_content, node.align_items),
+        (JustifyContent::Center, AlignItems::Center),
+        "`No images in this pack` is centred where the grid would be"
+    );
+    assert_eq!(node.flex_grow, 1.0, "the box fills the body's height");
 
     let faces = app
         .world()
@@ -1178,9 +1192,11 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
     press_and_update(&mut app, KeyCode::ArrowDown);
     assert_eq!(
         menu(&app).focus,
-        MenuFocus::GalleryCard(6),
-        "no wrap at the end"
+        MenuFocus::Resume,
+        "past the last card the page's foot follows"
     );
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(6));
 
     press_and_update(&mut app, KeyCode::ArrowUp);
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(3));
@@ -1222,6 +1238,79 @@ fn the_gallery_walk_starts_on_the_first_card_and_does_not_wrap() {
     press_and_update(&mut title, KeyCode::Enter);
     assert_eq!(menu(&title).view, MenuView::Gallery);
     assert_eq!(menu(&title).focus, MenuFocus::GalleryCard(0));
+}
+
+/// The page's foot trails the grid: `↓` from the last card steps to Resume
+/// reading and then Exit to title, `↑` walks back to that card, both ends clamp,
+/// `←`/`→` stay inside the grid, and the foot's two stops do what they do
+/// everywhere (`docs/title-and-menu.md` § Default look §4).
+#[test]
+fn the_walk_past_the_last_card_reaches_the_page_s_foot() {
+    let dir = temp_pack_with_backgrounds(&["g1", "g2", "g3", "g4"]);
+    let mut app = app_for_pack(dir.path().join("pack"));
+    open_overlay_gallery(&mut app);
+    let last = app
+        .world()
+        .resource::<Runtime>()
+        .runner
+        .pack()
+        .gallery_entries()
+        .len()
+        - 1;
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryCard(last);
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::Resume,
+        "the foot comes after the last card"
+    );
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the foot's end clamps"
+    );
+    press_and_update(&mut app, KeyCode::ArrowLeft);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "← stays out of the grid"
+    );
+    press_and_update(&mut app, KeyCode::ArrowRight);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume);
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::GalleryCard(last),
+        "↑ returns to the last card"
+    );
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    press_and_update(&mut app, KeyCode::Enter);
+    assert_eq!(
+        menu(&app).confirm,
+        Some(ConfirmKind::ExitToTitle),
+        "the foot's second stop asks before leaving"
+    );
+    press_and_update(&mut app, KeyCode::Escape);
+    assert_eq!(menu(&app).confirm, None);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "cancelling returns focus to the foot"
+    );
+    assert_eq!(menu(&app).view, MenuView::Gallery, "the gallery stays up");
+
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    press_and_update(&mut app, KeyCode::Enter);
+    assert!(!menu(&app).open, "Resume reading closes the page");
 }
 
 /// The label of the entry the still is showing, from the runtime pack's entry
@@ -2528,12 +2617,13 @@ fn a_nineteen_entry_grid_scrolls_with_the_focus_in_range() {
     }
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(0));
     app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryCard(0);
-    for _ in 0..count {
+    let rows = count.div_ceil(menu(&app).gallery_columns);
+    for _ in 1..rows {
         press_and_update(&mut app, KeyCode::ArrowDown);
         assert_in_grid(&app, count);
     }
     assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(count - 1));
-    for _ in 0..count {
+    for _ in 1..rows {
         press_and_update(&mut app, KeyCode::ArrowUp);
         assert_in_grid(&app, count);
     }

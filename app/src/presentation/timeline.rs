@@ -17,7 +17,7 @@
 //! a card's label wraps inside a long scene id
 //! (`docs/title-and-menu.md` § Timeline `### Layout`).
 
-use super::render::tree::{Bind, ControlState, Surface, Words};
+use super::render::tree::{self, Bind, ControlState, Surface, Words};
 use super::render::UiLook;
 use super::style::TextFaces;
 use crate::menu::{MenuAction, MenuFocus, MenuState, MenuView};
@@ -106,6 +106,17 @@ pub(super) fn timeline_surface(
             });
     }
     if entries.is_empty() {
+        let mut commands = parent.commands();
+        tree::hide_copy_text(&mut commands, &bound, "timeline.legend");
+        if let Some(holder) = tree::slot_holder(&bound, "timeline.empty") {
+            commands
+                .entity(holder.entity)
+                .entry::<Node>()
+                .and_modify(|mut node| {
+                    node.flex_grow = 1.0;
+                    node.min_height = Val::Px(0.0);
+                });
+        }
         return;
     }
     let (Some(body), Some(item)) = (

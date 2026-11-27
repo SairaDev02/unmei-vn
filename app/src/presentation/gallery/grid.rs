@@ -17,7 +17,7 @@ use unmei_engine::ui::{Node as PluginNode, NodeKind};
 use unmei_engine::GalleryEntry;
 
 use super::super::assets::{gallery_entry_asset, AssetWatch};
-use super::super::render::tree::Rendered;
+use super::super::render::tree::{self, Rendered};
 use super::super::render::{Bind, Surface, UiLook, Words};
 use super::super::style::{TextFaces, CARD_BG, FAINT};
 use super::layout::{GALLERY_ART_RATIO, GALLERY_CARD_MIN, GALLERY_GAP};
@@ -66,7 +66,16 @@ pub(in crate::presentation) fn gallery_surface(
         seat(&mut commands, root);
     }
     if entries.is_empty() {
-        hide_copy_text(&mut commands, &bound, "gallery.legend");
+        tree::hide_copy_text(&mut commands, &bound, "gallery.legend");
+        if let Some(holder) = tree::slot_holder(&bound, "gallery.empty") {
+            commands
+                .entity(holder.entity)
+                .entry::<Node>()
+                .and_modify(|mut node| {
+                    node.flex_grow = 1.0;
+                    node.min_height = Val::Px(0.0);
+                });
+        }
     }
 
     let (Some(body), Some(item)) = (
@@ -230,54 +239,6 @@ fn mount_card(
             },
         ));
     });
-}
-
-/// Hide the tree's `text` node that names the copy key `key`. The format has no
-/// conditional text node and a bind answers `shows` only for slots, so the player
-/// hides the node it asked the renderer to spawn: the grid legend is drawn only
-/// when the pack declares art (`docs/title-and-menu.md` § Gallery `### Layout`
-/// §1, `### Behavior` §6).
-fn hide_copy_text(commands: &mut Commands, bound: &Rendered, key: &str) {
-    let Some(entity) = copy_text_node(bound, key) else {
-        return;
-    };
-    commands
-        .entity(entity)
-        .entry::<Node>()
-        .and_modify(|mut node| node.display = Display::None);
-}
-
-/// The entity the renderer spawned for the tree's one `text` node naming `key`:
-/// the tree and its nodes are recorded in the same pre-order walk, so the two
-/// stay aligned (`docs/ui-plugin-format.md` § Nodes).
-fn copy_text_node(bound: &Rendered, key: &str) -> Option<Entity> {
-    let tree = bound.tree.as_ref()?;
-    let mut index = 0;
-    find_copy_text(tree, key, &bound.nodes, &mut index)
-}
-
-fn find_copy_text(
-    node: &PluginNode,
-    key: &str,
-    nodes: &[Entity],
-    index: &mut usize,
-) -> Option<Entity> {
-    let entity = nodes.get(*index).copied();
-    *index += 1;
-    if matches!(&node.kind, NodeKind::Text(text) if text.text == key) {
-        return entity;
-    }
-    match &node.kind {
-        NodeKind::Box(kind) => kind
-            .children
-            .iter()
-            .find_map(|child| find_copy_text(child, key, nodes, index)),
-        NodeKind::Slot(kind) => kind
-            .children
-            .iter()
-            .find_map(|child| find_copy_text(child, key, nodes, index)),
-        _ => None,
-    }
 }
 
 /// What the gallery itself draws outside the cards: the empty line, which the
