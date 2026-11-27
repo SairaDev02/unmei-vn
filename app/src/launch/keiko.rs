@@ -22,8 +22,13 @@ pub enum KeikoMode {
     Step { id: String, step: String },
     /// Replay a case and print the observation without writing.
     Observe { id: String },
-    /// Walk the pack's choices and landing keys within a step budget.
-    Explore { budget: u32, from: Option<String> },
+    /// Walk the pack's choices and landing keys within a step budget, or with
+    /// `menus` its menus (spec §9.5).
+    Explore {
+        budget: u32,
+        from: Option<String>,
+        menus: bool,
+    },
     /// Draw a line or a scene into an output folder (spec §9).
     Preview(PreviewArgs),
 }
@@ -78,6 +83,7 @@ pub struct KeikoArgs {
     observe_arg: Option<String>,
     budget: Option<u32>,
     from: Option<String>,
+    menus: bool,
     live: bool,
     keep: bool,
     format: Format,
@@ -185,6 +191,11 @@ impl KeikoArgs {
         self.keep = true;
     }
 
+    /// `--menus`.
+    pub fn menus(&mut self) {
+        self.menus = true;
+    }
+
     /// The keep flag, for the finished launch.
     pub fn keeping(&self) -> bool {
         self.keep
@@ -250,6 +261,7 @@ impl KeikoArgs {
                     (self.keep, "--keep"),
                     (self.budget.is_some(), "--budget"),
                     (self.from.is_some(), "--from"),
+                    (self.menus, "--menus"),
                 ] {
                     if given {
                         return Err(UsageError::new(format!(
@@ -265,6 +277,7 @@ impl KeikoArgs {
                 (self.format != Format::Text, "--format"),
                 (self.budget.is_some(), "--budget"),
                 (self.from.is_some(), "--from"),
+                (self.menus, "--menus"),
             ] {
                 if given {
                     return Err(UsageError::new(format!(
@@ -289,9 +302,9 @@ impl KeikoArgs {
         if self.live && kind != Kind::Take {
             return Err(UsageError::new("--live is valid only with --take"));
         }
-        if kind != Kind::Explore && (self.budget.is_some() || self.from.is_some()) {
+        if kind != Kind::Explore && (self.budget.is_some() || self.from.is_some() || self.menus) {
             return Err(UsageError::new(
-                "--budget and --from are valid only with --explore",
+                "--budget, --from and --menus are valid only with --explore",
             ));
         }
         let mode = match kind {
@@ -315,6 +328,7 @@ impl KeikoArgs {
             Kind::Explore => KeikoMode::Explore {
                 budget: self.budget.unwrap_or(DEFAULT_BUDGET),
                 from: self.from,
+                menus: self.menus,
             },
             Kind::Preview => KeikoMode::Preview(
                 self.preview
@@ -448,7 +462,8 @@ mod tests {
             explore.finish(false, false).unwrap(),
             Some(KeikoMode::Explore {
                 budget: DEFAULT_BUDGET,
-                from: None
+                from: None,
+                menus: false,
             })
         );
     }

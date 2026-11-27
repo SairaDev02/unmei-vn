@@ -1,0 +1,47 @@
+keiko 1
+# G3 (the title's gallery door): the title's Gallery row opens the gallery with
+# the first card focused, each card opens its still, and the arrows walk the
+# grid without wrapping. From the last card no arrow leaves the grid, so focus
+# never lands on a control the title's door does not draw.
+setting play.text_speed 0
+
+activate title.gallery
+expect surface gallery
+expect control gallery.card.1 focused
+activate gallery.card.1
+expect surface still
+press Escape
+expect surface gallery
+activate gallery.card.2
+expect surface still
+press Escape
+expect surface gallery
+activate gallery.card.3
+expect surface still
+press Escape
+expect surface gallery
+expect control gallery.card.3 focused
+press ArrowDown
+expect control gallery.card.3 focused
+press ArrowRight
+expect control gallery.card.3 focused
+press ArrowUp
+expect control gallery.card.3 focused
+press Tab
+expect surface gallery
+expect control gallery.card.3 focused
+press ArrowLeft
+expect control gallery.card.2 focused
+press ArrowLeft
+expect control gallery.card.1 focused
+press ArrowLeft
+expect control gallery.card.1 focused
+press ArrowUp
+expect control gallery.card.1 focused
+press ArrowDown
+expect control gallery.card.3 focused
+press Enter
+expect surface still
+press Escape
+press Escape
+expect surface title

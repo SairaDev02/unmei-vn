@@ -210,6 +210,10 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         for plugin in plugins {
             app.add_plugins(plugin);
         }
+        #[cfg(test)]
+        if let Some(hook) = TEST_HOOK.get() {
+            hook(&mut app);
+        }
         if rendered {
             // A rendered app's plugins are finished before its first frame, as
             // `App::run` does: the renderer's resources are unpacked there.
@@ -227,8 +231,10 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         }
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
+            check_focus(&app, &request, Location::File)?;
             for step in &request.case.steps {
                 step_once(&mut app, &mut state, &request, &step.step, step.line)?;
+                check_focus(&app, &request, Location::Line(step.line))?;
             }
             // A key still held when the take ends is released.
             release_held(&mut app);
@@ -290,6 +296,19 @@ fn boot(app: &mut App, state: &mut TakeState, request: &TakeRequest) -> Result<(
         settle(app, state, request)?;
     }
     Ok(())
+}
+
+/// The focus check after boot and after every step (spec §4.3).
+fn check_focus(app: &App, request: &TakeRequest, path: Location) -> Result<(), Finding> {
+    match super::controls::hidden_focus(app.world()) {
+        None => Ok(()),
+        Some(message) => Err(Finding::new(
+            request.case_file.clone(),
+            path,
+            rules::FOCUS_HIDDEN,
+            message,
+        )),
+    }
 }
 
 /// `start <scene>` with the `state` overrides: enter play, then replace the
@@ -385,12 +404,15 @@ fn step_once(
         }
         Applied::Assert(expect) => {
             observe_step(app, state);
-            evaluate(&expect, &state.observation, &state.all_log, app).map_err(|finding| {
-                let mut finding = finding;
-                finding.file = request.case_file.clone();
-                finding.path = Location::Line(line);
-                finding
-            })?;
+            let drawn = state.render.is_some();
+            evaluate(&expect, &state.observation, &state.all_log, app, drawn).map_err(
+                |finding| {
+                    let mut finding = finding;
+                    finding.file = request.case_file.clone();
+                    finding.path = Location::Line(line);
+                    finding
+                },
+            )?;
         }
     }
     Ok(())
@@ -503,6 +525,21 @@ pub fn expects(case: &Case) -> Vec<&Expect> {
         .collect()
 }
 
+#[cfg(test)]
+thread_local! {
+    static TEST_HOOK: std::cell::Cell<Option<fn(&mut App)>> = const { std::cell::Cell::new(None) };
+}
+
+/// Run `body` with `hook` applied to every take app this thread builds, so a
+/// test reaches the takes an exploration runs (spec §15 rules 45 and 46).
+#[cfg(test)]
+pub(crate) fn with_test_hook<R>(hook: fn(&mut App), body: impl FnOnce() -> R) -> R {
+    TEST_HOOK.set(Some(hook));
+    let result = body();
+    TEST_HOOK.set(None);
+    result
+}
+
 /// The plugin `run`'s shipping call site stands in with: none. A test passes
 /// its own to `run_with` instead.
 #[cfg(test)]
@@ -515,3 +552,6 @@ impl Plugin for NoExtraPlugin {
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod walk_tests;

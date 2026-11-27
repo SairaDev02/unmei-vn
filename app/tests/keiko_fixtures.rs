@@ -99,7 +99,21 @@ fn the_clean_demo_fixture_packs_cases_pass() {
 /// undecodable, so the gallery's failed art is a take's subject.
 #[test]
 fn the_failed_gallery_art_fixture_packs_cases_pass() {
-    take_pack("g", &["g2-failed-gallery-art"]);
+    take_pack("g", &["g2-failed-gallery-art", "g3-title-door-walk"]);
+}
+
+/// Pack E: no art and no declared scene order, so the Gallery from both doors
+/// and the Timeline are empty (spec §14, slice 3).
+#[test]
+fn the_empty_menus_fixture_packs_cases_pass() {
+    take_pack(
+        "e",
+        &[
+            "e1-empty-gallery-title-door",
+            "e2-empty-gallery-overlay-door",
+            "e3-empty-timeline",
+        ],
+    );
 }
 
 /// Recipe B: a loadable copy whose case removes the manifest from the take's
@@ -121,6 +135,7 @@ fn the_reading_and_timeline_fixture_packs_cases_pass() {
             "r3-load-resets-skip",
             "l1-timeline",
             "l2-timeline-state",
+            "l3-timeline-walk",
         ],
     );
 }

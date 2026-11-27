@@ -21,7 +21,7 @@ use bevy::ui::IsDefaultUiCamera;
 use bevy::window::{PrimaryWindow, Window, WindowRef};
 
 use super::steps::{ActivationError, FrameRun};
-use unmei_engine::keiko::{Case, Click, Step};
+use unmei_engine::keiko::{Case, Click, Expect, Step};
 
 /// The reference frame size every take renders at (spec §13).
 pub const WIDTH: u32 = 1280;
@@ -220,35 +220,7 @@ impl Rendered {
     /// visible node carrying the control's action is the one a player sees, so it is
     /// the one clicked; a control with no laid-out node fails like an absent one.
     fn control_centre(app: &mut App, id: &str) -> Result<Vec2, ActivationError> {
-        let Some(action) = super::controls::action_for_id(id) else {
-            return Err(ActivationError::no_target(format!(
-                "unknown control `{id}`"
-            )));
-        };
-        let mut found: Option<((bool, u32), Vec2)> = None;
-        let mut query = app.world_mut().query::<(
-            &MenuAction,
-            &bevy::ui::UiGlobalTransform,
-            &bevy::camera::visibility::InheritedVisibility,
-            Option<&bevy::ui::ComputedStackIndex>,
-        )>();
-        for (candidate, transform, visible, stack) in query.iter(app.world()) {
-            if *candidate != action {
-                continue;
-            }
-            let key = (visible.get(), stack.map(|stack| stack.0).unwrap_or(0));
-            if found.as_ref().is_none_or(|(best, _)| key > *best) {
-                found = Some((key, transform.transform_point2(Vec2::ZERO)));
-            }
-        }
-        match found {
-            Some(((true, _), centre)) => Ok(centre),
-            Some(((false, _), _)) => Err(ActivationError::no_target(format!(
-                "`{id}` has no visible node on the {} surface",
-                super::steps::surface_name(&app.world().resource::<MenuState>().clone())
-            ))),
-            None => Err(ActivationError::no_target(format!("`{id}` has no node"))),
-        }
+        control_node(app.world_mut(), id).map(|rect| rect.center())
     }
 
     /// The player's camera. It spawns with the play surface, so the first frame
@@ -338,16 +310,58 @@ pub(super) fn sanitize(name: &str) -> String {
         .collect()
 }
 
-/// Whether the case asks for the rendered composition: one `frame` or `click`
-/// step builds it for the whole take, so the steps before it run as usual
-/// (spec §13).
+/// Whether the case asks for the rendered composition: one `frame`, `click` or
+/// rect assertion builds it for the whole take, so the steps before it run as
+/// usual (spec §13).
 pub fn draws(case: &Case) -> bool {
     case.steps.iter().any(|line| {
         matches!(
             line.step,
-            Step::Frame(_) | Step::Click(Click::Control(_)) | Step::Click(Click::Position(_, _))
+            Step::Frame(_)
+                | Step::Click(Click::Control(_))
+                | Step::Click(Click::Position(_, _))
+                | Step::Expect(Expect::ControlRect { .. })
         )
     })
+}
+
+/// The laid-out rect of a control's node, in reference pixels. The topmost
+/// visible node carrying the control's action is the one a player sees, so it
+/// is the one `click` aims at and a rect assertion reads (spec §13); a control
+/// with no visible node is out of reach.
+pub fn control_node(world: &mut World, id: &str) -> Result<Rect, ActivationError> {
+    let Some(action) = super::controls::action_for_id(id) else {
+        return Err(ActivationError::no_target(format!(
+            "unknown control `{id}`"
+        )));
+    };
+    let mut found: Option<((bool, u32), Rect)> = None;
+    let mut query = world.query::<(
+        &MenuAction,
+        &bevy::ui::ComputedNode,
+        &bevy::ui::UiGlobalTransform,
+        &bevy::camera::visibility::InheritedVisibility,
+        Option<&bevy::ui::ComputedStackIndex>,
+    )>();
+    for (candidate, node, transform, visible, stack) in query.iter(world) {
+        if *candidate != action {
+            continue;
+        }
+        let key = (visible.get(), stack.map(|stack| stack.0).unwrap_or(0));
+        if found.as_ref().is_none_or(|(best, _)| key > *best) {
+            let scale = node.inverse_scale_factor();
+            let centre = transform.transform_point2(Vec2::ZERO) * scale;
+            found = Some((key, Rect::from_center_size(centre, node.size() * scale)));
+        }
+    }
+    match found {
+        Some(((true, _), rect)) => Ok(rect),
+        Some(((false, _), _)) => Err(ActivationError::no_target(format!(
+            "`{id}` has no visible node on the {} surface",
+            super::steps::surface_name(&world.resource::<MenuState>().clone())
+        ))),
+        None => Err(ActivationError::no_target(format!("`{id}` has no node"))),
+    }
 }
 
 /// The case's folder name: its id, never a path and never its extension.

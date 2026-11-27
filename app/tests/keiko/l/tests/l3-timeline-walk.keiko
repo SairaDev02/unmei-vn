@@ -1,0 +1,48 @@
+keiko 1
+# L3 (the Timeline walk over a declared order): the arrows walk the three
+# declared cards by one across and two down, clamp at both ends without
+# wrapping, and keep the locked cards in the walk. The visited first card
+# asks to jump; the locked ones are disabled.
+setting play.text_speed 0
+
+new-game
+expect line "S1 opening"
+menu
+press Tab
+press Tab
+press Tab
+expect control overlay.timeline focused
+press Enter
+expect surface timeline
+expect control timeline.card.1 focused
+expect control timeline.card.1 enabled
+expect control timeline.card.2 disabled
+expect control timeline.card.3 disabled
+press ArrowLeft
+expect control timeline.card.1 focused
+press ArrowUp
+expect control timeline.card.1 focused
+press ArrowRight
+expect control timeline.card.2 focused
+press ArrowDown
+expect control timeline.card.3 focused
+press ArrowDown
+expect control timeline.card.3 focused
+press ArrowRight
+expect control timeline.card.3 focused
+press ArrowLeft
+expect control timeline.card.2 focused
+press ArrowUp
+expect control timeline.card.1 focused
+press ArrowDown
+expect control timeline.card.3 focused
+press ArrowUp
+expect control timeline.card.1 focused
+activate timeline.card.1
+expect surface confirm
+activate confirm.no
+expect surface timeline
+expect control timeline.card.1 focused
+expect notice none
+press Escape
+expect surface menu

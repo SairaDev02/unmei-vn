@@ -224,6 +224,8 @@ pub mod rules {
     pub const DEFENSIVE: &str = "keiko.defensive";
     pub const STUCK: &str = "keiko.stuck";
     pub const UNSETTLED: &str = "keiko.unsettled";
+    pub const FOCUS_HIDDEN: &str = "keiko.focus.hidden";
+    pub const UNWIND: &str = "keiko.unwind";
     pub const RENDER_UNAVAILABLE: &str = "keiko.render.unavailable";
 
     pub const PACK_FILE_READ: &str = "pack.file.read";

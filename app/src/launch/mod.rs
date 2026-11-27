@@ -207,6 +207,10 @@ where
                     keiko.keep();
                     continue;
                 }
+                "--menus" => {
+                    keiko.menus();
+                    continue;
+                }
                 "--format" | "--budget" | "--from" => {
                     let value = tokens
                         .get(index)
@@ -370,6 +374,8 @@ Testing (Keiko):
                   NANOGPT_API_KEY; results are marked nondeterministic.
   --budget N      With --explore only: the step budget (default 10000).
   --from ID       With --explore only: start from the end of an existing case.
+  --menus         With --explore only: walk the menus instead of the story,
+                  pressing every walk key, Enter and Esc from each focus.
   --keep          Keep each take's sandbox and print its path.
   --format F      `text` (the default) or `json`.
   A case sets dev mode itself, so `--dev` cannot be combined with a Keiko mode.

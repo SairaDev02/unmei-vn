@@ -1961,3 +1961,100 @@ fn a_frame_writes_in_observe_and_step_modes_and_never_edits_the_case() {
     );
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// The observed rect a failing rect assertion reports, as four numbers.
+fn observed_rect(text: &str) -> [f32; 4] {
+    let start = text
+        .find("observed rect ")
+        .unwrap_or_else(|| panic!("no observed rect in:\n{text}"))
+        + "observed rect ".len();
+    let numbers: Vec<f32> = text[start..]
+        .split(|c: char| c == ')' || c.is_whitespace())
+        .filter(|word| !word.is_empty())
+        .take(4)
+        .map(|word| word.parse().expect("a number"))
+        .collect();
+    [numbers[0], numbers[1], numbers[2], numbers[3]]
+}
+
+/// Rule 49: a rect assertion compares the laid-out node within its tolerance,
+/// reports the rect it observed, and reports `absent` for a control with no
+/// visible node.
+#[test]
+fn a_rect_assertion_compares_the_laid_out_node_within_its_tolerance() {
+    let dir = temp_dir();
+    let probe = pack(
+        &dir,
+        &[(
+            "probe",
+            "keiko 1\n\nexpect control title.new-game rect 0 0 0 0\n",
+        )],
+    );
+    let output = run(&probe, &["--take", "probe"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    let text = stdout(&output);
+    assert!(text.contains("keiko.expect"), "{text}");
+    let [x, y, w, h] = observed_rect(&text);
+    assert!(
+        w > 0.0 && h > 0.0 && x >= 0.0 && y >= 0.0 && x + w <= 1280.0 && y + h <= 720.0,
+        "the New Game row lies inside the 1280×720 reference frame: {x} {y} {w} {h}"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let dir = temp_dir();
+    let cases = [
+        (
+            "exact",
+            format!("expect control title.new-game rect {x} {y} {w} {h}"),
+            0,
+        ),
+        (
+            "within",
+            format!(
+                "expect control title.new-game rect {} {y} {w} {h} ±3",
+                x + 2.0
+            ),
+            0,
+        ),
+        (
+            "beyond",
+            format!("expect control title.new-game rect {} {y} {w} {h}", x + 2.0),
+            1,
+        ),
+        (
+            "absent",
+            "expect control overlay.resume rect 0 0 10 10".to_string(),
+            1,
+        ),
+    ];
+    let texts: Vec<(&str, String)> = cases
+        .iter()
+        .map(|(id, step, _)| (*id, format!("keiko 1\n\n{step}\n")))
+        .collect();
+    let borrowed: Vec<(&str, &str)> = texts
+        .iter()
+        .map(|(id, text)| (*id, text.as_str()))
+        .collect();
+    let checked = pack(&dir, &borrowed);
+    for (id, _, code) in &cases {
+        let output = run(&checked, &["--take", id]);
+        assert_eq!(
+            output.status.code(),
+            Some(*code),
+            "{id}: {}",
+            stdout(&output)
+        );
+    }
+    let beyond = stdout(&run(&checked, &["--take", "beyond"]));
+    assert_eq!(observed_rect(&beyond), [x, y, w, h], "{beyond}");
+    let absent = stdout(&run(&checked, &["--take", "absent"]));
+    assert!(absent.contains("(observed absent)"), "{absent}");
+    let unavailable = run_env(&checked, &["--take", "exact"], &[("WGPU_BACKEND", "metal")]);
+    assert_eq!(unavailable.status.code(), Some(1));
+    assert!(
+        stdout(&unavailable).contains("keiko.render.unavailable"),
+        "{}",
+        stdout(&unavailable)
+    );
+    let _ = std::fs::remove_dir_all(dir);
+}

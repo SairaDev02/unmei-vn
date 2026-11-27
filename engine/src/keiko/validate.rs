@@ -328,7 +328,9 @@ fn kind_of(value: &StateValue) -> &'static str {
 
 fn expect_reference(expect: &Expect, facts: &Facts) -> Option<String> {
     match expect {
-        Expect::Control { id, .. } | Expect::ControlLabel { id, .. } => {
+        Expect::Control { id, .. }
+        | Expect::ControlLabel { id, .. }
+        | Expect::ControlRect { id, .. } => {
             (!is_control_id(id)).then(|| format!("unknown control `{id}`"))
         }
         Expect::Scene(scene) => {

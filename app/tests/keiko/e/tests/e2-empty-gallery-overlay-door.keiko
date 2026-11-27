@@ -1,0 +1,30 @@
+keiko 1
+# E2 (empty Gallery, overlay's door): the overlay's Gallery control opens the
+# empty Gallery with no card. Enter and every arrow leave the surface as it is,
+# and Esc backs out to the slot grid.
+setting play.text_speed 0
+
+new-game
+expect line "E opening"
+menu
+expect surface menu
+press Tab
+press Tab
+press Tab
+press Tab
+expect control overlay.gallery focused
+press Enter
+expect surface gallery
+expect control gallery.card.1 absent
+press Enter
+expect surface gallery
+expect notice none
+press ArrowDown
+press ArrowRight
+press ArrowUp
+press ArrowLeft
+expect surface gallery
+expect control gallery.card.1 absent
+expect notice none
+press Escape
+expect surface menu

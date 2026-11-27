@@ -251,6 +251,15 @@ fn every_keiko_mode_parses_with_its_modifiers() {
             KeikoMode::Explore {
                 budget: DEFAULT_BUDGET,
                 from: None,
+                menus: false,
+            },
+        ),
+        (
+            vec!["--explore", "--menus"],
+            KeikoMode::Explore {
+                budget: DEFAULT_BUDGET,
+                from: None,
+                menus: true,
             },
         ),
         (
@@ -258,6 +267,7 @@ fn every_keiko_mode_parses_with_its_modifiers() {
             KeikoMode::Explore {
                 budget: 25,
                 from: Some("one".into()),
+                menus: false,
             },
         ),
     ] {
@@ -273,6 +283,8 @@ fn keiko_usage_errors_exit_before_any_startup_work() {
         vec!["--observe", "one", "--live"],
         vec!["--take", "--budget", "5"],
         vec!["--take", "--from", "one"],
+        vec!["--take", "--menus"],
+        vec!["--menus"],
         vec!["--dev", "--take"],
         vec!["--take", "--dev"],
         vec!["--dev", "--explore"],

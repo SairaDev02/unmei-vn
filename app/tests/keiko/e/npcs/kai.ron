@@ -1,0 +1,6 @@
+(
+    id: "kai",
+    name: "Kai",
+    model: "typesafe/jev-1.14",
+    decisions: {},
+)

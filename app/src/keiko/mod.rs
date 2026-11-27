@@ -16,6 +16,7 @@ mod observe_text;
 pub mod output;
 pub mod preview;
 pub mod render;
+pub mod route;
 pub mod sandbox;
 pub mod sha256;
 pub mod steps;
@@ -53,8 +54,20 @@ pub fn run(mode: &KeikoMode, pack_root: &Path, keep: bool, format: Format) -> u8
         KeikoMode::Observe { id } => with_pack(pack_root, format, |pack| {
             observe_one(pack_root, pack, id, keep, format)
         }),
-        KeikoMode::Explore { budget, from } => with_pack(pack_root, format, |pack| {
-            explore(pack_root, pack, *budget, from.as_deref(), keep, format)
+        KeikoMode::Explore {
+            budget,
+            from,
+            menus,
+        } => with_pack(pack_root, format, |pack| {
+            explore(
+                pack_root,
+                pack,
+                *budget,
+                from.as_deref(),
+                *menus,
+                keep,
+                format,
+            )
         }),
     }
 }
@@ -449,10 +462,15 @@ fn explore(
     pack: &Pack,
     budget: u32,
     from: Option<&str>,
+    menus: bool,
     keep: bool,
     format: Format,
 ) -> u8 {
-    let report = explore::run(pack_root, pack, budget, from, keep);
+    let report = if menus {
+        explore::menus::run(pack_root, pack, budget, from, keep)
+    } else {
+        explore::run(pack_root, pack, budget, from, keep)
+    };
     if output::is_json(format) {
         println!("{}", report.to_json());
     } else {
