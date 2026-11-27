@@ -125,10 +125,18 @@ pub(super) fn save_finding(
         .unwrap_or_else(|_| path.display().to_string())
         .replace('\\', "/");
     if collected.saved.insert(relative.clone()) && !path.exists() {
-        if let Some(parent) = path.parent() {
-            let _ = std::fs::create_dir_all(parent);
+        let written = path
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|()| std::fs::write(&path, branch.case_text(&closing)));
+        if written.is_err() {
+            collected.saved.remove(&relative);
+            if let Some(object) = json.as_object_mut() {
+                object.insert("saved".to_string(), Value::Bool(false));
+            }
+            collected.findings.push(json);
+            return;
         }
-        let _ = std::fs::write(&path, branch.case_text(&closing));
     }
     if let Some(object) = json.as_object_mut() {
         object.insert("case".to_string(), Value::String(relative));

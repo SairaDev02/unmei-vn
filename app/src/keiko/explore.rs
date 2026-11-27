@@ -9,9 +9,14 @@ use serde_json::{json, Value};
 mod coverage;
 pub mod menus;
 mod save;
+#[cfg(test)]
+mod tests;
 use coverage::Coverage;
 use save::{save_finding, Collected};
-use unmei_engine::keiko::{Header, HeaderLine, Pick, Step, StepLine, CASE_VERSION};
+use unmei_engine::keiko::{
+    Click, DecisionFault, Fault, Header, HeaderLine, KeyCheckFault, Pick, Step, StepLine,
+    CASE_VERSION,
+};
 use unmei_engine::runner::Wait;
 use unmei_engine::Pack;
 
@@ -100,8 +105,18 @@ impl Branch {
         text
     }
 
+    /// The hash of the branch's `decide` headers and steps, so branches that
+    /// differ in either keep separate files.
     pub(super) fn digest(&self) -> String {
         let mut text = String::new();
+        for line in &self.headers {
+            if matches!(line.header, Header::Decide { .. }) {
+                if let Some(rendered) = render_header(&line.header) {
+                    text.push_str(&rendered);
+                    text.push('\n');
+                }
+            }
+        }
         for line in &self.steps {
             if let Some(rendered) = render_step(&line.step) {
                 text.push_str(&rendered);
@@ -329,7 +344,10 @@ fn moves_for(pack: &Pack, branch: &Branch, observation: &Observation) -> Vec<Bra
 fn branch_findings(result: &TakeResult) -> Vec<Finding> {
     let mut findings = Vec::new();
     if let Err(finding) = &result.outcome {
-        if matches!(finding.rule.as_str(), rules::PANIC | rules::UNSETTLED) {
+        if matches!(
+            finding.rule.as_str(),
+            rules::PANIC | rules::UNSETTLED | rules::FOCUS_HIDDEN
+        ) {
             findings.push(finding.clone());
         }
     }
@@ -405,7 +423,7 @@ fn render_header(header: &Header) -> Option<String> {
         Header::Decide { point, action } => format!("decide {point} {action}"),
         Header::Setting { key, value } => format!("setting {key} {value}"),
         Header::Fixture { kind, path } => format!("fixture {} {path}", kind.name()),
-        Header::Fault { .. } => return None,
+        Header::Fault { fault } => format!("fault {}", render_fault(fault)),
         Header::Dev => "dev".to_string(),
         Header::Start { scene } => format!("start {scene}"),
         Header::State { key, value } => format!("state {key} = {value}"),
@@ -438,8 +456,43 @@ fn render_step(step: &Step) -> Option<String> {
         Step::Unblock(target) => format!("unblock {}", target.name()),
         Step::Frame(None) => "frame".to_string(),
         Step::Frame(Some(name)) => format!("frame {name}"),
-        Step::Click(_) | Step::Expect(_) => return None,
+        Step::Click(Click::Control(id)) => format!("click {id}"),
+        Step::Click(Click::Position(x, y)) => format!("click {x} {y}"),
+        Step::Expect(_) => return None,
     })
+}
+
+/// A fault in the case grammar's own words (spec §7.2).
+fn render_fault(fault: &Fault) -> String {
+    match fault {
+        Fault::WriteBlocked { target } => format!("write-blocked {}", target.name()),
+        Fault::AssetMissing { path } => format!("asset-missing {path}"),
+        Fault::AssetCorrupt { path } => format!("asset-corrupt {path}"),
+        Fault::PackFileMissing { path } => format!("pack-file-missing {path}"),
+        Fault::PackFile { path, fixture } => format!("pack-file {path} {fixture}"),
+        Fault::CredentialUnreadable => "credential-unreadable".to_string(),
+        Fault::DecisionError { point, kind } => format!(
+            "decision-error {point} {}",
+            match kind {
+                DecisionFault::Transport => "transport",
+                DecisionFault::Answer => "answer",
+                DecisionFault::Refusal => "refusal",
+            }
+        ),
+        Fault::DecisionSlow { point, duration } => {
+            format!("decision-slow {point} {}ms", duration.as_millis())
+        }
+        Fault::DecisionHold { point } => format!("decision-hold {point}"),
+        Fault::KeyCheck { verdict } => format!(
+            "key-check {}",
+            match verdict {
+                KeyCheckFault::Accepted => "accepted",
+                KeyCheckFault::Rejected => "rejected",
+                KeyCheckFault::Unreachable => "unreachable",
+                KeyCheckFault::Hold => "hold",
+            }
+        ),
+    }
 }
 
 /// One park's identity for the visited rule: scene, line and state map.
