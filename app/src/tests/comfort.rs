@@ -579,6 +579,25 @@ fn auto_holds_at_the_end_of_the_scene() {
 }
 
 #[test]
+fn a_slow_real_frame_does_not_spend_the_auto_dwell() {
+    let pack = temp_pack();
+    let mut app = app_for_pack(pack.path().join("pack"));
+    enable_auto(&mut app);
+    tick_update(&mut app);
+    advance_time(&mut app, 1.5);
+    tick_update(&mut app);
+    let line = wait(&app);
+
+    esc(&mut app);
+    std::thread::sleep(std::time::Duration::from_millis(300));
+    esc(&mut app);
+    assert!(!menu(&app).open);
+    advance_time(&mut app, 0.4);
+    tick_update(&mut app);
+    assert_eq!(wait(&app), line, "wall time must not spend the dwell");
+}
+
+#[test]
 fn the_overlay_freezes_the_auto_dwell_without_accumulating() {
     let pack = temp_pack();
     let mut app = app_for_pack(pack.path().join("pack"));

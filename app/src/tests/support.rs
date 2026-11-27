@@ -43,6 +43,9 @@ pub(super) fn boot_app_unstarted_dev(
 ) -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins)
+        .insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(
+            Duration::ZERO,
+        ))
         .init_resource::<ButtonInput<KeyCode>>()
         .init_resource::<ButtonInput<MouseButton>>()
         .insert_resource(RuntimeConfig::new(pack_root, decisions).with_dev_mode(dev_mode))
