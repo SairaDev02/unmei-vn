@@ -317,7 +317,31 @@ pub fn parse_duration(text: &str, file: &str, line: usize) -> Result<Duration, F
     if !value.is_finite() || value < 0.0 {
         return Err(invalid());
     }
-    Ok(Duration::from_secs_f64(value * unit))
+    Duration::try_from_secs_f64(value * unit).map_err(|_| invalid())
+}
+
+/// The longest `wait` or `decision-slow` duration, the same as the live-answer
+/// limit (spec §3.4).
+pub const MAX_CLOCK_SECONDS: u64 = 60;
+
+/// The largest `advance` count (spec §3.1).
+pub const MAX_ADVANCE_COUNT: u32 = 1000;
+
+/// A duration that also fits within [`MAX_CLOCK_SECONDS`].
+pub(super) fn parse_clock_duration(
+    text: &str,
+    file: &str,
+    line: usize,
+) -> Result<Duration, Finding> {
+    let duration = parse_duration(text, file, line)?;
+    if duration > Duration::from_secs(MAX_CLOCK_SECONDS) {
+        return Err(syntax(
+            file,
+            line,
+            format!("`{text}` is over the {MAX_CLOCK_SECONDS} s limit"),
+        ));
+    }
+    Ok(duration)
 }
 
 pub(super) fn manual_slot(text: &str, file: &str, line: usize) -> Result<u8, Finding> {
@@ -449,7 +473,7 @@ pub(super) fn parse_fault(rest: &[Token], file: &str, line: usize) -> Result<Fau
             };
             Fault::DecisionSlow {
                 point: bare_at(point, file, line)?.to_string(),
-                duration: parse_duration(bare_at(duration, file, line)?, file, line)?,
+                duration: parse_clock_duration(bare_at(duration, file, line)?, file, line)?,
             }
         }
         "decision-hold" => Fault::DecisionHold {
