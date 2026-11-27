@@ -225,8 +225,11 @@ new-game
 
 /// Another app in the same process that keeps reporting one funnel row until it
 /// is told to stop, the way a concurrently running app test does.
-fn spawn_polluter(stop: Arc<std::sync::atomic::AtomicBool>) -> std::thread::JoinHandle<u32> {
-    std::thread::spawn(move || {
+fn spawn_polluter(
+    stop: Arc<std::sync::atomic::AtomicBool>,
+) -> (std::sync::mpsc::Receiver<()>, std::thread::JoinHandle<u32>) {
+    let (ready, started) = std::sync::mpsc::channel();
+    let handle = std::thread::spawn(move || {
         let mut app = App::new();
         app.init_resource::<crate::failure::Notice>()
             .init_resource::<crate::failure::DefensiveHold>()
@@ -240,10 +243,14 @@ fn spawn_polluter(stop: Arc<std::sync::atomic::AtomicBool>) -> std::thread::Join
         while !stop.load(Ordering::Relaxed) {
             app.update();
             updates += 1;
+            if updates == 1 {
+                let _ = ready.send(());
+            }
             std::thread::sleep(std::time::Duration::from_millis(1));
         }
         updates
-    })
+    });
+    (started, handle)
 }
 
 #[test]
@@ -252,7 +259,10 @@ fn a_take_records_only_its_own_apps_failure_lines() {
     let case = parse_case("tests/own-lines.keiko", "keiko 1\n\nnew-game\n").expect("parses");
 
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let polluter = spawn_polluter(stop.clone());
+    let (started, polluter) = spawn_polluter(stop.clone());
+    started
+        .recv_timeout(std::time::Duration::from_secs(60))
+        .expect("the polluting app reported its first line");
     let result = run(request(&case, &pack, &root));
     stop.store(true, Ordering::Relaxed);
     let updates = polluter.join().expect("the polluting app ran");

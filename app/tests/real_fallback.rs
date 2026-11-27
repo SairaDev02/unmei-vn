@@ -143,14 +143,26 @@ fn enter_play(app: &mut App) {
     assert!(!menu(app).open, "the title must actually start play");
 }
 
+/// How long any one wait may last: 30 s times `UNMEI_TEST_PATIENCE` (a whole
+/// number, default 1), so a slow runner scales the bound instead of failing.
+fn patience() -> Duration {
+    let scale = std::env::var("UNMEI_TEST_PATIENCE")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .filter(|scale| *scale > 0)
+        .unwrap_or(1);
+    Duration::from_secs(30) * scale
+}
+
 /// Advance frames on the real task pool until `check` holds. The loopback call
 /// is answered immediately, so this bound only catches a stuck spawn/poll.
 fn pump_until(app: &mut App, mut check: impl FnMut(&App) -> bool) {
-    let deadline = Instant::now() + Duration::from_secs(10);
+    let deadline = Instant::now() + patience();
     while !check(app) {
         assert!(
             Instant::now() < deadline,
-            "the app did not reach the expected state in 10s; waiting on {:?}",
+            "the app did not reach the expected state within {:?}; waiting on {:?}",
+            patience(),
             wait(app)
         );
         std::thread::sleep(Duration::from_millis(2));
@@ -328,13 +340,13 @@ impl Server {
             match listener.accept() {
                 Ok((mut stream, _)) => {
                     let _ = stream.set_nonblocking(false);
-                    let _ = stream.set_read_timeout(Some(Duration::from_secs(5)));
+                    let _ = stream.set_read_timeout(Some(patience()));
                     read_full_request(&mut stream, &thread_request);
                     thread_arrived.store(true, Ordering::SeqCst);
                     // The test observes the park and the pending task before the
                     // first answer can arrive. A bounded wait keeps a panicking
                     // test's cleanup finite.
-                    if release_rx.recv_timeout(Duration::from_secs(10)).is_err() {
+                    if release_rx.recv_timeout(patience()).is_err() {
                         break;
                     }
                     let body = "";
