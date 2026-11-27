@@ -138,28 +138,6 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
         })
         .collect();
     let asset_faults = Arc::new(super::assets::AssetFaults::of(faults.iter()));
-    // The launch credential read is the read-only seam `main` uses, pointed at
-    // the take's own config dir: an `env-key` fixture wins, then a `credential`
-    // fixture, and an absent file is the offline posture (spec §7.1).
-    let launch = crate::credentials::resolve_launch(
-        Some(&sandbox.credential_dir()),
-        sandbox.env_key().as_deref(),
-        |key| {
-            let endpoint = request
-                .live
-                .as_ref()
-                .map(|live| live.endpoint.clone())
-                .unwrap_or_else(|| unmei_engine::DEFAULT_ENDPOINT.to_string());
-            super::decide::live_client(&endpoint, key)
-        },
-    );
-    let config = RuntimeConfig::new(
-        sandbox.pack_root().to_path_buf(),
-        Some(resolver.clone() as Arc<dyn unmei_engine::DecisionResolver>),
-    )
-    .with_dev_mode(request.case.dev())
-    .with_asset_root(sandbox.asset_root().to_path_buf());
-
     let mut state = TakeState {
         observation: super::observe::empty(),
         records: Vec::new(),
@@ -180,53 +158,82 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
     // Only a case that draws pays for the renderer, and only a machine with a
     // fallback adapter can build one at all (spec §13).
     let rendered = super::render::draws(request.case) && super::render::available();
-    let outcome = {
-        let mut app = if rendered {
-            crate::composition::keiko_app_rendered(
-                config,
-                session_log,
-                crate::credentials::ClipboardPort::Memory(None),
-                key_check,
-                crate::DecisionFactory { builder: None },
-                asset_faults,
+    let outcome = 'run: {
+        let built = catch_unwind(AssertUnwindSafe(|| {
+            // The launch credential read is the read-only seam `main` uses, pointed at
+            // the take's own config dir: an `env-key` fixture wins, then a `credential`
+            // fixture, and an absent file is the offline posture (spec §7.1).
+            let launch = crate::credentials::resolve_launch(
+                Some(&sandbox.credential_dir()),
+                sandbox.env_key().as_deref(),
+                |key| {
+                    let endpoint = request
+                        .live
+                        .as_ref()
+                        .map(|live| live.endpoint.clone())
+                        .unwrap_or_else(|| unmei_engine::DEFAULT_ENDPOINT.to_string());
+                    super::decide::live_client(&endpoint, key)
+                },
+            );
+            let config = RuntimeConfig::new(
+                sandbox.pack_root().to_path_buf(),
+                Some(state.resolver.clone() as Arc<dyn unmei_engine::DecisionResolver>),
             )
-        } else {
-            crate::composition::keiko_app(
-                config,
-                session_log,
-                crate::credentials::ClipboardPort::Memory(None),
-                key_check,
-                crate::DecisionFactory { builder: None },
-                asset_faults,
-            )
-        };
-        // The launch read is preloaded, so the sandbox's credential fixture and
-        // the `env-key` fixture are what the app sees (spec §7.1).
-        app.insert_resource(crate::credentials::StartupCredentials {
-            state: launch.state,
-            warning: launch.warning,
-        });
-        #[cfg(test)]
-        for plugin in plugins {
-            app.add_plugins(plugin);
-        }
-        #[cfg(test)]
-        support::apply_test_hook(&mut app);
-        if rendered {
-            // A rendered app's plugins are finished before its first frame, as
-            // `App::run` does: the renderer's resources are unpacked there.
-            app.finish();
-            // Frames land beside the real pack unless the caller chose a folder,
-            // so they outlive the take without `--keep` (spec §13).
-            let (frames, naming) = match &request.frames {
-                Some(dir) => (dir.clone(), super::render::Naming::Exact),
-                None => (
-                    super::render::frames_beside(request.original_pack, &request.case_file),
-                    super::render::Naming::Ordinal,
-                ),
+            .with_dev_mode(request.case.dev())
+            .with_asset_root(sandbox.asset_root().to_path_buf());
+            let mut app = if rendered {
+                crate::composition::keiko_app_rendered(
+                    config,
+                    session_log,
+                    crate::credentials::ClipboardPort::Memory(None),
+                    key_check,
+                    crate::DecisionFactory { builder: None },
+                    asset_faults,
+                )
+            } else {
+                crate::composition::keiko_app(
+                    config,
+                    session_log,
+                    crate::credentials::ClipboardPort::Memory(None),
+                    key_check,
+                    crate::DecisionFactory { builder: None },
+                    asset_faults,
+                )
             };
-            state.render = Some(super::render::Rendered::new(&mut app, frames, naming));
-        }
+            // The launch read is preloaded, so the sandbox's credential fixture and
+            // the `env-key` fixture are what the app sees (spec §7.1).
+            app.insert_resource(crate::credentials::StartupCredentials {
+                state: launch.state,
+                warning: launch.warning,
+            });
+            #[cfg(test)]
+            for plugin in plugins {
+                app.add_plugins(plugin);
+            }
+            #[cfg(test)]
+            support::apply_test_hook(&mut app);
+            if rendered {
+                // A rendered app's plugins are finished before its first frame, as
+                // `App::run` does: the renderer's resources are unpacked there.
+                app.finish();
+                // Frames land beside the real pack unless the caller chose a folder,
+                // so they outlive the take without `--keep` (spec §13).
+                let (frames, naming) = match &request.frames {
+                    Some(dir) => (dir.clone(), super::render::Naming::Exact),
+                    None => (
+                        super::render::frames_beside(request.original_pack, &request.case_file),
+                        super::render::Naming::Ordinal,
+                    ),
+                };
+                state.render = Some(super::render::Rendered::new(&mut app, frames, naming));
+            }
+            app
+        }))
+        .map_err(|payload| panic_finding(payload, &request));
+        let mut app = match built {
+            Ok(app) => app,
+            Err(finding) => break 'run Err(finding),
+        };
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             boot(&mut app, &mut state, &request)?;
             check_focus(&app, &request, Location::File)?;
@@ -238,19 +245,7 @@ fn run_with(request: TakeRequest, #[cfg(test)] plugins: Vec<impl Plugin>) -> Tak
             release_held(&mut app);
             Ok::<(), Finding>(())
         }))
-        .unwrap_or_else(|payload| {
-            let message = payload
-                .downcast_ref::<String>()
-                .cloned()
-                .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
-                .unwrap_or_else(|| "a panic with no message".to_string());
-            Err(Finding::new(
-                request.case_file.clone(),
-                Location::File,
-                rules::PANIC,
-                message,
-            ))
-        });
+        .unwrap_or_else(|payload| Err(panic_finding(payload, &request)));
         // The observation is rebuilt once more so a failing step reports the
         // last frame it actually saw.
         state.observation = observe(&mut app, Vec::new(), state.live.load(Ordering::Relaxed));

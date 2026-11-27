@@ -11,13 +11,13 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-/// The first free `unmei-keiko-<pid>-<n>` root from `nonce` on, created on the
-/// spot so no two takes can pick it. A recycled process id can leave a kept
-/// sandbox behind, and a take that reused it would boot with another run's
-/// slots, read log or settings instead of a clean one (spec §4.2).
-fn fresh_root(mut nonce: u64) -> io::Result<PathBuf> {
+/// The first free `unmei-keiko-<pid>-<n>` root under `base` from `nonce` on,
+/// created on the spot so no two takes can pick it. A recycled process id can
+/// leave a kept sandbox behind, and a take that reused it would boot with
+/// another run's slots, read log or settings instead of a clean one (spec §4.2).
+fn fresh_root_in(base: &Path, mut nonce: u64) -> io::Result<PathBuf> {
     loop {
-        let root = std::env::temp_dir().join(format!("unmei-keiko-{}-{nonce}", std::process::id()));
+        let root = base.join(format!("unmei-keiko-{}-{nonce}", std::process::id()));
         match fs::create_dir(&root) {
             Ok(()) => return Ok(root),
             Err(error) if error.kind() == io::ErrorKind::AlreadyExists => nonce += 1,
@@ -47,8 +47,15 @@ impl Sandbox {
     /// Create the root and its first take folder, and copy the pack's text files
     /// into it.
     pub fn create(original_pack: &Path, take_index: usize) -> io::Result<Self> {
-        let root = fresh_root(NONCE.fetch_add(1, Ordering::Relaxed))?;
-        Self::create_in(&root, original_pack, take_index)
+        Self::create_under(&std::env::temp_dir(), original_pack, take_index)
+    }
+
+    /// [`Sandbox::create`] with its root under `base`.
+    fn create_under(base: &Path, original_pack: &Path, take_index: usize) -> io::Result<Self> {
+        let root = fresh_root_in(base, NONCE.fetch_add(1, Ordering::Relaxed))?;
+        Self::create_in(&root, original_pack, take_index).inspect_err(|_| {
+            let _ = fs::remove_dir_all(&root);
+        })
     }
 
     /// Create the sandbox under `root`, so a test can name its own root.
@@ -159,7 +166,9 @@ impl Sandbox {
     ///
     /// Removal is retried briefly: a task-pool thread can still be flushing the
     /// take's last log line on Windows, and a folder whose file is still open
-    /// cannot be removed. A leftover is always empty when this gives up.
+    /// cannot be removed. When it gives up, the sandbox root stays with
+    /// whatever `remove_dir_all` could not delete, such as the locked file, and
+    /// its path is written to stderr.
     pub fn finish(&self, keep: bool) -> Option<PathBuf> {
         if keep {
             return Some(self.take_dir.clone());
@@ -171,6 +180,10 @@ impl Sandbox {
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
+        eprintln!(
+            "unmei-play: could not remove the take sandbox {}",
+            self.root.display()
+        );
         None
     }
 }
@@ -240,7 +253,7 @@ mod tests {
         fs::create_dir_all(taken.join("take-1")).unwrap();
         fs::write(taken.join("take-1/old.slot1.save.ron"), "stale").unwrap();
 
-        let root = fresh_root(start).unwrap();
+        let root = fresh_root_in(&std::env::temp_dir(), start).unwrap();
         assert_ne!(root, taken, "a fresh root is never an existing one");
         assert_eq!(
             fs::read_dir(&root).unwrap().count(),
@@ -249,6 +262,21 @@ mod tests {
         );
         fs::remove_dir_all(&root).unwrap();
         fs::remove_dir_all(&taken).unwrap();
+    }
+
+    #[test]
+    fn a_failed_pack_copy_leaves_no_sandbox_folder() {
+        let base = tempfile::tempdir().unwrap();
+        let missing = base.path().join("no-such-pack");
+        let watched = base.path().join("temp");
+        fs::create_dir(&watched).unwrap();
+
+        assert!(Sandbox::create_under(&watched, &missing, 1).is_err());
+        assert_eq!(
+            fs::read_dir(&watched).unwrap().count(),
+            0,
+            "no unmei-keiko folder is left behind"
+        );
     }
 
     #[test]

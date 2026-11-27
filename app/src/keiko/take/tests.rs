@@ -121,6 +121,31 @@ fn a_panicking_system_ends_the_take_with_keiko_panic_and_the_next_take_passes() 
     );
 }
 
+/// A plugin that panics while the app is still being set up.
+struct PanicAtSetup;
+
+impl Plugin for PanicAtSetup {
+    fn build(&self, _app: &mut App) {
+        panic!("the setup panicked on purpose");
+    }
+}
+
+#[test]
+fn a_panic_while_setting_up_the_app_is_a_keiko_panic_and_removes_the_sandbox() {
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case("tests/boom.keiko", "keiko 1\n").expect("the case parses");
+    let mut asked = request(&case, &pack, &root);
+    asked.keep = true;
+    let result = run_with(asked, vec![PanicAtSetup]);
+
+    let finding = result.outcome.expect_err("a setup panic ends the take");
+    assert_eq!(finding.rule, rules::PANIC);
+    assert!(finding.message.contains("the setup panicked on purpose"));
+    let kept = result.kept.expect("--keep reports the folder");
+    assert!(kept.exists(), "a kept sandbox is not removed");
+    std::fs::remove_dir_all(kept.parent().unwrap()).unwrap();
+}
+
 #[test]
 fn a_world_that_changes_every_frame_ends_unsettled_at_the_600_frame_guard() {
     let (_dir, root, pack) = demo_pack();

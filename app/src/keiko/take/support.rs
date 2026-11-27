@@ -46,6 +46,24 @@ pub(super) fn build_resolver(request: &TakeRequest, clock: Arc<AtomicU64>) -> Ar
     }
 }
 
+/// The `keiko.panic` finding for a caught panic's payload.
+pub(super) fn panic_finding(
+    payload: Box<dyn std::any::Any + Send>,
+    request: &TakeRequest,
+) -> Finding {
+    let message = payload
+        .downcast_ref::<String>()
+        .cloned()
+        .or_else(|| payload.downcast_ref::<&str>().map(|text| text.to_string()))
+        .unwrap_or_else(|| "a panic with no message".to_string());
+    Finding::new(
+        request.case_file.clone(),
+        Location::File,
+        rules::PANIC,
+        message,
+    )
+}
+
 /// How many timed frames `duration` lasts: `ceil(nanos * 60 / 1e9)`, in exact
 /// integer arithmetic so `wait 1s` is 60 frames rather than 61 (spec §3.4).
 pub fn frames_for(duration: Duration) -> u64 {
