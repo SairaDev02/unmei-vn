@@ -274,8 +274,13 @@ fn fault_reference(fault: &Fault, facts: &Facts) -> Option<String> {
         Fault::DecisionError { point, .. }
         | Fault::DecisionSlow { point, .. }
         | Fault::DecisionHold { point } => {
-            let (npc_id, question) = split_point(point).ok()?;
-            let npc = facts.pack.npcs.get(npc_id)?;
+            let (npc_id, question) = match split_point(point) {
+                Ok(pair) => pair,
+                Err(message) => return Some(message),
+            };
+            let Some(npc) = facts.pack.npcs.get(npc_id) else {
+                return Some(format!("unknown NPC `{npc_id}`"));
+            };
             if npc.decisions.contains_key(question) {
                 None
             } else {
@@ -345,6 +350,9 @@ fn expect_reference(expect: &Expect, facts: &Facts) -> Option<String> {
                 .any(|scene| scene.labels.contains_key(name));
             (!anywhere).then(|| format!("unknown label `{name}`"))
         }
+        Expect::Sprite { npc, .. } | Expect::SpriteNone { npc } => {
+            (!facts.pack.npcs.contains_key(npc)).then(|| format!("unknown NPC `{npc}`"))
+        }
         Expect::State { key, value } => state_reference(key, value, facts),
         Expect::Read { scene, line, .. } => {
             let Some(script) = facts.pack.scenes.get(scene) else {
@@ -371,8 +379,6 @@ fn expect_reference(expect: &Expect, facts: &Facts) -> Option<String> {
         | Expect::NoticeText { .. }
         | Expect::NoticeNone
         | Expect::Bg(_)
-        | Expect::Sprite { .. }
-        | Expect::SpriteNone { .. }
         | Expect::Music(_)
         | Expect::Auto(_)
         | Expect::Skip(_)
