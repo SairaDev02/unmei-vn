@@ -88,6 +88,15 @@ pub(crate) fn menu_input(
         clicked = clicked.filter(|action| *action == MenuAction::GalleryStillClose);
     }
 
+    if menu.confirm.is_some() {
+        clicked = clicked.filter(|action| {
+            matches!(
+                action,
+                MenuAction::ConfirmAccept | MenuAction::ConfirmCancel
+            )
+        });
+    }
+
     // Clicking elsewhere while the key field is edited discards the typed text
     // and returns to the walk, then the click is applied normally
     // (`docs/title-and-menu.md` § Decisions settings §4.2).

@@ -1878,6 +1878,48 @@ expect surface title
     let _ = std::fs::remove_dir_all(dir);
 }
 
+/// A press on the overlay's chrome while a confirm is open reaches neither
+/// the control under the dimmer nor the view behind it: the confirm stays up
+/// and the surface keeps its view.
+#[test]
+fn a_press_on_overlay_chrome_under_an_open_confirm_does_nothing() {
+    let dir = temp_dir();
+    let pack = pack(
+        &dir,
+        &[(
+            "chrome",
+            "keiko 1
+setting play.text_speed 0
+
+click title.new-game
+expect surface play
+menu
+press Tab
+press Tab
+press Tab
+press Tab
+press Tab
+press Enter
+expect surface settings
+click overlay.load-tab
+expect control overlay.load-tab focused
+activate overlay.exit-to-title
+expect surface confirm
+click overlay.load-tab
+expect surface confirm
+expect control confirm.yes focused
+click overlay.save-tab
+expect control confirm.yes focused
+click confirm.no
+expect surface settings
+",
+        )],
+    );
+    let output = run(&pack, &["--take", "chrome"]);
+    assert_eq!(output.status.code(), Some(0), "{}", stdout(&output));
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Rule 37: with no fallback adapter, `frame` (and `click`) fails with
 /// `keiko.render.unavailable`, and the steps before it still apply.
 #[test]
