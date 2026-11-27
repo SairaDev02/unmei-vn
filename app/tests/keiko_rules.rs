@@ -127,13 +127,18 @@ use std::sync::atomic::{AtomicU64, Ordering};
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn temp_dir() -> PathBuf {
-    let dir = std::env::temp_dir().join(format!(
-        "keiko-rules-{}-{}",
-        std::process::id(),
-        COUNTER.fetch_add(1, Ordering::Relaxed)
-    ));
-    std::fs::create_dir_all(&dir).unwrap();
-    dir
+    loop {
+        let dir = std::env::temp_dir().join(format!(
+            "keiko-rules-{}-{}",
+            std::process::id(),
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        ));
+        match std::fs::create_dir(&dir) {
+            Ok(()) => return dir,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(error) => panic!("create {}: {error}", dir.display()),
+        }
+    }
 }
 
 const OPENING: &str = "keiko 1\nsetting play.text_speed 30\n\nnew-game\n\
@@ -1027,10 +1032,10 @@ fn a_save_fixture_lands_at_its_sidecar_path() {
 #[test]
 #[ignore = "needs NANOGPT_API_KEY and the network"]
 fn a_live_answer_lands_inside_the_real_time_wait() {
-    if std::env::var_os("NANOGPT_API_KEY").is_none_or(|value| value.is_empty()) {
-        eprintln!("NANOGPT_API_KEY is not set; the live take is skipped");
-        return;
-    }
+    assert!(
+        std::env::var_os("NANOGPT_API_KEY").is_some_and(|value| !value.is_empty()),
+        "set NANOGPT_API_KEY (env only) to run the live take"
+    );
     let dir = temp_dir();
     let pack = pack(
         &dir,

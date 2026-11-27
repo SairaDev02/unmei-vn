@@ -396,11 +396,23 @@ fn the_menu_walk_over_the_demo_pack_finds_nothing_and_repeats_itself() {
     let (_dir, root, pack) = demo_pack();
     let first = crate::keiko::explore::menus::run(&root, &pack, 300, None, false);
     assert!(first.findings.is_empty(), "{:#?}", first.findings);
+    assert!(first.used > 0, "the walk took no steps");
+    let focused: u64 = first.coverage["surfaces"]
+        .as_array()
+        .expect("coverage lists surfaces")
+        .iter()
+        .map(|surface| surface["focused"].as_u64().unwrap_or(0))
+        .sum();
+    assert!(
+        focused > 0,
+        "the walk focused no control: {}",
+        first.coverage
+    );
     let second = crate::keiko::explore::menus::run(&root, &pack, 300, None, false);
     assert_eq!(first.to_json(), second.to_json());
     let short = crate::keiko::explore::menus::run(&root, &pack, 40, None, false);
     assert!(short.budget_spent);
-    assert_eq!(short.used, short.used.min(40));
+    assert!(short.used <= 40, "used {} of 40", short.used);
 }
 
 static DRAWN_GAPS: Mutex<Vec<String>> = Mutex::new(Vec::new());
@@ -513,11 +525,16 @@ fn a_route_reaches_every_listed_control_on_every_surface_the_fixture_packs_reach
             let case = parse_case(&file, &text).expect("the fixture case parses");
             let mut take_request = request(&case, &pack, &root);
             take_request.case_file = file;
-            let _ = super::with_test_hook(
+            let result = super::with_test_hook(
                 |app| {
                     app.add_systems(Last, plan_every_listed_control);
                 },
                 || super::run(take_request),
+            );
+            assert!(
+                result.outcome.is_ok(),
+                "{name}/{path:?}: {:?}",
+                result.outcome
             );
         }
     }
