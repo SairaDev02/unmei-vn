@@ -5,9 +5,9 @@ use super::model::{
     Click, ControlCondition, DecisionState, Expect, LogLevel, Pick, SkipMode, SlotExpect, Step,
 };
 use super::parse::{
-    bare_at, manual_slot, on_off, open_closed, optional_id, parse_duration, parse_f32,
+    bare_at, manual_slot, on_off, open_closed, optional_id, parse_clock_duration, parse_f32,
     parse_load_target, parse_write_target, quoted_only, quoted_unless_none, syntax, value_text,
-    Token,
+    Token, MAX_ADVANCE_COUNT,
 };
 use super::rules;
 use crate::finding::Finding;
@@ -39,6 +39,13 @@ pub(super) fn parse_step(
                     .map_err(|_| syntax(file, line, "advance takes a whole number"))?,
                 _ => return Err(syntax(file, line, "advance [n]")),
             };
+            if count > MAX_ADVANCE_COUNT {
+                return Err(syntax(
+                    file,
+                    line,
+                    format!("advance takes at most {MAX_ADVANCE_COUNT}"),
+                ));
+            }
             Step::Advance(count)
         }
         "pick" => Step::Pick(match rest {
@@ -103,7 +110,11 @@ pub(super) fn parse_step(
             let [duration] = rest else {
                 return Err(syntax(file, line, "wait <duration>"));
             };
-            Step::Wait(parse_duration(bare_at(duration, file, line)?, file, line)?)
+            Step::Wait(parse_clock_duration(
+                bare_at(duration, file, line)?,
+                file,
+                line,
+            )?)
         }
         "release-decision" => {
             let [point] = rest else {

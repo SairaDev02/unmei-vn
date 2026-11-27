@@ -99,7 +99,7 @@ A step is an **intent**, a **raw input**, a **clock move**, an **assertion** or 
 |---|---|
 | `new-game` | Activates `title.new-game` (below). |
 | `continue` | Activates `title.continue`. |
-| `advance [n]` | Presses `Space` `n` times (default 1), settling after each. A line still revealing takes one press to finish revealing, exactly as for a player. |
+| `advance [n]` | Presses `Space` `n` times (default 1), settling after each. A line still revealing takes one press to finish revealing, exactly as for a player. `n` is at most 1000. A larger `n` is a `keiko.case.syntax` finding at parse time. *(Amended 2026-11-27: the limit.)* |
 | `pick <n>` / `pick "<text>"` | Presses `Digit<n>` for the option with that 1-based index, or with that exact source text. A text that matches no option, or more than one, fails the step with `keiko.step.no-target`. |
 | `menu` | Presses `Escape` (opens the overlay, or backs out of the current view). |
 | `activate <control>` | Moves focus to the control along its planned route (below), then presses `Enter`. It fails with `keiko.step.no-target` if the control is not on the current surface or no route reaches it, and with `keiko.step.disabled` if it is disabled. *(Amended 2026-11-27: a planned route, not the arrows tried in a fixed order.)* |
@@ -160,6 +160,8 @@ Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/me
 | `unblock <target>` | Removes a `write-blocked` obstruction (§7.2). |
 
 A fault step for a fault the case did not declare fails with `keiko.case.reference`.
+
+**Limits (added 2026-11-27).** A duration is malformed, and a case with one fails with `keiko.case.syntax` on its line, when it is too large for the runtime's `Duration`, so no value panics the parser. `wait` and the `decision-slow` fault (§7.2) take at most 60 s, the same as the live-answer limit (§6). A longer one is also a `keiko.case.syntax` finding at parse time, so `--check` catches it before any take runs. `wait 60s` parses.
 
 ### 3.5 Assertions (K11, K12)
 
@@ -493,6 +495,8 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 48. `--menus` without `--explore` exits 2.
 49. `expect control title.new-game rect` with the node's own geometry passes. It fails with `keiko.expect` when any value is off by more than the tolerance, and reports the observed rect. An absent control reports `absent`. With no fallback adapter, it fails with `keiko.render.unavailable`.
 50. A rect with a negative value, a tolerance without a number, or fewer than four numbers fails with `keiko.case.syntax`.
+51. `wait 1e20s` and `fault decision-slow ace.greet 1e20s` fail with `keiko.case.syntax` on their line and do not panic.
+52. `wait 61s`, `fault decision-slow ace.greet 61s` and `advance 1001` each fail with `keiko.case.syntax` on their line. `wait 60s` and `advance 1000` parse.
 
 ## 16. Amendments
 
@@ -522,6 +526,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 
   Every change is additive, so the case version stays 1.
 - **2026-11-27 (slice 3 build):** §4.3 counts a card focus on an empty Gallery or Timeline as no focus, and rules 45 and 46 expect one finding per distinct stop instead of exactly one. The [requirements](keiko.md) K11, K23, K24 and K25 are amended in place, and the [glossary](../GLOSSARY.md) entries for Exploration and Finding name the menu walk.
+- **2026-11-27 (issues #184, #194):** A duration too large for `Duration` is a `keiko.case.syntax` finding instead of a panic. The maintainer decided that `wait` and `decision-slow` take at most 60 s, that `advance` takes a count of at most 1000, and that going over a limit is a parse-time `keiko.case.syntax` finding. §3.1 and §3.4 state the limits, and §15 gains rules 51 and 52. The grammar is unchanged, so the case version stays 1.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

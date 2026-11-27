@@ -130,6 +130,35 @@ fn a_duration_past_the_range_of_duration_is_a_syntax_finding_and_does_not_panic(
 }
 
 #[test]
+fn a_wait_or_a_decision_slow_over_sixty_seconds_is_a_syntax_finding() {
+    for text in [
+        "keiko 1\nwait 61s\n",
+        "keiko 1\nwait 60001ms\n",
+        "keiko 1\nfault decision-slow ace.greet 61s\n",
+    ] {
+        let finding = parse(text).expect_err("must fail");
+        assert_eq!(finding.rule, rules::CASE_SYNTAX, "{text:?}");
+        assert_eq!(finding.path, Location::Line(2), "{text:?}");
+    }
+    assert_eq!(
+        parse_ok("keiko 1\nwait 60s\n").steps[0].step,
+        Step::Wait(Duration::from_secs(60))
+    );
+    parse_ok("keiko 1\nfault decision-slow ace.greet 60s\n");
+}
+
+#[test]
+fn an_advance_count_over_a_thousand_is_a_syntax_finding() {
+    let finding = parse("keiko 1\nadvance 1001\n").expect_err("must fail");
+    assert_eq!(finding.rule, rules::CASE_SYNTAX);
+    assert_eq!(finding.path, Location::Line(2));
+    assert_eq!(
+        parse_ok("keiko 1\nadvance 1000\n").steps[0].step,
+        Step::Advance(1000)
+    );
+}
+
+#[test]
 fn every_header_parses_before_the_first_step() {
     let case = parse_ok(
         "keiko 1\n\
