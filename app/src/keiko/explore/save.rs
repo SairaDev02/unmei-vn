@@ -15,6 +15,11 @@ use super::Branch;
 /// The closing assertion a saved finding carries, so the case fails while the
 /// finding remains (spec §9.4).
 fn closing_assertion(finding: &Finding, park: Option<&Observation>, pack: &Pack) -> Vec<String> {
+    if finding.rule == rules::FOCUS_HIDDEN {
+        return vec![
+            "# The take's focus check fails while the focus can go hidden (spec §9.4).".to_string(),
+        ];
+    }
     if finding.rule == rules::NOTICE {
         return vec!["expect notice none".to_string()];
     }

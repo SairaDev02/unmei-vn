@@ -18,7 +18,8 @@ pub fn evaluate(
     expect: &Expect,
     observed: &Observation,
     all_log: &[LogLine],
-    app: &App,
+    app: &mut App,
+    drawn: bool,
 ) -> Result<(), Finding> {
     let fail = |expected: String| {
         Finding::new(
@@ -139,6 +140,40 @@ pub fn evaluate(
                     },
                     control.label
                 ))),
+            }
+        }
+        Expect::ControlRect {
+            id,
+            rect,
+            tolerance,
+        } => {
+            if !drawn {
+                return Err(Finding::new(
+                    "case",
+                    Location::Field("step `expect control`".to_string()),
+                    rules::RENDER_UNAVAILABLE,
+                    "no software rasterizer is available in this take",
+                ));
+            }
+            let [x, y, w, h] = rect;
+            let wanted = format!("`{id}` rect {x} {y} {w} {h} ±{tolerance}");
+            match crate::keiko::render::control_node(app.world_mut(), id) {
+                Ok(found) => {
+                    let got = [found.min.x, found.min.y, found.width(), found.height()];
+                    if got
+                        .iter()
+                        .zip(rect)
+                        .all(|(got, want)| (got - want).abs() <= *tolerance)
+                    {
+                        Ok(())
+                    } else {
+                        Err(fail(format!(
+                            "{wanted} (observed rect {} {} {} {})",
+                            got[0], got[1], got[2], got[3]
+                        )))
+                    }
+                }
+                Err(_) => Err(fail(format!("{wanted} (observed absent)"))),
             }
         }
         Expect::ControlLabel { id, label } => {
@@ -416,6 +451,7 @@ fn expect_name(expect: &Expect) -> &'static str {
         Expect::NoticeNone => "notice",
         Expect::Control { .. } => "control",
         Expect::ControlLabel { .. } => "control",
+        Expect::ControlRect { .. } => "control",
         Expect::Bg(_) => "bg",
         Expect::Sprite { .. } | Expect::SpriteNone { .. } => "sprite",
         Expect::Music(_) => "music",

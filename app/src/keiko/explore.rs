@@ -7,6 +7,7 @@ use std::path::Path;
 use serde_json::{json, Value};
 
 mod coverage;
+pub mod menus;
 mod save;
 use coverage::Coverage;
 use save::{save_finding, Collected};

@@ -1,0 +1,31 @@
+keiko 1
+# E3 (empty Timeline): a pack that declares no scene order opens the Timeline
+# with its empty-state line and no card. Enter and every arrow leave the surface
+# as it is, nothing restarts, and Esc backs out to the slot grid.
+setting play.text_speed 0
+
+new-game
+expect line "E opening"
+menu
+press Tab
+press Tab
+press Tab
+expect control overlay.timeline focused
+press Enter
+expect surface timeline
+expect control timeline.card.1 absent
+press Enter
+expect surface timeline
+expect notice none
+press ArrowDown
+press ArrowRight
+press ArrowUp
+press ArrowLeft
+expect surface timeline
+expect control timeline.card.1 absent
+expect notice none
+press Escape
+expect surface menu
+press Escape
+expect surface play
+expect line "E opening"

@@ -255,6 +255,13 @@ pub enum Expect {
         id: String,
         label: String,
     },
+    /// The control's laid-out node: `[x, y, w, h]` in reference pixels, each
+    /// within `tolerance` (spec §3.5).
+    ControlRect {
+        id: String,
+        rect: [f32; 4],
+        tolerance: f32,
+    },
     Bg(Option<String>),
     Sprite {
         npc: String,

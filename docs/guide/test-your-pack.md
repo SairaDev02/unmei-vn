@@ -130,7 +130,12 @@ Each step does one thing. These are the four kinds a case uses most:
 
 An intent reaches the player as real input messages, exactly as a key press would, so input ownership
 and the held-key rules hold inside a take. `activate` names a control by its role id, such as
-`title.new-game`, `overlay.slot.2` or `confirm.yes`, never by its displayed text.
+`title.new-game`, `overlay.slot.2` or `confirm.yes`, never by its displayed text. It walks to the
+control by the shortest route of arrow and `Tab` presses, as a player would, then presses `Enter`.
+A control no key reaches, such as the Settings back control, fails the step with
+`keiko.step.no-target`, so a case uses `click` or `menu` there.
+Every take also checks the focus after each step: when the focus lands on a control the current
+surface does not draw, the take fails with `keiko.focus.hidden` at that step.
 [`docs/keiko-spec.md` § 3](../keiko-spec.md#3-steps-k9k12) lists every step with its exact input, and
 [§ 3.2](../keiko-spec.md#32-control-ids-k10) lists every control id.
 
@@ -143,6 +148,9 @@ test, so a control that another surface covers takes no click, exactly as for a 
 software rasterizer, WARP on Windows and Mesa's llvmpipe on Linux. A machine without one fails the
 step with `keiko.render.unavailable` and still runs the steps before it
 ([`docs/keiko-spec.md` § 13](../keiko-spec.md#13-slice-2-frames-and-position-clicks-k14-k9)).
+`expect control <id> rect <x> <y> <w> <h> [±<t>]` checks where a control is laid out in the same
+frame: its top-left corner and its size, each within `t` pixels, `0.5` when you give none. It
+compares positions and sizes only, never pixels, and needs the same rasterizer.
 
 An assertion starts with `expect` and compares one part of what the player sees or stores: the
 surface; the Monitor; the speaker, the full say-line, whether the reveal finished or the choice
@@ -241,6 +249,18 @@ reached is not expanded again.
 - Coverage is information, never a failure. It names, per scene, the say-lines and choices reached
   and the scenes never entered, and a spent budget ends the walk with `budget spent`.
 - `--explore` exits 1 when it saved at least one finding, so a script can gate on it.
+
+`--explore --menus` walks the menus instead of the story. From the title it presses every arrow,
+`Tab`, `Enter` and `Esc` from each focus on each menu surface, breadth first, within the same budget.
+On the play surface it only presses `Esc`, so it reaches the pause menu without reading on.
+
+- A menu finding is a panic, a world that never settles, a focus on a control the surface does not
+  draw (`keiko.focus.hidden`), or a surface that four `Esc` presses cannot leave for the title or
+  play (`keiko.unwind`).
+- A `keiko.focus.hidden` finding is saved like any other, and the saved case fails at the step that
+  hides the focus. A `keiko.unwind` finding is reported but not saved, because no assertion can
+  express it.
+- Coverage names, per surface, the controls the walk focused out of the controls listed.
 
 ## 7. Draw a line or a scene without a case
 

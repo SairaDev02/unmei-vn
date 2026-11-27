@@ -96,12 +96,68 @@ fn indexed(id: &str, family: &str) -> Option<usize> {
     number.checked_sub(1)
 }
 
-/// The ids on the current surface, in walk order.
+/// The current surface's control list (spec §3.2), in walk order. The
+/// overlay's Settings, Gallery and Timeline views draw its top bar narrowed to
+/// Save and Load, so their lists begin with those two; the title's doors draw
+/// no top bar.
 pub fn surface_ids(
     menu: &MenuState,
     gallery_entries: usize,
     timeline_entries: usize,
 ) -> Vec<String> {
+    let mut ids = view_ids(menu, gallery_entries, timeline_entries);
+    let sub_view = matches!(
+        menu.view,
+        MenuView::Settings | MenuView::Gallery | MenuView::Timeline
+    );
+    let still = menu.view == MenuView::Gallery && menu.gallery_still;
+    if menu.open && menu.confirm.is_none() && sub_view && !still && !menu.title_surface_up() {
+        ids.splice(
+            0..0,
+            ["overlay.save-tab", "overlay.load-tab"].map(str::to_string),
+        );
+    }
+    ids
+}
+
+/// The focus check (spec §4.3): a message naming the focus and the surface
+/// when the surface lists controls and the focus names none of them.
+pub fn hidden_focus(world: &World) -> Option<String> {
+    let menu = world.get_resource::<MenuState>()?;
+    let (gallery_entries, timeline_entries) = world
+        .get_resource::<crate::Runtime>()
+        .map(|runtime| {
+            (
+                runtime.runner.pack().gallery_entries().len(),
+                runtime.runner.pack().timeline_entries().len(),
+            )
+        })
+        .unwrap_or((0, 0));
+    let ids = surface_ids(menu, gallery_entries, timeline_entries);
+    if ids.is_empty() {
+        return None;
+    }
+    let empty_grid = match menu.focus {
+        MenuFocus::GalleryCard(_) => menu.view == MenuView::Gallery && gallery_entries == 0,
+        MenuFocus::TimelineCard(_) => menu.view == MenuView::Timeline && timeline_entries == 0,
+        _ => false,
+    };
+    if empty_grid {
+        return None;
+    }
+    let focused = id_for_focus(menu.focus);
+    if focused.as_ref().is_some_and(|id| ids.contains(id)) {
+        return None;
+    }
+    let name = focused.unwrap_or_else(|| format!("{:?}", menu.focus));
+    Some(format!(
+        "the focus `{name}` is not on the {} surface's control list ({})",
+        super::steps::surface_name(menu),
+        ids.join(", ")
+    ))
+}
+
+fn view_ids(menu: &MenuState, gallery_entries: usize, timeline_entries: usize) -> Vec<String> {
     if menu.confirm.is_some() {
         return vec!["confirm.yes".to_string(), "confirm.no".to_string()];
     }

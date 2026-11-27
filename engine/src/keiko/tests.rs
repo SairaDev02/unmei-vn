@@ -357,3 +357,41 @@ fn the_control_table_is_the_validator_s_authority() {
         validate_text("keiko 1\nactivate overlay.resume\nexpect control confirm.no focused\n");
     assert_eq!(findings, Vec::new());
 }
+
+#[test]
+fn a_rect_assertion_parses_its_four_numbers_and_an_optional_tolerance() {
+    let case = parse_ok(
+        "keiko 1\nexpect control title.new-game rect 10 20.5 300 40\nexpect control title.quit rect 0 0 1280 720 \u{b1}2\n",
+    );
+    assert_eq!(
+        case.steps[0].step,
+        Step::Expect(Expect::ControlRect {
+            id: "title.new-game".to_string(),
+            rect: [10.0, 20.5, 300.0, 40.0],
+            tolerance: 0.5,
+        })
+    );
+    assert_eq!(
+        case.steps[1].step,
+        Step::Expect(Expect::ControlRect {
+            id: "title.quit".to_string(),
+            rect: [0.0, 0.0, 1280.0, 720.0],
+            tolerance: 2.0,
+        })
+    );
+}
+
+#[test]
+fn a_malformed_rect_assertion_is_a_syntax_error() {
+    for step in [
+        "expect control title.quit rect 0 0 10",
+        "expect control title.quit rect -1 0 10 10",
+        "expect control title.quit rect 0 0 10 10 \u{b1}",
+        "expect control title.quit rect 0 0 10 10 \u{b1}-1",
+        "expect control title.quit rect 0 0 10 wide",
+        "expect control title.quit rect 0 0 10 10 2",
+    ] {
+        let finding = parse(&format!("keiko 1\n{step}\n")).expect_err(step);
+        assert_eq!(finding.rule, rules::CASE_SYNTAX, "{step}");
+    }
+}

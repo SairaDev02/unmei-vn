@@ -1,0 +1,23 @@
+keiko 1
+# E1 (empty Gallery, title's door): a pack that declares no art opens the
+# Gallery from the title with its empty-state line and no card. Enter and every
+# arrow leave the surface as it is, and Esc backs out to the title.
+setting play.text_speed 0
+
+activate title.gallery
+expect surface gallery
+expect control gallery.card.1 absent
+press Enter
+expect surface gallery
+expect notice none
+press ArrowDown
+press ArrowRight
+press ArrowUp
+press ArrowLeft
+press Tab
+expect surface gallery
+expect control gallery.card.1 absent
+expect notice none
+press Escape
+expect surface title
+expect control title.new-game focused

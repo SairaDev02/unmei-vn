@@ -53,7 +53,7 @@ pub use labels::{
     TIMELINE_CONFIRM_DETAIL, TIMELINE_EMPTY, TIMELINE_EXPLANATION, TIMELINE_HEADING,
     TIMELINE_LEGEND, TIMELINE_LOCKED, TITLE_LEGEND, TITLE_ORDER,
 };
-pub use navigation::{gallery_browse, gallery_move, timeline_move, GalleryDir};
+pub use navigation::{gallery_browse, gallery_move, timeline_move, walk, GalleryDir, WalkCounts};
 // The re-export keeps the pre-split `menu::` load paths valid for tests.
 #[cfg(test)]
 pub(crate) use persistence::{complete_load, LoadSurface};

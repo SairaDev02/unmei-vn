@@ -13,7 +13,7 @@ keywords:
 
 **Status (2026-11-18).** Slices 1 and 2 are **built**, on the integration branch `spec/28-keiko`. A case may carry `frame` and `click`: both draw the player's own composition at 1280×720 on wgpu's fallback adapter ([`app/src/keiko/render.rs`](../app/src/keiko/render.rs)), and a machine without one fails them with `keiko.render.unavailable`. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
-**Slice 3 (specified 2026-11-27, issue #179).** Slice 3 is specified but not built. It adds planned routes for `activate` (§3.1), layout assertions (§3.5, §13), the always-on focus check (§4.3), the menu walk (§9.5) and fixture packs for menu states the demo pack cannot reach (§14).
+**Slice 3 (specified 2026-11-27, issue #179).** Slice 3 is built on the branch `claude/keiko-improvements-d652c3`. It adds planned routes for `activate` (§3.1), layout assertions (§3.5, §13), the always-on focus check (§4.3), the menu walk (§9.5) and fixture packs for menu states the demo pack cannot reach (§14).
 
 **Slices.** The build ships in three slices. Each slice is complete and mergeable on its own.
 
@@ -220,7 +220,7 @@ A **take** executes one case from its first line to its last, in its own sandbox
 - **The settle rule.** After boot and after every input step, the take runs zero-duration frames until the world is **quiet**: no decision task in flight (unless a hold or slow fault holds it), every asset handle the presentation watches has loaded or failed, and two consecutive frames leave the observation unchanged. A press needs one frame for its release, which settling covers.
 - **Boot.** A take first settles on the title, or for a `start` case at the first park (§12).
 - **Not settling.** If 600 frames pass without becoming quiet, the take ends as failed with `keiko.unsettled`.
-- **The focus check (added 2026-11-27).** After boot and after every step, once the world has settled, the take checks the menu's focus. The take fails with `keiko.focus.hidden` when the surface's control list (§3.2) is not empty and the focus names no control on that list. The finding names the focus and the surface. A surface with an empty list is not checked. The check runs in every take and every mode, so a case never asks for it.
+- **The focus check (added 2026-11-27).** After boot and after every step, once the world has settled, the take checks the menu's focus. The take fails with `keiko.focus.hidden` when the surface's control list (§3.2) is not empty and the focus names no control on that list. The finding names the focus and the surface. A surface with an empty list is not checked. On an empty Gallery or Timeline the player has no card focus, whatever card its focus value holds ([Timeline](title-and-menu.md#timeline)), so a card focus there counts as no focus and passes. *(Amended 2026-11-27, in the build: the overlay's empty Timeline lists Save and Load, so its list is not empty.)* The check runs in every take and every mode, so a case never asks for it.
 - **Panics.** Each take runs under `catch_unwind`. A panic ends the take as failed with `keiko.panic` and its message, and the next take builds a fresh app.
 - **The end.** A take passes when every step applied and every assertion passed.
 
@@ -487,8 +487,8 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 42. `activate settings.back`, `activate legacy.cancel` and `activate` on a control no route reaches each fail with `keiko.step.no-target`, naming the starting focus and the number of stops searched, and press nothing.
 43. In a take that draws, every control on the control list of every surface the fixture packs reach has a visible laid-out node. The overlay's Settings, Gallery and Timeline lists hold `overlay.save-tab` and `overlay.load-tab`, and the title's door lists do not.
 44. A test-only plugin that moves the focus onto a control the surface does not list (such as `overlay.resume` on the Gallery after `ArrowDown` from the last card) fails a take with `keiko.focus.hidden` at that step, in every mode.
-45. Under the same plugin, `--explore --menus` saves exactly one `keiko.focus.hidden` finding. That case fails under `--take`, and passes once the plugin is removed.
-46. A test-only plugin that makes `Esc` inert on the Settings view makes `--explore --menus` report one unsaved `keiko.unwind` finding.
+45. Under the same plugin, `--explore --menus` raises only `keiko.focus.hidden` findings, one per distinct stop it reaches the defect from, and saves each one. Each saved case fails under `--take`, and passes once the plugin is removed. *(Amended 2026-11-27, in the build: the Gallery's two doors are two stops, so the plugin yields more than one finding.)*
+46. A test-only plugin that makes `Esc` inert on the Settings view makes `--explore --menus` report only unsaved `keiko.unwind` findings, one of them for the Settings surface. *(Amended 2026-11-27, in the build: a confirm over Settings unwinds into the same inert view.)*
 47. `--explore --menus` over the demo pack and over each fixture pack saves no finding, and a rerun gives byte-identical JSON. The same budget gives the same findings and coverage, and a smaller budget reports `budget spent`.
 48. `--menus` without `--explore` exits 2.
 49. `expect control title.new-game rect` with the node's own geometry passes. It fails with `keiko.expect` when any value is off by more than the tolerance, and reports the observed rect. An absent control reports `absent`. With no fallback adapter, it fails with `keiko.render.unavailable`.
@@ -520,7 +520,8 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
   - §14 gains pack E, the new G and L cases, and the gate's menu walk.
   - §15 gains rules 39–50.
 
-  Every change is additive, so the case version stays 1. The [requirements](keiko.md) K11, K23, K24 and K25 are amended in place, and the [glossary](../GLOSSARY.md) entries for Exploration and Finding name the menu walk.
+  Every change is additive, so the case version stays 1.
+- **2026-11-27 (slice 3 build):** §4.3 counts a card focus on an empty Gallery or Timeline as no focus, and rules 45 and 46 expect one finding per distinct stop instead of exactly one. The [requirements](keiko.md) K11, K23, K24 and K25 are amended in place, and the [glossary](../GLOSSARY.md) entries for Exploration and Finding name the menu walk.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

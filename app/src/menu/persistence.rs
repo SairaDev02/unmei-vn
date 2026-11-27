@@ -8,8 +8,8 @@ use crate::session::{LoadOrigin, LoadOutcome, ReadOutcome, SessionInput};
 use crate::settings::{self, SettingsState};
 use crate::slots;
 
-use super::state::{MenuFocus, MenuState};
-use super::transition::{close, enter_play};
+use super::state::{ConfirmKind, MenuFocus, MenuState};
+use super::transition::{close, confirm_focus, enter_play};
 
 /// The single manual-save path: stamp, write one slot, refresh the cards on
 /// success, notice row 14 on failure. A failure leaves the slot untouched. The
@@ -27,6 +27,7 @@ pub(super) fn save_slot(menu: &mut MenuState, session: &mut SessionInput, slot: 
             ));
         }
     }
+    menu.focus = confirm_focus(ConfirmKind::Overwrite(slot));
 }
 
 /// The single overlay load path: read the slot, then complete the overlay's

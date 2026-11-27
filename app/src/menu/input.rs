@@ -17,14 +17,9 @@ use crate::RuntimeConfig;
 use super::action::{action_for_focus, apply, MenuAction};
 use super::key_field::{commit_key, discard_key_field};
 use super::labels::focus_track;
-use super::navigation::{
-    arrow_target, focus_by_digit, gallery_arrow, gallery_browse, next_top_bar,
-    next_top_bar_subview, settings_target, timeline_arrow, title_target,
-};
+use super::navigation::{gallery_browse, walk_pressed, WalkCounts};
 use super::persistence::flush_settings;
-use super::state::{
-    exit_to_title_shown, legacy_visible, MenuFocus, MenuState, MenuView, LEGACY_TARGETS,
-};
+use super::state::{MenuFocus, MenuState, MenuView};
 use super::transition::escape;
 
 /// The Decisions key row's system parameters, bundled so [`menu_input`] stays
@@ -108,13 +103,7 @@ pub(crate) fn menu_input(
     // play path stays frozen. `Esc` is already handled above (it cancels a
     // confirm, or does nothing).
     if menu.title_up() {
-        if menu.confirm.is_some() {
-            if keys.just_pressed(KeyCode::ArrowLeft) {
-                menu.focus = MenuFocus::ConfirmYes;
-            } else if keys.just_pressed(KeyCode::ArrowRight) {
-                menu.focus = MenuFocus::ConfirmNo;
-            }
-        } else if let Some(focus) = title_target(menu.focus, &keys) {
+        if let Some(focus) = walk_pressed(&menu, WalkCounts::default(), &keys) {
             menu.focus = focus;
         }
 
@@ -147,92 +136,55 @@ pub(crate) fn menu_input(
     // focus a manual slot; a confirmation swaps Yes/No with Left/Right; the
     // legacy picker walks its three targets. The Settings view deviates: arrows
     // move between controls and adjust the focused slider.
-    if menu.confirm.is_some() {
-        if keys.just_pressed(KeyCode::ArrowLeft) {
-            menu.focus = MenuFocus::ConfirmYes;
-        } else if keys.just_pressed(KeyCode::ArrowRight) {
-            menu.focus = MenuFocus::ConfirmNo;
-        }
-    } else if let Some(mut picker) = menu.picker {
-        if keys.just_pressed(KeyCode::ArrowDown) {
-            picker.target = (picker.target + 1) % LEGACY_TARGETS;
-        } else if keys.just_pressed(KeyCode::ArrowUp) {
-            picker.target = (picker.target + LEGACY_TARGETS - 1) % LEGACY_TARGETS;
-        }
-        menu.picker = Some(picker);
-        menu.focus = MenuFocus::LegacyTarget(picker.target);
-    } else if menu.view == MenuView::Slots {
-        if keys.just_pressed(KeyCode::Tab) {
-            menu.focus = next_top_bar(menu.focus);
-        } else if let Some(focus) = focus_by_digit(&keys) {
-            menu.focus = focus;
-        } else if let Some(focus) = arrow_target(menu.focus, &keys, legacy_visible(&menu)) {
-            menu.focus = focus;
-        }
-    } else if menu.view == MenuView::Gallery {
-        if menu.gallery_still {
-            // The still is a hold: `←`/`→` browse the entry order cyclically,
-            // `↑`/`↓` close back to the grid, and nothing else moves
-            // (`docs/title-and-menu.md` § Gallery `### Behavior` §5).
-            if let MenuFocus::GalleryCard(index) = menu.focus {
-                let count = session.pack().gallery_entries().len();
-                if keys.just_pressed(KeyCode::ArrowLeft) {
-                    if let Some(next) = gallery_browse(index, count, -1) {
-                        menu.focus = MenuFocus::GalleryCard(next);
-                    }
-                } else if keys.just_pressed(KeyCode::ArrowRight) {
-                    if let Some(next) = gallery_browse(index, count, 1) {
-                        menu.focus = MenuFocus::GalleryCard(next);
-                    }
-                } else if keys.just_pressed(KeyCode::ArrowUp)
-                    || keys.just_pressed(KeyCode::ArrowDown)
-                {
-                    menu.gallery_still = false;
+    let counts = match menu.view {
+        MenuView::Gallery => WalkCounts {
+            gallery: session.pack().gallery_entries().len(),
+            timeline: 0,
+        },
+        MenuView::Timeline => WalkCounts {
+            gallery: 0,
+            timeline: session.pack().timeline_entries().len(),
+        },
+        _ => WalkCounts::default(),
+    };
+    if menu.confirm.is_none() && menu.view == MenuView::Gallery && menu.gallery_still {
+        // The still is a hold: `←`/`→` browse the entry order cyclically,
+        // `↑`/`↓` close back to the grid, and nothing else moves
+        // (`docs/title-and-menu.md` § Gallery `### Behavior` §5).
+        if let MenuFocus::GalleryCard(index) = menu.focus {
+            let count = session.pack().gallery_entries().len();
+            if keys.just_pressed(KeyCode::ArrowLeft) {
+                if let Some(next) = gallery_browse(index, count, -1) {
+                    menu.focus = MenuFocus::GalleryCard(next);
                 }
+            } else if keys.just_pressed(KeyCode::ArrowRight) {
+                if let Some(next) = gallery_browse(index, count, 1) {
+                    menu.focus = MenuFocus::GalleryCard(next);
+                }
+            } else if keys.just_pressed(KeyCode::ArrowUp) || keys.just_pressed(KeyCode::ArrowDown) {
+                menu.gallery_still = false;
             }
-        } else if keys.just_pressed(KeyCode::Tab) && !menu.title_surface_up() {
-            // The overlay's top bar narrows to Save → Load; the header's back
-            // control is a click/`Esc` affordance, not an arrow stop. From the
-            // title's door no top bar is drawn, so `Tab` is inert there too
-            // (`docs/title-and-menu.md` § Gallery `### Layout` §5).
-            menu.focus = next_top_bar_subview(menu.focus);
-        } else if let Some(focus) = gallery_arrow(
-            menu.focus,
-            &keys,
-            menu.gallery_columns,
-            session.pack().gallery_entries().len(),
-        ) {
-            menu.focus = focus;
         }
-    } else if menu.view == MenuView::Timeline {
-        // The Timeline's top bar narrows to Save → Load; the back control is a
-        // click/`Esc` affordance, not an arrow stop
-        // (`docs/title-and-menu.md` § Timeline §1/§2).
-        if keys.just_pressed(KeyCode::Tab) {
-            menu.focus = next_top_bar_subview(menu.focus);
-        } else if let Some(focus) =
-            timeline_arrow(menu.focus, &keys, session.pack().timeline_entries().len())
-        {
-            menu.focus = focus;
+    } else if let Some(focus) = walk_pressed(&menu, counts, &keys) {
+        if let (Some(picker), MenuFocus::LegacyTarget(target)) = (menu.picker.as_mut(), focus) {
+            picker.target = target;
         }
-    } else if menu.key_editing {
-        // The field is being edited: the built-in widget owns typing and the
-        // cursor arrows, so `↑`/`↓` must not walk. Only `Enter` is read below.
-    } else if keys.just_pressed(KeyCode::Tab) && !menu.title_surface_up() {
-        // From the title's door no top bar is drawn, so `Tab` has nothing to
-        // cycle there; the overlay's Settings and gallery narrow to Save →
-        // Load.
-        menu.focus = next_top_bar_subview(menu.focus);
-    } else if let Some(track) = focus_track(menu.focus) {
+        menu.focus = focus;
+    } else if let Some(track) = (menu.view == MenuView::Settings
+        && menu.confirm.is_none()
+        && menu.picker.is_none()
+        && !menu.key_editing)
+        .then(|| focus_track(menu.focus))
+        .flatten()
+    {
         if keys.just_pressed(KeyCode::ArrowLeft) {
             track.step(&mut settings, -1);
         } else if keys.just_pressed(KeyCode::ArrowRight) {
             track.step(&mut settings, 1);
-        } else if let Some(focus) = settings_target(menu.focus, &keys, exit_to_title_shown(&menu)) {
-            menu.focus = focus;
         }
-    } else if let Some(focus) = settings_target(menu.focus, &keys, exit_to_title_shown(&menu)) {
-        menu.focus = focus;
+    }
+    if let (None, Some(picker)) = (menu.confirm, menu.picker) {
+        menu.focus = MenuFocus::LegacyTarget(picker.target);
     }
 
     if menu.key_editing {

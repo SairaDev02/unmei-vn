@@ -253,11 +253,19 @@ pub(super) fn parse_expect(rest: &[Token], file: &str, line: usize) -> Result<Ex
                         label: text.clone(),
                     }
                 }
+                [Token::Bare(rect), numbers @ ..] if rect == "rect" => {
+                    let (rect, tolerance) = parse_rect(numbers, file, line)?;
+                    Expect::ControlRect {
+                        id,
+                        rect,
+                        tolerance,
+                    }
+                }
                 _ => {
                     return Err(syntax(
                         file,
                         line,
-                        "expect control <id> enabled|disabled|focused|absent|label \"<text>\"",
+                        "expect control <id> enabled|disabled|focused|absent|label \"<text>\"|rect <x> <y> <w> <h> [±<t>]",
                     ))
                 }
             }
@@ -426,6 +434,41 @@ pub(super) fn parse_expect(rest: &[Token], file: &str, line: usize) -> Result<Ex
         other => return Err(syntax(file, line, format!("unknown assertion `{other}`"))),
     };
     Ok(expect)
+}
+
+/// The tolerance a rect assertion uses when it names none (spec §3.5).
+const RECT_TOLERANCE: f32 = 0.5;
+
+/// `<x> <y> <w> <h> [±<t>]`: four non-negative numbers and an optional
+/// non-negative tolerance.
+fn parse_rect(tokens: &[Token], file: &str, line: usize) -> Result<([f32; 4], f32), Finding> {
+    let usage = "expect control <id> rect <x> <y> <w> <h> [±<t>]";
+    let number = |text: &str| -> Result<f32, Finding> {
+        text.parse::<f32>()
+            .ok()
+            .filter(|value| value.is_finite() && *value >= 0.0)
+            .ok_or_else(|| syntax(file, line, usage))
+    };
+    let (values, tolerance) = match tokens {
+        [x, y, w, h] => ([x, y, w, h], None),
+        [x, y, w, h, t] => ([x, y, w, h], Some(t)),
+        _ => return Err(syntax(file, line, usage)),
+    };
+    let mut rect = [0.0; 4];
+    for (slot, token) in rect.iter_mut().zip(values) {
+        *slot = number(bare_at(token, file, line)?)?;
+    }
+    let tolerance = match tolerance {
+        None => RECT_TOLERANCE,
+        Some(token) => {
+            let text = bare_at(token, file, line)?;
+            number(
+                text.strip_prefix('±')
+                    .ok_or_else(|| syntax(file, line, usage))?,
+            )?
+        }
+    };
+    Ok((rect, tolerance))
 }
 
 /// The surface names a case can assert.

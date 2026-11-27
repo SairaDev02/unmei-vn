@@ -283,3 +283,57 @@ fn sandboxes(temp: &Path) -> Vec<PathBuf> {
     out.sort();
     out
 }
+
+/// The gate's menu walk (spec §14, §15 rule 47): `--explore --menus` over the
+/// demo pack and every fixture pack saves no finding. Each walk runs over a
+/// copy, so a finding could never land in the repository's packs.
+#[test]
+fn the_menu_walk_finds_nothing_in_the_demo_or_any_fixture_pack() {
+    let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/keiko");
+    let mut packs = vec![("demo", demo_pack())];
+    for name in ["b", "d", "e", "g", "l"] {
+        packs.push((name, fixtures.join(name)));
+    }
+    let dir = tempfile::tempdir().unwrap();
+    let copies: Vec<(&str, PathBuf)> = packs
+        .into_iter()
+        .map(|(name, source)| {
+            let pack = dir.path().join(name);
+            copy_dir(&source, &pack);
+            let _ = std::fs::remove_dir_all(pack.join("tests"));
+            (name, pack)
+        })
+        .collect();
+    let outputs: Vec<(&str, Output)> = std::thread::scope(|scope| {
+        let walks: Vec<_> = copies
+            .iter()
+            .map(|(name, pack)| {
+                scope.spawn(move || {
+                    let args = [
+                        pack.to_str().unwrap(),
+                        "--explore",
+                        "--menus",
+                        "--budget",
+                        "10000",
+                    ];
+                    (*name, run(&args))
+                })
+            })
+            .collect();
+        walks
+            .into_iter()
+            .map(|walk| walk.join().expect("the walk ran"))
+            .collect()
+    });
+    for (name, output) in outputs {
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "pack `{name}`:
+{}
+{}",
+            stdout(&output),
+            stderr(&output)
+        );
+    }
+}

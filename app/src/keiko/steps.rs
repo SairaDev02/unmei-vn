@@ -290,9 +290,9 @@ impl ActivationError {
     }
 }
 
-/// Walk focus to a control with the arrow keys, then press Enter, exactly as a
-/// player would. Fails with the rule id that names why the control is out of
-/// reach.
+/// Walk focus to a control along its planned route (spec §3.1), then press
+/// Enter, exactly as a player would. Fails with the rule id that names why the
+/// control is out of reach.
 pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), ActivationError> {
     let Some(target) = focus_for_id(id) else {
         return Err(ActivationError::no_target(format!(
@@ -310,37 +310,45 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
     if !is_enabled(&menu, id, app.world()) {
         return Err(ActivationError::disabled(format!("`{id}` is disabled")));
     }
-    for _ in 0..64 {
-        if app.world().resource::<MenuState>().focus == target {
-            break;
-        }
-        let before = app.world().resource::<MenuState>().focus;
-        // The menus walk the arrow keys; a view that only walks one axis ignores
-        // the other key, so trying both is how one case drives every surface.
-        for key in [
-            KeyCode::ArrowDown,
-            KeyCode::ArrowRight,
-            KeyCode::ArrowUp,
-            KeyCode::ArrowLeft,
-        ] {
-            tap(app, run, key);
-            if app.world().resource::<MenuState>().focus != before {
-                break;
-            }
-        }
-        if app.world().resource::<MenuState>().focus == before {
+    let from = menu.focus;
+    let route = crate::keiko::route::plan(&menu, walk_counts(app), from, target).map_err(|unreachable| {
+        ActivationError::no_target(format!(
+            "`{id}` is not reachable from `{}`: searched {} stops with ArrowDown, ArrowRight, ArrowUp, ArrowLeft and Tab",
+            focus_name(unreachable.from),
+            unreachable.searched
+        ))
+    })?;
+    for hop in route {
+        tap(app, run, hop.key);
+        let reached = app.world().resource::<MenuState>().focus;
+        if reached != hop.to {
             return Err(ActivationError::no_target(format!(
-                "focus cannot reach `{id}` from the current control"
+                "the walk left its route to `{id}` at {:?}: planned `{}`, reached `{}`",
+                hop.key,
+                focus_name(hop.to),
+                focus_name(reached)
             )));
         }
     }
-    if app.world().resource::<MenuState>().focus != target {
-        return Err(ActivationError::no_target(format!(
-            "focus cannot reach `{id}`"
-        )));
-    }
     tap(app, run, KeyCode::Enter);
     Ok(())
+}
+
+/// The entry counts the menu's walk reads from the take's pack.
+pub(super) fn walk_counts(app: &App) -> crate::menu::WalkCounts {
+    app.world()
+        .get_resource::<Runtime>()
+        .map(|runtime| crate::menu::WalkCounts {
+            gallery: runtime.runner.pack().gallery_entries().len(),
+            timeline: runtime.runner.pack().timeline_entries().len(),
+        })
+        .unwrap_or_default()
+}
+
+/// A focus as a case names it: its control id, or its variant when the table
+/// gives it none.
+pub(super) fn focus_name(focus: crate::menu::MenuFocus) -> String {
+    crate::keiko::controls::id_for_focus(focus).unwrap_or_else(|| format!("{focus:?}"))
 }
 
 /// The finding a `frame` or `click` step files when the take has no rendered

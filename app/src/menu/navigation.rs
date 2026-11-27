@@ -6,7 +6,9 @@ use bevy::input::ButtonInput;
 use bevy::prelude::KeyCode;
 
 use super::labels::{SETTINGS_ORDER, TITLE_ORDER};
-use super::state::MenuFocus;
+use super::state::{
+    exit_to_title_shown, legacy_visible, MenuFocus, MenuState, MenuView, LEGACY_TARGETS,
+};
 
 /// Tab cycles the top bar: Save → Load → Timeline → Gallery → Settings → Save.
 /// In the gallery, Timeline and Settings views none of the three sub-view
@@ -261,3 +263,123 @@ pub(super) fn title_target(focus: MenuFocus, keys: &ButtonInput<KeyCode>) -> Opt
 }
 
 const DIGIT_KEYS: [KeyCode; 3] = [KeyCode::Digit1, KeyCode::Digit2, KeyCode::Digit3];
+
+/// The pack's entry counts the Gallery and Timeline walks depend on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WalkCounts {
+    pub gallery: usize,
+    pub timeline: usize,
+}
+
+/// The keys [`walk_pressed`] reads, in the order it tries them when several
+/// are pressed in one frame.
+const WALK_PRESS_ORDER: [KeyCode; 8] = [
+    KeyCode::Tab,
+    KeyCode::Digit1,
+    KeyCode::Digit2,
+    KeyCode::Digit3,
+    KeyCode::ArrowLeft,
+    KeyCode::ArrowRight,
+    KeyCode::ArrowUp,
+    KeyCode::ArrowDown,
+];
+
+/// The one focus move `key` makes from `focus` on the menu's current surface,
+/// or `None` when the key moves no focus there. Pure: it reads `menu` for the
+/// surface (view, door, confirm, picker, key field, still, columns) but never
+/// its `focus`, and changes nothing. A slider step and a still browse change
+/// more than focus, so they are not walk moves. The player's menu input and
+/// Keiko's route planner both call this function, so they cannot disagree
+/// (Keiko spec §3.1).
+///
+/// - In the overlay's Settings, Gallery and Timeline views the top bar narrows
+///   to Save → Load. From the title's door no top bar is drawn, so `Tab` is
+///   inert there (`docs/title-and-menu.md` § Gallery `### Layout` §5,
+///   § Timeline §1/§2).
+/// - A view's back control is a click/`Esc` affordance, not a walk stop.
+/// - While the Decisions key field is edited, the built-in widget owns typing
+///   and the cursor arrows, so nothing walks.
+pub fn walk(
+    menu: &MenuState,
+    counts: WalkCounts,
+    focus: MenuFocus,
+    key: KeyCode,
+) -> Option<MenuFocus> {
+    if !menu.open {
+        return None;
+    }
+    let mut keys = ButtonInput::<KeyCode>::default();
+    keys.press(key);
+    if menu.confirm.is_some() {
+        return match key {
+            KeyCode::ArrowLeft => Some(MenuFocus::ConfirmYes),
+            KeyCode::ArrowRight => Some(MenuFocus::ConfirmNo),
+            _ => None,
+        };
+    }
+    if menu.title_up() {
+        return title_target(focus, &keys);
+    }
+    if let Some(picker) = menu.picker {
+        let target = match focus {
+            MenuFocus::LegacyTarget(target) => target,
+            _ => picker.target,
+        };
+        return match key {
+            KeyCode::ArrowDown => Some(MenuFocus::LegacyTarget((target + 1) % LEGACY_TARGETS)),
+            KeyCode::ArrowUp => Some(MenuFocus::LegacyTarget(
+                (target + LEGACY_TARGETS - 1) % LEGACY_TARGETS,
+            )),
+            _ => None,
+        };
+    }
+    let tab = key == KeyCode::Tab;
+    match menu.view {
+        MenuView::Title => None,
+        MenuView::Slots => {
+            if tab {
+                Some(next_top_bar(focus))
+            } else {
+                focus_by_digit(&keys).or_else(|| arrow_target(focus, &keys, legacy_visible(menu)))
+            }
+        }
+        MenuView::Gallery => {
+            if menu.gallery_still {
+                None
+            } else if tab && !menu.title_surface_up() {
+                Some(next_top_bar_subview(focus))
+            } else {
+                gallery_arrow(focus, &keys, menu.gallery_columns, counts.gallery)
+            }
+        }
+        MenuView::Timeline => {
+            if tab {
+                Some(next_top_bar_subview(focus))
+            } else {
+                timeline_arrow(focus, &keys, counts.timeline)
+            }
+        }
+        MenuView::Settings => {
+            if menu.key_editing {
+                None
+            } else if tab && !menu.title_surface_up() {
+                Some(next_top_bar_subview(focus))
+            } else {
+                settings_target(focus, &keys, exit_to_title_shown(menu))
+            }
+        }
+    }
+}
+
+/// The focus move this frame's keys make: the first pressed key, in
+/// [`WALK_PRESS_ORDER`], that [`walk`] moves on.
+pub(super) fn walk_pressed(
+    menu: &MenuState,
+    counts: WalkCounts,
+    keys: &ButtonInput<KeyCode>,
+) -> Option<MenuFocus> {
+    WALK_PRESS_ORDER
+        .iter()
+        .filter(|key| keys.just_pressed(**key))
+        .find_map(|key| walk(menu, counts, menu.focus, *key))
+}
