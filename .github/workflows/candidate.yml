@@ -113,26 +113,9 @@ jobs:
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
-      # The packager refuses any other version; the archive is pinned by SHA-256.
       - name: Install the pinned cargo-about
         shell: bash
-        env:
-          CARGO_ABOUT_VERSION: 0.9.3
-          CARGO_ABOUT_TARGET: x86_64-pc-windows-msvc
-          CARGO_ABOUT_SHA256: 9e2942533ef1c592c4a70bdb384cae1550a3f5fc9ae40379b6662e3d2f16fe02
-        run: |
-          set -euo pipefail
-
-          cd "$RUNNER_TEMP"
-          dir="cargo-about-${CARGO_ABOUT_VERSION}-${CARGO_ABOUT_TARGET}"
-          curl -fsSLo "$dir.tar.gz" \
-            "https://github.com/EmbarkStudios/cargo-about/releases/download/${CARGO_ABOUT_VERSION}/$dir.tar.gz"
-          echo "${CARGO_ABOUT_SHA256}  $dir.tar.gz" | sha256sum --check --strict
-          tar -xzf "$dir.tar.gz"
-          mkdir -p "${CARGO_HOME:-$HOME/.cargo}/bin"
-          cp "$dir"/cargo-about* "${CARGO_HOME:-$HOME/.cargo}/bin/"
-          rm -r "$dir" "$dir.tar.gz"
-          cargo about --version
+        run: python3 scripts/install-cargo-about.py
 
       - name: Build both archives and both crates
         shell: bash
@@ -190,23 +173,7 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
 
       - name: Install the pinned cargo-about
-        env:
-          CARGO_ABOUT_VERSION: 0.9.3
-          CARGO_ABOUT_TARGET: x86_64-unknown-linux-musl
-          CARGO_ABOUT_SHA256: 3ad1e94ea1e63d69d1961f4fb15ccbbe9575d906111f96d2cb4dce6df48f71b4
-        run: |
-          set -euo pipefail
-
-          cd "$RUNNER_TEMP"
-          dir="cargo-about-${CARGO_ABOUT_VERSION}-${CARGO_ABOUT_TARGET}"
-          curl -fsSLo "$dir.tar.gz" \
-            "https://github.com/EmbarkStudios/cargo-about/releases/download/${CARGO_ABOUT_VERSION}/$dir.tar.gz"
-          echo "${CARGO_ABOUT_SHA256}  $dir.tar.gz" | sha256sum --check --strict
-          tar -xzf "$dir.tar.gz"
-          mkdir -p "${CARGO_HOME:-$HOME/.cargo}/bin"
-          cp "$dir"/cargo-about* "${CARGO_HOME:-$HOME/.cargo}/bin/"
-          rm -r "$dir" "$dir.tar.gz"
-          cargo about --version
+        run: python3 scripts/install-cargo-about.py
 
       - name: Build both archives and both crates
         run: |
