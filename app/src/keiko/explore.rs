@@ -319,7 +319,7 @@ fn moves_for(pack: &Pack, branch: &Branch, observation: &Observation) -> Vec<Bra
         return moves;
     }
     if !observation.choices.is_empty() {
-        for index in 1..=observation.choices.len() {
+        for index in 1..=observation.choices.len().min(9) {
             moves.push(branch.with_step(Step::Pick(Pick::Index(index as u32))));
         }
     }

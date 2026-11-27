@@ -90,6 +90,9 @@ pub fn apply(
                         .map(|(index, _)| index + 1)
                         .collect();
                     match matches.as_slice() {
+                        [index] if *index > 9 => {
+                            return Err(fail(rules::STEP_NO_TARGET, format!("no option {index}")))
+                        }
                         [index] => *index,
                         [] => {
                             return Err(fail(
