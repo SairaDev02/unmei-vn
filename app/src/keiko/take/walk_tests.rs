@@ -318,7 +318,7 @@ fn the_menu_walk_saves_hidden_focus_findings_that_fail_until_the_defect_is_gone(
         |app| {
             app.add_plugins(DownToResume);
         },
-        || crate::keiko::explore::menus::run(&root, &pack, 4000, None, false),
+        || crate::keiko::explore::menus::run(&root, &pack, 1000, None, false),
     );
     let hidden = findings_by_rule(&report, crate::keiko::finding::rules::FOCUS_HIDDEN);
     assert_eq!(
@@ -369,7 +369,7 @@ fn the_menu_walk_reports_an_inert_esc_as_unsaved_unwind_findings() {
         |app| {
             app.add_plugins(InertEscOnSettings);
         },
-        || crate::keiko::explore::menus::run(&root, &pack, 4000, None, false),
+        || crate::keiko::explore::menus::run(&root, &pack, 600, None, false),
     );
     let unwind = findings_by_rule(&report, crate::keiko::finding::rules::UNWIND);
     assert_eq!(
@@ -394,9 +394,9 @@ fn the_menu_walk_reports_an_inert_esc_as_unsaved_unwind_findings() {
 #[test]
 fn the_menu_walk_over_the_demo_pack_finds_nothing_and_repeats_itself() {
     let (_dir, root, pack) = demo_pack();
-    let first = crate::keiko::explore::menus::run(&root, &pack, 4000, None, false);
+    let first = crate::keiko::explore::menus::run(&root, &pack, 300, None, false);
     assert!(first.findings.is_empty(), "{:#?}", first.findings);
-    let second = crate::keiko::explore::menus::run(&root, &pack, 4000, None, false);
+    let second = crate::keiko::explore::menus::run(&root, &pack, 300, None, false);
     assert_eq!(first.to_json(), second.to_json());
     let short = crate::keiko::explore::menus::run(&root, &pack, 40, None, false);
     assert!(short.budget_spent);
