@@ -341,6 +341,49 @@ fn every_unknown_reference_is_a_reference_finding() {
 }
 
 #[test]
+fn a_fault_point_or_sprite_expect_naming_no_known_npc_is_a_reference_finding() {
+    let cases = [
+        ("fault decision-hold nobody.greet", 2, "unknown NPC"),
+        (
+            "fault decision-error nobody.greet transport",
+            2,
+            "unknown NPC",
+        ),
+        ("fault decision-hold greet", 2, "not `<npc>.<question>`"),
+        ("expect sprite nobody happy", 5, "unknown NPC"),
+        ("expect sprite nobody none", 5, "unknown NPC"),
+    ];
+    for (line, number, expected) in cases {
+        let (header, step) = if line.starts_with("fault") {
+            (line, "")
+        } else {
+            ("", line)
+        };
+        let findings = validate_text(&format!(
+            "keiko 1\n{header}\nstart first\nnew-game\n{step}\n"
+        ));
+        let reference: Vec<_> = findings
+            .iter()
+            .filter(|finding| finding.rule == rules::CASE_REFERENCE)
+            .collect();
+        assert_eq!(reference.len(), 1, "{line}: {findings:?}");
+        assert!(
+            reference[0].message.contains(expected),
+            "{line}: {findings:?}"
+        );
+        assert_eq!(
+            reference[0].path,
+            Location::Line(number),
+            "{line}: {findings:?}"
+        );
+    }
+    let known = validate_text(
+        "keiko 1\nstart first\nnew-game\nexpect sprite ace anything\nexpect sprite ace none\n",
+    );
+    assert_eq!(known, Vec::new());
+}
+
+#[test]
 fn a_state_header_without_a_start_is_a_reference_finding() {
     let findings = validate_text("keiko 1\nstate mood = \"high\"\nnew-game\n");
     assert!(
