@@ -13,12 +13,15 @@ keywords:
 
 **Status (2026-11-18).** Slices 1 and 2 are **built**, on the integration branch `spec/28-keiko`. A case may carry `frame` and `click`: both draw the player's own composition at 1280×720 on wgpu's fallback adapter ([`app/src/keiko/render.rs`](../app/src/keiko/render.rs)), and a machine without one fails them with `keiko.render.unavailable`. This page turns the accepted [Keiko requirements](keiko.md) (K1–K31) into a build-ready spec. The decisions §10 of the requirements left open were settled with the maintainer on 2026-11-17 and are recorded where they apply. Each section names the requirement it implements. When this page and the requirements disagree, the requirements win and this page is wrong.
 
-**Slices.** The build ships in two slices. Each slice is complete and mergeable on its own.
+**Slice 3 (specified 2026-11-27, issue #179).** Slice 3 is specified but not built. It adds planned routes for `activate` (§3.1), layout assertions (§3.5, §13), the always-on focus check (§4.3), the menu walk (§9.5) and fixture packs for menu states the demo pack cannot reach (§14).
+
+**Slices.** The build ships in three slices. Each slice is complete and mergeable on its own.
 
 | Slice | Contents | Done when |
 |---|---|---|
 | 1 | Commands (§1), cases (§2–§3), takes (§4), observations (§5), decisions (§6), fixtures and faults (§7), stepping (§8), exploration (§9), output (§10), check and packaging (§11), the shared replay (§12), the gate and the docs (§14). | §15's slice-1 rules pass, and the [requirements' Done when](keiko.md#done-when-for-the-build) holds. |
 | 2 | Frames and position clicks on the software rasterizer (§13). | §15's slice-2 rules pass. |
+| 3 | Fixture packs E and the new G and L cases (§14), planned routes (§3.1, §3.2), the menu walk (§9.5), the always-on focus check (§4.3) and layout assertions (§3.5, §13), built in that order. | §15's slice-3 rules pass. |
 
 The smoke-checklist migration needs no GPU, so slice 1 meets the requirements' Done when without slice 2.
 
@@ -32,11 +35,11 @@ Keiko is hosted by `unmei-play` as flags on the pack. The launch grammar in [`ap
 unmei-play [PACK_DIR] --take [ID...] [--live] [--keep] [--format text|json]
 unmei-play [PACK_DIR] --step ID STEP [--keep] [--format text|json]
 unmei-play [PACK_DIR] --observe ID [--keep] [--format text|json]
-unmei-play [PACK_DIR] --explore [--budget N] [--from ID] [--keep] [--format text|json]
+unmei-play [PACK_DIR] --explore [--menus] [--budget N] [--from ID] [--keep] [--format text|json]
 ```
 
 - **One Keiko mode per invocation.** `--take`, `--step`, `--observe` and `--explore` are mutually exclusive. When the plugin family's `--check` and `--preview` are built, they join the same exclusive group.
-- **Mode modifiers.** `--live` is valid only with `--take`. `--budget` and `--from` are valid only with `--explore`. `--keep` and `--format` are valid with every mode. `--dev` is a usage error alongside a Keiko mode, because a case sets dev mode itself (§2.2).
+- **Mode modifiers.** `--live` is valid only with `--take`. `--menus`, `--budget` and `--from` are valid only with `--explore`. `--menus` selects the menu walk (§9.5) in place of the story walk (§9.1). *(Amended 2026-11-27.)* `--keep` and `--format` are valid with every mode. `--dev` is a usage error alongside a Keiko mode, because a case sets dev mode itself (§2.2).
 - **Values.** `ID` is a case id: the file stem of `tests/<id>.keiko`, matching `[a-z0-9][a-z0-9_-]*` or `findings/<stem>` (§9.4). `STEP` is one step line (§3), passed as one argument. `--take` with no `ID` runs every case under `tests/`, `tests/findings/` included, in byte order of their relative paths.
 - **PACK_DIR.** It resolves exactly as for play ([`resolve_pack`](../app/src/launch/pack.rs)), so the demo pack beside the executable is the default.
 - **Usage errors** exit 2 before any startup work, as today.
@@ -99,11 +102,20 @@ A step is an **intent**, a **raw input**, a **clock move**, an **assertion** or 
 | `advance [n]` | Presses `Space` `n` times (default 1), settling after each. A line still revealing takes one press to finish revealing, exactly as for a player. |
 | `pick <n>` / `pick "<text>"` | Presses `Digit<n>` for the option with that 1-based index, or with that exact source text. A text that matches no option, or more than one, fails the step with `keiko.step.no-target`. |
 | `menu` | Presses `Escape` (opens the overlay, or backs out of the current view). |
-| `activate <control>` | Moves focus to the control by its walk keys (the arrows, as a player would), then presses `Enter`. It fails with `keiko.step.no-target` if the control is not on the current surface, and with `keiko.step.disabled` if it is disabled. |
+| `activate <control>` | Moves focus to the control along its planned route (below), then presses `Enter`. It fails with `keiko.step.no-target` if the control is not on the current surface or no route reaches it, and with `keiko.step.disabled` if it is disabled. *(Amended 2026-11-27: a planned route, not the arrows tried in a fixed order.)* |
 | `save <1-3>` | `menu` if the overlay is closed, then activates `overlay.save-tab` and `overlay.slot.<n>`. A confirm that appears is left open for the case to answer. |
 | `load <1-3\|autosave>` | The same with `overlay.load-tab`. |
 | `auto` | Presses `KeyA`. |
 | `skip` | Presses `Tab` (seen skip). |
+
+**Planned routes (added 2026-11-27).** `activate` plans its route before it presses a key:
+
+- **One walk function.** The menu module gains one pure function that maps a surface's walk context, a focus and a key to the focus that key moves to, or to no move. The context covers the view, the confirm, the legacy picker, the door, the Gallery's columns and the entry counts. The player's own menu input calls the same function for every focus move, so the plan and the player cannot disagree. The function holds no world access and changes no state. Moves that change something besides focus, such as a slider step or a still browse, are not focus moves and are never planned.
+- **The walk keys** are `ArrowDown`, `ArrowRight`, `ArrowUp`, `ArrowLeft` and `Tab`, in that order.
+- **The search.** Keiko searches breadth first from the current focus over the walk keys and takes the shortest key sequence to the target. Between two routes of the same length, it takes the one whose first differing key comes first in the order above. The search ends when no new focus is reachable.
+- **The presses.** Keiko presses each key of the route as real input, settling after each (K9, §4.3). After each press, the focus must be the route's next stop. If it is not, the step fails with `keiko.step.no-target` and names the key and the focus the player reached.
+- **No route.** When the search exhausts without reaching the target, the step fails with `keiko.step.no-target`, naming the starting focus and the number of stops searched. Nothing is pressed.
+- **No fallback.** There is no fixed key order and no `Tab` fallback. `Tab` is planned only where the surface's walk uses it.
 
 ### 3.2 Control ids (K10)
 
@@ -120,6 +132,12 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Confirm | `confirm.yes`, `confirm.no` |
 
 Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/menu/state.rs). The build adds the map beside that enum, with a test that every `MenuFocus` variant has exactly one id. A control added later gets an id in the same change (additive, §2.1). The play frame's quick row gets ids when variant E is built.
+
+**The control list (added 2026-11-27).** Each surface has a **control list**: the controls it draws that its walk can focus, plus its pointer-only controls, in walk order. The observation's `controls` field (§5.1), `activate`, the focus check (§4.3) and the menu walk (§9.5) all read this one list.
+
+- **The overlay's sub-views.** The Settings, Gallery and Timeline views opened from the overlay's door draw the overlay's top bar narrowed to Save and Load. Their lists therefore begin with `overlay.save-tab` and `overlay.load-tab`. The same views opened from the title's door draw no top bar, and their lists do not hold these ids.
+- **Pointer-only controls.** `settings.back` and `legacy.cancel` are drawn, but no walk key focuses them. A player reaches them by a click or leaves with `Esc`. They stay on their surfaces' lists. `activate` on one fails with `keiko.step.no-target` (§3.1), so a case uses `click` or `menu` instead.
+- **Empty lists.** The play surface, the still, the error screen, an empty Gallery and an empty Timeline list no control.
 
 ### 3.3 Raw input
 
@@ -158,6 +176,7 @@ An assertion compares against the current observation (§5). A failing assertion
 | `expect notice "<text>"` / `expect notice contains "<text>"` / `expect notice none` | The Notice shows this text, contains it, or is not shown. |
 | `expect control <id> enabled\|disabled\|focused\|absent` | The control is in that condition on the current surface. |
 | `expect control <id> label "<text>"` | The control shows exactly this label. |
+| `expect control <id> rect <x> <y> <w> <h> [±<t>]` | The control's laid-out node has its top-left corner at (`x`, `y`) and the size `w`×`h`, each within `t` reference pixels. `t` defaults to `0.5`. The node is the one `click` targets (§13), at the 1280×720 reference size. A control with no visible node fails, and the observed value is `absent`. This step makes the take draw (§13). *(Added 2026-11-27.)* |
 | `expect bg <id>\|none`, `expect sprite <npc> <pose>\|none`, `expect music <id>\|none` | The staging matches. |
 | `expect auto on\|off`, `expect skip seen\|force\|off` | The player's auto or skip mode matches. |
 | `expect decision pending\|held\|none` | A decision is waiting for its answer, has an answer held by the paused overlay, or neither. |
@@ -201,6 +220,7 @@ A **take** executes one case from its first line to its last, in its own sandbox
 - **The settle rule.** After boot and after every input step, the take runs zero-duration frames until the world is **quiet**: no decision task in flight (unless a hold or slow fault holds it), every asset handle the presentation watches has loaded or failed, and two consecutive frames leave the observation unchanged. A press needs one frame for its release, which settling covers.
 - **Boot.** A take first settles on the title, or for a `start` case at the first park (§12).
 - **Not settling.** If 600 frames pass without becoming quiet, the take ends as failed with `keiko.unsettled`.
+- **The focus check (added 2026-11-27).** After boot and after every step, once the world has settled, the take checks the menu's focus. The take fails with `keiko.focus.hidden` when the surface's control list (§3.2) is not empty and the focus names no control on that list. The finding names the focus and the surface. A surface with an empty list is not checked. The check runs in every take and every mode, so a case never asks for it.
 - **Panics.** Each take runs under `catch_unwind`. A panic ends the take as failed with `keiko.panic` and its message, and the next take builds a fresh app.
 - **The end.** A take passes when every step applied and every assertion passed.
 
@@ -219,7 +239,7 @@ After each step the take builds an **observation** from the world. Building it r
 | `speaker`, `text`, `revealed` | The name tab text, the full say-line, and whether the reveal has finished. |
 | `choices` | `[{ "index": 1, "text": "..." }]`. |
 | `notice` | The Notice text, or `null`. |
-| `controls` | On menu surfaces: `[{ "id", "label", "enabled", "focused" }]` in walk order. |
+| `controls` | On menu surfaces: `[{ "id", "label", "enabled", "focused" }]`, the surface's control list (§3.2) in walk order. |
 | `staging` | `{ "background", "sprites": { npc: pose }, "music" }`. |
 | `auto`, `skip` | `true`/`false`, and `"seen"`, `"force"` or `"off"`. |
 | `decision` | `null`, or `{ "question": "ace.greet", "status": "pending" \| "held" }`. |
@@ -315,6 +335,7 @@ Because takes are deterministic (§4.3, §6), each command lands exactly where t
 | `keiko.log.row-<n>` | A `warn` or `error` line from a failure row the pack causes: pack warnings, missing or undecodable assets, a missing decide point or decision label. |
 | `keiko.stuck` | A park that is not the pack's end, where every move leaves the scene, line and wait unchanged. |
 | `keiko.unsettled` | The settle rule did not reach quiet. |
+| `keiko.focus.hidden` | The focus check failed (§4.3). *(Added 2026-11-27.)* |
 
 Taking a fallback is never a finding (K24). Exploration offline never calls the model, so no transport or answer finding can occur.
 
@@ -328,7 +349,22 @@ Each finding is saved as `tests/findings/<rule>-<hash>.keiko`, where `<hash>` is
 
 A finding with no closing assertion the case grammar can express is reported but not saved, because a case without one would pass while the problem exists (rule 29). This happens, for example, with a stuck park that has no say-line after it. *(Amended 2026-11-17.)*
 
+A `keiko.focus.hidden` finding is saved with no closing assertion. The focus check (§4.3) runs in every take, so the saved case fails while the focus can go hidden and passes once it cannot. *(Amended 2026-11-27.)*
+
 **One problem is one finding.** Exploration reports and saves a finding at most once per (rule, message) pair, keeping the first branch in walk order that hits it. A pack whose every branch replays the same failed asset load therefore yields one `keiko.log.row-<n>` finding, not one per branch, and a loop reached by two paths yields one `keiko.stuck` finding. The walk order and the budget accounting are unchanged. *(Amended 2026-11-18.)*
+
+### 9.5 The menu walk (added 2026-11-27)
+
+`--explore --menus` walks the menus instead of the story. It shares exploration's budget, replay, findings, saving and output. Only the moves, the visited rule, the findings it raises and the coverage differ.
+
+- **Start.** A fresh take of the pack, settled on the title, or the end of case `--from ID`, inheriting its headers.
+- **Stops.** A **stop** is the surface name, the focused control's id (or none) and the surface's control list (§3.2). A stop already reached is not expanded again. A slider step or any other change outside focus and the list therefore adds no stop.
+- **Moves.** At each stop, the walk tries `press ArrowUp`, `press ArrowDown`, `press ArrowLeft`, `press ArrowRight`, `press Tab`, `press Enter` and `press Escape`, in that order. On the `play` surface, the only move is `press Escape`, because the story belongs to the story walk. The `error` surface has no moves. A move that exits the player ends its branch, and the exit is not a finding.
+- **Order.** Breadth first, so a saved finding holds the shortest key sequence the walk found. Each branch is a fresh take replaying its own steps from the start, as in §9.1.
+- **Unwinding.** From every stop on a surface other than `title` and `play`, the walk presses `Escape` up to four times. If none of those presses reaches `title` or `play`, the walk raises `keiko.unwind`. These presses count against the budget.
+- **Findings.** The menu walk raises `keiko.panic`, `keiko.unsettled`, `keiko.focus.hidden` and `keiko.unwind`. Notices and log rows are the story walk's findings, so the menu walk does not raise them.
+- **Saving.** `keiko.focus.hidden` is saved as §9.4 says. `keiko.unwind` has no closing assertion the case grammar can express, so it is reported but not saved (§9.4).
+- **Coverage.** The summary lists, per surface, the controls the walk focused out of the controls listed, and names the ones never focused. As in §9.3, coverage never fails the command.
 
 ## 10. Output and exit codes (K27)
 
@@ -338,13 +374,13 @@ Text is the default. With `--format json`, every mode prints one JSON document t
 
 - `--take`: `{ "takes": [{ "case", "result": "pass" | "fail", "live", "failure": <finding> | null, "observation" }] }`.
 - `--step` and `--observe`: `{ "result", "failure", "observation" }`.
-- `--explore`: `{ "findings": [<finding> + "case": path], "coverage", "budget": { "limit", "used" } }`. An unsaved finding (§9.4) carries `"saved": false` in place of `case`, and the text form marks it `unsaved`. *(Amended 2026-11-17.)*
+- `--explore`: `{ "findings": [<finding> + "case": path], "coverage", "budget": { "limit", "used" } }`. An unsaved finding (§9.4) carries `"saved": false` in place of `case`, and the text form marks it `unsaved`. *(Amended 2026-11-17.)* With `--menus`, `coverage` is `{ "surfaces": [{ "surface", "focused", "listed", "never_focused": [id] }] }`. *(Amended 2026-11-27.)*
 
 A finding has the shape of the check's findings ([plugin family C3](plugin-family.md#5-pack-wide-check-and-preview)): `{ "file", "path", "rule", "message" }`. For a case, `file` is the case path and `path` is `line <n>`.
 
 ### 10.2 Rule ids
 
-`keiko.case.version`, `keiko.case.syntax`, `keiko.case.header-order`, `keiko.case.reference` (an unknown NPC, question, action, scene, state key, settings key, control id or fixture path, or a question id set for two NPCs, rule 38), `keiko.step.no-target`, `keiko.step.disabled`, `keiko.expect`, plus the §9.2 ids.
+`keiko.case.version`, `keiko.case.syntax`, `keiko.case.header-order`, `keiko.case.reference` (an unknown NPC, question, action, scene, state key, settings key, control id or fixture path, or a question id set for two NPCs, rule 38), `keiko.step.no-target`, `keiko.step.disabled`, `keiko.expect`, plus the §9.2 ids and `keiko.unwind` (§9.5). *(Amended 2026-11-27: `keiko.focus.hidden` and `keiko.unwind`.)*
 
 ### 10.3 Exit codes
 
@@ -372,7 +408,8 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 
 - **`frame [name]`** renders the current frame through the headless render path on the software rasterizer (wgpu's fallback adapter: WARP on Windows, llvmpipe on Linux), at the 1280×720 reference size. It writes `<pack-parent>/<pack-name>.keiko/frames/<case>/<n>[-<name>].png` and prints the path. It never compares the frame with anything (K14).
 - **`click <control>`** moves the cursor to the centre of that control's laid-out node and presses and releases the left button, so the hit test is the player's own. **`click <x> <y>`** does the same at reference coordinates.
-- **The render path** is the one the preview's software rendering ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)) reuses. A machine with no fallback adapter fails `frame` and `click` with `keiko.render.unavailable`. It does not fail the rest of the case's steps before them.
+- **`expect control <id> rect`** (§3.5) reads the same laid-out node `click <control>` aims at: the topmost visible node carrying the control's action. It compares geometry only, so fonts, colours and anti-aliasing never enter it, and K14 holds. *(Added 2026-11-27.)*
+- **The render path** is the one the preview's software rendering ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)) reuses. A machine with no fallback adapter fails `frame`, `click` and `expect control <id> rect` with `keiko.render.unavailable`. It does not fail the rest of the case's steps before them. *(Amended 2026-11-27: the rect assertion.)*
 - **CI.** The Linux `check` job installs the Mesa Vulkan driver for this slice.
 
 **Where a frame lands and how it is numbered.** `<pack-parent>` is the folder that holds the real pack, so the frames sit beside it, never inside it, and outlive the take and its sandbox without `--keep`. In `<n>[-<name>].png`, `<n>` is the 1-based ordinal of the `frame` step in the case, so a rerun overwrites the same files. Every mode that runs a `frame` step writes its PNG, `--observe` and `--step` included, so rule 25's "never writes" means the case file. *(Amended 2026-11-18.)*
@@ -380,8 +417,13 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 ## 14. The gate and the docs (Done when)
 
 - **Fixture packs.** The smoke checklist's recipes D, L, G and B become fixture packs under `app/tests/keiko/<name>/`, each with its own `tests/`. The S/K recipes (disposable sidecars and credential faults) run their cases over D's pack with their own fixtures, because every take already has its own sandbox. *(Amended 2026-11-18.)*
+- **Menu states the demo pack cannot reach (slice 3, added 2026-11-27).** These packs and cases use only the grammar of §3:
+  - **E** is a new fixture pack, `app/tests/keiko/e/`, that declares no Gallery entry and no Timeline order. Its cases open the empty Gallery from both doors and the empty Timeline. They check that `Enter` and every arrow leave the surface unchanged, and that `Esc` backs out.
+  - **L** already declares a Timeline order. It gains a case that walks every card with `activate` and checks the walk's clamps at both ends.
+  - **G** gains a case for the title's gallery door. The case opens the Gallery with `activate title.gallery`, activates every card, and presses each arrow from the first and last cards, checking the focus after each press.
+  - Each pack also runs `--explore --menus` in the gate (below) and saves no finding.
 - **Migrated cases.** Every smoke case that needs no real GPU, audio device or physical input becomes a case over a fixture pack. That means T1–T4, P1, S1–S3, K1–K4 (with `key-check` faults in place of network blocking), G2 without its visual check, R1–R3, L1–L2, M1, the input-ownership parts of M2, and B1. A1's held and slow answers become `decision-hold` and `decision-slow` cases.
-- **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack and each fixture pack, and with `--explore --budget 10000` over the demo pack, and fails on a non-zero exit. The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
+- **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack and each fixture pack, and with `--explore --budget 10000` over the demo pack, and fails on a non-zero exit. From slice 3 it also runs `--explore --menus --budget 10000` over the demo pack and over each fixture pack. *(Amended 2026-11-27.)* The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
 - **Docs.** The demo pack's `AGENT-GUIDE.md` gains a Keiko section and the Guide a Keiko page (K28). [`testing.md`](testing.md) names Keiko as the player-level end-to-end layer. The smoke checklist is retired, and its rendered, audio and physical-input checks become accepted unverified residuals (*amended 2026-11-17*, [K31](keiko.md#8-relation-to-other-work)). The [release runbook](release-runbook.md) gains the release run of §14.1. `GLOSSARY.md` gains the terms in [requirements §9](keiko.md#9-contracts-this-will-amend).
 
 ### 14.1 Release evidence (added 2026-11-17)
@@ -437,6 +479,21 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 
 38. A case that sets `decide` or a decision fault for one question id on two different NPCs fails with `keiko.case.reference` before boot. The [resolver seam](adr/0009-decision-resolver-seam.md) identifies a decision point by its question id alone, so the take could not tell the two apart.
 
+**Slice 3, added 2026-11-27**
+
+39. Fixture pack E's cases pass: on the empty Gallery from both doors and on the empty Timeline, `Enter` and every arrow leave the observation unchanged, and `Esc` backs out to the door.
+40. The menu's walk function (§3.1) gives the same focus as the player's input for every walk key, from every focus, on every surface the fixture packs reach. The player's menu input calls that function, and no other code moves the focus for a walk key.
+41. `activate` reaches every control on every control list that the fixture packs' cases reach, except the pointer-only controls (§3.2). Each route is the shortest one, ties broken by the walk-key order, and Keiko presses no other key. For example, `activate overlay.timeline` from the slot grid's first card presses `Tab` three times, then `Enter`.
+42. `activate settings.back`, `activate legacy.cancel` and `activate` on a control no route reaches each fail with `keiko.step.no-target`, naming the starting focus and the number of stops searched, and press nothing.
+43. In a take that draws, every control on the control list of every surface the fixture packs reach has a visible laid-out node. The overlay's Settings, Gallery and Timeline lists hold `overlay.save-tab` and `overlay.load-tab`, and the title's door lists do not.
+44. A test-only plugin that moves the focus onto a control the surface does not list (such as `overlay.resume` on the Gallery after `ArrowDown` from the last card) fails a take with `keiko.focus.hidden` at that step, in every mode.
+45. Under the same plugin, `--explore --menus` saves exactly one `keiko.focus.hidden` finding. That case fails under `--take`, and passes once the plugin is removed.
+46. A test-only plugin that makes `Esc` inert on the Settings view makes `--explore --menus` report one unsaved `keiko.unwind` finding.
+47. `--explore --menus` over the demo pack and over each fixture pack saves no finding, and a rerun gives byte-identical JSON. The same budget gives the same findings and coverage, and a smaller budget reports `budget spent`.
+48. `--menus` without `--explore` exits 2.
+49. `expect control title.new-game rect` with the node's own geometry passes. It fails with `keiko.expect` when any value is off by more than the tolerance, and reports the observed rect. An absent control reports `absent`. With no fallback adapter, it fails with `keiko.render.unavailable`.
+50. A rect with a negative value, a tolerance without a number, or fewer than four numbers fails with `keiko.case.syntax`.
+
 ## 16. Amendments
 
 Each of these was amended in place on 2026-11-17, with a dated pointer to the section here:
@@ -451,6 +508,19 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - **2026-11-18:** §3.2's control table gains `overlay.exit-to-title` (the rail control was mouse-only), §3.5's failing `log`/`no-log` assertion reports the log line it found, §9.4 reports one problem once instead of once per branch, and §14's fixture-pack set is D, L, G and B with the S/K cases over D's pack.
 - **2026-11-18 (slice 2):** §13 numbers a frame by its step's ordinal, writes a PNG in every mode that runs the step and puts the frames beside the real pack, and rule 25's `--observe` sentence now means the case file.
 - **2026-11-19:** §4.1's take session log holds the version header only, because a take installs no global log subscriber. §3.5's `log`/`no-log` assertions and §5's `log` field read the take's failure lines (`unmei::failure`, `error` and `warn` only), not the session log, so `expect log info` never matches and `expect no-log info` always passes. The grammar and the case version are unchanged.
+- **2026-11-27 (slice 3, issue #179):** The maintainer decided all five of the issue's proposals, built in the order fixture packs, planned routes, menu walk, focus check, layout assertions. The decisions were layout assertions without golden images, so K14 holds; one rule id, `keiko.focus.hidden`, for the walk and the always-on check; and the menu walk as a mode of `--explore`. The changes:
+  - §1 gains `--menus`.
+  - §3.1's `activate` plans its route over the menu's one walk function.
+  - §3.2 defines the control list, adds the sub-views' top-bar ids and names the pointer-only controls.
+  - §3.5 and §13 gain `expect control <id> rect`.
+  - §4.3 gains the focus check.
+  - §9.2 and §10.2 gain `keiko.focus.hidden`, and §10.2 gains `keiko.unwind`.
+  - §9.4 saves `keiko.focus.hidden` without a closing assertion.
+  - §9.5 is new.
+  - §14 gains pack E, the new G and L cases, and the gate's menu walk.
+  - §15 gains rules 39–50.
+
+  Every change is additive, so the case version stays 1. The [requirements](keiko.md) K11, K23, K24 and K25 are amended in place, and the [glossary](../GLOSSARY.md) entries for Exploration and Finding name the menu walk.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

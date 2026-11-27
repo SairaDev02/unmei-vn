@@ -37,7 +37,7 @@ keywords:
 
 ## 3. What a step observes
 
-- **K11 — What the player perceives.** After each step Keiko reports an **observation**: the current surface (title, play, menu view, Gallery, still, Timeline, confirm, error screen); the text on screen (speaker, say-line, choice options, Notice, menu labels and whether each is enabled); and the staging (background, sprites, music). A step may assert on any of it.
+- **K11 — What the player perceives.** After each step Keiko reports an **observation**: the current surface (title, play, menu view, Gallery, still, Timeline, confirm, error screen); the text on screen (speaker, say-line, choice options, Notice, menu labels and whether each is enabled); and the staging (background, sprites, music). A step may assert on any of it. A step may also assert where a menu control is laid out at the reference size, which compares geometry and never a frame (K14). *(Amended 2026-11-27, [spec §3.5](keiko-spec.md#35-assertions-k11-k12).)*
 - **K12 — The author's own data.** A step may also assert on what the pack declares and the player stores: the state map, the current scene and label, the read log, the save slots, and the failure lines the take's player logs, by level, failure row and text. A silent degradation, such as a missing sprite, is visible only in the log, so an author needs that assertion too. *(Amended 2026-11-19: an assertion reads the take's own failure lines, the `error` and `warn` lines under the one `unmei::failure` target, not the session log by target.)*
 - **K13 — Never Bevy internals.** No step sees entities, components, system order or any other ECS detail. A refactor that keeps the player's behaviour keeps every case passing.
 - **K14 — Frames for looking, never for comparing.** A step may ask for the current frame as a PNG, rendered through the preview's path on the software rasterizer ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)). An agent looks at it. Keiko never compares frames pixel by pixel.
@@ -58,9 +58,9 @@ keywords:
 
 ## 6. Exploration
 
-- **K23 — Every branch, within a budget.** Exploration branches on every choice option and on every landing key of every decision point, not only the fallback. A combination of scene, line and state map already seen counts as visited. Exploration stops at a declared budget.
-- **K24 — Findings.** A **finding** is a panic; a [defensive failure](../GLOSSARY.md) or a Notice; a warning or error log line the pack causes, such as a missing asset; or a park no player input can leave. Taking a fallback is never a finding.
-- **K25 — Coverage is not a finding.** Exploration reports which lines and scenes it reached. An unreached line or scene is coverage information, because a budget can end exploration early.
+- **K23 — Every branch, within a budget.** Exploration branches on every choice option and on every landing key of every decision point, not only the fallback. A combination of scene, line and state map already seen counts as visited. Exploration stops at a declared budget. A menu walk is the second mode of exploration: it presses every walk key, `Enter` and `Esc` from each focus it reaches on each menu surface, and a surface, focus and control list already seen counts as visited. *(Amended 2026-11-27, [spec §9.5](keiko-spec.md#95-the-menu-walk-added-2026-11-27).)*
+- **K24 — Findings.** A **finding** is a panic; a [defensive failure](../GLOSSARY.md) or a Notice; a warning or error log line the pack causes, such as a missing asset; or a park no player input can leave. In every take, focus on a control the surface does not draw is also a finding. In a menu walk, a surface `Esc` cannot back out of is one too. Taking a fallback is never a finding. *(Amended 2026-11-27.)*
+- **K25 — Coverage is not a finding.** Exploration reports which lines and scenes it reached. An unreached line or scene is coverage information, because a budget can end exploration early. A menu walk reports, per surface, the controls it focused, and an unfocused control is coverage information too. *(Amended 2026-11-27.)*
 - **K26 — Findings become cases.** Exploration saves each finding as a ready-to-run case holding the exact steps that reproduce it. An agent replays it, fixes the pack and keeps the case as a regression test.
 
 ## 7. Output and onboarding

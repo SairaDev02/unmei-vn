@@ -357,7 +357,7 @@ Applying one step to a case at a time, each command replaying the case from its 
 _Avoid_: session, interactive mode, REPL
 
 **Exploration**:
-Keiko walking every choice option and every landing key of a pack, depth first, within a step budget, and reporting the parks and scenes it never reached.
+Keiko walking every choice option and every landing key of a pack, depth first, within a step budget, and reporting the parks and scenes it never reached. With `--menus` it is the menu walk instead: every walk key, `Enter` and `Esc` from each focus on each menu surface, breadth first, reporting the controls it never focused.
 _Avoid_: fuzzing, random walk, crawl
 
 **Check**:
@@ -373,5 +373,5 @@ The frames `unmei-play <pack-dir> --preview DIR` writes: one 1280×720 PNG per p
 _Avoid_: screenshot, visual regression (no frame is compared with a stored one), render test
 
 **Finding**:
-Any problem the loader, the check, the preview or Keiko reports, in one shape: the pack-relative file, the path inside it, one rule id, a severity (`error` or `warning`) and a message. Exploration reports one per problem it finds — a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, or a world that never settles — and saves it as a case that reproduces it.
+Any problem the loader, the check, the preview or Keiko reports, in one shape: the pack-relative file, the path inside it, one rule id, a severity (`error` or `warning`) and a message. Exploration reports one per problem it finds — a panic, a Notice, a defensive failure, a warning or error log row the pack causes, a park no input can leave, a world that never settles, focus on a control the surface does not draw, or a surface `Esc` cannot back out of — and saves it as a case that reproduces it.
 _Avoid_: failure, bug, error (each means something narrower)
