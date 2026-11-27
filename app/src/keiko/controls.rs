@@ -199,13 +199,29 @@ pub fn surface_ids(
         }
         MenuView::Gallery => {
             if menu.gallery_still {
-                Vec::new()
-            } else {
-                (0..gallery_entries).map(gallery_card_id).collect()
+                return Vec::new();
             }
+            let mut ids: Vec<String> = (0..gallery_entries).map(gallery_card_id).collect();
+            ids.extend(foot_ids(menu));
+            ids
         }
-        MenuView::Timeline => (0..timeline_entries).map(timeline_card_id).collect(),
+        MenuView::Timeline => {
+            let mut ids: Vec<String> = (0..timeline_entries).map(timeline_card_id).collect();
+            ids.extend(foot_ids(menu));
+            ids
+        }
     }
+}
+
+/// The page's foot, which every section that shares the page's column draws: the
+/// Gallery's and the Timeline's walks end on it exactly as the ledger's does
+/// (`docs/title-and-menu.md` § Default look §4).
+fn foot_ids(menu: &MenuState) -> Vec<String> {
+    let mut ids = vec!["overlay.resume".to_string()];
+    if crate::menu::exit_to_title_shown(menu) {
+        ids.push("overlay.exit-to-title".to_string());
+    }
+    ids
 }
 
 /// Whether a control can be activated right now. A ledger row whose action is

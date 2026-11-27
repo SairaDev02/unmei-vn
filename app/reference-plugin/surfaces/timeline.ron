@@ -45,9 +45,19 @@
         (kind: "slot", slot: "timeline.explanation",
             typography: "{typography.label}",
             color: "{colors.dim}"),
-        (kind: "slot", slot: "timeline.empty",
-            typography: "{typography.label}",
-            color: "{colors.faint}"),
+        // The empty state is the gallery's: one line where the cards would be,
+        // centred in both directions, with the walk legend hidden because there is
+        // nothing to walk (`docs/title-and-menu.md` § Gallery `### Layout` §1).
+        (kind: "box",
+            direction: "column",
+            width: "fill",
+            justify_content: "center",
+            align_items: "center",
+            children: [
+                (kind: "slot", slot: "timeline.empty",
+                    typography: "{typography.label}",
+                    color: "{colors.faint}"),
+            ]),
         (kind: "list",
             list: "timeline.cards",
             width: "fill",

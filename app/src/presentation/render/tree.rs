@@ -209,13 +209,8 @@ fn spawn_node(
         _ => None,
     };
     let action = name.and_then(|name| bind.action(name));
-    let hidden = match &node.kind {
-        NodeKind::Slot(slot) => {
-            !bind.shows(&slot.slot)
-                || (action.is_some() && scope.own.is_some_and(|own| Some(own) != name))
-        }
-        _ => false,
-    };
+    let hidden = !shows_now(bind, node)
+        || (action.is_some() && scope.own.is_some_and(|own| Some(own) != name));
     if hidden {
         container.display = Display::None;
     }
@@ -359,6 +354,148 @@ fn spawn_node(
             out.lists.insert(kind.list.clone(), entity.id());
             out.items.insert(kind.list.clone(), (*kind.item).clone());
         }
+    }
+}
+
+/// The box a surface's slot sits in, and the empty boxes among its own children in
+/// spawn order: what a player needs when the format cannot express the place the
+/// tree leaves. A node has no name but a slot, a control or a list, so the box is
+/// found by the slot it holds, and both are read from the renderer's pre-order
+/// walk (`docs/ui-plugin-format.md` § Nodes).
+pub(crate) struct SlotHolder {
+    pub entity: Entity,
+    pub boxes: Vec<Entity>,
+}
+
+pub(crate) fn slot_holder(bound: &Rendered, name: &str) -> Option<SlotHolder> {
+    let tree = bound.tree.as_ref()?;
+    let mut seen = 0;
+    let (index, children) = holder_index(tree, name, &mut seen)?;
+    let mut child_index = index + 1;
+    let boxes = children
+        .iter()
+        .filter_map(|child| {
+            let here = child_index;
+            let empty = matches!(&child.kind, NodeKind::Box(kind) if kind.children.is_empty());
+            skip_nodes(child, &mut child_index);
+            empty
+                .then_some(here)
+                .and_then(|at| bound.nodes.get(at).copied())
+        })
+        .collect();
+    Some(SlotHolder {
+        entity: bound.nodes.get(index).copied()?,
+        boxes,
+    })
+}
+
+/// The index of the first box that places `name` among its own children, with that
+/// box's children. A list spawns none of its item template's nodes on the surface —
+/// items are spawned per entry — so the count stops at it and stays honest.
+fn holder_index<'a>(
+    node: &'a PluginNode,
+    name: &str,
+    seen: &mut usize,
+) -> Option<(usize, &'a [PluginNode])> {
+    let here = *seen;
+    *seen += 1;
+    match &node.kind {
+        NodeKind::Box(container) => {
+            if container
+                .children
+                .iter()
+                .any(|child| matches!(&child.kind, NodeKind::Slot(slot) if slot.slot == name))
+            {
+                return Some((here, &container.children));
+            }
+            container
+                .children
+                .iter()
+                .find_map(|child| holder_index(child, name, seen))
+        }
+        NodeKind::Slot(slot) => slot
+            .children
+            .iter()
+            .find_map(|child| holder_index(child, name, seen)),
+        _ => None,
+    }
+}
+
+/// Advance a pre-order count over one subtree, list items excluded.
+fn skip_nodes(node: &PluginNode, seen: &mut usize) {
+    *seen += 1;
+    match &node.kind {
+        NodeKind::Box(container) => {
+            for child in &container.children {
+                skip_nodes(child, seen);
+            }
+        }
+        NodeKind::Slot(slot) => {
+            for child in &slot.children {
+                skip_nodes(child, seen);
+            }
+        }
+        _ => {}
+    }
+}
+
+/// Hide the tree's `text` node that names the copy key `key`. The format has no
+/// conditional text node and a bind answers `shows` only for slots, so the player
+/// hides the node it asked the renderer to spawn: a legend is drawn only when
+/// there is something to walk (`docs/title-and-menu.md` § Gallery `### Layout` §1).
+pub(crate) fn hide_copy_text(commands: &mut Commands, bound: &Rendered, key: &str) {
+    let Some(entity) = copy_text_node(bound, key) else {
+        return;
+    };
+    commands
+        .entity(entity)
+        .entry::<Node>()
+        .and_modify(|mut node| node.display = Display::None);
+}
+
+/// The entity the renderer spawned for the tree's one `text` node naming `key`:
+/// the tree and its nodes are recorded in the same pre-order walk, so the two stay
+/// aligned (`docs/ui-plugin-format.md` § Nodes).
+fn copy_text_node(bound: &Rendered, key: &str) -> Option<Entity> {
+    let tree = bound.tree.as_ref()?;
+    let mut index = 0;
+    copy_text_index(tree, key, &bound.nodes, &mut index)
+}
+
+fn copy_text_index(
+    node: &PluginNode,
+    key: &str,
+    nodes: &[Entity],
+    index: &mut usize,
+) -> Option<Entity> {
+    let entity = nodes.get(*index).copied();
+    *index += 1;
+    if matches!(&node.kind, NodeKind::Text(text) if text.text == key) {
+        return entity;
+    }
+    match &node.kind {
+        NodeKind::Box(container) => container
+            .children
+            .iter()
+            .find_map(|child| copy_text_index(child, key, nodes, index)),
+        NodeKind::Slot(slot) => slot
+            .children
+            .iter()
+            .find_map(|child| copy_text_index(child, key, nodes, index)),
+        _ => None,
+    }
+}
+
+/// Whether the owner has anything to show in this node and, for a box, in any of
+/// its authored children: the same rule [`sync_visibility`] applies later, read
+/// once at spawn so the first frame already draws what the pass would.
+fn shows_now(bind: &dyn Bind, node: &PluginNode) -> bool {
+    match &node.kind {
+        NodeKind::Slot(slot) => bind.shows(&slot.slot),
+        NodeKind::Box(kind) => {
+            kind.children.is_empty() || kind.children.iter().any(|child| shows_now(bind, child))
+        }
+        _ => true,
     }
 }
 

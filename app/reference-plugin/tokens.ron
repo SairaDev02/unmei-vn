@@ -121,6 +121,9 @@
         "button-pad-y": 6.0,
         "settings-width": 440.0,
         "settings-label": 96.0,
+        // Half of the 16px the hand-built Settings rows kept between their
+        // panels: a list takes no gap, so the item pads its panel above and below.
+        "settings-row-pad-y": 8.0,
         "track-width": 220.0,
         "track-height": 10.0,
         "card-height": 136.0,

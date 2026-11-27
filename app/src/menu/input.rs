@@ -206,6 +206,7 @@ pub(crate) fn menu_input(
             &keys,
             menu.gallery_columns,
             session.pack().gallery_entries().len(),
+            exit_to_title_shown(&menu),
         ) {
             menu.focus = focus;
         }
@@ -215,9 +216,12 @@ pub(crate) fn menu_input(
         // (`docs/title-and-menu.md` § Timeline §1/§2).
         if keys.just_pressed(KeyCode::Tab) {
             menu.focus = next_top_bar_subview(menu.focus);
-        } else if let Some(focus) =
-            timeline_arrow(menu.focus, &keys, session.pack().timeline_entries().len())
-        {
+        } else if let Some(focus) = timeline_arrow(
+            menu.focus,
+            &keys,
+            session.pack().timeline_entries().len(),
+            exit_to_title_shown(&menu),
+        ) {
             menu.focus = focus;
         }
     } else if menu.key_editing {

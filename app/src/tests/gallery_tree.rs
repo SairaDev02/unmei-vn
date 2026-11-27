@@ -134,8 +134,15 @@ fn the_gallery_draws_the_plugins_tree() {
         [menu::GALLERY_HEADING, menu::GALLERY_GRID_LEGEND],
         "the heading and the grid legend are the tree's text nodes"
     );
+    let empty_box = children[1];
     assert_eq!(
-        app.world().get::<Node>(children[1]).unwrap().display,
+        app.world().get::<Node>(empty_box).unwrap().display,
+        Display::None,
+        "the tree's empty-state box hides when the pack has art"
+    );
+    let empty_slot = children_of(&app, empty_box)[0];
+    assert_eq!(
+        app.world().get::<Node>(empty_slot).unwrap().display,
         Display::None,
         "the tree's empty line is the slot the pack's art hides"
     );

@@ -505,7 +505,7 @@ This subsection covers the gallery as a surface: how it is opened and left, what
 
 #### 4. The grid and its walk
 
-- Cards are walked with `↑`/`↓`/`←`/`→` in the entry order the `### Entries` rules fix, and the walk does not wrap. Which arrow reaches which card in a multi-column grid — the row-versus-neighbour mapping for `↑`/`↓` — is `### Layout`'s to fix; this subsection fixes only the order, the no-wrap rule and the activation keys. Focus is always visible: when the grid scrolls, the focused card is scrolled into view. `Enter`, `Space` and a click activate the focused card; digit keys do nothing here (`1`–`3` stay the slot grid's shortcut).
+- Cards are walked with `↑`/`↓`/`←`/`→` in the entry order the `### Entries` rules fix, and the grid does not wrap. *(Amended 2026-11-26, with #117: `↓` from the last card leaves the grid for the contents page's foot — `Resume reading`, then `Exit to title` — and `↑` returns to that card, so the walk clamps inside the grid and continues past it. `←`/`→` stay in the grid.)* Which arrow reaches which card in a multi-column grid — the row-versus-neighbour mapping for `↑`/`↓` — is `### Layout`'s to fix; this subsection fixes only the order, the no-wrap rule and the activation keys. Focus is always visible: when the grid scrolls, the focused card is scrolled into view. `Enter`, `Space` and a click activate the focused card; digit keys do nothing here (`1`–`3` stay the slot grid's shortcut).
 - Focus starts on the first card at every open, and opening a still leaves the walk on that card. Focus is one value: the grid's focused card and the still's current entry are the same thing, so they cannot drift apart, and closing a stepped still returns to the entry it was showing (§5).
 
 #### 5. The still view
@@ -546,7 +546,7 @@ The strings this subsection fixes. Placement, sizes and the card art are `### La
 - Opening, walking and closing the gallery writes nothing and reads no slot: no slot file, no autosave, no settings flush, no `list_slots` call.
 - `Esc` unwinds exactly one level per press: still → grid → origin; from the overlay's grid the next press closes the overlay; with the title as origin the chain ends at the title, where `Esc` is inert.
 - Settings offers no gallery control and the gallery offers no Settings control, from either door.
-- Focus starts on the first card at every open; the walk follows the entry order and does not wrap; a focus moved past the visible rows scrolls the focused card into view; `Enter`, `Space` and a click activate the focused card; a digit does nothing.
+- Focus starts on the first card at every open; the walk follows the entry order and does not wrap inside the grid, leaving `↓` from the last card to the page's foot (*2026-11-26*); a focus moved past the visible rows scrolls the focused card into view; `Enter`, `Space` and a click activate the focused card; a digit does nothing.
 - Activating a card opens the still for that entry, with the entry's label as its caption.
 - The still's `←`/`→` step through the entry order and wrap at both ends; the caption follows the step; `↑`, `↓`, `Esc` and a click each close to the grid, focused on the entry the still was showing; no other input does anything.
 - The still calls no runner method and writes no slot, autosave or settings file.
@@ -615,7 +615,7 @@ This subsection fixes the gallery's **look** only: its shape, the card and its a
 
 #### 1. Shape
 
-- **One surface, both doors.** A header row over the grid — or over the empty-state line. From the title's door the surface spans the window; from the overlay's door it is the overlay's main column, so the rail and the top bar stand unchanged ([Menu overlay](runtime-hardening.md#menu-overlay) §1). The header carries the door-aware back control leftmost, the `Gallery` heading beside it, and the grid legend right-aligned in the same row.
+- **One surface, both doors.** A header row over the grid — or over the empty-state line. From the title's door the surface spans the window; from the overlay's door it is [Default look](#default-look) §4's right column, so the contents page's left column stands beside it. *(Amended 2026-11-26, with #117: the rail and the top bar described here are gone, and the overlay's door draws no back control — the page's column is the way out, as it is for Settings and the Timeline. The title's door keeps its own `← Back to title` leftmost in the header, with the `Gallery` heading beside it and the grid legend right-aligned in the same row.)*
 - **Only the grid scrolls.** The header stays put; the body scrolls when the cards exceed it and the focused card is scrolled into view (`### Behavior` §4).
 - **The empty state is the same header over one line**: the grid legend is not drawn and `No images in this pack` is centred where the grid would be (`### Behavior` §6).
 - The still replaces the grid and the header inside the same surface (§6).
@@ -642,7 +642,7 @@ This subsection fixes the gallery's **look** only: its shape, the card and its a
 | --- | --- |
 | Grid | `minmax(240px, 1fr)` auto-fill · 20px gap · 3 across in 795px, 4 in the title's seat |
 | Card | the overlay's framed panel, ~10px padding, 2px border |
-| Art box | 4:3 · ~291×218 from the overlay's door · smaller cards on the title's denser seat |
+| Art box | 4:3 · ~228×171 from the overlay's door (a ~252px card) · smaller cards on the title's denser seat |
 | Label | mono, under the art, left-aligned in the footer |
 | Focus | 2px `FOCUS` border, no other change |
 | Scrim | radial `rgba(5, 7, 10, 0.34)` → `rgba(5, 7, 10, 0.74)`, title door only |
@@ -650,7 +650,7 @@ This subsection fixes the gallery's **look** only: its shape, the card and its a
 #### 5. Focus and the walk
 
 - **Focus is the overlay's `FOCUS` ring and nothing else**: the focused card's 2px border turns orange and the card is otherwise unchanged — no fill change, no brightness change, no second selection treatment ([Title layout](#title-layout) §7's ring, reused on cards).
-- **`←`/`→` step one card**, `↑`/`↓` step one row in the same column — by the grid's current column count (three at 1280×720) — and when the destination row has no card in that column, a short last row, the move clamps to the grid's last entry. The walk does not wrap, and `Enter`, `Space` and a click activate the focused card (`### Behavior` §4).
+- **`←`/`→` step one card**, `↑`/`↓` step one row in the same column — by the grid's current column count, three in the page's column at 1280×720 and four from the title's door — and when the destination row has no card in that column, a short last row, the move clamps to the grid's last entry. The grid does not wrap, and `Enter`, `Space` and a click activate the focused card (`### Behavior` §4). *(Amended 2026-11-26, with #117: `↓` from the last card leaves for the page's foot, `Resume reading` then `Exit to title`, and `↑` returns to that card.)*
 
 #### 6. The still
 
@@ -666,12 +666,12 @@ This subsection fixes the gallery's **look** only: its shape, the card and its a
 
 #### 8. Validation rules (the build's test list)
 
-- At 1280×720 the grid lays out exactly three cards across from both doors, with a 20px gap; the header and legend render without scrolling.
+- At 1280×720 the grid lays out exactly three cards across from the overlay's door — four from the title's door, whose seat is wider (*2026-11-26*) — with a 20px gap; the header and legend render without scrolling.
 - With a 19-entry pack the grid scrolls, and after every arrow move the focused card's rect is inside the body's visible rect.
 - Contain, not cover: a 1280×720 background in the 4:3 art box draws box-width wide, `box_w × 720 / 1280` tall and centred, with equal letterbox above and below; a 256×512 sprite draws box-height tall, `box_h × 256 / 512` wide and centred, with equal pillarbox. In both, `drawn_w / drawn_h == natural_w / natural_h`, `drawn_w <= box_w` and `drawn_h <= box_h`.
 - A transparent sprite's unmarked pixels are not filled or tinted: in the grid the card fill shows through, in the still the backdrop and scrim; no checkerboard is drawn anywhere.
 - The focused card differs from an unfocused one only by its 2px `FOCUS` border — no fill, brightness or size delta — and the ring is drawn on the first card at every open.
-- The walk: `←`/`→` move ±1; `↑`/`↓` move by the grid's current column count when that entry exists, else clamp to the grid's last entry; the first card's `↑`/`←` and the last card's `↓`/`→` are no-ops (no wrap).
+- The walk: `←`/`→` move ±1; `↑`/`↓` move by the grid's current column count when that entry exists, else clamp to the grid's last entry; the first card's `↑`/`←` and the last card's `→` are no-ops, and the last card's `↓` steps to the page's foot (*2026-11-26*).
 - A missing-art card draws the 4:3 placeholder frame — a faint 1px solid outline *(amended 2026-10-07)* — with its label in the footer and no marker; activating it opens a still with the same frame and label.
 - The still draws its image contain-fit above a foot strip holding the entry's label, verbatim, and the still legend; `←`/`→` change only the image and the caption.
 - From the title's door the scrim is drawn between the backdrop and the surface; from the overlay's door it is absent; the scrim never covers a card's art or the still's image.
@@ -711,7 +711,7 @@ Settled 2026-10-08, four interview rounds including the shared-understanding con
 - **Visited card:** its raw scene id as label, selectable. **Unvisited card:** `???`, locked, no scene id, title or thumbnail exposed. No ordinal, timestamp, completion percentage or Current badge is added. These are text cards; their geometry is [Layout](#layout-1)'s.
 - Locked cards stay in the arrow walk, with visible focus, but `Enter`, `Space` and click are inert: no confirm, jump or Notice. The current scene, if declared and visited, is selectable too: it restarts from the top behind the same confirm.
 - **Initial focus on every open is the first selectable card in declared order, otherwise the first declared card.** No remembered focus. A current unlisted scene and an entirely locked declared list are valid: the first card is focused and all activations are inert. An empty list has no card focus.
-- `↑`/`↓`/`←`/`→` walk the declared card order, **without wrapping**; the focused card is scrolled into view. [Layout](#layout-1) fixes the two-column mapping: horizontal ±1, vertical ±2, clamped to first/last (including deliberate diagonal end clamping). `Enter`, `Space` and click activate; digits do nothing. Confirm cancellation leaves focus and scroll on the target card.
+- `↑`/`↓`/`←`/`→` walk the declared card order, **without wrapping** inside the grid; `↓` from the last card steps to the contents page's foot — `Resume reading`, then `Exit to title` — and `↑` returns to that card (*2026-11-26*); the focused card is scrolled into view. [Layout](#layout-1) fixes the two-column mapping: horizontal ±1, vertical ±2, clamped to first/last (including deliberate diagonal end clamping). `Enter`, `Space` and click activate; digits do nothing. Confirm cancellation leaves focus and scroll on the target card.
 
 ### 3. One confirm and fixed copy
 
@@ -785,13 +785,13 @@ Settled 2026-10-08 by the layout prototype, folded by the Timeline build. **Room
 | Confirm | Existing overlay confirm vocabulary, 420px panel, 20px padding, 12px gaps; 22px SemiBold title, 15px regular sans detail; black 45% dimmer; destructive Jump `#7a2929`; exact §3 copy |
 | Motion | Instant changes; no animation or new surface |
 
-Locked focus deliberately communicates **progression and relative position**, never completion: visited means entered, not completed. The card exposes only `???`; no ordinal, timestamp, Current badge, art or completion percentage. Empty order retains §1's enabled door, explanation and Back/Resume, without cards/card focus; use §3's empty copy.
+Locked focus deliberately communicates **progression and relative position**, never completion: visited means entered, not completed. The card exposes only `???`; no ordinal, timestamp, Current badge, art or completion percentage. Empty order retains §1's enabled door and the explanation, without cards/card focus and without the walk legend; `Resume reading` and `Esc` are the ways out (*2026-11-26*: the rail's Back control is gone); use §3's empty copy.
 
 #### Walk and scrolling
 
-- Horizontal arrows move index ±1; vertical arrows move ±2. Clamp the result to `[0, last]`, never wrap, include locked cards and scroll the entire focused card into view. End clamping may move diagonally; this is intentionally not a strict-column no-op rule.
+- Horizontal arrows move index ±1; vertical arrows move ±2. Clamp the result to `[0, last]`, never wrap, include locked cards and scroll the entire focused card into view. End clamping may move diagonally; this is intentionally not a strict-column no-op rule. *(Amended 2026-11-26, with #117: the clamp is the grid's; `↓` from the last card leaves for the page's foot, `Resume reading` then `Exit to title`, and `↑` walks back to that card.)*
 - Opening still focuses the first selectable card, otherwise the first declared. Cancel retains target focus and scroll; returning/reopening follows §1/§2, not a layout-local remembered focus.
-- Header, explanation, rail and legend remain outside the card body's scroll. Long lists scroll internally rather than increasing window height. Long ids wrap within card width; build checks must verify representative long ids remain legible within the fixed height.
+- Header, explanation and legend remain outside the card body's scroll, and the walk legend is hidden when the pack declares no scenes, with the empty line centred where the cards would be (*2026-11-26*, with #117). Long lists scroll internally rather than increasing window height. Long ids wrap within card width; build checks must verify representative long ids remain legible within the fixed height.
 - In-play cue geometry belongs only to [Text skip §7](runtime-hardening.md#7-cue-and-labels): Timeline introduces no SKIP cue or alternate placement. The prototype's shaded dialogue sample is staging, not a required production skin.
 
 #### Validation rules (the build's test list)
@@ -799,9 +799,9 @@ Locked focus deliberately communicates **progression and relative position**, ne
 - At 1280×720, render two equal-width columns with 136px cards, 16px gaps and 18px padding; header/explanation/legend and rail controls fit outside the scroll body. Card width follows available body space rather than a fixed browser measurement.
 - Mixed, all-locked and first-locked/later-visited fixtures retain §2's opening focus; locked focus is the same reserved 2px orange ring as visited focus, without size/fill change or identity exposure.
 - A 30-entry fixture and representative long raw ids wrap without truncation; every focused card including the last is fully visible after scrolling.
-- Arrow moves use ±1/±2 and clamp to first/last without wrap, including deliberate diagonal clamps at incomplete/end rows; locked entries stay in the walk and activating them is inert.
+- Arrow moves use ±1/±2 and clamp to first/last inside the grid without wrapping, including deliberate diagonal clamps at incomplete/end rows, and `↓` past the last card reaches the page's foot (*2026-11-26*); locked entries stay in the walk and activating them is inert.
 - Cancel/Esc from the one confirm restores identical target focus and scroll, old position/staging and file bytes; verify §3's exact copy and the inherited panel proportions/tones in Bevy.
-- Absent/empty order renders the enabled door and exact empty copy without cards/card focus; Back/Resume remain usable.
+- Absent/empty order renders the enabled door and exact empty copy without cards/card focus, and without the walk legend; `Resume reading` and `Esc` remain usable (*2026-11-26*: the Back control went with the rail).
 - Labels, heading, explanation and legend use the specified sans/mono roles, sizes and tones; no extra badge, completion value, new art or motion appears. Confirm and jump behaviour remain production-path tests, not prototype mock assertions.
 
 ### Amendments and scope
@@ -886,7 +886,7 @@ This section is the one owner of the default look of the play frame, the title a
 - **The left column** holds a small mono `CONTENTS` label, then the sections as large SemiBold entries in order (`Save`, `Load`, `Timeline`, `Gallery`, `Settings`; *2026-11-14: [Backlog](#backlog) §4 adds `Backlog` after `Load` when built*), with the current one white and marked with an orange `·` and the others in the faint tone. At the column's foot sit `▶ Resume reading` in the `FOCUS` tone and `Exit to title`. The page replaces the rail, so the pack name and the current scene move into the right column's heading.
 - **Save and Load** show the slots as a ledger in the right column: a heading line (`Save your place — you are in <scene>` or `Return to a page — you are in <scene>`), then one row per slot in `Slot::ALL` order. A row holds the slot label (mono), the scene id or status over the saved-at line, and the action at the row's right, in the `FOCUS` tone or the muted tone when disabled. The ledger shows exactly the fields of [Menu overlay](runtime-hardening.md#menu-overlay) §2 and the actions of §3; the legacy entry becomes a final ledger row, in save mode only, under §4's rules.
 - **Timeline, Gallery and Settings** render their current views in the right column. Their own rails, back controls and Resume give way to the left column. This section does not redesign their interiors.
-- **The walk.** `Tab` cycles the sections exactly as the top bar did (Save → Load → Timeline → Gallery → Settings, and Save → Load inside the sub-views; *2026-11-14: [Backlog](#backlog) §5 inserts Backlog after Load when built*). In Save and Load, `↑`/`↓` walk the ledger rows, the legacy row included, and `1`–`3` focus a manual slot; `←`/`→` do nothing there. `Enter`/`Space` activate, focus wears the `FOCUS` ring, and pointer and keyboard are equal. `Esc` keeps its four moments, so it also resumes from the slots. Settings, Gallery and Timeline keep their own walks.
+- **The walk.** `Tab` cycles the sections exactly as the top bar did (Save → Load → Timeline → Gallery → Settings, and Save → Load inside the sub-views; *2026-11-14: [Backlog](#backlog) §5 inserts Backlog after Load when built*). In Save and Load, `↑`/`↓` walk the ledger rows, the legacy row included, and `1`–`3` focus a manual slot; `←`/`→` do nothing there. `Enter`/`Space` activate, focus wears the `FOCUS` ring, and pointer and keyboard are equal. `Esc` keeps its four moments, so it also resumes from the slots. Settings, Gallery and Timeline keep their own walks above the page's foot. *(Amended 2026-11-26, with #117: the Gallery's and the Timeline's walks now end on the same foot the ledger and Settings have — `↓` past the last card reaches `Resume reading`, then `Exit to title`, and `↑` walks back to that card — so pointer and keyboard are equal in every section. Their own rules above that point stand.)*
 - **Exit to title moves** from the Settings view's rail to the contents page's foot, so every section reaches it, with [Title](#title) §5's confirm.
 
 ### 5. Monitor clearance

@@ -30,9 +30,20 @@
                 ),
             ],
         ),
-        (kind: "slot", slot: "gallery.empty",
-            typography: "{typography.label}",
-            color: "{colors.dim}"),
+        // The empty state is one line where the grid would be, centred in both
+        // directions (`docs/title-and-menu.md` § Gallery `### Layout` §1). The box
+        // is the tree's; the player grows it to the body's height, which the format
+        // cannot say.
+        (kind: "box",
+            direction: "column",
+            width: "fill",
+            justify_content: "center",
+            align_items: "center",
+            children: [
+                (kind: "slot", slot: "gallery.empty",
+                    typography: "{typography.label}",
+                    color: "{colors.dim}"),
+            ]),
         (kind: "list",
             list: "gallery.cards",
             width: "fill",
