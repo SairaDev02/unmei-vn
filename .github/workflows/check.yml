@@ -331,16 +331,15 @@ jobs:
       # The invariant checks cost seconds and compile nothing, so they run
       # before fmt, clippy and the workspace build. `--self-test` first proves
       # each rule still rejects a controlled invalid case, so a rule that has
-      # gone insensitive cannot report a vacuous pass. The engine, line-ending
-      # and license rules run on every branch and PR: a Bevy dependency in
-      # `unmei-engine` is wrong wherever it appears, a CRLF checkout changes what
-      # `cargo package` stages into a release archive, and
-      # `deny.toml` must carry exactly the accepted licenses of
-      # `packaging/about.toml` wherever either file changes.
-      - name: Repository invariants (self-test, engine, line endings, licenses)
+      # gone insensitive cannot report a vacuous pass. The line-ending and
+      # license rules run on every branch and PR: a CRLF checkout changes what
+      # `cargo package` stages into a release archive, and `deny.toml` must carry
+      # exactly the accepted licenses of `packaging/about.toml`. The engine rule
+      # needs `cargo tree`, so it runs in the Rust job, which every `Cargo.toml`
+      # change triggers.
+      - name: Repository invariants (self-test, line endings, licenses)
         run: |
           python3 scripts/check-invariants.py --self-test
-          python3 scripts/check-invariants.py --rules engine
           python3 scripts/check-invariants.py --rules eol
           python3 scripts/check-invariants.py --rules licenses
 
@@ -387,6 +386,9 @@ jobs:
         run: rustup toolchain install --no-self-update
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      - name: Repository invariants (Bevy-free engine)
+        run: python3 scripts/check-invariants.py --rules engine
 
       - name: cargo fmt --check
         run: cargo fmt --check
