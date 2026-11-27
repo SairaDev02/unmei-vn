@@ -131,22 +131,23 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
     let mut picks = request.picks.iter().copied();
     let mut framed = false;
     let mut parks_met = 0usize;
+    let stopped = |why: String| {
+        let stopped = match parks.target() {
+            Some(line) => format!("the replay stopped before line {line}: {why}"),
+            None => format!("the replay stopped: {why}"),
+        };
+        Finding::new(
+            "preview",
+            Location::File,
+            unmei_engine::keiko::rules::DEFENSIVE,
+            stopped,
+        )
+    };
     for _ in 0..MAX_PARKS {
         // A cycle with no say-line, choice or decide stops the player with a
         // defensive failure (row 13). The replay must report why it stopped
         // rather than hand back a case that quietly ends short of the line.
-        let outcome = runner.run().map_err(|error| {
-            let stopped = match parks.target() {
-                Some(line) => format!("the replay stopped before line {line}: {error}"),
-                None => format!("the replay stopped: {error}"),
-            };
-            Finding::new(
-                "preview",
-                Location::File,
-                unmei_engine::keiko::rules::DEFENSIVE,
-                stopped,
-            )
-        })?;
+        let outcome = runner.run().map_err(|error| stopped(error.to_string()))?;
         let Some(wait) = outcome.wait else {
             break;
         };
@@ -170,46 +171,24 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
                 break;
             }
         }
-        // Move past the park, taking the default picks and the author's
-        // decision fallbacks (spec §9.1).
-        match wait {
-            Wait::Say { .. } => {
-                walk.steps.push("advance".to_string());
-                if runner.advance_say().is_err() {
-                    break;
+        if let Wait::Decision {
+            npc_id, question, ..
+        } = &wait
+        {
+            // A held decision is what makes a parked decision observable, so
+            // a framed one declares the fault and releases it to move on.
+            if frame {
+                let point = format!("{npc_id}.{question}");
+                if !walk.holds.contains(&point) {
+                    walk.holds.push(point.clone());
                 }
+                walk.steps.push(format!("release-decision {point}"));
             }
-            Wait::Choice { options } => {
-                let index = picks.next().unwrap_or(1).clamp(1, options.len().max(1));
-                walk.steps.push(format!("pick {index}"));
-                if runner.choose(index - 1).is_err() {
-                    break;
-                }
-            }
-            Wait::Decision {
-                npc_id, question, ..
-            } => {
-                // A held decision is what makes a parked decision observable, so
-                // a framed one declares the fault and releases it to move on.
-                if frame {
-                    let point = format!("{npc_id}.{question}");
-                    if !walk.holds.contains(&point) {
-                        walk.holds.push(point.clone());
-                    }
-                    walk.steps.push(format!("release-decision {point}"));
-                }
-                let landing = pack
-                    .npcs
-                    .get(&npc_id)
-                    .and_then(|npc| npc.decisions.get(&question))
-                    .map(|config| config.fallback.landing_key());
-                let Some(landing) = landing else {
-                    break;
-                };
-                if runner.resolve_decision(&landing).is_err() {
-                    break;
-                }
-            }
+        }
+        match move_past(&mut runner, pack, &wait, &mut picks).map_err(&stopped)? {
+            Some(index) => walk.steps.push(format!("pick {index}")),
+            None if matches!(wait, Wait::Say { .. }) => walk.steps.push("advance".to_string()),
+            None => {}
         }
     }
     if let Some(line) = parks.target() {
@@ -230,6 +209,43 @@ fn walk(pack: &Pack, scene: &str, parks: Parks, request: &PreviewRequest) -> Res
         ));
     }
     Ok(walk)
+}
+
+/// Move the runner past the park it waits on, taking the default picks and
+/// the author's decision fallbacks (spec §9.1). Both walkers of the script use
+/// it, so they stop for the same reasons. A taken choice returns its 1-based
+/// option.
+pub(super) fn move_past(
+    runner: &mut ScriptRunner,
+    pack: &Pack,
+    wait: &Wait,
+    picks: &mut impl Iterator<Item = usize>,
+) -> Result<Option<u32>, String> {
+    let stops = |error| format!("the script stops: {error}");
+    match wait {
+        Wait::Say { .. } => runner.advance_say().map(|()| None).map_err(stops),
+        Wait::Choice { options } => {
+            let index = picks.next().unwrap_or(1).clamp(1, options.len().max(1));
+            runner
+                .choose(index - 1)
+                .map(|()| Some(index as u32))
+                .map_err(stops)
+        }
+        Wait::Decision {
+            npc_id, question, ..
+        } => {
+            let landing = pack
+                .npcs
+                .get(npc_id)
+                .and_then(|npc| npc.decisions.get(question))
+                .map(|config| config.fallback.landing_key())
+                .ok_or_else(|| format!("decision `{npc_id}.{question}` has no fallback to land"))?;
+            runner
+                .resolve_decision(&landing)
+                .map(|()| None)
+                .map_err(stops)
+        }
+    }
 }
 
 /// How many parks a walk may meet before the scene counts as never ending.
@@ -449,5 +465,41 @@ Narrator: done.
             error.message.contains("did not end within 10000 parks"),
             "{error:?}"
         );
+    }
+
+    /// A decision point whose NPC the pack no longer declares has no fallback to
+    /// land on. The replay must report that, with a line or a whole scene.
+    #[test]
+    fn a_replay_that_cannot_land_a_decision_reports_why() {
+        let mut pack = unmei_engine::load_pack(
+            &std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/demo-pack"),
+        )
+        .expect("the pack loads")
+        .pack;
+        pack.npcs.remove("ace");
+        let requests = [
+            PreviewRequest {
+                at: Some(("reunion".to_string(), 24)),
+                ..PreviewRequest::default()
+            },
+            PreviewRequest {
+                scene: Some("reunion".to_string()),
+                ..PreviewRequest::default()
+            },
+        ];
+        for request in requests {
+            let error = build_case(&pack, &request).expect_err("the decision cannot land");
+            assert_eq!(
+                error.rule,
+                unmei_engine::keiko::rules::DEFENSIVE,
+                "{error:?}"
+            );
+            assert!(
+                error
+                    .message
+                    .contains("`ace.greet` has no fallback to land"),
+                "{error:?}"
+            );
+        }
     }
 }
