@@ -1283,6 +1283,26 @@ fn a_held_key_at_a_load_does_not_act_until_it_is_released() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+const GALLERY_FROM_THE_FOOT_CASE: &str = "keiko 1\nsetting play.text_speed 0\n\nnew-game\nmenu\n\
+    expect surface menu\n\
+    press Tab\npress Tab\npress Tab\npress Tab\npress Enter\n\
+    expect surface gallery\n\
+    press ArrowDown\npress ArrowDown\n\
+    expect control overlay.resume focused\n\
+    activate gallery.card.2\nexpect surface still\n";
+
+/// Rule 17: `activate` walks to a control with the arrows alone, including from
+/// the page's foot. Focus starts on the foot here, and the middle card of three is
+/// reached by walking up to the last card and left — the order the walk starts
+/// with would step back to the foot and never reach it.
+#[test]
+fn an_activation_from_the_foot_reaches_the_middle_card() {
+    let dir = temp_dir();
+    let pack = pack(&dir, &[("foot", GALLERY_FROM_THE_FOOT_CASE)]);
+    assert_pass(&pack, "foot");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 const KEY_ROW_CASE: &str = "setting play.text_speed 0\n\nactivate title.settings\n\
     activate settings.key\ntype \"sk-nano-abcdefghijklmnop\"\npress Enter\n";
 

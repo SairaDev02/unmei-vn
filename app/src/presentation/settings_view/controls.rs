@@ -57,6 +57,26 @@ const SETTINGS_VALUE_SIZE: f32 = 16.0;
 /// spaced them before the tree drew the row.
 const SETTINGS_SWITCH_GAP: f32 = 8.0;
 
+/// The padding a row's overlaid control takes, and the centring that keeps its own
+/// label on the row's line: a `slot` accepts neither property, so a tree that lays
+/// a control over its row cannot say them (`docs/ui-plugin-format.md` § Nodes). The
+/// numbers are the tree's own `row` component, and the audio rows need neither
+/// because their labels are in-flow slots.
+const SETTINGS_ROW_PAD_X: f32 = 12.0;
+const SETTINGS_ROW_PAD_Y: f32 = 6.0;
+
+/// Put a row's overlaid control on the row's line: the padding and centring its
+/// own label needs, with the size and position the tree gave it.
+fn shape_row_control(commands: &mut Commands, entity: Entity) {
+    commands
+        .entity(entity)
+        .entry::<Node>()
+        .and_modify(|mut node| {
+            node.padding = UiRect::axes(Val::Px(SETTINGS_ROW_PAD_X), Val::Px(SETTINGS_ROW_PAD_Y));
+            node.align_items = AlignItems::Center;
+        });
+}
+
 /// The stepped text-speed control's track. The audio rows' tracks are the tree's
 /// empty row boxes; the stepped row has no box of its own in the format, so the
 /// engine draws the same 220×10 the plugin's `track` component gives a slider.
@@ -146,6 +166,7 @@ pub(super) fn mount_switch(
         return;
     };
     let words = on_off(value).to_string();
+    shape_row_control(&mut parent.commands(), control);
     parent.commands().entity(control).with_children(|node| {
         node.spawn((
             SettingsLabel { kind },
@@ -172,7 +193,10 @@ pub(super) fn mount_text_speed(
     let Some(SlotHolder { boxes, .. }) = slot_holder(spawned, "settings.text-speed") else {
         return;
     };
-    let [track, value] = boxes[..] else {
+    if let Some(control) = spawned.controls.get("settings.text-speed").copied() {
+        shape_row_control(&mut parent.commands(), control);
+    }
+    let [.., track, value] = boxes[..] else {
         return;
     };
     let percent = settings

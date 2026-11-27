@@ -311,6 +311,33 @@ fn the_walk_past_the_last_card_reaches_the_page_s_foot() {
     assert!(!menu(&app).open, "Resume reading closes the page");
 }
 
+/// A pack with no scene order still reaches the page's foot by keyboard: the empty
+/// Timeline's arrows step to `Resume reading` and on to `Exit to title`, so the
+/// pointer and the keys are equal there too (`docs/title-and-menu.md`
+/// § Default look §4).
+#[test]
+fn an_empty_timeline_still_reaches_the_page_s_foot() {
+    let pack = temp_pack_with_order(None);
+    let mut app = app_for_pack(pack.path().join("pack"));
+    open_timeline(&mut app);
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::TimelineButton;
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume, "↓ reaches the foot");
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the foot's end clamps"
+    );
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume, "no card to go back to");
+    press_and_update(&mut app, KeyCode::Enter);
+    assert!(!menu(&app).open, "Resume reading closes the page");
+}
+
 #[test]
 fn the_walk_includes_locked_cards_and_activation_of_a_locked_card_is_inert() {
     let pack = temp_custom_pack(

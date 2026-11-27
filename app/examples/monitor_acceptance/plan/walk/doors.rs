@@ -110,6 +110,12 @@ pub(crate) fn door_steps() -> Vec<Step> {
             .at(6, focus_clear_key)
             .settle(14)
             .check(check_settings_focus_reveals_clear_key),
+        Step::new("settings(overlay door): every overlaid control rings its row")
+            .at(0, wheel_settings_to_top)
+            .at(6, focus_text_speed)
+            .shot(12, "07b-settings-text-speed")
+            .settle(14)
+            .check(check_settings_rows_ring_their_panels),
         Step::new("settings(overlay door): Esc returns to the slot grid")
             .at(0, |world, harness| tap_key(world, harness, KeyCode::Escape))
             .at(10, open_drawer)
