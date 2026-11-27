@@ -20,6 +20,7 @@ pub mod sandbox;
 pub mod sha256;
 pub mod steps;
 pub mod take;
+mod walk;
 
 use std::path::{Path, PathBuf};
 
