@@ -350,3 +350,44 @@ fn a_kept_takes_session_log_holds_only_its_version_header() {
         "the logging take's own lines do not reach its session log either"
     );
 }
+
+/// A pack whose first scene parks on a choice of ten options, each landing on
+/// its own say-line so a settled line names the option taken.
+fn ten_option_pack() -> (tempfile::TempDir, PathBuf, Pack) {
+    let dir = tempfile::tempdir().expect("a temp dir");
+    let root = dir.path().join("ten");
+    std::fs::create_dir_all(root.join("scenes")).unwrap();
+    std::fs::create_dir_all(root.join("npcs")).unwrap();
+    std::fs::write(root.join("pack.ron"), "(name: \"ten\", entry: \"a\")").unwrap();
+    std::fs::write(root.join("state.ron"), "(met: false,)").unwrap();
+    let mut scene = String::from("Narrator: entry.\nchoice\n");
+    for n in 1..=10 {
+        scene.push_str(&format!("  \"Option {n}\" -> o{n}\n"));
+    }
+    scene.push_str("end\n");
+    for n in 1..=10 {
+        scene.push_str(&format!("label o{n}\nNarrator: took {n}.\njump done\n"));
+    }
+    scene.push_str("label done\nNarrator: done.\n");
+    std::fs::write(root.join("scenes/a.unmei"), scene).unwrap();
+    let loaded = load_pack(&root).expect("the pack loads");
+    (dir, root, loaded.pack)
+}
+
+#[test]
+fn a_pick_by_text_past_option_nine_is_no_target_and_presses_no_key() {
+    let (_dir, root, pack) = ten_option_pack();
+    let case = parse_case(
+        "tests/ten.keiko",
+        "keiko 1\nsetting play.text_speed 0\n\nnew-game\nadvance\npick \"Option 10\"\n",
+    )
+    .expect("the case parses");
+    let result = run(request(&case, &pack, &root));
+    let finding = result.outcome.expect_err("option 10 has no key");
+    assert_eq!(finding.rule, rules::STEP_NO_TARGET, "{finding:?}");
+    assert_eq!(
+        result.observation.choices.len(),
+        10,
+        "no key was pressed, so the choice is still pending"
+    );
+}
