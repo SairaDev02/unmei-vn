@@ -131,7 +131,7 @@ A control is named by a stable role id, never by its displayed text. This table 
 | Timeline | `timeline.card.<n>` (1-based, in declared order) |
 | Confirm | `confirm.yes`, `confirm.no` |
 
-Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/menu/state.rs). The build adds the map beside that enum, with a test that every `MenuFocus` variant has exactly one id. A control added later gets an id in the same change (additive, §2.1). The play frame's quick row gets ids when variant E is built.
+Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/menu/state.rs). The map is `focus_ids` in [`app/src/keiko/controls.rs`](../app/src/keiko/controls.rs), with a test that every `MenuFocus` variant has exactly one id. A control added later gets an id in the same change (additive, §2.1). The play frame's quick row gets ids when variant E is built.
 
 **The control list (added 2026-11-27).** Each surface has a **control list**: the controls it draws that its walk can focus, plus its pointer-only controls, in walk order. The observation's `controls` field (§5.1), `activate`, the focus check (§4.3) and the menu walk (§9.5) all read this one list.
 
@@ -148,7 +148,7 @@ Each id maps to one `MenuFocus` value in [`app/src/menu/state.rs`](../app/src/me
 | `type "<text>"` | One `KeyboardInput` message per character, into whatever owns text entry. |
 | `paste "<text>"` | Fills the in-memory clipboard port, then presses `Ctrl+V`. The system clipboard is never touched. |
 
-`<key>` is a Bevy `KeyCode` variant name: `Enter`, `Space`, `Escape`, `Tab`, `ControlLeft`, `KeyA`, `Digit1`, `F3`, `ArrowUp`, `PageDown` and so on. Any other name fails with `keiko.case.syntax`.
+`<key>` is one of a fixed table of names, `KEY_NAMES` in [`app/src/keiko/steps.rs`](../app/src/keiko/steps.rs): `Enter`, `Space`, `Escape`, `Tab`, `Backspace`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, `ArrowUp`, `ArrowDown`, `ArrowLeft`, `ArrowRight`, `ControlLeft`, `ControlRight`, `ShiftLeft`, `ShiftRight`, `AltLeft`, `KeyA`, `KeyC`, `KeyF`, `KeyN`, `KeyR`, `KeyV`, `KeyX`, `F3`, `F5`, `F9`, `F11` and `Digit1` to `Digit9`. Any other name, including other Bevy `KeyCode` variants such as `KeyB`, `Digit0` and `F1`, fails with `keiko.case.syntax`.
 
 ### 3.4 The clock and fault steps (K4, K19)
 
@@ -248,6 +248,7 @@ After each step the take builds an **observation** from the world. Building it r
 | `error` | On the error screen: its messages, in order. |
 | `state` | The state map. |
 | `slots` | `[{ "slot": "1", "status": "empty" \| "unreadable" \| "ok", "scene" }]`. |
+| `live` | `true` once the take has called the real model (`--take --live`), otherwise `false`. |
 | `log` | The take's failure lines (§3.5) written since the previous observation: `[{ "level", "row", "text" }]`. Each is an `error` or `warn` line under `unmei::failure`, never a session log line. *(Amended 2026-11-19: not the session log.)* |
 
 The read log is not printed in full. It is asserted with `expect read` and `expect unread`.
@@ -322,7 +323,7 @@ Because takes are deterministic (§4.3, §6), each command lands exactly where t
 ### 9.1 The walk
 
 - **Start.** A fresh take of the pack at `new-game`, or the end of case `--from ID`, inheriting its headers. Exploration adds `setting play.text_speed 0` (instant text) unless the case sets the text speed.
-- **Moves.** At a say park, `advance`. At a choice, each option in index order. At a decision point, each landing key in ascending byte order, then `fallback`, each as a `decide` header on that branch. Depth first. *(Amended 2026-11-17: sorted, not declared, order. The engine holds a question's criteria in an unordered map, so declared order does not survive loading, and a sort keeps exploration deterministic.)*
+- **Moves.** At a say park, `advance`. At a choice, each option in index order. At a decision point, each landing key in ascending byte order, then `fallback`, each as a `decide` header on that branch. Breadth first. *(Amended 2026-11-17: sorted, not declared, order. The engine holds a question's criteria in an unordered map, so declared order does not survive loading, and a sort keeps exploration deterministic.)*
 - **Visited.** A park whose (scene, line, state map) was already reached is not expanded again (K23).
 - **Replay.** Each branch is a fresh take replaying its own step list from the start, so findings reproduce from a plain case.
 - **Budget.** `--budget N` caps the steps applied, replays included, across the whole walk. The default is 10,000. When the budget is spent, exploration stops and reports `budget spent` in the coverage summary. The same pack and budget always give the same result.
@@ -335,7 +336,7 @@ Because takes are deterministic (§4.3, §6), each command lands exactly where t
 | `keiko.notice` | A Notice was shown. |
 | `keiko.defensive` | A defensive failure (failure posture `Defensive`). |
 | `keiko.log.row-<n>` | A `warn` or `error` line from a failure row the pack causes: pack warnings, missing or undecodable assets, a missing decide point or decision label. |
-| `keiko.stuck` | A park that is not the pack's end, where every move leaves the scene, line and wait unchanged. |
+| `keiko.stuck` | A park that is not the pack's end, where every move lands on a park already reached, which includes a move that goes nowhere. A park is the key `scene\|line\|state`, so the wait is not part of it. A hub whose every option returns to an already reached park is therefore reported. |
 | `keiko.unsettled` | The settle rule did not reach quiet. |
 | `keiko.focus.hidden` | The focus check failed (§4.3). *(Added 2026-11-27.)* |
 
@@ -389,7 +390,7 @@ A finding has the shape of the check's findings ([plugin family C3](plugin-famil
 | Code | Meaning |
 |---|---|
 | 0 | Every take passed; a step applied; exploration found nothing. |
-| 1 | A take failed or a case was invalid; a step failed; exploration saved at least one finding. |
+| 1 | A take failed or a case was invalid; a step failed; exploration found at least one finding, saved or not. |
 | 2 | Usage error. |
 
 ## 11. Check and packaging
@@ -425,7 +426,7 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
   - **G** gains a case for the title's gallery door. The case opens the Gallery with `activate title.gallery`, activates every card, and presses each arrow from the first and last cards, checking the focus after each press.
   - Each pack also runs `--explore --menus` in the gate (below) and saves no finding.
 - **Migrated cases.** Every smoke case that needs no real GPU, audio device or physical input becomes a case over a fixture pack. That means T1–T4, P1, S1–S3, K1–K4 (with `key-check` faults in place of network blocking), G2 without its visual check, R1–R3, L1–L2, M1, the input-ownership parts of M2, and B1. A1's held and slow answers become `decision-hold` and `decision-slow` cases.
-- **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack and each fixture pack, and with `--explore --budget 10000` over the demo pack, and fails on a non-zero exit. From slice 3 it also runs `--explore --menus --budget 10000` over the demo pack and over each fixture pack. *(Amended 2026-11-27.)* The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
+- **The gate.** `app/tests/keiko_gate.rs` runs the built `unmei-play` (`CARGO_BIN_EXE_unmei-play`) with `--take` over the demo pack, and with `--explore --menus --budget 10000` over the demo pack and over each fixture pack (slice 3), and fails on a non-zero exit. It also holds the binary-level rules of §15 that need a real process: usage errors, isolation, case validation, determinism and sandbox cleanup. `app/tests/keiko_fixtures.rs` runs `--take` over each fixture pack, and `app/tests/keiko_rules.rs` runs the story walk, `--explore --budget N`, with the other behaviour rules over a copy of the demo pack. *(Amended 2026-11-27.)* The `check` workflow's existing test step runs it, so `check.yml` needs no new job.
 - **Docs.** The demo pack's `AGENT-GUIDE.md` gains a Keiko section and the Guide a Keiko page (K28). [`testing.md`](testing.md) names Keiko as the player-level end-to-end layer. The smoke checklist is retired, and its rendered, audio and physical-input checks become accepted unverified residuals (*amended 2026-11-17*, [K31](keiko.md#8-relation-to-other-work)). The [release runbook](release-runbook.md) gains the release run of §14.1. `GLOSSARY.md` gains the terms in [requirements §9](keiko.md#9-contracts-this-will-amend).
 
 ### 14.1 Release evidence (added 2026-11-17)
@@ -527,6 +528,8 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
   Every change is additive, so the case version stays 1.
 - **2026-11-27 (slice 3 build):** §4.3 counts a card focus on an empty Gallery or Timeline as no focus, and rules 45 and 46 expect one finding per distinct stop instead of exactly one. The [requirements](keiko.md) K11, K23, K24 and K25 are amended in place, and the [glossary](../GLOSSARY.md) entries for Exploration and Finding name the menu walk.
 - **2026-11-27 (issues #184, #194):** A duration too large for `Duration` is a `keiko.case.syntax` finding instead of a panic. The maintainer decided that `wait` and `decision-slow` take at most 60 s, that `advance` takes a count of at most 1000, and that going over a limit is a parse-time `keiko.case.syntax` finding. §3.1 and §3.4 state the limits, and §15 gains rules 51 and 52. The grammar is unchanged, so the case version stays 1.
+
+- **2026-11-27 (issue #195):** Seven statements now follow the code, and the maintainer decided that the docs follow the code on both open rows. §9.1 and the glossary say the story walk is breadth first. §10.3 says exploration exits 1 on any finding, saved or not. §9.2's `keiko.stuck` is a park whose every move lands on an already reached park, with the hub consequence stated. §5.1 gains the `live` field. §3.3 lists the fixed key names. §3.2 names `focus_ids` in `app/src/keiko/controls.rs`. §14 says what `keiko_gate.rs`, `keiko_fixtures.rs` and `keiko_rules.rs` each run. No behaviour changes, so the case version stays 1.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

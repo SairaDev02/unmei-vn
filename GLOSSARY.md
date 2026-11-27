@@ -357,7 +357,7 @@ Applying one step to a case at a time, each command replaying the case from its 
 _Avoid_: session, interactive mode, REPL
 
 **Exploration**:
-Keiko walking every choice option and every landing key of a pack, depth first, within a step budget, and reporting the parks and scenes it never reached. With `--menus` it is the menu walk instead: every walk key, `Enter` and `Esc` from each focus on each menu surface, breadth first, reporting the controls it never focused.
+Keiko walking every choice option and every landing key of a pack, breadth first, within a step budget, and reporting the parks and scenes it never reached. With `--menus` it is the menu walk instead: every walk key, `Enter` and `Esc` from each focus on each menu surface, breadth first, reporting the controls it never focused.
 _Avoid_: fuzzing, random walk, crawl
 
 **Check**:
