@@ -353,7 +353,20 @@ fn append_step(
 ) -> u8 {
     let case_file = format!("tests/{id}.keiko");
     let path = pack_root.join(&case_file);
-    let existing = std::fs::read_to_string(&path).ok();
+    let existing = match std::fs::read_to_string(&path) {
+        Ok(text) => Some(text),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(error) => {
+            let finding = Finding::new(
+                &case_file,
+                Location::File,
+                unmei_engine::keiko::rules::CASE_SYNTAX,
+                format!("cannot read the case: {error}"),
+            );
+            output::print_finding(&finding);
+            return output::FAIL;
+        }
+    };
 
     let mut candidate = existing.clone().unwrap_or_else(|| {
         format!(

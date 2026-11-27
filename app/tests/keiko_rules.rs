@@ -435,6 +435,26 @@ fn a_header_as_a_step_is_refused_once_the_case_has_steps() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn step_keeps_a_case_it_cannot_read() {
+    let dir = temp_dir();
+    let pack = pack(&dir, &[]);
+    let case = pack.join("tests/latin.keiko");
+    let bytes = b"keiko 1\nnew-game\n\xE9\n".to_vec();
+    std::fs::create_dir_all(case.parent().unwrap()).unwrap();
+    std::fs::write(&case, &bytes).unwrap();
+
+    let output = run(&pack, &["--step", "latin", "new-game"]);
+    assert_eq!(output.status.code(), Some(1), "{}", stdout(&output));
+    assert!(
+        stdout(&output).contains("tests/latin.keiko"),
+        "the finding names the file:\n{}",
+        stdout(&output)
+    );
+    assert_eq!(std::fs::read(&case).unwrap(), bytes, "no write on failure");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 // Rule 33: start at a scene with chosen state
 
 #[test]
