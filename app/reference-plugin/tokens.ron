@@ -124,6 +124,9 @@
         // Half of the 16px the hand-built Settings rows kept between their
         // panels: a list takes no gap, so the item pads its panel above and below.
         "settings-row-pad-y": 8.0,
+        // The label's line, which a Settings row keeps as its height when the tree
+        // lays the control over the row (`.`) instead of inside it.
+        "settings-row-line": 20.0,
         "track-width": 220.0,
         "track-height": 10.0,
         "card-height": 136.0,

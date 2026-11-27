@@ -1313,6 +1313,76 @@ fn the_walk_past_the_last_card_reaches_the_page_s_foot() {
     assert!(!menu(&app).open, "Resume reading closes the page");
 }
 
+/// The title's door draws no foot, so its gallery keeps the grid's own clamp: `↓`
+/// on the last card is a no-op and focus never lands on a control the door does
+/// not draw (`docs/title-and-menu.md` § Default look §4, § Title §3).
+#[test]
+fn the_title_doors_gallery_clamps_at_the_last_card() {
+    let mut app = gallery_asset_app(&[]);
+    open_title_gallery(&mut app);
+    assert!(
+        !menu::exit_to_title_shown(menu(&app)),
+        "the title's door has no live session to leave"
+    );
+    let last = app
+        .world()
+        .resource::<Runtime>()
+        .runner
+        .pack()
+        .gallery_entries()
+        .len()
+        - 1;
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryCard(last);
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::GalleryCard(last),
+        "no foot is drawn, so the walk clamps"
+    );
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::GalleryCard(last));
+    assert!(
+        menu(&app).open,
+        "the page never closes through a control the door does not draw"
+    );
+
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_ne!(
+        menu(&app).focus,
+        MenuFocus::Resume,
+        "↑ never enters the foot"
+    );
+    assert_eq!(menu(&app).view, MenuView::Gallery, "the gallery stays up");
+}
+
+/// A pack with no art still reaches the page's foot by keyboard: the empty view's
+/// arrows step to `Resume reading` and on to `Exit to title`, so the pointer and
+/// the keys are equal on an empty Gallery too (`docs/title-and-menu.md`
+/// § Default look §4).
+#[test]
+fn an_empty_gallery_still_reaches_the_page_s_foot() {
+    let dir = temp_pack_without_gallery_entries();
+    let mut app = app_for_pack(dir.path().join("pack"));
+    open_overlay_gallery(&mut app);
+    app.world_mut().resource_mut::<MenuState>().focus = MenuFocus::GalleryButton;
+
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume, "↓ reaches the foot");
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(menu(&app).focus, MenuFocus::ExitToTitle);
+    press_and_update(&mut app, KeyCode::ArrowDown);
+    assert_eq!(
+        menu(&app).focus,
+        MenuFocus::ExitToTitle,
+        "the foot's end clamps"
+    );
+    press_and_update(&mut app, KeyCode::ArrowUp);
+    assert_eq!(menu(&app).focus, MenuFocus::Resume, "no card to go back to");
+    press_and_update(&mut app, KeyCode::Enter);
+    assert!(!menu(&app).open, "Resume reading closes the page");
+}
+
 /// The label of the entry the still is showing, from the runtime pack's entry
 /// order and the menu's focused card.
 fn still_label(app: &App) -> String {

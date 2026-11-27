@@ -290,15 +290,9 @@ impl ActivationError {
     }
 }
 
-/// Walk focus to a control with the arrow keys, then press Enter, exactly as a
-/// player would. Fails with the rule id that names why the control is out of
-/// reach.
-///
-/// The arrows are tried in [`walk_keys`]' order, and `Tab` stands in when none of
-/// them moves focus: the page's foot is an arrow dead end — from `Exit to title`
-/// every arrow is inert — and so is a one-card grid, while the page's section
-/// cycle always leaves for a stop the arrows do move from
-/// (`docs/title-and-menu.md` § Default look §4).
+/// Walk focus to a control with the walk keys — the arrows, as a player would —
+/// then press Enter. Fails with the rule id that names why the control is out of
+/// reach (`docs/keiko-spec.md` §3.1).
 pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), ActivationError> {
     let Some(target) = focus_for_id(id) else {
         return Err(ActivationError::no_target(format!(
@@ -330,12 +324,9 @@ pub fn activate_control(app: &mut App, run: FrameRun, id: &str) -> Result<(), Ac
             }
         }
         if app.world().resource::<MenuState>().focus == before {
-            tap(app, run, KeyCode::Tab);
-            if app.world().resource::<MenuState>().focus == before {
-                return Err(ActivationError::no_target(format!(
-                    "focus cannot reach `{id}` from the current control"
-                )));
-            }
+            return Err(ActivationError::no_target(format!(
+                "focus cannot reach `{id}` from the current control"
+            )));
         }
     }
     if app.world().resource::<MenuState>().focus != target {
@@ -356,10 +347,14 @@ const WALK_KEYS: [KeyCode; 4] = [
     KeyCode::ArrowLeft,
 ];
 
-/// The arrows to try from `focus` towards `target`. Two card focuses of one family
-/// compare by index, so a target before the focused card is walked leftwards and
-/// one after it rightwards — [`WALK_KEYS`] alone would step down to the page's foot
-/// and back, never reaching the card in between; anything else keeps
+/// The arrows to try from `focus` towards `target`, which is what lets one fixed
+/// order reach every control.
+///
+/// Two card focuses of one family compare by index, so a target before the focused
+/// card is walked leftwards and one after it rightwards: [`WALK_KEYS`] alone would
+/// step down to the page's foot and back, never reaching the card in between. From
+/// the page's foot the walk leaves upwards, because that is where its cards are —
+/// `↓` there only reaches `Exit to title` and back. Anything else keeps
 /// [`WALK_KEYS`].
 fn walk_keys(focus: MenuFocus, target: MenuFocus) -> [KeyCode; 4] {
     let pair = match (focus, target) {
@@ -368,6 +363,20 @@ fn walk_keys(focus: MenuFocus, target: MenuFocus) -> [KeyCode; 4] {
         (MenuFocus::Card(here), MenuFocus::Card(want)) => Some((here, want)),
         _ => None,
     };
+    if pair.is_none()
+        && matches!(focus, MenuFocus::Resume | MenuFocus::ExitToTitle)
+        && matches!(
+            target,
+            MenuFocus::GalleryCard(_) | MenuFocus::TimelineCard(_) | MenuFocus::Card(_)
+        )
+    {
+        return [
+            KeyCode::ArrowUp,
+            KeyCode::ArrowLeft,
+            KeyCode::ArrowDown,
+            KeyCode::ArrowRight,
+        ];
+    }
     match pair {
         Some((here, want)) if here > want => [
             KeyCode::ArrowLeft,

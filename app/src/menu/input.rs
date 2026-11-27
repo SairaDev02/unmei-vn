@@ -19,13 +19,23 @@ use super::key_field::{commit_key, discard_key_field};
 use super::labels::focus_track;
 use super::navigation::{
     focus_by_digit, gallery_arrow, gallery_browse, ledger_target, next_top_bar,
-    next_top_bar_subview, settings_target, timeline_arrow, title_target,
+    next_top_bar_subview, settings_target, timeline_arrow, title_target, Foot,
 };
 use super::persistence::flush_settings;
 use super::state::{
     exit_to_title_shown, legacy_visible, MenuFocus, MenuState, MenuView, LEGACY_TARGETS,
 };
 use super::transition::escape;
+
+/// The foot the page draws, as the card walks read it: `Resume reading` wherever
+/// the contents page is up, `Exit to title` beside it under the one predicate the
+/// page's draw and Keiko also read (`docs/title-and-menu.md` § Default look §4).
+fn page_foot(menu: &MenuState) -> Foot {
+    Foot {
+        resume: menu.open && !menu.title_surface_up(),
+        exit: exit_to_title_shown(menu),
+    }
+}
 
 /// The Decisions key row's system parameters, bundled so [`menu_input`] stays
 /// within Bevy's sixteen-parameter system limit.
@@ -206,7 +216,7 @@ pub(crate) fn menu_input(
             &keys,
             menu.gallery_columns,
             session.pack().gallery_entries().len(),
-            exit_to_title_shown(&menu),
+            page_foot(&menu),
         ) {
             menu.focus = focus;
         }
@@ -220,7 +230,7 @@ pub(crate) fn menu_input(
             menu.focus,
             &keys,
             session.pack().timeline_entries().len(),
-            exit_to_title_shown(&menu),
+            page_foot(&menu),
         ) {
             menu.focus = focus;
         }

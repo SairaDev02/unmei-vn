@@ -9,6 +9,11 @@
 //!
 //! Each state's face and tone are resolved once, when the tree is spawned: the
 //! repaint only copies the components a state selects.
+//!
+//! A node that draws words paints no box, so it takes the state's face and tone
+//! and never its fill, border or shadow: a control's own label must not wear the
+//! control's ring (spec §4). [`sync_paint_states`] leaves those nodes alone and
+//! [`sync_text_states`] repaints them.
 
 use bevy::prelude::*;
 use bevy::text::{LetterSpacing, LineHeight};
@@ -125,6 +130,7 @@ pub(crate) fn sync_paint_states(
     menu: Res<MenuState>,
     mut nodes: Query<(
         &UiStates,
+        Option<&Text>,
         &mut Node,
         Option<&mut BackgroundColor>,
         Option<&mut BackgroundGradient>,
@@ -133,7 +139,10 @@ pub(crate) fn sync_paint_states(
         Option<&mut UiTransform>,
     )>,
 ) {
-    for (states, mut node, background, gradient, border, shadow, transform) in &mut nodes {
+    for (states, words, mut node, background, gradient, border, shadow, transform) in &mut nodes {
+        if words.is_some() {
+            continue;
+        }
         let overrides = active(&menu, states).and_then(|index| overrides_at(&states.states, index));
         let drawn = effective(&states.paint, overrides);
         let (fill_background, fill_gradient) = match &drawn.fill {

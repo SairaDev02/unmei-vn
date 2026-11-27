@@ -78,8 +78,16 @@
         (kind: "box",
             component: "row",
             children: [
+                // The control covers the row, so its ring frames the panel and the
+                // label it draws sits on the row's line with the value beside it.
                 (kind: "slot", slot: "settings.mute",
+                    position: "absolute",
+                    left: 0.0,
+                    top: 0.0,
+                    width: "fill",
+                    height: "fill",
                     focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                (kind: "box", height: "{spacing.settings-row-line}"),
             ],
         ),
         (kind: "box",
@@ -101,17 +109,22 @@
             typography: "{typography.group}",
             fill: "{colors.dim}",
         ),
-        // The stepped row: the control's label in the audio rows' label column,
-        // then the track and the live value in theirs. A list takes no gap and a
-        // row's line is the tree's, so the two engine-mounted pieces keep their
-        // places as two empty boxes here — the track, then the value
+        // The stepped row: the control covers the row, so its ring frames the panel
+        // as the audio rows' do, and the player centres the label it draws. On the
+        // row's line sit the label column, the track and the value — the two engine-
+        // mounted pieces keep their places as empty boxes, the track then the value
         // (`docs/title-and-menu.md` § Title layout §5).
         (kind: "box",
             component: "row",
             children: [
                 (kind: "slot", slot: "settings.text-speed",
-                    width: "{spacing.settings-label}",
+                    position: "absolute",
+                    left: 0.0,
+                    top: 0.0,
+                    width: "fill",
+                    height: "fill",
                     focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                (kind: "box", width: "{spacing.settings-label}"),
                 (kind: "box", component: "track"),
                 (kind: "box"),
             ],
@@ -119,15 +132,31 @@
         (kind: "box",
             component: "row",
             children: [
+                // The control covers the row, so its ring frames the panel and the
+                // label it draws sits on the row's line with the value beside it.
                 (kind: "slot", slot: "settings.auto",
+                    position: "absolute",
+                    left: 0.0,
+                    top: 0.0,
+                    width: "fill",
+                    height: "fill",
                     focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                (kind: "box", height: "{spacing.settings-row-line}"),
             ],
         ),
         (kind: "box",
             component: "row",
             children: [
+                // The control covers the row, so its ring frames the panel and the
+                // label it draws sits on the row's line with the value beside it.
                 (kind: "slot", slot: "settings.fullscreen",
+                    position: "absolute",
+                    left: 0.0,
+                    top: 0.0,
+                    width: "fill",
+                    height: "fill",
                     focused: (border: (width: 2.0, color: "{colors.focus}"))),
+                (kind: "box", height: "{spacing.settings-row-line}"),
             ],
         ),
         (kind: "box",

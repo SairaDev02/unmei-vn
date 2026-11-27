@@ -68,6 +68,57 @@ pub(crate) fn focus_clear_key(world: &mut World, _harness: &mut Harness) {
     world.resource_mut::<MenuState>().focus = MenuFocus::ClearKey;
 }
 
+pub(crate) fn focus_text_speed(world: &mut World, _harness: &mut Harness) {
+    world.resource_mut::<MenuState>().focus = MenuFocus::TextSpeed;
+}
+
+/// Every Settings row whose control is laid over its row covers the panel: the
+/// stepped row and the three switches ring the row the way the audio rows' rings
+/// do, with the label on the row's own line
+/// (`docs/title-and-menu.md` § Title layout §5).
+pub(crate) fn check_settings_rows_ring_their_panels(world: &mut World, harness: &mut Harness) {
+    for action in [
+        MenuAction::TextSpeed,
+        MenuAction::AudioMute,
+        MenuAction::PlayAuto,
+        MenuAction::PlayFullscreen,
+    ] {
+        let Some((origin, size)) = control_rect(world, action) else {
+            harness
+                .report
+                .fail(format!("{action:?}'s control is drawn"));
+            continue;
+        };
+        let Some(row) = control_entity(world, action)
+            .and_then(|control| world.get::<ChildOf>(control).map(ChildOf::parent))
+        else {
+            harness
+                .report
+                .fail(format!("{action:?}'s control sits in a row"));
+            continue;
+        };
+        let (Some(node), Some(transform)) = (
+            world.get::<ComputedNode>(row).copied(),
+            world.get::<UiGlobalTransform>(row).copied(),
+        ) else {
+            harness.report.fail(format!("{action:?}'s row is laid out"));
+            continue;
+        };
+        let border = match world.get::<bevy::ui::Node>(row).map(|node| node.border.top) {
+            Some(Val::Px(px)) => px,
+            _ => 0.0,
+        };
+        let row_origin = transform.translation - node.size() / 2.0 + Vec2::splat(border);
+        let row_size = node.size() - Vec2::splat(border * 2.0);
+        harness.report.check(
+            format!(
+                "{action:?}'s ring frames its row ({origin:?} {size:?} against {row_origin:?} {row_size:?})"
+            ),
+            (origin - row_origin).length() < 1.0 && (size - row_size).length() < 1.0,
+        );
+    }
+}
+
 /// The wheel reached the Settings panel's lower content: the viewport is
 /// bounded with content taller than it, and the door-aware back control that the
 /// 1280×720 clipping hid is inside the viewport at the bottom.
