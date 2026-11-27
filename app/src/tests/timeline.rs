@@ -674,6 +674,11 @@ fn a_restore_refusal_stays_on_the_timeline_and_preserves_the_session() {
 
     assert_eq!(menu(&app).view, MenuView::Timeline, "Timeline stays open");
     assert_eq!(
+        menu(&app).focus,
+        MenuFocus::TimelineCard(0),
+        "a refused jump returns focus to the jumped-to card"
+    );
+    assert_eq!(
         parked_position(&app),
         before,
         "the old runner position is preserved"
