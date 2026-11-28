@@ -1,7 +1,7 @@
 //! The per-take sandbox (spec §4.2): a fresh temp root holding a text-only copy
 //! of the pack, the sidecars a take writes, its config dir and its session log.
 //!
-//! The pack's own `assets/` and `tests/` are never copied: assets are read in
+//! The pack's own `assets/` and `tests/` are never copied, nor is a `.git/`: assets are read in
 //! place through [`RuntimeConfig::asset_root`](crate::RuntimeConfig) and the
 //! cases stay in the original pack, so nothing a take does can write to the
 //! user's pack.
@@ -188,13 +188,16 @@ impl Sandbox {
     }
 }
 
-/// Copy every file of a pack except `assets/` and `tests/`, recursively.
+/// Copy every file of a pack except `assets/`, `tests/` and `.git/`,
+/// recursively. Each file must pass
+/// [`check_pack_file`](unmei_engine::check_pack_file), so a symlink or an
+/// oversized file fails the copy rather than reaching outside the pack.
 fn copy_text_pack(from: &Path, to: &Path) -> io::Result<()> {
     fs::create_dir_all(to)?;
     for entry in fs::read_dir(from)? {
         let entry = entry?;
         let name = entry.file_name();
-        if name == "assets" || name == "tests" {
+        if name == "assets" || name == "tests" || name == ".git" {
             continue;
         }
         let source = entry.path();
@@ -202,9 +205,19 @@ fn copy_text_pack(from: &Path, to: &Path) -> io::Result<()> {
         if entry.file_type()?.is_dir() {
             copy_text_pack(&source, &target)?;
         } else {
-            fs::copy(&source, &target)?;
+            copy_pack_file(&source, &target)?;
         }
     }
+    Ok(())
+}
+
+/// Copy one pack file into the sandbox once it passes
+/// [`check_pack_file`](unmei_engine::check_pack_file), naming the file in the
+/// error.
+pub(crate) fn copy_pack_file(source: &Path, target: &Path) -> io::Result<()> {
+    unmei_engine::check_pack_file(source)
+        .map_err(|error| io::Error::new(error.kind(), format!("{}: {error}", source.display())))?;
+    fs::copy(source, target)?;
     Ok(())
 }
 
@@ -277,6 +290,63 @@ mod tests {
             0,
             "no unmei-keiko folder is left behind"
         );
+    }
+
+    #[test]
+    fn a_sandbox_skips_a_git_folder() {
+        let source = tempfile::tempdir().unwrap();
+        let pack = source.path().join("demo-pack");
+        fs::create_dir_all(pack.join(".git/objects")).unwrap();
+        fs::write(pack.join("pack.ron"), "(name: \"x\")").unwrap();
+        fs::File::create(pack.join(".git/objects/big.pack"))
+            .unwrap()
+            .set_len(unmei_engine::PACK_FILE_LIMIT + 1)
+            .unwrap();
+
+        let sandbox = Sandbox::create_in(&source.path().join("root"), &pack, 1).unwrap();
+        assert!(sandbox.pack_root().join("pack.ron").exists());
+        assert!(!sandbox.pack_root().join(".git").exists());
+    }
+
+    #[test]
+    fn a_pack_file_over_the_limit_fails_the_sandbox() {
+        let source = tempfile::tempdir().unwrap();
+        let pack = source.path().join("demo-pack");
+        fs::create_dir_all(pack.join("scenes")).unwrap();
+        fs::File::create(pack.join("scenes/a.unmei"))
+            .unwrap()
+            .set_len(unmei_engine::PACK_FILE_LIMIT + 1)
+            .unwrap();
+
+        let error = Sandbox::create_in(&source.path().join("root"), &pack, 1).unwrap_err();
+        assert!(error.to_string().contains("limit"), "{error}");
+        assert!(!source
+            .path()
+            .join("root/take-1/demo-pack/scenes/a.unmei")
+            .exists());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn a_symlink_in_the_pack_fails_the_sandbox() {
+        let source = tempfile::tempdir().unwrap();
+        let outside = source.path().join("outside");
+        fs::create_dir_all(&outside).unwrap();
+        fs::write(outside.join("secret"), "host file").unwrap();
+        for link in ["notes.txt", "linked-folder"] {
+            let pack = source.path().join(format!("pack-{link}"));
+            fs::create_dir_all(&pack).unwrap();
+            let target = if link == "notes.txt" {
+                outside.join("secret")
+            } else {
+                outside.clone()
+            };
+            std::os::unix::fs::symlink(target, pack.join(link)).unwrap();
+
+            let root = source.path().join(format!("root-{link}"));
+            assert!(Sandbox::create_in(&root, &pack, 1).is_err(), "{link}");
+            assert!(!root.join(format!("take-1/pack-{link}/{link}")).exists());
+        }
     }
 
     #[test]

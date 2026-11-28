@@ -27,4 +27,4 @@ pub use model::{
 pub use parse::{parse_case, parse_duration, CASE_VERSION};
 pub use parse_step::SURFACES;
 pub use text::{exact, normalize};
-pub use validate::{parse_state_value, slot_of, validate, Facts};
+pub use validate::{is_confined, parse_state_value, slot_of, validate, Facts};

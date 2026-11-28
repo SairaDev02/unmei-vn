@@ -211,7 +211,7 @@ A **take** executes one case from its first line to its last, in its own sandbox
 *Decided 2026-11-17: copy the text files, read the assets in place.*
 
 - **Where.** A fresh root per invocation, `<os-temp>/unmei-keiko-<pid>-<nonce>/`, and inside it one folder per take, `take-<n>/`.
-- **The sandbox pack.** `take-<n>/<pack-name>/` holds a copy of every file in the pack folder except `assets/` and `tests/`. Sidecars therefore land in `take-<n>/`, beside the sandbox pack, by the normal [sidecar rule](../engine/src/sidecar.rs).
+- **The sandbox pack.** `take-<n>/<pack-name>/` holds a copy of every file in the pack folder except `assets/`, `tests/` and any `.git/` folder. Each copied file follows the pack file rule of [content format §2](content-format.md#2-pack-layout): a symlink, a non-regular file or a file over 16 MiB fails the take before boot *(amended 2026-11-28)*. Sidecars therefore land in `take-<n>/`, beside the sandbox pack, by the normal [sidecar rule](../engine/src/sidecar.rs).
 - **Assets.** `RuntimeConfig` gains an `asset_root`, defaulting to `<pack_root>/assets`. `shipping_app`, `schedule_app` and the pack loader's asset checks in [`app/src/core/pack.rs`](../app/src/core/pack.rs) read it instead of joining `assets` themselves. A take sets it to the original pack's `assets/` folder, read-only. The Keiko asset reader wraps Bevy's file reader and applies the asset faults. It is installed only by `keiko_app`.
 - **Credentials.** `take-<n>/config/` is the config dir passed to `credentials::resolve_launch`. `NANOGPT_API_KEY` and the endpoint override are never read, except by `--live` (§6).
 - **Cleanup.** The take folder is deleted when the take ends, unless `--keep` is given, in which case its path is printed. The root is deleted at exit if it is empty.
@@ -278,7 +278,7 @@ state: affinity_level="low" letters_found=0 met_ace=true
 
 ### 7.1 Fixtures
 
-`fixture <kind> <path>` copies `tests/<path>` into the sandbox before boot. Without a fixture, a take starts with no sidecars and no credential (K18).
+`fixture <kind> <path>` copies `tests/<path>` into the sandbox before boot. A fixture path, and the path of a `pack-file` or `pack-file-missing` fault, must be relative and stay inside its folder: a `..`, a root or a drive prefix is a `keiko.case.reference` finding, and a fixture must be a regular file under the 16 MiB pack file limit *(amended 2026-11-28)*. Without a fixture, a take starts with no sidecars and no credential (K18).
 
 | Kind | Destination |
 |---|---|
@@ -535,6 +535,7 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - **2026-11-27 (issues #184, #194):** A duration too large for `Duration` is a `keiko.case.syntax` finding instead of a panic. The maintainer decided that `wait` and `decision-slow` take at most 60 s, that `advance` takes a count of at most 1000, and that going over a limit is a parse-time `keiko.case.syntax` finding. §3.1 and §3.4 state the limits, and §15 gains rules 51 and 52. The grammar is unchanged, so the case version stays 1.
 
 - **2026-11-27 (issue #195):** Seven statements now follow the code, and the maintainer decided that the docs follow the code on both open rows. §9.1 and the glossary say the story walk is breadth first. §10.3 says exploration exits 1 on any finding, saved or not. §9.2's `keiko.stuck` is a park whose every move lands on an already reached park, with the hub consequence stated. §5.1 gains the `live` field. §3.3 lists the fixed key names. §3.2 names `focus_ids` in `app/src/keiko/controls.rs`. §14 says what `keiko_gate.rs`, `keiko_fixtures.rs` and `keiko_rules.rs` each run. No behaviour changes, so the case version stays 1.
+- **2026-11-28:** The sandbox pack skips any `.git/` folder and copies only regular files under the 16 MiB pack file limit (§4.2). Fixture and fault paths must stay inside their folder (§7.1). A case whose paths stay in `tests/` and the pack is unchanged, so the case version stays 1.
 
 - **2026-11-28 (issue #220):** The maintainer decided that Settings' back control is pinned outside the scroll ([title-and-menu §5](title-and-menu.md#5-settings-from-the-title)), that `click <control>` and `expect control <id> rect` reveal the control before they act or measure, and that a `click` that lands on nothing fails with `keiko.step.no-target`. §3.5's `rect` row and §13 are amended, and §15 gains rules 53–55. No rule id is added, so the case version stays 1.
 

@@ -6,7 +6,7 @@
 //! tables it owns — the settings keys and the key names — as data.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Component, Path};
 
 use super::controls::is_control_id;
 use super::model::{Case, Expect, Fault, Header, LoadTarget, Pick, Step, WriteTarget};
@@ -48,11 +48,8 @@ pub fn validate(case: &Case, file: &str, facts: &Facts) -> Vec<Finding> {
                 }
             }
             Header::Fixture { path, .. } => {
-                if !fixture_exists(facts, path) {
-                    findings.push(at(
-                        rules::CASE_REFERENCE,
-                        format!("fixture `{path}` does not exist under `tests/`"),
-                    ));
+                if let Some(message) = fixture_reference(facts, path) {
+                    findings.push(at(rules::CASE_REFERENCE, message));
                 }
             }
             Header::Fault { fault } => {
@@ -262,11 +259,31 @@ fn split_point(point: &str) -> Result<(&str, &str), String> {
     }
 }
 
-fn fixture_exists(facts: &Facts, path: &str) -> bool {
-    facts
+/// Whether `path` is a relative path that stays inside the folder it is joined
+/// to: no `..`, no root and no drive prefix. Fixtures come from the pack's
+/// `tests/` folder and `pack-file` faults change only the sandbox pack (spec
+/// §7), so a case can never name a host file.
+pub fn is_confined(path: &str) -> bool {
+    !path.is_empty()
+        && Path::new(path)
+            .components()
+            .all(|component| matches!(component, Component::Normal(_) | Component::CurDir))
+}
+
+fn fixture_reference(facts: &Facts, path: &str) -> Option<String> {
+    if !is_confined(path) {
+        return Some(format!(
+            "fixture `{path}` must be a relative path inside `tests/`"
+        ));
+    }
+    let exists = facts
         .tests_dir
-        .map(|dir| dir.join(path).is_file())
-        .unwrap_or(false)
+        .is_some_and(|dir| crate::check_pack_file(&dir.join(path)).is_ok());
+    (!exists).then(|| format!("fixture `{path}` does not exist under `tests/`"))
+}
+
+fn sandbox_path_reference(path: &str) -> Option<String> {
+    (!is_confined(path)).then(|| format!("`{path}` must be a relative path inside the pack"))
 }
 
 fn fault_reference(fault: &Fault, facts: &Facts) -> Option<String> {
@@ -287,17 +304,13 @@ fn fault_reference(fault: &Fault, facts: &Facts) -> Option<String> {
                 Some(format!("`{point}` is not a decision point of this pack"))
             }
         }
-        Fault::PackFile { fixture, .. } => {
-            if fixture_exists(facts, fixture) {
-                None
-            } else {
-                Some(format!("fixture `{fixture}` does not exist under `tests/`"))
-            }
+        Fault::PackFile { path, fixture } => {
+            sandbox_path_reference(path).or_else(|| fixture_reference(facts, fixture))
         }
+        Fault::PackFileMissing { path } => sandbox_path_reference(path),
         Fault::WriteBlocked { .. }
         | Fault::AssetMissing { .. }
         | Fault::AssetCorrupt { .. }
-        | Fault::PackFileMissing { .. }
         | Fault::CredentialUnreadable
         | Fault::KeyCheck { .. } => None,
     }
