@@ -102,31 +102,43 @@ pub fn apply_candidate(
 /// whole). Shared by the RON splice and the drafting scene splice.
 ///
 /// `rename` atomically replaces an existing destination on both Unix and
-/// Windows, so there is no delete-then-rename window. The temp file is unique
-/// to the process and carries the destination's own extension plus `.tmp`, so
-/// it can never be mistaken for pack content; it is removed if the rename
-/// fails, leaving the original untouched. A **write** failure is reported
-/// without a cleanup step, so a partial temp may stay beside the target; only
-/// the rename failure above removes its temp.
+/// Windows, so there is no delete-then-rename window. The temp file is a new
+/// file with a random name, created only if nothing is at that path, so it
+/// never writes through an existing file or symlink. It carries the
+/// destination's own name plus `.tmp`, so it can never be mistaken for pack
+/// content. It is removed if the write or the rename fails, leaving the
+/// original untouched.
 pub fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
-    let mut name = path.file_name().unwrap_or_default().to_os_string();
-    name.push(format!(".{}.tmp", std::process::id()));
-    let tmp = path.with_file_name(name);
-    write_temp(&tmp, contents)?;
-    if let Err(e) = rename_temp(&tmp, path) {
+    let mut prefix = path.file_name().unwrap_or_default().to_os_string();
+    prefix.push(".");
+    let dir = match path.parent() {
+        Some(parent) if !parent.as_os_str().is_empty() => parent,
+        _ => Path::new("."),
+    };
+    let (mut file, tmp) = tempfile::Builder::new()
+        .prefix(&prefix)
+        .suffix(".tmp")
+        .tempfile_in(dir)?
+        .keep()
+        .map_err(|e| e.error)?;
+    let written = write_temp(&mut file, contents);
+    drop(file);
+    if let Err(e) = written.and_then(|()| rename_temp(&tmp, path)) {
         let _ = std::fs::remove_file(&tmp);
         return Err(e);
     }
     Ok(())
 }
 
-/// The write phase: the whole new bytes land in `tmp`.
-fn write_temp(tmp: &Path, contents: &str) -> std::io::Result<()> {
+/// The write phase: the whole new bytes land in the temp file.
+fn write_temp(file: &mut std::fs::File, contents: &str) -> std::io::Result<()> {
+    use std::io::Write as _;
     #[cfg(test)]
     if let Some(landed) = faults::take_partial_write() {
-        return faults::partial_temp_write(tmp, contents, landed);
+        return faults::partial_temp_write(file, contents, landed);
     }
-    std::fs::write(tmp, contents)
+    file.write_all(contents.as_bytes())?;
+    file.flush()
 }
 
 /// The rename phase: `tmp` replaces `path` as one file.
@@ -148,7 +160,6 @@ fn rename_temp(tmp: &Path, path: &Path) -> std::io::Result<()> {
 mod faults {
     use std::cell::Cell;
     use std::io;
-    use std::path::Path;
 
     /// Which phase the next write should fail in.
     #[derive(Clone, Copy, PartialEq, Eq)]
@@ -225,9 +236,12 @@ mod faults {
     }
 
     /// Establish the partial temp the write phase leaves, then fail.
-    pub(super) fn partial_temp_write(tmp: &Path, contents: &str, landed: usize) -> io::Result<()> {
+    pub(super) fn partial_temp_write(
+        file: &mut std::fs::File,
+        contents: &str,
+        landed: usize,
+    ) -> io::Result<()> {
         use std::io::Write as _;
-        let mut file = std::fs::File::create(tmp)?;
         file.write_all(&contents.as_bytes()[..landed.min(contents.len())])?;
         file.flush()?;
         Err(io::Error::other(PARTIAL_WRITE_FAILURE))

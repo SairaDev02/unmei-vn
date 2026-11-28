@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use unmei::draft;
-use unmei::provider::{resolve_provider, ConfigInput, OpenAiChat};
+use unmei::provider::{ignored_base_url_notice, resolve_provider, ConfigInput, OpenAiChat};
 use unmei::runner::{self, DraftCommand, NpcCommand, Terminal};
 use unmei::target::{CheckedPack, NpcTarget, SceneTarget, TargetError};
 use unmei_engine::{load_pack, read_pack_text, QuestionType};
@@ -364,7 +364,7 @@ fn run_author_draft(
 
     if list {
         let mut out = stdout.clone();
-        write!(out, "{}", draft::render_list(&runs))?;
+        write!(out, "{}", unmei::printable(&draft::render_list(&runs)))?;
         out.flush()?;
         // N26: the pack-wide note goes to stderr; stdout stays the run list.
         let mut err = stderr.clone();
@@ -389,6 +389,9 @@ fn run_author_draft(
         create: false,
     })
     .map_err(CliError::Message)?;
+    if let Some(notice) = ignored_base_url_notice(&provider) {
+        writeln!(stderr.clone(), "{notice}")?;
+    }
 
     // The original bytes: the splice replaces only the run region, so every
     // line outside it survives byte-for-byte. The path is the checked target's
@@ -475,6 +478,9 @@ fn run_author_npc(
         create,
     })
     .map_err(CliError::Message)?;
+    if let Some(notice) = ignored_base_url_notice(&provider) {
+        writeln!(stderr.clone(), "{notice}")?;
+    }
 
     // §1: --type wins; on replace, inherit unless overridden.
     let question_type = match question_type {

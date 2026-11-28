@@ -102,8 +102,7 @@ configs and drafts prose. Give the CLI one in either of two ways:
   ```ron
   // unmei.author.ron — optional, at the pack root
   (
-      base_url: "https://api.nano-gpt.com/api", // optional; the CLI appends /v1/chat/completions
-      model: "deepseek/deepseek-v4.1-flash",    // required unless --model is passed: there is no default model
+      model: "deepseek/deepseek-v4.1-flash", // required unless --model is passed: there is no default model
   )
   ```
 

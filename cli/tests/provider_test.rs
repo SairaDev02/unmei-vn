@@ -41,9 +41,10 @@ fn clear_keys() {
     clear_env("NANOGPT_API_KEY");
 }
 
-/// RED: pack file config is honored with no flags.
+/// The pack file's `model` is honored with no flags, and its `base_url` is
+/// ignored and reported (N17): only `--base-url` moves the endpoint.
 #[test]
-fn pack_file_config_is_used() {
+fn pack_file_model_is_used_and_its_base_url_ignored() {
     let _env = ENV_LOCK.lock().unwrap();
     set_env("UNMEI_API_KEY", "test-key-999");
     let dir = tmp_dir();
@@ -53,7 +54,11 @@ fn pack_file_config_is_used() {
     )
     .unwrap();
     let cfg = resolve_provider(input(dir.path(), None, None)).unwrap();
-    assert_eq!(cfg.base_url, "http://localhost:1234");
+    assert_eq!(cfg.base_url, DEFAULT_BASE_URL);
+    assert_eq!(
+        cfg.ignored_base_url.as_deref(),
+        Some("http://localhost:1234")
+    );
     assert_eq!(cfg.model, "author/m1");
 }
 
@@ -71,6 +76,10 @@ fn flags_beat_pack_file() {
     let cfg =
         resolve_provider(input(dir.path(), Some("flag/m2"), Some("http://flag:9999"))).unwrap();
     assert_eq!(cfg.base_url, "http://flag:9999");
+    assert_eq!(
+        cfg.ignored_base_url.as_deref(),
+        Some("http://localhost:1234")
+    );
     assert_eq!(cfg.model, "flag/m2");
 }
 
@@ -177,9 +186,10 @@ fn openrouter_format_key_is_refused_naming_its_variable() {
     clear_keys();
 }
 
-/// N17: a pack file naming another `base_url` keeps working, silently.
+/// N17: a pack file's `base_url` never moves the endpoint, and one naming the
+/// endpoint in use is not reported.
 #[test]
-fn another_base_url_in_the_pack_file_resolves_unchanged() {
+fn a_pack_file_base_url_never_moves_the_endpoint() {
     let _env = ENV_LOCK.lock().unwrap();
     clear_keys();
     set_env("UNMEI_API_KEY", "test-key-999");
@@ -190,7 +200,20 @@ fn another_base_url_in_the_pack_file_resolves_unchanged() {
     )
     .unwrap();
     let cfg = resolve_provider(input(dir.path(), None, None)).unwrap();
-    assert_eq!(cfg.base_url, "https://other.example/api");
+    assert_eq!(cfg.base_url, DEFAULT_BASE_URL);
+    assert_eq!(
+        cfg.ignored_base_url.as_deref(),
+        Some("https://other.example/api")
+    );
+
+    std::fs::write(
+        dir.path().join("unmei.author.ron"),
+        format!(r#"( base_url: "{DEFAULT_BASE_URL}", model: "author/m1" )"#),
+    )
+    .unwrap();
+    let cfg = resolve_provider(input(dir.path(), None, None)).unwrap();
+    assert_eq!(cfg.base_url, DEFAULT_BASE_URL);
+    assert_eq!(cfg.ignored_base_url, None);
 }
 
 fn pin_input<'a>(dir: &'a Path, flag: Option<&'a str>, create: bool) -> ConfigInput<'a> {
@@ -603,6 +626,7 @@ fn credential_bearing_debug_is_opaque() {
         model: "author/m1".into(),
         api_key: "dummy-key-abc123".into(),
         decision_pin: None,
+        ignored_base_url: None,
     };
     let chat = OpenAiChat::new("http://127.0.0.1:9", "dummy-key-abc123");
     for rendered in [format!("{cfg:?}"), format!("{chat:?}")] {

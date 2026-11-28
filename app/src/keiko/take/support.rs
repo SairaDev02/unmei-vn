@@ -15,6 +15,7 @@ use super::super::finding::{rules, Finding, Location};
 use super::super::observe::{log_lines_from, observe};
 use super::Sandbox;
 use super::{settle, TakeRequest, TakeState};
+use crate::keiko::sandbox::copy_pack_file;
 use crate::keiko::{landing_action, question_of};
 use std::path::{Path, PathBuf};
 use unmei_engine::keiko::WriteTarget;
@@ -257,6 +258,18 @@ pub(super) fn blocked_write_temp(path: PathBuf, target: WriteTarget) -> PathBuf 
     }
 }
 
+/// `folder` joined with a case's `path`, or why the path may not be used: it
+/// must pass [`is_confined`](unmei_engine::keiko::is_confined) (spec §7).
+fn confined(folder: &Path, path: &str) -> Result<PathBuf, String> {
+    if unmei_engine::keiko::is_confined(path) {
+        Ok(folder.join(path))
+    } else {
+        Err(format!(
+            "`{path}` must be a relative path inside its folder"
+        ))
+    }
+}
+
 /// Apply the case's fixtures and faults to the sandbox before boot (spec §7).
 pub(super) fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> Result<(), Finding> {
     let tests_dir = original_pack.join("tests");
@@ -265,13 +278,13 @@ pub(super) fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> R
 
     for line in &case.headers {
         if let unmei_engine::keiko::Header::Fixture { kind, path } = &line.header {
-            let source = tests_dir.join(path);
+            let source = confined(&tests_dir, path).map_err(&fail)?;
             let destination = sandbox.fixture_path(*kind);
             if let Some(parent) = destination.parent() {
                 std::fs::create_dir_all(parent)
                     .map_err(|error| fail(format!("fixture `{path}`: {error}")))?;
             }
-            std::fs::copy(&source, &destination)
+            copy_pack_file(&source, &destination)
                 .map_err(|error| fail(format!("fixture `{path}`: {error}")))?;
         }
     }
@@ -309,16 +322,16 @@ pub(super) fn prepare(sandbox: &Sandbox, case: &Case, original_pack: &Path) -> R
                     .map_err(|error| fail(format!("write-blocked: {error}")))?;
             }
             Fault::PackFileMissing { path } => {
-                let _ = std::fs::remove_file(sandbox.pack_root().join(path));
+                let _ = std::fs::remove_file(confined(sandbox.pack_root(), path).map_err(&fail)?);
             }
             Fault::PackFile { path, fixture } => {
-                let source = tests_dir.join(fixture);
-                let destination = sandbox.pack_root().join(path);
+                let source = confined(&tests_dir, fixture).map_err(&fail)?;
+                let destination = confined(sandbox.pack_root(), path).map_err(&fail)?;
                 if let Some(parent) = destination.parent() {
                     std::fs::create_dir_all(parent)
                         .map_err(|error| fail(format!("pack-file: {error}")))?;
                 }
-                std::fs::copy(&source, &destination)
+                copy_pack_file(&source, &destination)
                     .map_err(|error| fail(format!("pack-file `{fixture}`: {error}")))?;
             }
             Fault::CredentialUnreadable => {
@@ -358,6 +371,43 @@ mod tests {
                 apply_setting(&mut settings, key, value).is_ok(),
                 "{key} did not apply"
             );
+        }
+    }
+
+    /// `prepare` refuses an unconfined path itself, so a case that skipped
+    /// static validation still cannot read, overwrite or delete a host file.
+    #[test]
+    fn prepare_touches_nothing_outside_tests_and_the_sandbox_pack() {
+        let base = tempfile::tempdir().unwrap();
+        let pack = base.path().join("pack");
+        std::fs::create_dir_all(pack.join("tests")).unwrap();
+        std::fs::write(pack.join("pack.ron"), "()").unwrap();
+        std::fs::write(pack.join("tests/ok.ron"), "()").unwrap();
+        let host = base.path().join("host.txt");
+        std::fs::write(&host, "host file").unwrap();
+
+        let headers = [
+            "fixture env-key ../../host.txt".to_string(),
+            format!("fixture env-key {}", host.display()),
+            "fault pack-file-missing ../../../host.txt".to_string(),
+            "fault pack-file ../../../escaped.ron ok.ron".to_string(),
+        ];
+        for (index, header) in headers.iter().enumerate() {
+            let case = unmei_engine::keiko::parse_case(
+                "tests/a.keiko",
+                &format!("keiko 1\n{header}\nstart first\nnew-game\n"),
+            )
+            .unwrap();
+            let sandbox =
+                Sandbox::create_in(&base.path().join(format!("root-{index}")), &pack, 1).unwrap();
+            assert!(prepare(&sandbox, &case, &pack).is_err(), "{header}");
+            assert_eq!(sandbox.env_key(), None, "{header}");
+            assert_eq!(
+                std::fs::read_to_string(&host).unwrap(),
+                "host file",
+                "{header}"
+            );
+            assert!(!base.path().join("escaped.ron").exists(), "{header}");
         }
     }
 

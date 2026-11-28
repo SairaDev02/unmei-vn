@@ -615,6 +615,46 @@ fn requests_go_to_configured_endpoint() {
     );
 }
 
+/// N17: a `base_url` in `unmei.author.ron` is ignored with one stderr line
+/// naming it, and the requests go to `--base-url`.
+#[test]
+fn a_pack_file_base_url_is_ignored_with_a_notice() {
+    let fx = Fixture::new();
+    let endpoint = format!("http://{}", fx.addr);
+    std::fs::write(
+        fx.pack_root.join("unmei.author.ron"),
+        "( base_url: \"http://127.0.0.1:9/elsewhere\u{1b}[2J\" )",
+    )
+    .unwrap();
+    let out = run_cli(
+        &[
+            "author",
+            "npc",
+            "ace",
+            "--question",
+            "greet",
+            "--pack",
+            fx.pack_root.to_str().unwrap(),
+            "--base-url",
+            &endpoint,
+            "--model",
+            "author/m1",
+        ],
+        &[],
+    )
+    .assert()
+    .success();
+    let stderr = String::from_utf8(out.get_output().stderr.clone()).unwrap();
+    let notices: Vec<&str> = stderr
+        .lines()
+        .filter(|line| line.contains("http://127.0.0.1:9/elsewhere"))
+        .collect();
+    assert_eq!(notices.len(), 1, "{stderr}");
+    assert!(notices[0].contains("ignored"), "{stderr}");
+    assert!(!stderr.contains('\u{1b}'), "{stderr:?}");
+    assert!(!fx.requests.lock().unwrap().is_empty());
+}
+
 /// RED (ADR 0014 / contract §4): a malformed `unmei.author.ron` refuses
 /// before any provider request or write, leaving the pack byte-identical.
 #[test]

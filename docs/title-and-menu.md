@@ -85,7 +85,7 @@ This section covers the **Decisions group** in the Settings view and the **crede
 | From environment (OpenRouter key) | `From environment — Invalid, an OpenRouter key` + the env note | not editable; `Clear key` disabled |
 | Not set, unreadable file | `Not set` (the reason is in the log) | empty, editable |
 
-- The **fingerprint** is the fixed `sk-nano-` prefix when the key has it, otherwise the first ≤6 characters of the key, then `…`, then its last 4 — never more of the key than that. *(Amended 2026-11-16: the fingerprint was always the first ≤6 characters.)*
+- The **fingerprint** of a key with the fixed `sk-nano-` prefix is that prefix, then `…`, then its last 4. Any other key shows its first ≤2 characters, then `…`, then its last 2 — never more of the key than that. *(Amended 2026-11-16: the fingerprint was always the first ≤6 characters. Amended 2026-11-28: another key showed its first ≤6 and last 4.)*
 - The **env note** reads `NANOGPT_API_KEY overrides the stored key. Unset it and relaunch to use the stored key.`
 - The **path line** reads `Stored in <path>` and is followed by a `Copy path` control, which writes that path to the clipboard through the existing `bevy_clipboard` resource (`bevy/system_clipboard` is enabled, so it is the real OS clipboard). Activation changes the control's label to `Copied` for 1.5 s; there is no new surface and no Notice — `Copied` is a label, not a message.
 - While the env key is present the stored key is never used and never rewritten; the row is read-only and `Clear key` is disabled.

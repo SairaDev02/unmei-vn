@@ -106,10 +106,57 @@ fn is_line_break(c: char) -> bool {
     c.is_control() || matches!(c, '\u{2028}' | '\u{2029}')
 }
 
+/// The largest pack file Unmei reads or copies, in bytes (content format §2).
+pub const PACK_FILE_LIMIT: u64 = 16 * 1024 * 1024;
+
+/// Check that `path` is a regular file of at most [`PACK_FILE_LIMIT`] bytes,
+/// without following it: a downloaded pack is untrusted, so a symlink, folder,
+/// pipe or device in it is refused rather than read (content format §2).
+pub fn check_pack_file(path: &Path) -> std::io::Result<u64> {
+    let meta = fs::symlink_metadata(path)?;
+    if !meta.file_type().is_file() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "not a regular file; a pack file cannot be a symlink, folder or device",
+        ));
+    }
+    within_pack_file_limit(meta.len())
+}
+
+fn within_pack_file_limit(len: u64) -> std::io::Result<u64> {
+    if len > PACK_FILE_LIMIT {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!("the file is over the {PACK_FILE_LIMIT}-byte limit for a pack file"),
+        ));
+    }
+    Ok(len)
+}
+
+/// Check that a pack folder such as `scenes/` is a real folder, not a symlink
+/// to somewhere else.
+fn check_pack_dir(path: &Path) -> std::io::Result<()> {
+    if fs::symlink_metadata(path)?.file_type().is_dir() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "not a folder; a pack folder cannot be a symlink",
+        ))
+    }
+}
+
 /// Read one authored pack text file: UTF-8, with a single leading byte order
 /// mark dropped (content format §2). Any other U+FEFF is part of the text.
+/// The file must pass [`check_pack_file`].
 pub fn read_pack_text(path: &Path) -> std::io::Result<String> {
-    let text = fs::read_to_string(path)?;
+    use std::io::Read as _;
+    check_pack_file(path)?;
+    let mut text = String::new();
+    fs::File::open(path)?
+        .take(PACK_FILE_LIMIT + 1)
+        .read_to_string(&mut text)?;
+    within_pack_file_limit(text.len() as u64)?;
     Ok(match text.strip_prefix('\u{feff}') {
         Some(stripped) => stripped.to_string(),
         None => text,
@@ -272,7 +319,7 @@ fn read_state(root: &Path, errors: &mut Vec<Finding>) -> Option<HashMap<String, 
 fn read_scenes(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Scene> {
     let mut scenes: HashMap<String, Scene> = HashMap::new();
     let scenes_dir = root.join("scenes");
-    let scene_files = match fs::read_dir(&scenes_dir) {
+    let scene_files = match check_pack_dir(&scenes_dir).and_then(|()| fs::read_dir(&scenes_dir)) {
         Ok(d) => {
             let mut files: Vec<PathBuf> = d
                 .filter_map(|e| e.ok())
@@ -325,7 +372,7 @@ fn read_scenes(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Scene>
 fn read_npcs(root: &Path, errors: &mut Vec<Finding>) -> HashMap<String, Npc> {
     let mut npcs: HashMap<String, Npc> = HashMap::new();
     let npcs_dir = root.join("npcs");
-    let npc_files = match fs::read_dir(&npcs_dir) {
+    let npc_files = match check_pack_dir(&npcs_dir).and_then(|()| fs::read_dir(&npcs_dir)) {
         Ok(d) => {
             let mut files: Vec<PathBuf> = d
                 .filter_map(|e| e.ok())

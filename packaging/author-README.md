@@ -99,18 +99,17 @@ Every command accepts `--help`.
 [`docs/author-cli.md` § 5 Failure, retry, and editing UX](https://github.com/SairaDev02/unmei-vn/blob/v@@VERSION@@/docs/author-cli.md#5-failure-retry-and-editing-ux)
 owns the `✖` line and the exit codes.
 
-To avoid repeating `--model` and `--base-url`, you can save them in an optional `unmei.author.ron` at
-your pack root:
+To avoid repeating `--model`, you can save it in an optional `unmei.author.ron` at your pack root:
 
 ```ron
 // unmei.author.ron — optional, at the pack root
 (
-    base_url: "https://api.nano-gpt.com/api", // optional; the CLI appends /v1/chat/completions
-    model: "deepseek/deepseek-v4.1-flash",    // authoring chat model; there is no default
+    model: "deepseek/deepseek-v4.1-flash", // authoring chat model; there is no default
 )
 ```
 
-When neither `--base-url` nor `base_url` is set, the CLI uses NanoGPT (`https://api.nano-gpt.com/api`).
+Without `--base-url`, the CLI uses NanoGPT (`https://api.nano-gpt.com/api`). Only the flag sets the
+endpoint: a `base_url` in `unmei.author.ron` is ignored, and the CLI prints one line naming it.
 You must give a model: pass `--model` or set `model` in `unmei.author.ron`.
 
 ## Your own pack

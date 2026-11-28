@@ -480,3 +480,47 @@ fn a_malformed_rect_assertion_is_a_syntax_error() {
         assert_eq!(finding.rule, rules::CASE_SYNTAX, "{step}");
     }
 }
+
+#[test]
+fn a_fixture_or_pack_file_path_must_stay_inside_its_folder() {
+    let pack_dir = tempfile::tempdir().unwrap();
+    let tests_dir = pack_dir.path().join("tests");
+    std::fs::create_dir_all(&tests_dir).unwrap();
+    std::fs::write(tests_dir.join("ok.ron"), "()").unwrap();
+    std::fs::write(pack_dir.path().join("outside.txt"), "host file").unwrap();
+    let absolute = pack_dir.path().join("outside.txt");
+    let absolute = absolute.to_str().unwrap();
+
+    let pack = facts_pack();
+    let facts = Facts {
+        pack: &pack,
+        settings_keys: SETTINGS,
+        key_names: KEYS,
+        tests_dir: Some(&tests_dir),
+    };
+    let cases = [
+        "fixture env-key ../outside.txt".to_string(),
+        format!("fixture env-key {absolute}"),
+        "fault pack-file pack.ron ../outside.txt".to_string(),
+        "fault pack-file ../outside.ron ok.ron".to_string(),
+        "fault pack-file-missing ../outside.txt".to_string(),
+    ];
+    for header in &cases {
+        let case = parse_ok(&format!("keiko 1\n{header}\nstart first\nnew-game\n"));
+        let findings = validate(&case, "tests/a.keiko", &facts);
+        let reference: Vec<_> = findings
+            .iter()
+            .filter(|finding| finding.rule == rules::CASE_REFERENCE)
+            .collect();
+        assert_eq!(reference.len(), 1, "{header}: {findings:?}");
+        assert!(
+            reference[0].message.contains("relative path inside"),
+            "{header}: {findings:?}"
+        );
+    }
+
+    let case = parse_ok(
+        "keiko 1\nfixture env-key ok.ron\nfault pack-file pack.ron ok.ron\nstart first\nnew-game\n",
+    );
+    assert_eq!(validate(&case, "tests/a.keiko", &facts), Vec::new());
+}

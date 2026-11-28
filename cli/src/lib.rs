@@ -13,3 +13,5 @@ pub mod splice;
 mod staging;
 pub mod target;
 mod terminal;
+
+pub use terminal::printable;
