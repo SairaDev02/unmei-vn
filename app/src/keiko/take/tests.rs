@@ -237,6 +237,22 @@ fn a_world_that_changes_every_frame_ends_unsettled_at_the_600_frame_guard() {
 }
 
 #[test]
+fn a_start_case_whose_pack_copy_fails_to_load_names_the_pack_failure() {
+    let (_dir, root, pack) = demo_pack();
+    std::fs::write(root.join("pack.ron"), "(not a pack").unwrap();
+    let case =
+        parse_case("tests/start.keiko", "keiko 1\nstart first_meeting\n").expect("the case parses");
+    let finding = run(request(&case, &pack, &root))
+        .outcome
+        .expect_err("a pack that does not load cannot start a scene");
+    assert!(
+        finding.message.contains("unmei could not load the pack"),
+        "{finding:?}"
+    );
+    assert!(finding.message.contains("pack.ron"), "{finding:?}");
+}
+
+#[test]
 fn a_take_boots_with_no_audio_device() {
     let (_dir, root, pack) = demo_pack();
     let app = crate::composition::keiko_app(
