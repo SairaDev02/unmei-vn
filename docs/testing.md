@@ -146,6 +146,13 @@ CPU, and disk limits and stop resource-intensive work on instability. This does 
 change the standard `check` CI gate or its cadence, nor does it waive selected
 behavioral regressions, coverage work, or shipped-path observations.
 
+**A slow machine.** The real-fallback test, [`app/tests/real_fallback.rs`](../app/tests/real_fallback.rs),
+bounds each of its waits at 30 seconds. If those waits time out on your machine, set
+`UNMEI_TEST_PATIENCE` to a whole number above 0, which multiplies each bound. For example,
+`UNMEI_TEST_PATIENCE=3 cargo test --locked -p unmei-app --test real_fallback` gives each wait 90
+seconds. When the variable is unset, 0 or not a whole number, each wait stays at 30 seconds. No
+other test reads it.
+
 Use feature-enabled and ignored live tests only when relevant and their prerequisites are available.
 
 Report which behavior was verified, which commands actually ran, their results, and any remaining untested risks. Never claim validation from code inspection alone.
