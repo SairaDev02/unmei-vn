@@ -14,7 +14,7 @@ use std::time::Duration;
 use bevy::ecs::system::RunSystemOnce;
 use bevy::prelude::*;
 use bevy::time::TimeUpdateStrategy;
-use unmei_engine::keiko::{Case, Expect, Fault, KeyCheckFault, Step};
+use unmei_engine::keiko::{Case, Expect, Fault, Step};
 use unmei_engine::Pack;
 
 use super::assert::evaluate;
@@ -26,7 +26,9 @@ use super::steps::{apply, Applied, FRAME};
 use crate::failure::{SessionLog, SessionLogResult};
 use crate::{Runtime, RuntimeConfig};
 
+mod settle;
 mod support;
+use settle::settle;
 use support::*;
 
 /// A live run's client, built from the environment key only.
@@ -410,79 +412,6 @@ fn step_once(
     }
     Ok(())
 }
-
-/// The settle rule: zero-duration frames until the world is quiet, or 600
-/// frames, whichever comes first (spec §4.3).
-pub(super) fn settle(
-    app: &mut App,
-    state: &mut TakeState,
-    request: &TakeRequest,
-) -> Result<(), Finding> {
-    let held_decision = request.case.headers.iter().any(|line| {
-        matches!(
-            line.header,
-            unmei_engine::keiko::Header::Fault {
-                fault: Fault::DecisionHold { .. } | Fault::DecisionSlow { .. }
-            }
-        )
-    }) || request.case.headers.iter().any(|line| {
-        matches!(
-            line.header,
-            unmei_engine::keiko::Header::Fault {
-                fault: Fault::KeyCheck {
-                    verdict: KeyCheckFault::Hold
-                }
-            }
-        )
-    });
-
-    let mut previous: Option<Observation> = None;
-    let mut quiet = 0u32;
-    // A live answer arrives on the network's schedule, so its pending frames
-    // wait in real time and do not spend the quiet-frame budget (spec §6).
-    let live_deadline = std::time::Instant::now() + LIVE_ANSWER_LIMIT;
-    while quiet < 600 {
-        frame(app, &state.timed, &state.clock, Duration::ZERO);
-        observe_step(app, state);
-        let observation = &state.observation;
-        let decision_pending = observation.decision.is_some() && !held_decision;
-        if decision_pending && request.live.is_some() {
-            if std::time::Instant::now() >= live_deadline {
-                return Err(Finding::new(
-                    request.case_file.clone(),
-                    Location::File,
-                    rules::UNSETTLED,
-                    "the live decision did not answer within 60 s",
-                ));
-            }
-            std::thread::sleep(Duration::from_millis(2));
-            previous = None;
-            continue;
-        }
-        let assets_settled = app
-            .world()
-            .get_resource::<crate::presentation::assets::AssetWatch>()
-            .is_none_or(|watch| watch.is_empty());
-        let stable = previous
-            .as_ref()
-            .is_some_and(|previous| previous.same_world(observation));
-        quiet += 1;
-        if !decision_pending && assets_settled && stable {
-            state.records.push(observation.clone());
-            return Ok(());
-        }
-        previous = Some(observation.clone());
-    }
-    Err(Finding::new(
-        request.case_file.clone(),
-        Location::File,
-        rules::UNSETTLED,
-        "the world did not become quiet within 600 frames",
-    ))
-}
-
-/// How long a live answer may take before the take gives up (spec §6).
-const LIVE_ANSWER_LIMIT: Duration = Duration::from_secs(60);
 
 /// One frame of the take's clock. Only this function moves time.
 fn frame(app: &mut App, timed: &AtomicU64, clock: &AtomicU64, delta: Duration) {

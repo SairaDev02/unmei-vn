@@ -219,9 +219,9 @@ A **take** executes one case from its first line to its last, in its own sandbox
 ### 4.3 Frames and settling (K4)
 
 - **Frame step.** A frame that moves the clock moves it by exactly 1/60 s. Only `wait` moves the clock.
-- **The settle rule.** After boot and after every input step, the take runs zero-duration frames until the world is **quiet**: no decision task in flight (unless a hold or slow fault holds it), every asset handle the presentation watches has loaded or failed, and two consecutive frames leave the observation unchanged. A press needs one frame for its release, which settling covers.
+- **The settle rule.** After boot and after every input step, the take runs zero-duration frames until the world is **quiet**: no decision task in flight (unless a hold or slow fault holds it), no key check in flight (unless a `key-check hold` keeps it, until `release-key-check` runs), every asset handle the presentation watches has loaded or failed, and two consecutive frames leave the observation unchanged. A press needs one frame for its release, which settling covers.
 - **Boot.** A take first settles on the title, or for a `start` case at the first park (§12).
-- **Not settling.** If 600 frames pass without becoming quiet, the take ends as failed with `keiko.unsettled`.
+- **Not settling.** If 600 frames pass without becoming quiet, the take ends as failed with `keiko.unsettled`. While a pending asset load or key check is the only thing keeping the world from quiet, settling spends no frames and waits in real time for up to 120 s, then ends with `keiko.unsettled`.
 - **The focus check (added 2026-11-27).** After boot and after every step, once the world has settled, the take checks the menu's focus. The take fails with `keiko.focus.hidden` when the surface's control list (§3.2) is not empty and the focus names no control on that list. The finding names the focus and the surface. A surface with an empty list is not checked. On an empty Gallery or Timeline the player has no card focus, whatever card its focus value holds ([Timeline](title-and-menu.md#timeline)), so a card focus there counts as no focus and passes. *(Amended 2026-11-27, in the build: the overlay's empty Timeline lists Save and Load, so its list is not empty.)* The check runs in every take and every mode, so a case never asks for it.
 - **Panics.** Each take runs under `catch_unwind`. A panic ends the take as failed with `keiko.panic` and its message, and the next take builds a fresh app.
 - **The end.** A take passes when every step applied and every assertion passed.
@@ -460,7 +460,7 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 21. Fixtures land at their sidecar paths, and a take without fixtures starts with no slots, no read log and Continue disabled.
 22. A take leaves no folder behind without `--keep`, and leaves exactly its take folder with `--keep`.
 23. A system that panics (a test-only plugin in a test build) ends the take with `keiko.panic` and the next take passes.
-24. A world that never becomes quiet ends with `keiko.unsettled` after 600 frames.
+24. A world that never becomes quiet ends with `keiko.unsettled` after 600 frames. A world that waits only on an asset load or a key check ends with `keiko.unsettled` after 120 s.
 25. `--step` appends only a step that passed, creates a missing case with its version line, and leaves the file byte-identical on failure. `--observe` never writes the case file; a `frame` step still writes its PNG (§13). *(Amended 2026-11-18.)*
 26. A case built by `--step` passes under `--take` unchanged.
 27. Exploration of the demo pack reaches both choice options and every landing key of `ace.greet`, and saves no finding.

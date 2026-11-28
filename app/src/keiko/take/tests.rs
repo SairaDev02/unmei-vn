@@ -91,6 +91,65 @@ impl Plugin for TickNotice {
     }
 }
 
+/// Delays a key check's verdict by wall time once one is in flight, so the
+/// released verdict cannot land within the frames settling runs. This is a
+/// starved machine made deterministic.
+struct SlowKeyCheck;
+
+impl Plugin for SlowKeyCheck {
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            Update,
+            |mut pending: ResMut<crate::core::PendingKeyCheck>, mut wrapped: Local<bool>| {
+                if *wrapped {
+                    return;
+                }
+                let Some(original) = pending.task.take() else {
+                    return;
+                };
+                *wrapped = true;
+                pending.task = Some(bevy::tasks::AsyncComputeTaskPool::get().spawn(async move {
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    original.await
+                }));
+            },
+        );
+    }
+}
+
+#[test]
+fn a_released_key_check_lands_before_the_take_settles() {
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case(
+        "tests/key.keiko",
+        "keiko 1
+fault key-check hold
+setting play.text_speed 0
+
+activate title.settings
+         activate settings.key
+type \"sk-nano-abcdefghijklmnop\"
+press Enter
+release-key-check
+",
+    )
+    .expect("the case parses");
+    let result = run_with(request(&case, &pack, &root), vec![SlowKeyCheck]);
+
+    result.outcome.expect("the take passes");
+    let row = result
+        .observation
+        .controls
+        .iter()
+        .find(|control| control.id == "settings.key")
+        .expect("the key row");
+    assert!(
+        !row.label.starts_with("Checking"),
+        "the settled observation shows the verdict, got `{}`",
+        row.label
+    );
+}
+
 #[test]
 fn a_panicking_system_ends_the_take_with_keiko_panic_and_the_next_take_passes() {
     let (_dir, root, pack) = demo_pack();
