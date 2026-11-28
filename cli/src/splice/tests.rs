@@ -25,23 +25,17 @@ fn a_partial_temp_write_failure_keeps_the_target_and_a_whole_retry_lands() {
     }
 
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "old contents");
-    // This writer has no write-phase cleanup: the partial bytes stay in the
-    // temp sibling. That is this receipt's observed postcondition, not a
-    // promise; only a rename failure removes its temp.
-    let temps = leftovers(dir.path());
-    assert_eq!(temps.len(), 1, "one partial temp stays: {temps:?}");
-    assert!(temps[0].to_string_lossy().ends_with(".tmp"), "{temps:?}");
-    assert_eq!(std::fs::read_to_string(&temps[0]).unwrap(), "a re");
+    assert!(
+        leftovers(dir.path()).is_empty(),
+        "the partial temp is removed"
+    );
 
     write_atomic(&path, "a rewritten scene, longer than the old").expect("the retry lands whole");
     assert_eq!(
         std::fs::read_to_string(&path).unwrap(),
         "a rewritten scene, longer than the old"
     );
-    assert!(
-        leftovers(dir.path()).is_empty(),
-        "this process's retry leaves no temp"
-    );
+    assert!(leftovers(dir.path()).is_empty(), "the retry leaves no temp");
 }
 
 #[test]

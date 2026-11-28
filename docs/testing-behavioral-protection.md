@@ -131,9 +131,9 @@ The shared engine sidecar writer already tests write failure and complete-temp
 retention on rename failure (`engine/src/sidecar.rs:122–152`). It discards partial
 temp after write error and deliberately retains complete new bytes after rename
 error. The CLI content writer is separate (`write_atomic` in `cli/src/splice.rs`):
-on rename error it removes the temp and preserves the target; its successful
-replacement is already tested. Do not infer an additional CLI partial-temp cleanup
-guarantee from the shared writer's policy. Protect existing-target bytes at the
+it creates a new randomly named temp, and on a write or rename error it removes
+the temp and preserves the target; its successful replacement is already tested
+*(amended 2026-11-28: the partial temp was kept after a write error)*. Protect existing-target bytes at the
 missing interrupted write/replace boundary, rather than merely duplicating
 directory-target cases.
 

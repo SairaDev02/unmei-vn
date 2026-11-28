@@ -381,6 +381,43 @@ fn write_atomic_replaces_and_cleans_up() {
     );
 }
 
+/// A file already at the old `<name>.<pid>.tmp` name is never written to or
+/// moved: the temp is a fresh file of its own.
+#[test]
+fn write_atomic_never_reuses_an_existing_temp_path() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("scene.unmei");
+    std::fs::write(&path, "old contents").unwrap();
+    let planted = dir
+        .path()
+        .join(format!("scene.unmei.{}.tmp", std::process::id()));
+    std::fs::write(&planted, "planted").unwrap();
+
+    unmei::splice::write_atomic(&path, "new contents").unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new contents");
+    assert_eq!(std::fs::read_to_string(&planted).unwrap(), "planted");
+}
+
+#[cfg(unix)]
+#[test]
+fn write_atomic_does_not_follow_a_symlink_beside_the_target() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let victim = outside.path().join("victim");
+    std::fs::write(&victim, "untouched").unwrap();
+    let path = dir.path().join("scene.unmei");
+    std::os::unix::fs::symlink(
+        &victim,
+        dir.path()
+            .join(format!("scene.unmei.{}.tmp", std::process::id())),
+    )
+    .unwrap();
+
+    unmei::splice::write_atomic(&path, "new contents").unwrap();
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), "new contents");
+    assert_eq!(std::fs::read_to_string(&victim).unwrap(), "untouched");
+}
+
 /// RED: an unsafe NPC id is a typed terminal refusal before any join.
 /// The existing NPC file, an outside sentinel and every sibling in `npcs/`
 /// are left exactly as they were, and no forbidden path appears.
