@@ -60,12 +60,10 @@ pub const ENV_NOTE: &str =
 /// decides whether a key works.
 pub const MIN_KEY_LENGTH: usize = 16;
 
-/// How many trailing characters a NanoGPT key's fingerprint shows after its
-/// prefix.
+/// How many trailing characters a NanoGPT key's fingerprint shows.
 pub const FINGERPRINT_SUFFIX: usize = 4;
-/// How many leading and trailing characters the fingerprint of any other key
-/// shows, so a short key never shows most of itself.
-pub const OTHER_KEY_FINGERPRINT_ENDS: usize = 2;
+/// How many characters any other key's fingerprint shows at each end.
+pub const FINGERPRINT_ENDS: usize = 2;
 
 /// The placeholder the empty Not-set field shows
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
@@ -266,10 +264,7 @@ pub fn fingerprint(key: &str) -> String {
     let (prefix_len, suffix_max) = if key.starts_with(NANOGPT_KEY_PREFIX) {
         (NANOGPT_KEY_PREFIX.len(), FINGERPRINT_SUFFIX)
     } else {
-        (
-            characters.len().min(OTHER_KEY_FINGERPRINT_ENDS),
-            OTHER_KEY_FINGERPRINT_ENDS,
-        )
+        (characters.len().min(FINGERPRINT_ENDS), FINGERPRINT_ENDS)
     };
     let suffix_len = (characters.len() - prefix_len).min(suffix_max);
     let prefix: String = characters[..prefix_len].iter().collect();
