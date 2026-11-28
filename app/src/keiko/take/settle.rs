@@ -12,20 +12,13 @@ use super::{frame, observe_step, TakeRequest, TakeState};
 use bevy::prelude::*;
 
 /// The settle rule: zero-duration frames until the world is quiet, or 600
-/// frames, whichever comes first (spec §4.3).
+/// frames, whichever comes first. A wait only on an asset load or key check
+/// spends no frames and ends after 120 s instead (spec §4.3).
 pub(super) fn settle(
     app: &mut App,
     state: &mut TakeState,
     request: &TakeRequest,
 ) -> Result<(), Finding> {
-    let held_decision = request.case.headers.iter().any(|line| {
-        matches!(
-            line.header,
-            unmei_engine::keiko::Header::Fault {
-                fault: Fault::DecisionHold { .. } | Fault::DecisionSlow { .. }
-            }
-        )
-    });
     let held_key_check = request.case.headers.iter().any(|line| {
         matches!(
             line.header,
@@ -36,6 +29,15 @@ pub(super) fn settle(
             }
         )
     });
+    let held_decision = held_key_check
+        || request.case.headers.iter().any(|line| {
+            matches!(
+                line.header,
+                unmei_engine::keiko::Header::Fault {
+                    fault: Fault::DecisionHold { .. } | Fault::DecisionSlow { .. }
+                }
+            )
+        });
 
     let mut previous: Option<Observation> = None;
     let mut quiet = 0u32;
