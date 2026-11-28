@@ -1099,6 +1099,34 @@ fn a_saved_stuck_finding_parses_and_fails_until_the_pack_moves_on() {
     let _ = std::fs::remove_dir_all(dir);
 }
 
+#[test]
+fn a_hub_whose_options_return_to_reached_parks_is_stuck_and_says_so() {
+    let dir = temp_dir();
+    let pack = dir.join("hub");
+    std::fs::create_dir_all(pack.join("scenes")).unwrap();
+    std::fs::create_dir_all(pack.join("npcs")).unwrap();
+    std::fs::create_dir_all(pack.join("tests")).unwrap();
+    std::fs::write(pack.join("pack.ron"), "(name: \"hub\", entry: \"start\")").unwrap();
+    std::fs::write(pack.join("state.ron"), "(met: false,)").unwrap();
+    std::fs::write(
+        pack.join("scenes/start.unmei"),
+        "label top\nNarrator: top\nlabel hub\nchoice\n  \"Back\" -> top\n  \"Again\" -> hub\nend\n",
+    )
+    .unwrap();
+    let output = run(&pack, &["--explore", "--budget", "200", "--format", "json"]);
+    let json: serde_json::Value = serde_json::from_str(stdout(&output).trim()).unwrap();
+    let stuck = json["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|finding| finding["rule"] == "keiko.stuck")
+        .unwrap_or_else(|| panic!("a stuck finding: {json}"));
+    let message = stuck["message"].as_str().unwrap();
+    assert!(message.contains("a park already reached"), "{message}");
+    assert!(!message.contains("leaves it in place"), "{message}");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
 /// Rule 38: one question id belongs to one NPC, whether it is set by `decide`
 /// or by a decision fault.
 #[test]
