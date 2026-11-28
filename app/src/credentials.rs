@@ -60,10 +60,12 @@ pub const ENV_NOTE: &str =
 /// decides whether a key works.
 pub const MIN_KEY_LENGTH: usize = 16;
 
-/// How many leading characters a fingerprint may show.
-pub const FINGERPRINT_PREFIX: usize = 6;
-/// How many trailing characters a fingerprint may show.
+/// How many trailing characters a NanoGPT key's fingerprint shows after its
+/// prefix.
 pub const FINGERPRINT_SUFFIX: usize = 4;
+/// How many leading and trailing characters the fingerprint of any other key
+/// shows, so a short key never shows most of itself.
+pub const OTHER_KEY_FINGERPRINT_ENDS: usize = 2;
 
 /// The placeholder the empty Not-set field shows
 /// (`docs/title-and-menu.md` § Decisions settings §4.1).
@@ -255,17 +257,21 @@ pub fn shape_ok(key: &str) -> bool {
 /// fixed marker, never any of the random part.
 pub const NANOGPT_KEY_PREFIX: &str = "sk-nano-";
 
-/// The only rendering of a key anywhere: its first ≤6 characters (exactly
-/// `sk-nano-` for a NanoGPT key), `…`, and its last 4. The slices are disjoint, so a short value is truncated rather than
-/// repeated and nothing beyond those bounds is ever produced.
+/// The only rendering of a key anywhere: `sk-nano-`, `…` and the last 4 for a
+/// NanoGPT key, else the first ≤2 characters, `…` and the last 2. The slices
+/// are disjoint, so a short value is truncated rather than repeated and
+/// nothing beyond those bounds is ever produced.
 pub fn fingerprint(key: &str) -> String {
     let characters: Vec<char> = key.chars().collect();
-    let prefix_len = if key.starts_with(NANOGPT_KEY_PREFIX) {
-        NANOGPT_KEY_PREFIX.len()
+    let (prefix_len, suffix_max) = if key.starts_with(NANOGPT_KEY_PREFIX) {
+        (NANOGPT_KEY_PREFIX.len(), FINGERPRINT_SUFFIX)
     } else {
-        characters.len().min(FINGERPRINT_PREFIX)
+        (
+            characters.len().min(OTHER_KEY_FINGERPRINT_ENDS),
+            OTHER_KEY_FINGERPRINT_ENDS,
+        )
     };
-    let suffix_len = (characters.len() - prefix_len).min(FINGERPRINT_SUFFIX);
+    let suffix_len = (characters.len() - prefix_len).min(suffix_max);
     let prefix: String = characters[..prefix_len].iter().collect();
     let suffix: String = characters[characters.len() - suffix_len..].iter().collect();
     format!("{prefix}\u{2026}{suffix}")
@@ -813,12 +819,12 @@ mod tests {
     }
 
     #[test]
-    fn the_fingerprint_shows_at_most_six_then_four() {
+    fn another_key_shows_at_most_two_then_two() {
         let key = "ab-v1-0123456789abcdef";
         let shown = fingerprint(key);
-        assert_eq!(shown, "ab-v1-\u{2026}cdef");
-        assert!(!shown.contains("v1-0123456789ab"));
-        assert_eq!(fingerprint(key).len(), 6 + "\u{2026}".len() + 4);
+        assert_eq!(shown, "ab\u{2026}ef");
+        assert_eq!(shown.len(), 2 + "\u{2026}".len() + 2);
+        assert_eq!(fingerprint("0123456789abcdef"), "01\u{2026}ef");
     }
 
     #[test]
@@ -828,32 +834,33 @@ mod tests {
         let uuid = "sk-nano-7d444e84-6f4e-4d3b-9a77-0123456789ab";
         assert_eq!(fingerprint(uuid), "sk-nano-\u{2026}89ab");
         assert!(!fingerprint(uuid).contains("7d44"));
-        // A plain-UUID (older) key keeps the ordinary six-and-four rule.
         assert_eq!(
             fingerprint("7d444e84-6f4e-4d3b-9a77-0123456789ab"),
-            "7d444e\u{2026}89ab"
+            "7d\u{2026}ab"
         );
     }
 
     #[test]
     fn a_short_value_fingerprints_without_panicking() {
-        assert_eq!(fingerprint("short"), "short\u{2026}");
-        assert_eq!(fingerprint("abcdefgh"), "abcdef\u{2026}gh");
-        assert_eq!(fingerprint("0123456789"), "012345\u{2026}6789");
+        assert_eq!(fingerprint("a"), "a\u{2026}");
+        assert_eq!(fingerprint("abc"), "ab\u{2026}c");
+        assert_eq!(fingerprint("short"), "sh\u{2026}rt");
         assert_eq!(fingerprint(""), "\u{2026}");
     }
 
     #[test]
     fn the_fingerprint_slices_on_character_boundaries() {
-        // Five multibyte characters: the prefix is the whole value, no suffix —
-        // a byte slice here would panic mid-codepoint.
+        // Three multibyte characters: the suffix is one character, and a byte
+        // slice here would panic mid-codepoint.
         assert_eq!(
-            fingerprint("\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}"),
-            "\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{2026}"
+            fingerprint("\u{00e9}\u{00e9}\u{00e9}"),
+            "\u{00e9}\u{00e9}\u{2026}\u{00e9}"
         );
         assert_eq!(
-            fingerprint("\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}"),
-            "\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{2026}\u{00e9}\u{00e9}\u{00e9}\u{00e9}"
+            fingerprint(
+                "\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}\u{00e9}"
+            ),
+            "\u{00e9}\u{00e9}\u{2026}\u{00e9}\u{00e9}"
         );
     }
 
