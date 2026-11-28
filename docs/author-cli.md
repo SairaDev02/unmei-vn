@@ -80,20 +80,19 @@ Every candidate generation must pass **full pack cross-validation** — the same
 
 ## 4. Provider configuration
 
-The CLI talks to an OpenAI-compatible **chat** endpoint, NanoGPT's by default *(amended 2026-11-16: it was OpenRouter's; [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md))*; another endpoint is an unsupported override ([`nanogpt.md`](nanogpt.md) N3). That authoring model is distinct from the runtime's pinned decision model (the per-NPC `model` field in content); the two are deliberately separate — one is what writes configs, the other is what plays them.
+The CLI talks to an OpenAI-compatible **chat** endpoint, NanoGPT's by default *(amended 2026-11-16: it was OpenRouter's; [ADR 0015](adr/0015-nanogpt-is-the-one-provider.md))*; another endpoint is an unsupported override, set only by `--base-url` ([`nanogpt.md`](nanogpt.md) N3 and N17). That authoring model is distinct from the runtime's pinned decision model (the per-NPC `model` field in content); the two are deliberately separate — one is what writes configs, the other is what plays them.
 
 Precedence, highest first:
 
 1. Flags: `--model`, `--base-url`, and `--decision-model` (`--create` only)
-2. Pack config file: `unmei.author.ron` at the pack root (optional)
+2. Pack config file: `unmei.author.ron` at the pack root (optional), for `model` and `decision_model` only. A `base_url` in the file is ignored with a one-line notice naming it, so only `--base-url` moves the endpoint *(amended 2026-11-28, [`nanogpt.md`](nanogpt.md) N17)*.
 3. Built-in defaults: `base_url: "https://api.nano-gpt.com/api"`; **no default authoring model**; the decision pin `typesafe/jev-1.14`, written only on `--create`
 
 ```ron
 // unmei.author.ron — optional, at the pack root
 (
-    base_url: "https://api.nano-gpt.com/api", // any OpenAI-compatible base URL; /v1/chat/completions is appended
-    model: "deepseek/deepseek-v4.1-flash",    // authoring chat model; no built-in default
-    decision_model: "typesafe/jev-1.14",      // optional; the pin --create writes, else the built-in default
+    model: "deepseek/deepseek-v4.1-flash", // authoring chat model; no built-in default
+    decision_model: "typesafe/jev-1.14",   // optional; the pin --create writes, else the built-in default
 )
 ```
 

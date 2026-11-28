@@ -23,7 +23,7 @@ missing and when the model's answer is rejected.
   [`install-the-cli.md` § Set the API key](install-the-cli.md#set-the-api-key) and
   [`install-the-cli.md` § Give it a model](install-the-cli.md#give-it-a-model). `--list` needs
   neither. The draft and generate commands call the model even with `--dry-run`. The model provider
-  is the endpoint set by `--base-url` or by `base_url` in `unmei.author.ron`, and the default is
+  is the endpoint set by `--base-url`, and the default is
   NanoGPT ([`docs/author-cli.md` § 4 Provider configuration](../author-cli.md#4-provider-configuration)).
 - Use a pack you can restore. A command without `--dry-run` writes into the pack, and the CLI keeps no
   backup files. Copy `demo-pack` first

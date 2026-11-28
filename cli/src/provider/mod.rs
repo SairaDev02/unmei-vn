@@ -2,7 +2,10 @@
 //!
 //! Precedence (author-cli contract §4), highest first: flags > `unmei.author.ron`
 //! at the pack root > built-in defaults (base_url `https://api.nano-gpt.com/api`,
-//! **no default authoring model**). The API key is **environment-only** —
+//! **no default authoring model**). The endpoint is the one exception: only
+//! `--base-url` moves it, and a `base_url` in the pack file is ignored
+//! (`docs/nanogpt.md` N17), so the endpoint is always one the author named on
+//! the command line. The API key is **environment-only** —
 //! `UNMEI_API_KEY`, then `NANOGPT_API_KEY`; never a flag or a file, so it can't
 //! be committed. A missing key or model errors before any network call, and so
 //! does a key in OpenRouter's `sk-or-` format, which Unmei never sends.
@@ -47,6 +50,10 @@ pub struct ProviderConfig {
     /// The model pin a `--create` writes into the new NPC file; `None` when not
     /// creating, because a replace never adds, changes or removes a pin.
     pub decision_pin: Option<String>,
+    /// The `base_url` of `unmei.author.ron` when it names an endpoint other
+    /// than [`base_url`](Self::base_url), for the one-line notice that it was
+    /// ignored.
+    pub ignored_base_url: Option<String>,
 }
 
 // Opaque: the resolved key is credential material that must not reach a
@@ -131,7 +138,7 @@ pub struct ConfigInput<'a> {
 }
 
 /// Resolve provider config with the contract's precedence: flags > pack file >
-/// defaults for base_url/model, then the env key. Returns a plain message
+/// defaults for the model, flag > default for base_url, then the env key. Returns a plain message
 /// naming exactly what to set when the key or model is missing (§4: immediate,
 /// clear, no network call).
 pub fn resolve_provider(input: ConfigInput<'_>) -> Result<ProviderConfig, String> {
@@ -144,9 +151,8 @@ pub fn resolve_provider(input: ConfigInput<'_>) -> Result<ProviderConfig, String
 
     let base_url = input
         .base_url
-        .map(str::to_string)
-        .or(file.base_url)
-        .unwrap_or_else(|| DEFAULT_BASE_URL.to_string());
+        .map_or_else(|| DEFAULT_BASE_URL.to_string(), str::to_string);
+    let ignored_base_url = file.base_url.filter(|ignored| *ignored != base_url);
 
     let model = input
         .model
@@ -194,6 +200,18 @@ pub fn resolve_provider(input: ConfigInput<'_>) -> Result<ProviderConfig, String
         model,
         api_key,
         decision_pin,
+        ignored_base_url,
+    })
+}
+
+/// The one-line notice that `unmei.author.ron`'s `base_url` was ignored. The
+/// value is quoted with its control characters escaped.
+pub fn ignored_base_url_notice(config: &ProviderConfig) -> Option<String> {
+    config.ignored_base_url.as_ref().map(|ignored| {
+        format!(
+            "note: ignored base_url {ignored:?} in unmei.author.ron; only --base-url sets the endpoint, now {:?}",
+            config.base_url
+        )
     })
 }
 

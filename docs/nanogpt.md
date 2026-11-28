@@ -35,7 +35,7 @@ keywords:
 
 - **N1 — NanoGPT replaces OpenRouter.** NanoGPT is the one provider Unmei supports, defaults to, tests and documents, for both the runtime and the CLI. OpenRouter is not kept beside it as a second provider.
 - **N2 — One concrete client.** The runtime keeps one concrete Decisions client, now pointed at NanoGPT, behind the existing [decision resolver seam](adr/0009-decision-resolver-seam.md). This is a replacement, not a second provider, so ADR 0009's second-provider trigger does not fire and no provider abstraction is added.
-- **N3 — The overrides stay, unsupported.** `UNMEI_DECISIONS_URL` and the CLI's `base_url` (flag and `unmei.author.ron`) keep working as escape hatches to another compatible endpoint. Unmei neither supports nor tests what they point at, and N10's key refusal still applies.
+- **N3 — The overrides stay, unsupported.** `UNMEI_DECISIONS_URL` and the CLI's `--base-url` flag keep working as escape hatches to another compatible endpoint. Unmei neither supports nor tests what they point at, and N10's key refusal still applies. *(Amended 2026-11-28: `base_url` in `unmei.author.ron` no longer moves the endpoint, see N17.)*
 
 ## 2. Runtime decisions
 
@@ -61,7 +61,7 @@ keywords:
 
 - **N15 — The default endpoint.** The CLI's built-in `base_url` becomes `https://api.nano-gpt.com/api`. The CLI still appends `/v1/chat/completions`, and there is still no default model.
 - **N16 — The structured request stays.** Structured drafting keeps sending a strict `json_schema` `response_format` with `provider.require_parameters: true`, which NanoGPT accepts. The fallback for an endpoint that cannot honor structured output is unchanged.
-- **N17 — Packs keep their file.** A pack whose `unmei.author.ron` names another `base_url` keeps it (N3). The CLI does not rewrite or warn about the file.
+- **N17 — The pack file names no endpoint (amended 2026-11-28).** Only `--base-url` moves the CLI's endpoint. The CLI ignores a `base_url` in `unmei.author.ron` and, when it names another endpoint than the one in use, prints one line naming the ignored value. The file still loads, and the CLI does not rewrite it. The endpoint is therefore always one the author named on the command line. *(Was: a pack whose `unmei.author.ron` named another `base_url` kept it, with no warning.)*
 
 ## 6. Content and privacy
 
