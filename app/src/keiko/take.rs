@@ -327,6 +327,9 @@ fn start_at_scene(
         .expect("a start header")
         .to_string();
 
+    if let Some(why) = support::missing_title(app.world()) {
+        return Err(fail(format!("boot settled without the title: {why}")));
+    }
     // Enter play through the title's own New Game, so the live session the menu
     // keeps is real.
     let mut frame_run = |app: &mut App| frame(app, &state.timed, &state.clock, Duration::ZERO);

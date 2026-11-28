@@ -200,6 +200,26 @@ pub(super) fn release_held(app: &mut App) {
     }
 }
 
+/// Why the title is not up once boot has settled, or `None` when it is: the
+/// startup failure that stopped the pack, else the menu state found instead.
+pub(super) fn missing_title(world: &World) -> Option<String> {
+    let menu = world.get_resource::<crate::menu::MenuState>();
+    if menu.is_some_and(|menu| menu.title_up()) {
+        return None;
+    }
+    if let Some(failure) = world.get_resource::<crate::failure::StartupFailure>() {
+        return Some(format!(
+            "{} {}",
+            failure.intro(),
+            failure.screen_lines().join("; ")
+        ));
+    }
+    Some(match menu {
+        Some(menu) => format!("the menu is open: {}, on {:?}", menu.open, menu.view),
+        None => "there is no menu".to_string(),
+    })
+}
+
 /// Build the observation and accumulate the take's log lines.
 pub(super) fn observe_step(app: &mut App, state: &mut TakeState) {
     let (lines, cursor) = log_lines_from(app, state.log_cursor);
