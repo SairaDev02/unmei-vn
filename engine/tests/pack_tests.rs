@@ -1937,3 +1937,94 @@ fn non_finite_condition_literal_is_a_load_error() {
         }
     }
 }
+
+/// The load findings for one pack file, by rule id.
+fn read_findings(errs: &[unmei_engine::Finding], file: &str) -> Vec<String> {
+    errs.iter()
+        .filter(|e| e.file == file && e.rule == "pack.file.read")
+        .map(|e| e.message.clone())
+        .collect()
+}
+
+#[test]
+fn a_pack_text_file_over_the_size_limit_is_a_read_finding() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = write_pack(tmp.path(), &valid_pack_files());
+    let scene = fs::OpenOptions::new()
+        .write(true)
+        .open(root.join("scenes/scene_a.unmei"))
+        .unwrap();
+    scene.set_len(unmei_engine::PACK_FILE_LIMIT + 1).unwrap();
+    drop(scene);
+
+    let errs = load_pack(&root).unwrap_err();
+    let found = read_findings(&errs, "scenes/scene_a.unmei");
+    assert_eq!(found.len(), 1, "{errs:?}");
+    assert!(found[0].contains("limit"), "{found:?}");
+}
+
+#[test]
+fn read_pack_text_refuses_a_folder_and_an_oversized_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let folder = tmp.path().join("pack.ron");
+    fs::create_dir(&folder).unwrap();
+    assert!(unmei_engine::read_pack_text(&folder).is_err());
+
+    let big = tmp.path().join("big.ron");
+    fs::File::create(&big)
+        .unwrap()
+        .set_len(unmei_engine::PACK_FILE_LIMIT + 1)
+        .unwrap();
+    let err = unmei_engine::read_pack_text(&big).unwrap_err();
+    assert!(err.to_string().contains("limit"), "{err}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_symlinked_pack_file_or_folder_is_a_read_finding() {
+    let outside = tempfile::tempdir().unwrap();
+    fs::write(outside.path().join("secret.unmei"), SCENE_A).unwrap();
+    fs::create_dir(outside.path().join("npcs")).unwrap();
+
+    let tmp = tempfile::tempdir().unwrap();
+    let root = write_pack(tmp.path(), &valid_pack_files());
+    fs::remove_file(root.join("state.ron")).unwrap();
+    std::os::unix::fs::symlink(outside.path().join("secret.unmei"), root.join("state.ron"))
+        .unwrap();
+    std::os::unix::fs::symlink(
+        outside.path().join("secret.unmei"),
+        root.join("scenes/linked.unmei"),
+    )
+    .unwrap();
+    fs::remove_dir_all(root.join("npcs")).unwrap();
+    std::os::unix::fs::symlink(outside.path().join("npcs"), root.join("npcs")).unwrap();
+
+    let errs = load_pack(&root).unwrap_err();
+    assert_eq!(read_findings(&errs, "state.ron").len(), 1, "{errs:?}");
+    assert_eq!(
+        read_findings(&errs, "scenes/linked.unmei").len(),
+        1,
+        "{errs:?}"
+    );
+    assert_eq!(read_findings(&errs, "npcs/").len(), 1, "{errs:?}");
+}
+
+#[cfg(unix)]
+#[test]
+fn a_fifo_in_the_pack_is_refused_without_blocking() {
+    let tmp = tempfile::tempdir().unwrap();
+    let root = write_pack(tmp.path(), &valid_pack_files());
+    let fifo = root.join("scenes/pipe.unmei");
+    let made = std::process::Command::new("mkfifo")
+        .arg(&fifo)
+        .status()
+        .unwrap();
+    assert!(made.success());
+
+    let errs = load_pack(&root).unwrap_err();
+    assert_eq!(
+        read_findings(&errs, "scenes/pipe.unmei").len(),
+        1,
+        "{errs:?}"
+    );
+}
