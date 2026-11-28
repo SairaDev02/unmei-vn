@@ -8,7 +8,7 @@ use bevy::ui_widgets::ScrollArea;
 
 use super::super::assets::AssetWatch;
 use super::super::gallery::gallery_surface;
-use super::super::settings_view::{settings_body, SettingsBody};
+use super::super::settings_view::{settings_back, settings_body, SettingsBody};
 use super::super::style::{TextFaces, BUTTON_BG, CARD_BG, DIM, PANEL_BG, TEXT};
 use super::super::timeline::timeline_surface;
 use super::super::{focus_border, MenuRoot};
@@ -277,15 +277,9 @@ pub(in crate::presentation) fn build_overlay(
                         },
                     ))
                     .with_children(|body| {
-                        settings_body(
-                            body,
-                            faces,
-                            menu,
-                            settings,
-                            credentials,
-                            "\u{2190} Back to slots",
-                        );
+                        settings_body(body, faces, menu, settings, credentials);
                     });
+                    settings_back(main, faces, menu, "\u{2190} Back to slots");
                 }
 
                 if let Some(confirm) = menu.confirm {

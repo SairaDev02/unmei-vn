@@ -178,7 +178,7 @@ An assertion compares against the current observation (§5). A failing assertion
 | `expect notice "<text>"` / `expect notice contains "<text>"` / `expect notice none` | The Notice shows this text, contains it, or is not shown. |
 | `expect control <id> enabled\|disabled\|focused\|absent` | The control is in that condition on the current surface. |
 | `expect control <id> label "<text>"` | The control shows exactly this label. |
-| `expect control <id> rect <x> <y> <w> <h> [±<t>]` | The control's laid-out node has its top-left corner at (`x`, `y`) and the size `w`×`h`, each within `t` reference pixels. `t` defaults to `0.5`. The node is the one `click` targets (§13), at the 1280×720 reference size. A control with no visible node fails, and the observed value is `absent`. This step makes the take draw (§13). *(Added 2026-11-27.)* |
+| `expect control <id> rect <x> <y> <w> <h> [±<t>]` | The control's laid-out node has its top-left corner at (`x`, `y`) and the size `w`×`h`, each within `t` reference pixels. `t` defaults to `0.5`. The node is the one `click` targets (§13), at the 1280×720 reference size. A control with no visible node fails, and the observed value is `absent`. Before it measures, the step scrolls the control's nearest scroll container until the node is in view (§13). This step makes the take draw (§13). *(Added 2026-11-27. Amended 2026-11-28: the reveal.)* |
 | `expect bg <id>\|none`, `expect sprite <npc> <pose>\|none`, `expect music <id>\|none` | The staging matches. |
 | `expect auto on\|off`, `expect skip seen\|force\|off` | The player's auto or skip mode matches. |
 | `expect decision pending\|held\|none` | A decision is waiting for its answer, has an answer held by the paused overlay, or neither. |
@@ -410,7 +410,9 @@ Keiko owns the one replay that reaches a line offline. The plugin family's previ
 ## 13. Slice 2: frames and position clicks (K14, K9)
 
 - **`frame [name]`** renders the current frame through the headless render path on the software rasterizer (wgpu's fallback adapter: WARP on Windows, llvmpipe on Linux), at the 1280×720 reference size. It writes `<pack-parent>/<pack-name>.keiko/frames/<case>/<n>[-<name>].png` and prints the path. It never compares the frame with anything (K14).
-- **`click <control>`** moves the cursor to the centre of that control's laid-out node and presses and releases the left button, so the hit test is the player's own. **`click <x> <y>`** does the same at reference coordinates.
+- **`click <control>`** moves the cursor to the centre of that control's laid-out node and presses and releases the left button, so the hit test is the player's own. **`click <x> <y>`** does the same at reference coordinates. *(Amended 2026-11-28: the reveal and the failing click, below.)*
+- **The reveal.** Before `click <control>` acts and before `expect control <id> rect` measures, Keiko scrolls the control's nearest scroll container until its node is in view, with the same scroll-into-view the Settings walk uses for the focused control. A node already in view stays where it is, and a control in no scroll container is left as it is. `click <x> <y>` scrolls nothing. *(Added 2026-11-28, issue #220.)*
+- **A click that lands on nothing fails.** After the reveal, `click <control>` fails with `keiko.step.no-target` when the node's centre is still outside the 1280×720 screen or is clipped away by its scroll container. The finding names the control and the centre, and the step presses nothing. A control that a covering surface takes the click from still counts as a click that lands on a node, so rule 36 holds. *(Added 2026-11-28, issue #220.)*
 - **`expect control <id> rect`** (§3.5) reads the same laid-out node `click <control>` aims at: the topmost visible node carrying the control's action. It compares geometry only, so fonts, colours and anti-aliasing never enter it, and K14 holds. *(Added 2026-11-27.)*
 - **The render path** is the one the preview's software rendering ([plugin family C7](plugin-family.md#5-pack-wide-check-and-preview)) reuses. A machine with no fallback adapter fails `frame`, `click` and `expect control <id> rect` with `keiko.render.unavailable`. It does not fail the rest of the case's steps before them. *(Amended 2026-11-27: the rect assertion.)*
 - **CI.** The Linux `check` job installs the Mesa Vulkan driver for this slice.
@@ -498,6 +500,9 @@ Keiko's takes are release evidence under [Keiko replaces the human walks](releas
 50. A rect with a negative value, a tolerance without a number, or fewer than four numbers fails with `keiko.case.syntax`.
 51. `wait 1e20s` and `fault decision-slow ace.greet 1e20s` fail with `keiko.case.syntax` on their line and do not panic.
 52. `wait 61s`, `fault decision-slow ace.greet 61s` and `advance 1001` each fail with `keiko.case.syntax` on their line. `wait 60s` and `advance 1000` parse.
+53. In the Settings view, through the title's door and the overlay's, `settings.back` lies within 1280×720 at scroll 0, and every other control on the list lies within 1280×720 once its scroll container has revealed it. *(Added 2026-11-28, issue #220.)*
+54. `activate title.settings`, then `click settings.clear-key` scrolls the control into view and clicks it, so its action runs. `expect control settings.clear-key rect` reports the revealed node's rect, not the one at scroll 0. *(Added 2026-11-28, issue #220.)*
+55. A `click <control>` whose node's centre cannot be brought inside 1280×720 fails with `keiko.step.no-target` and presses nothing. *(Added 2026-11-28, issue #220.)*
 
 ## 16. Amendments
 
@@ -530,6 +535,8 @@ Each of these was amended in place on 2026-11-17, with a dated pointer to the se
 - **2026-11-27 (issues #184, #194):** A duration too large for `Duration` is a `keiko.case.syntax` finding instead of a panic. The maintainer decided that `wait` and `decision-slow` take at most 60 s, that `advance` takes a count of at most 1000, and that going over a limit is a parse-time `keiko.case.syntax` finding. §3.1 and §3.4 state the limits, and §15 gains rules 51 and 52. The grammar is unchanged, so the case version stays 1.
 
 - **2026-11-27 (issue #195):** Seven statements now follow the code, and the maintainer decided that the docs follow the code on both open rows. §9.1 and the glossary say the story walk is breadth first. §10.3 says exploration exits 1 on any finding, saved or not. §9.2's `keiko.stuck` is a park whose every move lands on an already reached park, with the hub consequence stated. §5.1 gains the `live` field. §3.3 lists the fixed key names. §3.2 names `focus_ids` in `app/src/keiko/controls.rs`. §14 says what `keiko_gate.rs`, `keiko_fixtures.rs` and `keiko_rules.rs` each run. No behaviour changes, so the case version stays 1.
+
+- **2026-11-28 (issue #220):** The maintainer decided that Settings' back control is pinned outside the scroll ([title-and-menu §5](title-and-menu.md#5-settings-from-the-title)), that `click <control>` and `expect control <id> rect` reveal the control before they act or measure, and that a `click` that lands on nothing fails with `keiko.step.no-target`. §3.5's `rect` row and §13 are amended, and §15 gains rules 53–55. No rule id is added, so the case version stays 1.
 
 The requirements' list also names `check.yml`. It needs no change, because the gate is an integration test (§14).
 

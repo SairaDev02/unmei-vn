@@ -209,17 +209,26 @@ impl Rendered {
     ) -> Result<(), ActivationError> {
         let point = match click {
             Click::Position(x, y) => Vec2::new(*x, *y),
-            Click::Control(id) => Self::control_centre(app, id)?,
+            Click::Control(id) => Self::control_centre(app, run, id)?,
         };
         self.click(app, run, point)
             .map_err(ActivationError::render_unavailable)
     }
 
-    /// The centre of a control's laid-out node, in reference pixels. The topmost
-    /// visible node carrying the control's action is the one a player sees, so it is
-    /// the one clicked; a control with no laid-out node fails like an absent one.
-    fn control_centre(app: &mut App, id: &str) -> Result<Vec2, ActivationError> {
-        control_node(app.world_mut(), id).map(|rect| rect.center())
+    /// The centre of a control's laid-out node, in reference pixels, once its
+    /// scroll container has brought it into view. The topmost visible node
+    /// carrying the control's action is the one a player sees, so it is the one
+    /// clicked; a control with no laid-out node fails like an absent one, and a
+    /// centre no click can reach fails with `keiko.step.no-target`.
+    fn control_centre(app: &mut App, run: FrameRun, id: &str) -> Result<Vec2, ActivationError> {
+        reveal_control(app, run, id);
+        let found = located(app.world_mut(), id)?;
+        match unreachable_centre(&found) {
+            None => Ok(found.rect.center()),
+            Some(why) => Err(ActivationError::no_target(format!(
+                "a click on `{id}` would land on nothing: {why}"
+            ))),
+        }
     }
 
     /// The player's camera. It spawns with the play surface, so the first frame
@@ -331,20 +340,34 @@ pub fn draws(case: &Case) -> bool {
 /// is the one `click` aims at and a rect assertion reads (spec §13); a control
 /// with no visible node is out of reach.
 pub fn control_node(world: &mut World, id: &str) -> Result<Rect, ActivationError> {
+    located(world, id).map(|found| found.rect)
+}
+
+/// A control's node: its entity, its laid-out rect and the clip its ancestors
+/// leave it, all in reference pixels.
+struct Located {
+    entity: Entity,
+    rect: Rect,
+    clip: Option<Rect>,
+}
+
+fn located(world: &mut World, id: &str) -> Result<Located, ActivationError> {
     let Some(action) = super::controls::action_for_id(id) else {
         return Err(ActivationError::no_target(format!(
             "unknown control `{id}`"
         )));
     };
-    let mut found: Option<((bool, u32), Rect)> = None;
+    let mut found: Option<((bool, u32), Located)> = None;
     let mut query = world.query::<(
+        Entity,
         &MenuAction,
         &bevy::ui::ComputedNode,
         &bevy::ui::UiGlobalTransform,
         &bevy::camera::visibility::InheritedVisibility,
         Option<&bevy::ui::ComputedStackIndex>,
+        Option<&bevy::ui::CalculatedClip>,
     )>();
-    for (candidate, node, transform, visible, stack) in query.iter(world) {
+    for (entity, candidate, node, transform, visible, stack, clip) in query.iter(world) {
         if *candidate != action {
             continue;
         }
@@ -352,16 +375,66 @@ pub fn control_node(world: &mut World, id: &str) -> Result<Rect, ActivationError
         if found.as_ref().is_none_or(|(best, _)| key > *best) {
             let scale = node.inverse_scale_factor();
             let centre = transform.transform_point2(Vec2::ZERO) * scale;
-            found = Some((key, Rect::from_center_size(centre, node.size() * scale)));
+            let clip = clip.map(|clip| Rect {
+                min: clip.clip.min * scale,
+                max: clip.clip.max * scale,
+            });
+            found = Some((
+                key,
+                Located {
+                    entity,
+                    rect: Rect::from_center_size(centre, node.size() * scale),
+                    clip,
+                },
+            ));
         }
     }
     match found {
-        Some(((true, _), rect)) => Ok(rect),
+        Some(((true, _), found)) => Ok(found),
         Some(((false, _), _)) => Err(ActivationError::no_target(format!(
             "`{id}` has no visible node on the {} surface",
             super::steps::surface_name(&world.resource::<MenuState>().clone())
         ))),
         None => Err(ActivationError::no_target(format!("`{id}` has no node"))),
+    }
+}
+
+/// Scroll the control's nearest scroll container until its node is in view, by
+/// the same `ScrollIntoView` the Settings walk uses, then lay the frame out. A
+/// node already in view stays where it is, and a control that is absent or sits
+/// in no scroll container is left to the step that follows (spec §13).
+pub fn reveal_control(app: &mut App, run: FrameRun, id: &str) {
+    reveal_in_world(app.world_mut(), id);
+    run(app);
+}
+
+/// The reveal alone: the scroll position moves now, and the layout follows on
+/// the next frame.
+pub fn reveal_in_world(world: &mut World, id: &str) {
+    if let Ok(found) = located(world, id) {
+        world.trigger(bevy::ui_widgets::ScrollIntoView {
+            entity: found.entity,
+        });
+    }
+}
+
+/// Why a click aimed at this control's centre would land on nothing: the
+/// centre is off the reference screen, or an ancestor's clip hides it.
+fn unreachable_centre(found: &Located) -> Option<String> {
+    let centre = found.rect.center();
+    let screen = Rect::new(0.0, 0.0, WIDTH as f32, HEIGHT as f32);
+    if !screen.contains(centre) {
+        return Some(format!(
+            "its centre ({}, {}) lies outside the {WIDTH}×{HEIGHT} screen",
+            centre.x, centre.y
+        ));
+    }
+    match found.clip {
+        Some(clip) if !clip.contains(centre) => Some(format!(
+            "its centre ({}, {}) is clipped away by its scroll container",
+            centre.x, centre.y
+        )),
+        _ => None,
     }
 }
 

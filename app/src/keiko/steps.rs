@@ -200,7 +200,12 @@ pub fn apply(
                 .map_err(|error| fail(error.rule, error.message))?;
             Ok(Applied::Input)
         }
-        Step::Expect(expect) => Ok(Applied::Assert(expect.clone())),
+        Step::Expect(expect) => {
+            if let (Expect::ControlRect { id, .. }, Some(_)) = (expect, render) {
+                super::render::reveal_control(app, run, id);
+            }
+            Ok(Applied::Assert(expect.clone()))
+        }
     }
 }
 

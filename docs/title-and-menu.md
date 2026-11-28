@@ -341,7 +341,7 @@ This section covers only the title's **look**: its layout, its backdrop, its wor
 ### 5. Settings from the title
 
 - The title's door opens the **same Settings view** as the overlay's ([Title](#title) §4, [Menu overlay](runtime-hardening.md#menu-overlay) §5): Audio, Play and the Decisions group, the same walk.
-- **Placement**: the same centred panel at the column's width, top-anchored inside the frame and internally scrollable when the groups exceed it; the back control — `← Back to title`, [Title](#title) §4's door-aware label — sits at the bottom of the panel.
+- **Placement**: the same centred panel at the column's width, top-anchored inside the frame and internally scrollable when the groups exceed it; the back control — `← Back to title`, [Title](#title) §4's door-aware label — is pinned at the panel's foot, outside the scrolling body, so it stays on screen at any scroll position *(amended 2026-11-28)*. The overlay's door pins its `← Back to slots` the same way, at the foot of its main column.
 - **No rail, no Resume, no `Exit to title`** on this door ([Title](#title) §4). The wordmark and the five rows are gone while Settings is open; returning restores them with focus re-started per [Title](#title) §2.
 
 ### 6. Gallery's row
@@ -385,7 +385,7 @@ The mock's numbers, as the build's starting point; exact pixels may be tuned wit
 - The reason line renders [Title](#title) §2's three strings, muted when Continue is enabled and warm-warn when it explains a disabled Continue.
 - The legend renders exactly [Title](#title) §6's string, once, right-aligned in the foot row.
 - **`Gallery` opens the gallery** *(amended 2026-10-05)*: the row renders enabled with no caption, stays in the walk, and both keyboard and pointer activate it.
-- Settings from the title renders the shared groups with `← Back to title` at the bottom, and no Resume or `Exit to title` control; `Esc` returns to the title.
+- Settings from the title renders the shared groups with `← Back to title` pinned at the panel's foot, outside the scroll, and no Resume or `Exit to title` control; `Esc` returns to the title.
 - Keyboard and pointer produce the same focus and the same activation on every row, with the ring always visible.
 
 ### Amendments
@@ -397,6 +397,7 @@ Amendments to this section are dated and made **in place**, with a note here say
 - **2026-10-05**: the `Gallery` row is enabled and its caption retired — the intro, §1's mock, §6, §7's caption row and §8 are amended in place. The gallery itself is [Gallery](#gallery).
 - **2026-10-14**: the settled banner above now reads **Built** — the look shipped. No look rule changed.
 - **2026-11-14**: the default look's redesign supersedes §1, §2's art bullet (the no-veil rule), §4, §5, §7 and §8's layout tests; the pointer above the intro names them. The owner is [Default look](#default-look) §3.
+- **2026-11-28**: Settings' back control is pinned at the foot of the panel, outside the scrolling body, on both doors; §5's placement bullet and §8's Settings line are amended in place (issue #220). The scroll, the groups and the walk are unchanged.
 
 ### Out of scope for this section
 

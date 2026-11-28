@@ -14,17 +14,17 @@ use crate::menu::{MenuAction, MenuState};
 use crate::settings::{AudioControl, SettingsState, TrackControl};
 
 /// The one Settings body both doors mount inside their scroll container: the
-/// heading, the three groups in walk order and the door-aware back control. The
-/// caller owns the container's chrome (the title's bordered panel, the overlay's
-/// main column) and its group gap; the groups and the walk are shared
-/// (`docs/title-and-menu.md` § Title §4, § Title layout §5).
+/// heading and the three groups in walk order. The caller owns the container's
+/// chrome (the title's bordered panel, the overlay's main column) and its group
+/// gap, and mounts [`settings_back`] below the container, outside the scroll;
+/// the groups and the walk are shared (`docs/title-and-menu.md` § Title §4,
+/// § Title layout §5).
 pub(in crate::presentation) fn settings_body(
     parent: &mut ChildSpawnerCommands,
     faces: &TextFaces,
     menu: &MenuState,
     settings: Option<&SettingsState>,
     credentials: Option<&CredentialsState>,
-    back_label: &str,
 ) {
     parent.spawn((
         Text::new("Settings"),
@@ -34,6 +34,16 @@ pub(in crate::presentation) fn settings_body(
     settings_group(parent, faces, menu, settings);
     play_group(parent, faces, menu, settings);
     decisions_group(parent, faces, menu, credentials);
+}
+
+/// The door-aware back control, pinned at the panel's foot outside the
+/// scrolling body so it stays on screen at any scroll position.
+pub(in crate::presentation) fn settings_back(
+    parent: &mut ChildSpawnerCommands,
+    faces: &TextFaces,
+    menu: &MenuState,
+    back_label: &str,
+) {
     parent.spawn((
         MenuAction::BackToSlots,
         Button,
