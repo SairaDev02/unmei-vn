@@ -114,6 +114,8 @@ Precedence, highest first:
 
 **`--dry-run`:** print the would-be RON, write nothing, no write-side side effects.
 
+**Printed model and pack text (2026-11-28).** Raw model output, validation errors, previews, dry runs and the `--list` table show every control character other than a tab, a line feed and the CR of a CRLF as a `\u{..}` escape, so printed text cannot drive the terminal. The files the CLI writes are unchanged.
+
 **Undo:** packs are version-controlled by standing decision — **git is the undo button**. The CLI keeps no backup files and offers no in-CLI history.
 
 **Shared retry ownership (2026-10-14):** the [decided attempt seam](author-cli-drafting.md#10-attempt-seam-and-retry-ownership--decided-design-2026-10-14) covers NPC generation and prose drafting with one CLI-local typed retry driver, command-specific complete attempts and private sessions. Delivered 2026-10-15; the retry count, prompts, provider behavior and write surface are unchanged. NPC interactive exhaustion currently omits the raw reply, unlike §5's one-shot failure output; the extraction explicitly preserves that distinct output and defers repair rather than silently unifying UX.

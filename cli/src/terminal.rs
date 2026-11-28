@@ -97,6 +97,30 @@ pub(crate) fn read_paragraph(terminal: &mut Terminal<'_>) -> Result<String, Runn
     Ok(lines.join("\n"))
 }
 
+/// `text` with every control character except a tab, an LF and the CR of a
+/// CRLF shown as a `\u{..}` escape, so model or pack text cannot drive the
+/// author's terminal (author-cli contract §5).
+pub fn printable(text: &str) -> std::borrow::Cow<'_, str> {
+    let mut chars = text.chars().peekable();
+    let mut shown = String::new();
+    let mut escaped_any = false;
+    while let Some(c) = chars.next() {
+        let kept =
+            !c.is_control() || c == '\n' || c == '\t' || (c == '\r' && chars.peek() == Some(&'\n'));
+        if kept {
+            shown.push(c);
+        } else {
+            escaped_any = true;
+            shown.extend(c.escape_unicode());
+        }
+    }
+    if escaped_any {
+        std::borrow::Cow::Owned(shown)
+    } else {
+        std::borrow::Cow::Borrowed(text)
+    }
+}
+
 /// Print the best raw output + every validation error before failing (§5).
 pub(crate) fn print_exhausted(
     raw_outputs: &[String],
@@ -104,11 +128,15 @@ pub(crate) fn print_exhausted(
     terminal: &mut Terminal<'_>,
 ) -> Result<(), RunnerError> {
     if let Some(last) = raw_outputs.last() {
-        writeln!(terminal.err, "--- best model output ---\n{last}")?;
+        writeln!(
+            terminal.err,
+            "--- best model output ---\n{}",
+            printable(last)
+        )?;
     }
     writeln!(terminal.err, "--- validation errors ---")?;
     for err in errors {
-        writeln!(terminal.err, "  - {err}")?;
+        writeln!(terminal.err, "  - {}", printable(err))?;
     }
     Ok(())
 }
@@ -125,7 +153,7 @@ pub(crate) fn draft_preview(
         out.push('\n');
     }
     out.push_str("--- end draft ---\n");
-    out
+    printable(&out).into_owned()
 }
 
 /// The post-write summary shared by one-shot and an accepted `-i` regeneration.
@@ -182,5 +210,49 @@ pub(crate) fn describe_criteria(config: &unmei_engine::content::DecisionConfig) 
         unmei_engine::content::Criteria::Noul(Some(_)) => "true, false".to_string(),
         unmei_engine::content::Criteria::Noul(None) => "instruction-only".to_string(),
         _ => String::new(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const HOSTILE: &str = "a\u{1b}]0;title\u{7}b\u{1b}[2Jc\u{9b}31md\re\u{7f}";
+
+    fn has_control(text: &str) -> bool {
+        text.replace("\r\n", "\n")
+            .chars()
+            .any(|c| c.is_control() && c != '\n' && c != '\t')
+    }
+
+    #[test]
+    fn printable_escapes_terminal_controls_and_keeps_line_breaks_and_tabs() {
+        let text = format!("{HOSTILE}\n\tnext");
+        let shown = printable(&text);
+        assert!(!has_control(&shown), "{shown:?}");
+        assert!(shown.contains(r"\u{1b}]0;title\u{7}b"), "{shown:?}");
+        assert!(shown.ends_with("\n\tnext"), "{shown:?}");
+        assert_eq!(printable("plain, 日本語 text\n"), "plain, 日本語 text\n");
+        assert_eq!(printable("crlf\r\nline\r"), "crlf\r\nline\\u{d}");
+    }
+
+    #[test]
+    fn the_exhaustion_report_prints_no_terminal_controls() {
+        let mut input: &[u8] = b"";
+        let mut out = Vec::new();
+        let mut err = Vec::new();
+        let mut terminal = Terminal {
+            input: &mut input,
+            out: &mut out,
+            err: &mut err,
+        };
+        print_exhausted(
+            &[HOSTILE.to_string()],
+            &[format!("bad line `{HOSTILE}`")],
+            &mut terminal,
+        )
+        .unwrap();
+        let printed = String::from_utf8(err).unwrap();
+        assert!(!has_control(&printed), "{printed:?}");
     }
 }

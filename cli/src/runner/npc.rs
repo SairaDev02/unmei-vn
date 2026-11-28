@@ -12,8 +12,8 @@ use crate::provider::AuthorChat;
 use crate::splice::{apply_candidate, CreateMode};
 use crate::target::{CheckedPack, NpcTarget};
 use crate::terminal::{
-    describe_criteria, discarded, eof_discard, print_exhausted, read_line, read_paragraph,
-    warn_if_unsteered,
+    describe_criteria, discarded, eof_discard, print_exhausted, printable, read_line,
+    read_paragraph, warn_if_unsteered,
 };
 
 /// Everything `unmei author npc` needs once its flags are parsed and the pack
@@ -160,7 +160,7 @@ async fn npc_interactive<C: AuthorChat>(
                     "--- preview (decisions[\"{}\"], not yet written) ---",
                     command.question
                 )?;
-                writeln!(terminal.out, "{rendered}")?;
+                writeln!(terminal.out, "{}", printable(&rendered))?;
                 write_pin_line(command, terminal)?;
                 writeln!(terminal.out, "--- end preview ---")?;
                 writeln!(
@@ -233,7 +233,7 @@ fn finish_npc<C: AuthorChat>(
         .map_err(|e| RunnerError::Message(e.to_string()))?;
 
     if command.dry_run {
-        writeln!(terminal.out, "{rendered}")?;
+        writeln!(terminal.out, "{}", printable(&rendered))?;
         write_pin_line(command, terminal)?;
         writeln!(terminal.out, "--dry-run: nothing written")?;
         return Ok(RunnerOutcome::Completed);

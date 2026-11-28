@@ -364,7 +364,7 @@ fn run_author_draft(
 
     if list {
         let mut out = stdout.clone();
-        write!(out, "{}", draft::render_list(&runs))?;
+        write!(out, "{}", unmei::printable(&draft::render_list(&runs)))?;
         out.flush()?;
         // N26: the pack-wide note goes to stderr; stdout stays the run list.
         let mut err = stderr.clone();
