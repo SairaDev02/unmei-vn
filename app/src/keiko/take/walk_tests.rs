@@ -546,3 +546,182 @@ fn a_route_reaches_every_listed_control_on_every_surface_the_fixture_packs_reach
         gaps.join("\n")
     );
 }
+
+static MEASURING: Mutex<()> = Mutex::new(());
+static SETTINGS_RECTS: Mutex<Vec<(String, Rect, Rect)>> = Mutex::new(Vec::new());
+
+/// Walks the Settings view's listed controls one frame at a time: it reveals a
+/// control the way a `click` or a rect assertion does, and measures its node
+/// the next frame, beside the node's rect at scroll 0.
+fn measure_settings_controls(
+    world: &mut World,
+    mut next: Local<usize>,
+    mut revealed: Local<bool>,
+    mut ids: Local<Vec<String>>,
+    mut at_rest: Local<Vec<(String, Rect)>>,
+) {
+    let Some(menu) = world.get_resource::<MenuState>().cloned() else {
+        return;
+    };
+    if !menu.open || menu.view != crate::menu::MenuView::Settings {
+        return;
+    }
+    if ids.is_empty() {
+        *ids = crate::keiko::controls::observe_controls(world)
+            .into_iter()
+            .map(|control| control.id)
+            .collect();
+        *at_rest = ids
+            .iter()
+            .filter_map(|id| {
+                crate::keiko::render::control_node(world, id)
+                    .ok()
+                    .map(|rect| (id.clone(), rect))
+            })
+            .collect();
+    }
+    let Some(id) = ids.get(*next).cloned() else {
+        return;
+    };
+    if !*revealed {
+        crate::keiko::render::reveal_in_world(world, &id);
+        *revealed = true;
+        return;
+    }
+    *revealed = false;
+    *next += 1;
+    if let (Ok(after), Some((_, before))) = (
+        crate::keiko::render::control_node(world, &id),
+        at_rest.iter().find(|(known, _)| *known == id),
+    ) {
+        SETTINGS_RECTS.lock().unwrap().push((id, *before, after));
+    }
+}
+
+fn measure_settings_through(door: &str) -> Vec<(String, Rect, Rect)> {
+    if !crate::keiko::render::available() {
+        panic!("this rule needs the software rasterizer (spec §13)");
+    }
+    let _one_measure_at_a_time = MEASURING
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    SETTINGS_RECTS.lock().unwrap().clear();
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case("tests/settings-rects.keiko", door).expect("the case parses");
+    let result = super::with_test_hook(
+        |app| {
+            app.add_systems(Last, measure_settings_controls);
+        },
+        || super::run(request(&case, &pack, &root)),
+    );
+    assert!(result.outcome.is_ok(), "{:?}", result.outcome);
+    let measured = SETTINGS_RECTS.lock().unwrap().clone();
+    assert!(measured.len() >= 13, "the Settings view lists its controls");
+    measured
+}
+
+fn assert_settings_on_screen(door: &str, measured: &[(String, Rect, Rect)]) {
+    let screen = Rect::new(0.0, 0.0, 1280.0, 720.0);
+    let on_screen = |rect: &Rect| rect.intersect(screen) == *rect;
+    let back = measured
+        .iter()
+        .find(|(id, _, _)| id == "settings.back")
+        .expect("Back is listed");
+    assert!(
+        on_screen(&back.1),
+        "{door}: Back is on screen at scroll 0, got {:?}",
+        back.1
+    );
+    let outside: Vec<String> = measured
+        .iter()
+        .filter(|(_, _, revealed)| !on_screen(revealed))
+        .map(|(id, _, revealed)| format!("{id}: {revealed:?}"))
+        .collect();
+    assert!(
+        outside.is_empty(),
+        "{door}: outside 1280x720 after the reveal:\n{}",
+        outside.join("\n")
+    );
+}
+
+#[test]
+fn back_is_on_screen_at_scroll_zero_and_every_settings_control_after_the_reveal_through_the_title_door(
+) {
+    let door = "keiko 1\n\nframe\nactivate title.settings\nwait 2s\n";
+    assert_settings_on_screen("title door", &measure_settings_through(door));
+}
+
+#[test]
+fn back_is_on_screen_at_scroll_zero_and_every_settings_control_after_the_reveal_through_the_overlay_door(
+) {
+    let door = "keiko 1\n\nframe\nnew-game\nmenu\nactivate overlay.settings\nwait 2s\n";
+    assert_settings_on_screen("overlay door", &measure_settings_through(door));
+}
+
+#[test]
+fn a_click_below_the_fold_scrolls_to_the_control_and_acts() {
+    let result = take(
+        "keiko 1\n\nactivate title.settings\nclick settings.clear-key\nexpect surface confirm\n",
+    );
+    assert!(result.outcome.is_ok(), "{:?}", result.outcome);
+}
+
+#[test]
+fn a_rect_assertion_below_the_fold_measures_the_revealed_node() {
+    let result = take(
+        "keiko 1\n\nactivate title.settings\nexpect control settings.clear-key rect 302 804 440 36\n",
+    );
+    let finding = result
+        .outcome
+        .expect_err("the node is no longer where scroll 0 laid it");
+    let observed: Vec<f32> = finding
+        .message
+        .split("observed rect ")
+        .nth(1)
+        .expect("the finding reports a rect")
+        .split(')')
+        .next()
+        .unwrap()
+        .split(' ')
+        .map(|number| number.parse().expect("a number"))
+        .collect();
+    assert!(
+        observed[1] >= 0.0 && observed[1] + observed[3] <= 720.0,
+        "the rect is the revealed one, got {observed:?}"
+    );
+}
+
+fn push_back_off_screen(mut backs: Query<(&crate::menu::MenuAction, &mut Node)>) {
+    for (action, mut node) in &mut backs {
+        if *action == crate::menu::MenuAction::BackToSlots {
+            node.margin.top = Val::Px(2000.0);
+        }
+    }
+}
+
+#[test]
+fn a_click_on_a_control_that_cannot_reach_the_screen_fails_with_no_target() {
+    if !crate::keiko::render::available() {
+        panic!("this rule needs the software rasterizer (spec §13)");
+    }
+    let (_dir, root, pack) = demo_pack();
+    let case = parse_case(
+        "tests/walk.keiko",
+        "keiko 1\n\nactivate title.settings\nclick settings.back\nexpect surface title\n",
+    )
+    .expect("the case parses");
+    let result = super::with_test_hook(
+        |app| {
+            app.add_systems(PreUpdate, push_back_off_screen);
+        },
+        || super::run(request(&case, &pack, &root)),
+    );
+    let finding = result.outcome.expect_err("the click lands on nothing");
+    assert_eq!(finding.rule, crate::keiko::finding::rules::STEP_NO_TARGET);
+    assert!(
+        finding.message.contains("land on nothing") && finding.message.contains("outside"),
+        "the finding names the cause, got `{}`",
+        finding.message
+    );
+    assert_eq!(result.observation.surface, "settings");
+}

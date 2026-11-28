@@ -10,7 +10,7 @@ use super::super::overlay::confirm_dialog;
 use super::super::style::{TextFaces, FAINT, PANEL_BG};
 use super::super::title::{spawn_title_backdrop, title_gradient, TITLE_SETTINGS_WIDTH};
 use super::super::MenuRoot;
-use super::groups::settings_body;
+use super::groups::{settings_back, settings_body};
 use super::SettingsBody;
 use crate::credentials::CredentialsState;
 use crate::menu::MenuState;
@@ -63,6 +63,7 @@ pub(in crate::presentation) fn build_title_settings(
                     max_height: Val::Percent(100.0),
                     min_height: Val::Px(0.0),
                     flex_direction: FlexDirection::Column,
+                    row_gap: Val::Px(10.0),
                     padding: UiRect::all(Val::Px(20.0)),
                     border: UiRect::all(Val::Px(2.0)),
                     ..default()
@@ -90,15 +91,9 @@ pub(in crate::presentation) fn build_title_settings(
                         },
                     ))
                     .with_children(|body| {
-                        settings_body(
-                            body,
-                            faces,
-                            menu,
-                            settings,
-                            credentials,
-                            "\u{2190} Back to title",
-                        );
+                        settings_body(body, faces, menu, settings, credentials);
                     });
+                settings_back(panel, faces, menu, "\u{2190} Back to title");
             });
 
             if let Some(confirm) = menu.confirm {

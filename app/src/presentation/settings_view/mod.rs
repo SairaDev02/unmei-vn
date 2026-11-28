@@ -36,7 +36,7 @@ pub(crate) use decisions::{
 )]
 pub(crate) use decisions::{CopyPathLabelText, KeyPlaceholder, KeyRowText};
 pub(crate) use drag::{settings_drag, SettingsDrag};
-pub(super) use groups::settings_body;
+pub(super) use groups::{settings_back, settings_body};
 pub(crate) use sync::{
     scroll_settings_focus, scroll_settings_wheel, sync_settings_labels, sync_window_mode,
 };
