@@ -153,11 +153,10 @@ impl Rendered {
         // this step wants, so the component goes as soon as it was extracted.
         run(app);
         app.world_mut().entity_mut(entity).remove::<Readback>();
-        for _ in 0..READBACK_FRAMES {
-            if landed.lock().unwrap().is_some() {
-                break;
-            }
+        let deadline = std::time::Instant::now() + READBACK_LIMIT;
+        while landed.lock().unwrap().is_none() && std::time::Instant::now() < deadline {
             run(app);
+            std::thread::sleep(std::time::Duration::from_millis(1));
         }
         app.world_mut().entity_mut(entity).despawn();
         // Two more frames let the last submissions land, so a take that ends
@@ -276,8 +275,10 @@ impl Rendered {
     }
 }
 
-/// How many zero-length frames a readback may take before the step gives up.
-const READBACK_FRAMES: usize = 120;
+/// How long a readback may take before the step gives up. The copy finishes on
+/// the rasterizer's own schedule, not in a frame, so zero-length frames spent in
+/// microseconds cannot bound it; a starved machine needs seconds.
+const READBACK_LIMIT: std::time::Duration = std::time::Duration::from_secs(120);
 
 /// One left-button message for the stand-in window.
 fn button(app: &mut App, run: FrameRun, window: Entity, state: ButtonState) {
