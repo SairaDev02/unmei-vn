@@ -16,6 +16,7 @@ be decided at play time.
 | Write a content pack with an AI coding agent | [Write with an AI coding agent](#write-with-an-ai-coding-agent) |
 | Play the demo | [Play](#play) |
 | Write a content pack by hand | [Write by hand](#write-by-hand) |
+| Set up Unmei for development with an AI coding agent | [Set up with an AI coding agent](#set-up-with-an-ai-coding-agent) |
 | Build Unmei from source or change it | [Contribute](#contribute) |
 
 ## Write with an AI coding agent
