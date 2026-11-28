@@ -217,7 +217,7 @@ pub(crate) fn describe_criteria(config: &unmei_engine::content::DecisionConfig) 
 mod tests {
     use super::*;
 
-    const HOSTILE: &str = "a\u{1b}]0;title\u{7}b\u{1b}[2Jc\u{9b}31md\re\u{7f}";
+    const WITH_CONTROLS: &str = "a\u{1b}]0;title\u{7}b\u{1b}[2Jc\u{9b}31md\re\u{7f}";
 
     fn has_control(text: &str) -> bool {
         text.replace("\r\n", "\n")
@@ -227,7 +227,7 @@ mod tests {
 
     #[test]
     fn printable_escapes_terminal_controls_and_keeps_line_breaks_and_tabs() {
-        let text = format!("{HOSTILE}\n\tnext");
+        let text = format!("{WITH_CONTROLS}\n\tnext");
         let shown = printable(&text);
         assert!(!has_control(&shown), "{shown:?}");
         assert!(shown.contains(r"\u{1b}]0;title\u{7}b"), "{shown:?}");
@@ -247,8 +247,8 @@ mod tests {
             err: &mut err,
         };
         print_exhausted(
-            &[HOSTILE.to_string()],
-            &[format!("bad line `{HOSTILE}`")],
+            &[WITH_CONTROLS.to_string()],
+            &[format!("bad line `{WITH_CONTROLS}`")],
             &mut terminal,
         )
         .unwrap();
