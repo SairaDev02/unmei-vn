@@ -252,7 +252,7 @@ pub fn run(pack_root: &Path, pack: &Pack, budget: u32, from: Option<&str>, keep:
                 Location::Line(observation.line.unwrap_or_default() as usize),
                 rules::STUCK,
                 format!(
-                    "scene `{}` line {} does not move: every move leaves it in place",
+                    "scene `{}` line {} is stuck: every move stays here or returns to a park already reached",
                     observation.scene.as_deref().unwrap_or("?"),
                     observation
                         .line
